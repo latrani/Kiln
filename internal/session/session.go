@@ -66,6 +66,12 @@ type prompter interface {
 	Prompts() <-chan string
 }
 
+// resizer is implemented by connections that can report a window size
+// (*conn.Conn does, via NAWS once the server has asked for it).
+type resizer interface {
+	Resize(width, height int) error
+}
+
 // Appender is where entries are logged. It must be safe for concurrent
 // use: Send logs from the caller's goroutine while Run logs from its own.
 type Appender interface {
@@ -110,6 +116,8 @@ type Session struct {
 	halt     bool // Disconnect while not connected: stop dialing
 	char     config.Character
 	redact   *regexp.Regexp // matches typed login lines; nil if no template
+	width    int            // last size from Resize; 0 = never set
+	height   int
 }
 
 // New returns a Session; call Run to start it.
@@ -469,8 +477,30 @@ func (s *Session) wait(ctx context.Context, d time.Duration) bool {
 
 func (s *Session) setConn(c LineConn) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.c = c
-	s.mu.Unlock()
+	if s.width > 0 {
+		s.resizeLocked()
+	}
+}
+
+// Resize records the window size and reports it to the server. It is sent
+// only if the connection supports it and the server negotiated NAWS
+// (telnet.Parser.Resize is a no-op until then); otherwise it is just
+// remembered, for later negotiation and for the next connection.
+func (s *Session) Resize(width, height int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.width, s.height = width, height
+	s.resizeLocked()
+}
+
+// resizeLocked passes the recorded size to the connection. Holding s.mu
+// keeps a resize racing a reconnect from sending an older size last.
+func (s *Session) resizeLocked() {
+	if r, ok := s.c.(resizer); ok {
+		r.Resize(s.width, s.height) // a failed write shows up as a dropped connection
+	}
 }
 
 // logLine logs first, then tells the UI, so a UI failure never loses data.

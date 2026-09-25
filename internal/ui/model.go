@@ -63,6 +63,7 @@ type Model struct {
 	pendingCh [2]string // world and character id the pending password belongs to
 	exportDir string
 	confirm   bool   // next Enter sends an over-limit line anyway
+	resizeGen int    // bumped per WindowSizeMsg; see resizeMsg
 	sideTop   int    // first sidebar row shown when it overflows
 	sideShown string // active character last scrolled into view
 }
@@ -330,10 +331,41 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 			return m.d.Password(ch.World, ch.ID)
 		},
 	})
+	if w, h := m.paneSize(); w > 0 {
+		s.Resize(w, h)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cs.sess, cs.cancel = s, cancel
 	go s.Run(ctx)
 	return waitEvent(cs.key, s)
+}
+
+// resizeDebounce is how long the window size must hold still before it is
+// reported to servers, so a drag-resize doesn't flood them with NAWS.
+const resizeDebounce = 200 * time.Millisecond
+
+// resizeMsg fires resizeDebounce after a WindowSizeMsg; it carries that
+// message's generation, and only the latest generation reports.
+type resizeMsg int
+
+// paneSize is the right pane's size, where server text is shown: what
+// NAWS reports. It is 0×0 before the first WindowSizeMsg.
+func (m *Model) paneSize() (w, h int) {
+	if m.width == 0 {
+		return 0, 0
+	}
+	return m.layout().rw, m.height
+}
+
+// reportSize tells every session the pane size. Sessions only send it to
+// servers that negotiated NAWS.
+func (m *Model) reportSize() {
+	w, h := m.paneSize()
+	for _, cs := range m.chars {
+		if cs.sess != nil {
+			cs.sess.Resize(w, h)
+		}
+	}
 }
 
 // Update handles one message.
@@ -341,6 +373,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.resizeGen++
+		gen := m.resizeGen
+		return m, tea.Tick(resizeDebounce, func(time.Time) tea.Msg { return resizeMsg(gen) })
+	case resizeMsg:
+		if int(msg) == m.resizeGen { // the drag has settled
+			m.reportSize()
+		}
 	case tickMsg:
 		return m, tick(time.Time(msg))
 	case reloadMsg:
