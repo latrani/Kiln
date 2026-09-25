@@ -56,6 +56,55 @@ func TestInputMultiline(t *testing.T) {
 	}
 }
 
+func TestInputGraphemeClusters(t *testing.T) {
+	const (
+		family = "👩\u200d👩\u200d👧" // ZWJ sequence: 5 runes, 2 cells
+		wave   = "👋🏽"              // skin tone: 2 runes, 2 cells
+		flag   = "🇳🇿"              // regional indicators: 2 runes, 2 cells
+		accent = "e\u0301"         // combining mark: 2 runes, 1 cell
+	)
+	in := typed("a" + family + wave + flag + accent)
+	rows, _, c := in.Render(40, 0, false, false)
+	if want := 2 + 1 + 2 + 2 + 2 + 1; c != want {
+		t.Errorf("cursor col = %d, want %d (row %q)", c, want, ansi.Strip(rows[0]))
+	}
+	in.Backspace()
+	if in.Value() != "a"+family+wave+flag {
+		t.Errorf("backspace removed part of a cluster: %q", in.Value())
+	}
+	in.Left()
+	in.Left()
+	if _, _, c := in.Render(40, 0, false, false); c != 2+1+2 {
+		t.Errorf("after two Lefts cursor col = %d, want 5", c)
+	}
+	in.Delete()
+	if in.Value() != "a"+family+flag {
+		t.Errorf("delete = %q", in.Value())
+	}
+	in.Home()
+	in.Right()
+	in.Right()
+	in.InsertText("!")
+	if in.Value() != "a"+family+"!"+flag {
+		t.Errorf("Right should skip the whole family: %q", in.Value())
+	}
+	rows, _, _ = typed(family+wave).Render(20, 0, false, true)
+	if got := ansi.Strip(rows[0]); got != "> ••" {
+		t.Errorf("masked = %q, want one bullet per cluster", got)
+	}
+}
+
+func TestInputUpDownSnapsToCluster(t *testing.T) {
+	in := typed("👋🏽x\nabc") // line 0: wave is runes 0-1, x is 2
+	in.Home()
+	in.Right() // col 1 on "abc"
+	in.Up()    // rune 1 is mid-cluster on line 0; snap to 0
+	in.InsertText("[")
+	if in.Value() != "[👋🏽x\nabc" {
+		t.Errorf("Value = %q", in.Value())
+	}
+}
+
 func TestInputHistory(t *testing.T) {
 	in := NewInput()
 	in.InsertText("first")
@@ -101,7 +150,7 @@ func plainRows(rows []string) []string {
 }
 
 func TestRenderSoftWraps(t *testing.T) {
-	rows, r, c := typed("abcdefgh").Render(6, 0, false) // 4 cells of text per row
+	rows, r, c := typed("abcdefgh").Render(6, 0, false, false) // 4 cells of text per row
 	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> abcd", "  efgh", "  "}) {
 		t.Errorf("rows = %q", got)
 	}
@@ -114,14 +163,14 @@ func TestRenderCursorMidLine(t *testing.T) {
 	in := typed("hello")
 	in.Home()
 	in.Right()
-	_, r, c := in.Render(20, 0, false)
+	_, r, c := in.Render(20, 0, false, false)
 	if r != 0 || c != 3 {
 		t.Errorf("cursor = %d,%d; want 0,3", r, c)
 	}
 }
 
 func TestRenderWideRunes(t *testing.T) {
-	rows, _, _ := typed("日本語").Render(6, 0, false) // 4 cells: 2 wide runes per row
+	rows, _, _ := typed("日本語").Render(6, 0, false, false) // 4 cells: 2 wide runes per row
 	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> 日本", "  語"}) {
 		t.Errorf("rows = %q", got)
 	}
@@ -129,14 +178,14 @@ func TestRenderWideRunes(t *testing.T) {
 
 func TestRenderOverLimitStartsAtCutByte(t *testing.T) {
 	in := typed("abcdé") // é is 2 bytes: bytes 5-6
-	rows, _, _ := in.Render(40, 5, false)
+	rows, _, _ := in.Render(40, 5, false, false)
 	if !strings.Contains(rows[0], "abcd"+overLimit+"é") {
 		t.Errorf("row = %q, want red from é", rows[0])
 	}
-	if !in.OverLimit(5) || in.OverLimit(6) {
+	if !in.OverLimit(5, false) || in.OverLimit(6, false) {
 		t.Error("OverLimit wrong")
 	}
-	rows, _, _ = typed("abc").Render(40, 5, false)
+	rows, _, _ = typed("abc").Render(40, 5, false, false)
 	if strings.Contains(rows[0], overLimit) {
 		t.Errorf("under-limit row highlighted: %q", rows[0])
 	}
@@ -144,14 +193,30 @@ func TestRenderOverLimitStartsAtCutByte(t *testing.T) {
 
 func TestRenderOverLimitIsPerLine(t *testing.T) {
 	in := typed("abcdef\nxy")
-	rows, _, _ := in.Render(40, 4, false)
+	rows, _, _ := in.Render(40, 4, false, false)
 	if !strings.Contains(rows[0], overLimit) || strings.Contains(rows[1], overLimit) {
 		t.Errorf("rows = %q", rows)
 	}
 }
 
+func TestRenderOverLimitJoined(t *testing.T) {
+	in := typed("abc\nde\nfg") // joined: "abc de fg"; byte 8 is "f"
+	if in.OverLimit(4, false) || !in.OverLimit(8, true) || in.OverLimit(9, true) {
+		t.Error("OverLimit wrong")
+	}
+	rows, _, _ := in.Render(40, 7, true, false)
+	if strings.Contains(rows[0], overLimit) || strings.Contains(rows[1], overLimit) ||
+		!strings.Contains(rows[2], overLimit+"fg") {
+		t.Errorf("rows = %q, want red from f", rows)
+	}
+	rows, _, _ = in.Render(40, 6, true, false) // the joining space is byte 7
+	if !strings.HasPrefix(rows[2], "  "+overLimit+"fg") {
+		t.Errorf("rows = %q, want the whole last line red", rows)
+	}
+}
+
 func TestRenderMasked(t *testing.T) {
-	rows, _, _ := typed("pw!").Render(20, 0, true)
+	rows, _, _ := typed("pw!").Render(20, 0, false, true)
 	if got := ansi.Strip(rows[0]); got != "> •••" {
 		t.Errorf("masked = %q", got)
 	}

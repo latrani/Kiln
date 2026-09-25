@@ -4,6 +4,8 @@ package session
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"regexp"
@@ -292,6 +294,22 @@ func (s *Session) stayDown(ctx context.Context) bool {
 }
 
 // Run connects and keeps reconnecting until ctx is cancelled.
+// permanent reports whether a dial error will recur on every retry, so the
+// session should go to Failed and wait for Reconnect instead of backing
+// off: a changed pinned certificate, or a certificate that fails CA
+// verification (unknown authority, wrong host, expired).
+func permanent(err error) bool {
+	var (
+		pin      *conn.PinMismatchError
+		verify   *tls.CertificateVerificationError
+		unknown  x509.UnknownAuthorityError
+		hostname x509.HostnameError
+		invalid  x509.CertificateInvalidError
+	)
+	return errors.As(err, &pin) || errors.As(err, &verify) ||
+		errors.As(err, &unknown) || errors.As(err, &hostname) || errors.As(err, &invalid)
+}
+
 func (s *Session) Run(ctx context.Context) {
 	s.done = ctx.Done()
 	defer close(s.events)
@@ -311,8 +329,7 @@ func (s *Session) Run(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			var pin *conn.PinMismatchError
-			if errors.As(err, &pin) {
+			if permanent(err) {
 				s.sys("connect failed: " + err.Error())
 				s.state(Failed, err)
 				if !s.stayDown(ctx) {

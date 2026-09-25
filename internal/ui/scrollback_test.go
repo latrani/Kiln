@@ -112,3 +112,33 @@ func TestScrollbackRewrapsOnWidthChange(t *testing.T) {
 		t.Errorf("narrow = %q", got)
 	}
 }
+
+func TestScrollbackResizeKeepsPosition(t *testing.T) {
+	long := "aaaa bbbb cccc dddd" // 4 rows at width 5, 2 at width 10
+	var lines []string
+	for i := range 20 {
+		lines = append(lines, fmt.Sprintf("L%02d", i), long)
+	}
+	s := sb(5, lines...)
+	s.ScrollUp(14) // at width 5 each pair is 5 rows: bottom row is L17
+	if got := s.View(1); got[0] != "L17" {
+		t.Fatalf("before resize bottom = %q", got)
+	}
+	s.SetWidth(10)
+	if got := s.View(1); got[0] != "L17" {
+		t.Errorf("after widening bottom = %q, want L17", got)
+	}
+	s.SetWidth(5)
+	if got := s.View(1); got[0] != "L17" {
+		t.Errorf("after narrowing bottom = %q, want L17", got)
+	}
+	// Inside a wrapped line, the position scales with the row count.
+	s.ScrollUp(2) // bottom is L16's long line, 3rd row: "cccc"
+	if got := s.View(1); got[0] != "cccc" {
+		t.Fatalf("bottom = %q", got)
+	}
+	s.SetWidth(10)
+	if got := s.View(1); got[0] != "cccc dddd" {
+		t.Errorf("after widening bottom = %q, want the same line's 2nd row", got)
+	}
+}

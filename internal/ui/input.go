@@ -2,18 +2,22 @@ package ui
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	xansi "github.com/charmbracelet/x/ansi"
+	"github.com/rivo/uniseg"
 )
 
 // overLimit is the style for bytes past a line's max_line_bytes.
 const overLimit = "\x1b[97;41m"
 
-// Input is a multi-line editor with per-character history.
+// Input is a multi-line editor with per-character history. The cursor
+// moves, and Backspace/Delete remove, whole grapheme clusters, so emoji
+// ZWJ sequences, flags and skin-tone modifiers act as one character.
 type Input struct {
 	lines   [][]rune // never empty
 	row     int
-	col     int
+	col     int // rune index into lines[row], always on a cluster boundary
 	history []string
 	hist    int    // position while browsing history; len(history) = not browsing
 	draft   string // text being typed before history browsing started
@@ -82,8 +86,59 @@ func (in *Input) InsertText(s string) {
 		out = append(out, ins...)
 		out = append(out, line[in.col:]...)
 		in.lines[in.row] = out
-		in.col += len(ins)
+		in.col = snapForward(out, in.col+len(ins))
 	}
+}
+
+// clusters returns the rune index of every grapheme cluster boundary in
+// line, from 0 through len(line).
+func clusters(line []rune) []int {
+	bounds := []int{0}
+	g := uniseg.NewGraphemes(string(line))
+	n := 0
+	for g.Next() {
+		n += utf8.RuneCountInString(g.Str())
+		bounds = append(bounds, n)
+	}
+	return bounds
+}
+
+// prevBoundary is the cluster boundary before col (col > 0).
+func prevBoundary(line []rune, col int) int {
+	bounds := clusters(line)
+	for i := len(bounds) - 1; i >= 0; i-- {
+		if bounds[i] < col {
+			return bounds[i]
+		}
+	}
+	return 0
+}
+
+// nextBoundary is the cluster boundary after col (col < len(line)).
+func nextBoundary(line []rune, col int) int {
+	for _, b := range clusters(line) {
+		if b > col {
+			return b
+		}
+	}
+	return len(line)
+}
+
+// snapBack moves col back to the start of the cluster it falls inside.
+func snapBack(line []rune, col int) int {
+	if col >= len(line) {
+		return len(line)
+	}
+	return prevBoundary(line, col+1)
+}
+
+// snapForward moves col forward to the end of the cluster it falls inside
+// (typed text can join the cluster after it, e.g. a skin-tone modifier).
+func snapForward(line []rune, col int) int {
+	if col <= 0 {
+		return 0
+	}
+	return nextBoundary(line, col-1)
 }
 
 // Newline splits the current line at the cursor.
@@ -101,8 +156,9 @@ func (in *Input) Newline() {
 func (in *Input) Backspace() {
 	if in.col > 0 {
 		line := in.lines[in.row]
-		in.lines[in.row] = append(line[:in.col-1], line[in.col:]...)
-		in.col--
+		from := prevBoundary(line, in.col)
+		in.lines[in.row] = append(line[:from], line[in.col:]...)
+		in.col = from
 		return
 	}
 	if in.row == 0 {
@@ -119,7 +175,7 @@ func (in *Input) Backspace() {
 func (in *Input) Delete() {
 	line := in.lines[in.row]
 	if in.col < len(line) {
-		in.lines[in.row] = append(line[:in.col], line[in.col+1:]...)
+		in.lines[in.row] = append(line[:in.col], line[nextBoundary(line, in.col):]...)
 		return
 	}
 	if in.row == len(in.lines)-1 {
@@ -129,20 +185,20 @@ func (in *Input) Delete() {
 	in.lines = append(in.lines[:in.row+1], in.lines[in.row+2:]...)
 }
 
-// Left moves the cursor back one rune, wrapping to the previous line.
+// Left moves the cursor back one character, wrapping to the previous line.
 func (in *Input) Left() {
 	if in.col > 0 {
-		in.col--
+		in.col = prevBoundary(in.lines[in.row], in.col)
 	} else if in.row > 0 {
 		in.row--
 		in.col = len(in.lines[in.row])
 	}
 }
 
-// Right moves the cursor forward one rune, wrapping to the next line.
+// Right moves the cursor forward one character, wrapping to the next line.
 func (in *Input) Right() {
 	if in.col < len(in.lines[in.row]) {
-		in.col++
+		in.col = nextBoundary(in.lines[in.row], in.col)
 	} else if in.row < len(in.lines)-1 {
 		in.row++
 		in.col = 0
@@ -157,7 +213,7 @@ func (in *Input) End()  { in.col = len(in.lines[in.row]) }
 func (in *Input) Up() {
 	if in.row > 0 {
 		in.row--
-		in.col = min(in.col, len(in.lines[in.row]))
+		in.col = snapBack(in.lines[in.row], in.col)
 		return
 	}
 	if in.hist == 0 || len(in.history) == 0 {
@@ -175,7 +231,7 @@ func (in *Input) Up() {
 func (in *Input) Down() {
 	if in.row < len(in.lines)-1 {
 		in.row++
-		in.col = min(in.col, len(in.lines[in.row]))
+		in.col = snapBack(in.lines[in.row], in.col)
 		return
 	}
 	if in.hist >= len(in.history) {
@@ -190,13 +246,26 @@ func (in *Input) Down() {
 }
 
 // Render lays the text out for width w (including a 2-cell "> " gutter),
-// highlighting bytes past limit on each line in red, and returns the rows
-// plus the cursor's row and column. Masked text shows as bullets.
-func (in *Input) Render(w, limit int, masked bool) (rows []string, curRow, curCol int) {
+// highlighting bytes past limit in red, and returns the rows plus the
+// cursor's row and column. The limit applies to each line, or with joined
+// to the lines joined by spaces (newline_mode = "flatten"). Masked text
+// shows as bullets.
+func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRow, curCol int) {
 	aw := max(1, w-2)
+	total := 0 // bytes before this line when joined
 	for li, line := range in.lines {
 		var b strings.Builder
 		col, bytes, red := 0, 0, false
+		if joined {
+			if li > 0 {
+				total++ // the joining space
+			}
+			bytes = total
+			if limit > 0 && bytes > limit {
+				red = true
+				b.WriteString(overLimit)
+			}
+		}
 		flush := func() {
 			if red {
 				b.WriteString("\x1b[0m")
@@ -212,8 +281,10 @@ func (in *Input) Render(w, limit int, masked bool) (rows []string, curRow, curCo
 			}
 			col = 0
 		}
-		for ri, r := range line {
-			shown := string(r)
+		g := uniseg.NewGraphemes(string(line))
+		for ri := 0; g.Next(); {
+			cluster := g.Str()
+			shown := cluster
 			if masked {
 				shown = "•"
 			}
@@ -224,7 +295,8 @@ func (in *Input) Render(w, limit int, masked bool) (rows []string, curRow, curCo
 			if li == in.row && ri == in.col {
 				curRow, curCol = len(rows), col
 			}
-			bytes += len(string(r))
+			ri += utf8.RuneCountInString(cluster)
+			bytes += len(cluster)
 			if !red && limit > 0 && bytes > limit {
 				red = true
 				b.WriteString(overLimit)
@@ -239,14 +311,22 @@ func (in *Input) Render(w, limit int, masked bool) (rows []string, curRow, curCo
 			curRow, curCol = len(rows), col
 		}
 		flush()
+		total = bytes
 	}
 	return rows, curRow, curCol + 2
 }
 
-// OverLimit reports whether any line is longer than limit bytes.
-func (in *Input) OverLimit(limit int) bool {
+// OverLimit reports whether any line is longer than limit bytes, or with
+// joined whether the lines joined by spaces are.
+func (in *Input) OverLimit(limit int, joined bool) bool {
+	if limit <= 0 {
+		return false
+	}
+	if joined {
+		return len(strings.Join(strings.Split(in.Value(), "\n"), " ")) > limit
+	}
 	for _, l := range in.lines {
-		if limit > 0 && len(string(l)) > limit {
+		if len(string(l)) > limit {
 			return true
 		}
 	}
