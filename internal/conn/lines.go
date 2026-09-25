@@ -28,11 +28,27 @@ func (s *splitter) push(data []byte) []string {
 		}
 		s.buf = append(s.buf, b)
 		if len(s.buf) >= maxLine {
-			out = appendLine(out, s.buf)
-			s.buf = s.buf[:0]
+			cut := runeCut(s.buf)
+			out = appendLine(out, s.buf[:cut])
+			s.buf = append(s.buf[:0], s.buf[cut:]...)
 		}
 	}
 	return out
+}
+
+// runeCut returns where to force-cut buf: its length, or the start of a
+// trailing UTF-8 sequence that is still incomplete, so the cut never
+// splits a character and both halves still decode as UTF-8.
+func runeCut(buf []byte) int {
+	for i := len(buf) - 1; i >= max(0, len(buf)-utf8.UTFMax); i-- {
+		if utf8.RuneStart(buf[i]) {
+			if i > 0 && !utf8.FullRune(buf[i:]) {
+				return i
+			}
+			break
+		}
+	}
+	return len(buf)
 }
 
 // partial returns the decoded unterminated line currently buffered, or ""
