@@ -136,9 +136,15 @@ func tail(ch config.Character, dataDir string) error {
 	go func() {
 		sc := bufio.NewScanner(os.Stdin)
 		for sc.Scan() {
-			if err := s.Send(sc.Text()); err != nil {
+			e, err := s.Send(sc.Text())
+			var logErr *session.LogError
+			if errors.As(err, &logErr) {
+				fmt.Fprintln(os.Stderr, "\x1b[31m*", err, "\x1b[0m")
+			} else if err != nil {
 				fmt.Fprintln(os.Stderr, "\x1b[2m* not sent:", err, "\x1b[0m")
+				continue
 			}
+			fmt.Println(render(e, rules.Result{}))
 		}
 		stop() // stdin closed: quit
 	}()

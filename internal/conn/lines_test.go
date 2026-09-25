@@ -38,6 +38,15 @@ func TestSplitterLatin1Fallback(t *testing.T) {
 	}
 }
 
+func TestSplitterWindows1252SmartQuotes(t *testing.T) {
+	var s splitter
+	// "don’t — “ok”" as a Windows client would send it.
+	got := s.push([]byte("don\x92t \x97 \x93ok\x94\n"))
+	if len(got) != 1 || got[0] != "don’t — “ok”" {
+		t.Errorf("got %q", got)
+	}
+}
+
 func TestSplitterMCP(t *testing.T) {
 	var s splitter
 	got := s.push([]byte("#$#mcp version: 2.1 to: 2.1\n#$\"#$#not mcp\nnormal\n"))

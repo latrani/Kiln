@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -60,6 +61,44 @@ func TestWriterRollsOverAtMidnight(t *testing.T) {
 	got, _ := ReadDay(root, "w", "c", "2026-09-25")
 	if len(got) != 1 || got[0].Text != "after" {
 		t.Errorf("2026-09-25 entries = %+v", got)
+	}
+}
+
+func TestWriterConcurrentAppendAcrossMidnight(t *testing.T) {
+	root := t.TempDir()
+	w := NewWriter(root, "w", "c")
+	defer w.Close()
+	pdt := time.FixedZone("PDT", -7*3600)
+	before := time.Date(2026, 9, 24, 23, 59, 59, 0, pdt)
+	after := before.Add(2 * time.Second)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				ts := before
+				if (i+j)%2 == 0 {
+					ts = after
+				}
+				if err := w.Append(Entry{ts, In, "x"}); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+	total := 0
+	for _, d := range []string{"2026-09-24", "2026-09-25"} {
+		es, err := ReadDay(root, "w", "c", d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		total += len(es)
+	}
+	if total != 400 {
+		t.Errorf("read back %d entries, want 400", total)
 	}
 }
 

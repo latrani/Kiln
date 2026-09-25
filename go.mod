@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/term v0.46.0
+	golang.org/x/text v0.42.0
 )
 
 require (

@@ -163,18 +163,86 @@ func TestSendLogsOutgoing(t *testing.T) {
 	ch.Login = ""
 	log := &memLog{}
 	s := New(Options{Char: ch, Dial: func(context.Context) (LineConn, error) { return fc, nil }, Log: log})
-	if err := s.Send("x"); !errors.Is(err, ErrNotConnected) {
+	if _, err := s.Send("x"); !errors.Is(err, ErrNotConnected) {
 		t.Errorf("Send before connect = %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go s.Run(ctx)
 	waitFor(t, s, isState(Connected))
-	if err := s.Send(":grins."); err != nil {
+	e, err := s.Send(":grins.")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if e.Dir != logstore.Out || e.Text != ":grins." {
+		t.Errorf("Send returned %+v", e)
 	}
 	if !contains(log.Texts(), "> :grins.") || fc.Sent()[0] != ":grins." {
 		t.Errorf("log=%q sent=%q", log.Texts(), fc.Sent())
+	}
+}
+
+func TestSendReportsLogFailureAfterSending(t *testing.T) {
+	fc := newFakeConn()
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Dial: func(context.Context) (LineConn, error) { return fc, nil }, Log: &memLog{fail: errors.New("disk full")}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	_, err := s.Send("hi")
+	var le *LogError
+	if !errors.As(err, &le) {
+		t.Fatalf("err = %v, want *LogError", err)
+	}
+	if len(fc.Sent()) != 1 {
+		t.Error("line should still have been sent")
+	}
+}
+
+func TestSendDoesNotBlockWhenEventsBacklogged(t *testing.T) {
+	flood := make([]string, 1000) // far more than the events buffer
+	for i := range flood {
+		flood[i] = "spam"
+	}
+	fc := newFakeConn(flood...)
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Dial: func(context.Context) (LineConn, error) { return fc, nil }, Log: &memLog{}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx) // nobody reads Events(): the buffer fills and Run blocks
+	time.Sleep(100 * time.Millisecond)
+	done := make(chan error, 1)
+	go func() { _, err := s.Send("hello"); done <- err }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Send = %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Send blocked behind a full events channel")
+	}
+}
+
+func TestRunStopsOnCancelWithoutConsumer(t *testing.T) {
+	flood := make([]string, 1000)
+	for i := range flood {
+		flood[i] = "spam"
+	}
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Log: &memLog{}, Dial: func(context.Context) (LineConn, error) { return newFakeConn(flood...), nil }})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	time.Sleep(100 * time.Millisecond) // events buffer is full by now
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run wedged on a full events channel after cancel")
 	}
 }
 
@@ -280,7 +348,7 @@ func TestQuitDoesNotReconnect(t *testing.T) {
 	defer cancel()
 	go s.Run(ctx)
 	waitFor(t, s, isState(Connected))
-	if err := s.Send("QUIT"); err != nil {
+	if _, err := s.Send("QUIT"); err != nil {
 		t.Fatal(err)
 	}
 	first.Close() // server hangs up in response
