@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -64,6 +66,8 @@ type browse struct {
 	statusErr bool
 	rowLines  []*bline // body row → line (nil for dividers), from the last draw
 	chipSpans []chipSpan
+	loadedTo  time.Time // newest logged time at open, at log (millisecond) precision
+	exportDir string
 }
 
 type chipSpan struct {
@@ -81,6 +85,9 @@ func newBrowse(cs *charState, logRoot string) *browse {
 	for len(b.lines) < browseInitialLines && b.loadOlder() {
 	}
 	b.cursor = b.last()
+	if l := b.last(); l != nil {
+		b.loadedTo = l.e.Time
+	}
 	return b
 }
 
@@ -115,12 +122,22 @@ func (b *browse) loadOlder() bool {
 	return true
 }
 
-// appendLive adds a line that arrived while browsing. A line that is
-// already the newest loaded one (logged just before browse opened) is
-// skipped.
+// dedupeTail is how many of the newest loaded lines appendLive checks for
+// a copy of an incoming line.
+const dedupeTail = 256
+
+// appendLive adds a line that arrived while browsing. Lines logged before
+// browse opened can still arrive as events afterwards; those are already
+// loaded from the log (at millisecond precision), so a line no newer than
+// the load watermark that matches a recently loaded one is skipped.
 func (b *browse) appendLive(e logstore.Entry) {
-	if l := b.last(); l != nil && l.e.Time.Equal(e.Time) && l.e.Text == e.Text {
-		return
+	t := e.Time.Truncate(time.Millisecond)
+	if !b.loadedTo.IsZero() && !t.After(b.loadedTo) {
+		for _, l := range b.lines[max(0, len(b.lines)-dedupeTail):] {
+			if l.e.Text == e.Text && l.e.Dir == e.Dir && l.e.Time.Truncate(time.Millisecond).Equal(t) {
+				return
+			}
+		}
 	}
 	atEnd := b.cursor == nil || b.cursor == b.lastVisible()
 	b.lines = append(b.lines, b.newLine(e))
@@ -233,14 +250,21 @@ func (b *browse) toggleExclude(l *bline) {
 	b.excluded[l] = !b.excluded[l]
 }
 
+// findRE matches the find term literally and case-insensitively. Match
+// offsets always index the original text: lowercasing a copy and reusing
+// its offsets breaks on letters whose case forms differ in byte length.
+func findRE(term string) *regexp.Regexp {
+	return regexp.MustCompile("(?i)" + regexp.QuoteMeta(term))
+}
+
 func (b *browse) matches() []*bline {
 	if b.find == "" {
 		return nil
 	}
-	needle := strings.ToLower(b.find)
+	re := findRE(b.find)
 	var out []*bline
 	for _, l := range b.visible() {
-		if strings.Contains(strings.ToLower(ansi.Strip(l.text)), needle) {
+		if re.MatchString(ansi.Strip(l.text)) {
 			out = append(out, l)
 		}
 	}
@@ -255,11 +279,15 @@ func (b *browse) jumpMatch(dir int, includeCursor bool) {
 		b.setStatus(true, "no matches for %q", b.find)
 		return
 	}
-	ci := b.index(b.cursor)
+	pos := make(map[*bline]int, len(b.lines))
+	for i, l := range b.lines {
+		pos[l] = i
+	}
+	ci := pos[b.cursor]
 	pick := -1
 	if dir > 0 {
 		for k, m := range ms {
-			if i := b.index(m); i > ci || (includeCursor && i == ci) {
+			if i := pos[m]; i > ci || (includeCursor && i == ci) {
 				pick = k
 				break
 			}
@@ -269,7 +297,7 @@ func (b *browse) jumpMatch(dir int, includeCursor bool) {
 		}
 	} else {
 		for k := len(ms) - 1; k >= 0; k-- {
-			if b.index(ms[k]) < ci {
+			if pos[ms[k]] < ci {
 				pick = k
 				break
 			}
@@ -330,8 +358,26 @@ func (b *browse) title() string {
 	return ch.World + " " + ch.Name + when
 }
 
-// save writes the export to path, refusing to overwrite.
+// save writes the export to path, refusing to overwrite. "~/" is
+// expanded and a relative path is placed in the export directory.
 func (b *browse) save(path string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		b.setStatus(true, "no file name given")
+		return
+	}
+	path, err := config.ExpandHome(path)
+	if err != nil {
+		b.setStatus(true, "%v", err)
+		return
+	}
+	if !filepath.IsAbs(path) {
+		if b.exportDir == "" {
+			b.setStatus(true, "no export_dir configured; give a full path")
+			return
+		}
+		path = filepath.Join(b.exportDir, path)
+	}
 	sel := b.selection()
 	if len(sel) == 0 {
 		b.setStatus(true, "nothing to export")
@@ -356,10 +402,10 @@ func (b *browse) save(path string) {
 }
 
 // key handles a key press in browse mode. It returns (cmd, close).
-func (b *browse) key(k tea.KeyPressMsg, exportDir string, pageH int) (tea.Cmd, bool) {
+func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	s := k.String()
 	if b.prompt != promptNone {
-		return b.promptKey(k, exportDir), false
+		return b.promptKey(k), false
 	}
 	if len(s) == 1 && s >= "1" && s <= "9" {
 		tags := b.tagList()
@@ -430,7 +476,7 @@ func (b *browse) cycleChip(tag string) {
 	}
 }
 
-func (b *browse) promptKey(k tea.KeyPressMsg, exportDir string) tea.Cmd {
+func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 	s := k.String()
 	if s == "esc" {
 		b.prompt = promptNone
@@ -438,10 +484,15 @@ func (b *browse) promptKey(k tea.KeyPressMsg, exportDir string) tea.Cmd {
 	}
 	if b.prompt == promptFormat {
 		if f, ok := exportFormatKeys[s]; ok {
+			sel := b.selection()
+			if len(sel) == 0 {
+				b.prompt = promptNone
+				b.setStatus(true, "nothing left to export")
+				return nil
+			}
 			b.format = f
 			b.prompt = promptFilename
-			first := b.selection()[0]
-			b.pin.SetValue(scene.FileName(exportDir, first.Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
+			b.pin.SetValue(scene.FileName(b.exportDir, sel[0].Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
 		}
 		return nil
 	}
@@ -676,21 +727,22 @@ func highlightFind(plain, needle string) string {
 	if needle == "" {
 		return plain
 	}
-	lower, ln := strings.ToLower(plain), strings.ToLower(needle)
 	var out strings.Builder
-	for {
-		i := strings.Index(lower, ln)
-		if i < 0 || len(ln) == 0 {
-			out.WriteString(plain)
-			return out.String()
-		}
-		out.WriteString(plain[:i] + reverse + plain[i:i+len(ln)] + style.Reset)
-		plain, lower = plain[i+len(ln):], lower[i+len(ln):]
+	last := 0
+	for _, m := range findRE(needle).FindAllStringIndex(plain, -1) {
+		out.WriteString(plain[last:m[0]] + reverse + plain[m[0]:m[1]] + style.Reset)
+		last = m[1]
 	}
+	out.WriteString(plain[last:])
+	return out.String()
 }
 
-// click handles a left click at (x, y) within the right pane.
+// click handles a left click at (x, y) within the right pane. Clicks are
+// ignored while a prompt is open so the selection can't change under it.
 func (b *browse) click(x, y int, shift bool) {
+	if b.prompt != promptNone {
+		return
+	}
 	if y == 1 {
 		for _, c := range b.chipSpans {
 			if x >= c.from && x < c.to {
