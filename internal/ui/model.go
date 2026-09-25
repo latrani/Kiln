@@ -55,6 +55,7 @@ type Model struct {
 	d         Deps
 	cfg       *config.Config // the loaded config; the picker lists from it
 	picker    *picker        // non-nil while the add-connection picker is open
+	idle      *Input         // the input box while nothing is open
 	chars     map[string]*charState
 	order     []string // sidebar order of character keys
 	collapsed map[string]bool
@@ -149,7 +150,7 @@ func New(d Deps, cfg *config.Config) *Model {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	m := &Model{d: d, chars: map[string]*charState{}, collapsed: map[string]bool{}}
+	m := &Model{d: d, chars: map[string]*charState{}, collapsed: map[string]bool{}, idle: NewInput()}
 	m.applyConfig(cfg)
 	for _, ch := range m.allChars() {
 		if ch.Autoconnect {
@@ -462,8 +463,8 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
 				cs.browse.pin.InsertText(strings.ReplaceAll(msg.Content, "\n", " "))
 			}
-		} else if cs := m.cur(); cs != nil && m.mode == modeNormal {
-			cs.in.InsertText(msg.Content)
+		} else if m.mode == modeNormal {
+			m.input().InsertText(msg.Content)
 			m.confirm = false
 		}
 	case tea.KeyPressMsg:
@@ -477,6 +478,14 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) cur() *charState { return m.chars[m.active] }
+
+// input is the active character's input box, or the idle one.
+func (m *Model) input() *Input {
+	if cs := m.cur(); cs != nil {
+		return cs.in
+	}
+	return m.idle
+}
 
 // passwordStore is the password_store setting.
 func (m *Model) passwordStore() string {
@@ -586,10 +595,10 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	case "ctrl+c":
-		if cs == nil || cs.in.Empty() {
+		if m.input().Empty() {
 			return m.quit()
 		}
-		cs.in.Reset()
+		m.input().Reset()
 	case "pgup":
 		if cs != nil {
 			cs.sb.ScrollUp(max(1, m.layout().sbH-1))
@@ -607,18 +616,16 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		return m.submit()
 	}
-	if cs == nil {
-		return nil
-	}
+	in := m.input()
 	switch k.String() {
 	case "shift+enter", "alt+enter":
-		cs.in.Newline()
+		in.Newline()
 	case "up":
-		cs.in.Up()
+		in.Up()
 	case "down":
-		cs.in.Down()
+		in.Down()
 	default:
-		if !editKey(cs.in, k) {
+		if !editKey(in, k) {
 			return nil
 		}
 	}
@@ -664,6 +671,15 @@ func (m *Model) switchTo(k string) {
 func (m *Model) submit() tea.Cmd {
 	cs := m.cur()
 	if cs == nil {
+		switch text := m.idle.Value(); {
+		case text == "":
+			m.openPicker()
+		case strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "//"):
+			m.idle.Commit()
+			return m.command(nil, text)
+		default:
+			m.setStatus(true, "nothing open to send to")
+		}
 		return nil
 	}
 	if cs.needPW {
@@ -739,6 +755,10 @@ func isLogErr(err error) bool {
 // that take free text (/highlight) can keep its spacing.
 func (m *Model) command(cs *charState, text string) tea.Cmd {
 	args := strings.Fields(text)
+	if cs == nil && args[0] != "/quit" {
+		m.setStatus(true, "%s needs an open character", args[0])
+		return nil
+	}
 	switch args[0] {
 	case "/connect":
 		if cs.sess != nil && cs.state == session.Connected {
@@ -870,14 +890,11 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 		return nil
 	}
 	cs := m.cur()
-	if cs == nil {
-		return nil
-	}
-	if cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {
+	if cs != nil && cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {
 		cs.sb.ToBottom()
 	}
 	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
-		cs.in.Click(msg.X-l.sw-3, l.inTop+y) // past the separator and gutter
+		m.input().Click(msg.X-l.sw-3, l.inTop+y) // past the separator and gutter
 	}
 	return nil
 }

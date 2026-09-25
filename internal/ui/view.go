@@ -11,6 +11,9 @@ import (
 	"github.com/latrani/Kiln/internal/style"
 )
 
+// emptyHint is the input area's prompt while nothing is open.
+const emptyHint = "Nothing open · Enter or Ctrl+O to add a connection"
+
 // Minimum usable terminal size.
 const (
 	MinWidth  = 40
@@ -40,11 +43,12 @@ func (m *Model) layout() layout {
 	cs := m.cur()
 	if text, col, ok := m.prompt(cs); ok {
 		l.inRows, l.curCol, l.prompt = []string{fit(text, l.rw)}, min(col, l.rw-1), true
-	} else if cs == nil {
-		l.inRows = []string{"> "}
-		l.curCol = 2
 	} else {
-		rows, r, c := cs.in.Render(l.rw, cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten", false)
+		limit, flatten := 0, false
+		if cs != nil {
+			limit, flatten = cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten"
+		}
+		rows, r, c := m.input().Render(l.rw, limit, flatten, false)
 		maxIn := max(1, m.height/3)
 		top := 0
 		if len(rows) > maxIn {
@@ -77,6 +81,8 @@ func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
 	case m.picker != nil:
 		text, col := m.picker.form.row()
 		return text, col, true
+	case cs == nil && m.idle.Empty():
+		return hint(emptyHint)
 	case cs == nil:
 		return "", 0, false
 	case cs.needPW:
@@ -177,7 +183,9 @@ func (m *Model) View() tea.View {
 		}
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
-		right[0] = style.Dim("No characters yet: add one in " + m.d.ConfigDir + "/worlds/")
+		if len(m.allChars()) == 0 {
+			right[0] = style.Dim("No characters yet: add one in " + m.d.ConfigDir + "/worlds/")
+		}
 	} else {
 		cs.sb.SetWidth(l.rw)
 		rows := cs.sb.View(l.sbH)
