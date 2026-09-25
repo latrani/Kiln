@@ -2,6 +2,7 @@
 package classify
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"strings"
@@ -18,7 +19,7 @@ const SelfTag = "self"
 // Classifier holds one character's compiled classify rules.
 type Classifier struct {
 	rules []rule
-	names *regexp.Regexp // the character's names, longest first; nil if none
+	names []*regexp.Regexp // one per name and alias
 }
 
 type rule struct {
@@ -45,19 +46,10 @@ func New(rules []config.ClassifyRule, name string, aliases []string) (*Classifie
 		}
 		c.rules = append(c.rules, rule{r.Tag, re})
 	}
-	var names []string
 	for _, n := range append([]string{name}, aliases...) {
 		if n = strings.TrimSpace(n); n != "" {
-			names = append(names, n)
+			c.names = append(c.names, regexp.MustCompile(`(?i)`+regexp.QuoteMeta(n)))
 		}
-	}
-	if len(names) > 0 {
-		// Longest first, so "Kitty" is tried before "Kit".
-		slices.SortStableFunc(names, func(a, b string) int { return len(b) - len(a) })
-		for i, n := range names {
-			names[i] = regexp.QuoteMeta(n)
-		}
-		c.names = regexp.MustCompile(`(?i)(?:` + strings.Join(names, "|") + `)`)
 	}
 	return c, nil
 }
@@ -101,24 +93,35 @@ func (c *Classifier) Tags(plain string) []Tag {
 	return tags
 }
 
-// selfSpans finds each whole-word mention of the character's names.
-// Word boundaries are Unicode-aware (Go's \b is ASCII-only, which would
-// miss names like "Zoë") and checked by hand, so a span covers just the
-// name and back-to-back mentions are each found.
+// selfSpans finds each whole-word mention of the character's names, in
+// order. Word boundaries are Unicode-aware (Go's \b is ASCII-only, which
+// would miss names like "Zoë") and checked by hand, so a span covers just
+// the name and back-to-back mentions are each found. Each name is matched
+// on its own, so a longer alias that isn't a whole word ("Ash Grey" in
+// "Ash Greyson") can't hide a shorter name ("Ash"); a mention inside a
+// longer one is dropped.
 func (c *Classifier) selfSpans(plain string) []Span {
-	if c.names == nil {
-		return nil
-	}
 	var spans []Span
-	for _, m := range c.names.FindAllStringIndex(plain, -1) {
-		before, _ := utf8.DecodeLastRuneInString(plain[:m[0]])
-		after, _ := utf8.DecodeRuneInString(plain[m[1]:])
-		if m[0] > 0 && isWordRune(before) || m[1] < len(plain) && isWordRune(after) {
+	for _, re := range c.names {
+		for _, m := range re.FindAllStringIndex(plain, -1) {
+			before, _ := utf8.DecodeLastRuneInString(plain[:m[0]])
+			after, _ := utf8.DecodeRuneInString(plain[m[1]:])
+			if m[0] > 0 && isWordRune(before) || m[1] < len(plain) && isWordRune(after) {
+				continue
+			}
+			spans = append(spans, Span{m[0], m[1]})
+		}
+	}
+	// By start, longest first, then drop spans inside an earlier one.
+	slices.SortFunc(spans, func(a, b Span) int { return cmp.Or(a.Start-b.Start, b.End-a.End) })
+	var out []Span
+	for _, s := range spans {
+		if n := len(out); n > 0 && s.End <= out[n-1].End {
 			continue
 		}
-		spans = append(spans, Span{m[0], m[1]})
+		out = append(out, s)
 	}
-	return spans
+	return out
 }
 
 func isWordRune(r rune) bool {
