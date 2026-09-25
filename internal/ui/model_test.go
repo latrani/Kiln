@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -450,6 +451,52 @@ func TestReloadAddsCharactersAndKeepsOldOnError(t *testing.T) {
 	s := h.screen()
 	if !strings.Contains(s, "config not reloaded") || !strings.Contains(s, "Ash") {
 		t.Errorf("screen:\n%s", s)
+	}
+}
+
+func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
+	sp := "host = \"sp.test\"\nport = 1\n\n[characters.ash]\nname = \"Ash\"\n"
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": sp})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	cs := h.m.chars["fm/kit"]
+	sess := cs.sess
+
+	noKit := strings.Replace(fmWorld, "[characters.kit]\nname = \"Kit\"\nautoconnect = true\n", "", 1)
+	os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(noKit), 0o600)
+	h.m.Update(reloadMsg{})
+	if !cs.orphan || h.m.chars["fm/kit"] != cs {
+		t.Fatal("connected character should stay as an orphan")
+	}
+	if got := strings.Join(h.m.order, " "); got != "fm/rook fm/kit sp/ash" {
+		t.Errorf("order = %s, want the orphan grouped under fm", got)
+	}
+	if n := strings.Count(h.screen(), "▾ fm"); n != 1 {
+		t.Errorf("fm header shown %d times:\n%s", n, h.screen())
+	}
+
+	h.conn("fm/kit").Close() // server drops the connection
+	deadline := time.After(3 * time.Second)
+	for h.m.chars["fm/kit"] != nil {
+		select {
+		case ev, ok := <-sess.Events():
+			h.m.Update(eventMsg{key: "fm/kit", sess: sess, ev: ev, ok: ok})
+		case <-deadline:
+			t.Fatal("orphan not dropped after disconnect")
+		}
+	}
+	if slices.Contains(h.m.order, "fm/kit") {
+		t.Errorf("order = %v", h.m.order)
+	}
+	for { // the session is stopped: it must not redial and log in again
+		select {
+		case _, ok := <-sess.Events():
+			if !ok {
+				return
+			}
+		case <-deadline:
+			t.Fatal("orphan session still running")
+		}
 	}
 }
 
