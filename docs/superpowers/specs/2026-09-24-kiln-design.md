@@ -72,6 +72,8 @@ TOML has no include mechanism, so config is organized by directory convention:
 ### `config.toml`
 
 ```toml
+export_dir = "~/Documents/Kiln Scenes"   # where browse-mode exports are saved
+
 [defaults]
 max_line_bytes = 2047             # Fuzzball: MAX_COMMAND_LEN 2048 incl. NUL; excess is silently truncated
 newline_mode = "batch"          # "batch" | "flatten"
@@ -123,7 +125,7 @@ Contains only `[[classify]]` and `[[highlight]]` arrays. A pack is the unit peop
 
 - The config directory is watched, and changes apply live.
 - If a file fails to parse, Kiln keeps the last good config and shows the error in the statusline.
-- In-client conveniences (e.g. "highlight selected text") write to the relevant world file.
+- `/highlight <text>` appends a literal-text `[[highlight]]` rule to the active character's world file. It's safe to append because TOML table headers are absolute paths. Hot reload then applies the rule.
 
 ### TLS trust
 
@@ -192,11 +194,52 @@ The sidebar spans the full height of the window and sits at the top of the infor
 
 ### Browse mode (log browser)
 
-The log browser is a toggle on the scrollback itself, not a separate screen.
+*(Revised 2026-09-25. Replaces "a toggle on the scrollback itself". Key bindings and glyphs are expected to be fine-tuned with use, so they live in one binding table and named constants.)*
 
-- Filter by date range, by tags (classified on read), and by text search.
-- Select a range by click-drag, or with `m` to mark the start and end.
-- Export the selection as plaintext, ANSI, or HTML, either to a file or to the clipboard via OSC 52.
+Browse mode is a **dedicated screen** in the right pane for the active character. The sidebar stays visible, sessions keep running, and badges keep updating.
+
+- **Enter and leave:** `Ctrl+B` or `/browse` opens it. `Esc` returns to the normal view.
+- **Reach:** all of the character's logs. Scrolling toward the top pages in older day files, and new lines stream in live at the bottom.
+
+```
+┌────────┬──────────────────────────────────────────┐
+│▾ FM    │ BROWSE Kit · Sep 24 → today  find: map 1/3│
+│ ○ Kit  │ tags: [−page] [whisper] [say] [+pose]     │
+│ ○ Rook ├───────────────────────────────────────────┤
+│        │ ── Thu Sep 24 ──                          │
+│        │ 21:14  Rook says, "Evening!"              │
+│        │ 21:14 ▌Sable waves a paw.                 │
+│        │ 21:15 ░Mira pages: you around?            │
+│        │ 21:17 ▌Kit says, "So about that map..."   │
+│        ├───────────────────────────────────────────┤
+│        │ m mark · space exclude · / find · e export│
+└────────┴───────────────────────────────────────────┘
+```
+
+**Layout:**
+- **Header:** character, date span, and the find status on row 1. Tag chips on row 2.
+- **Lines:** each has an `HH:MM` timestamp and a selection gutter. There is a dim divider at each day boundary, and the cursor row is highlighted.
+- **Action bar:** at the bottom.
+
+**Tag chips (hide):**
+- There is one chip per tag seen in the loaded lines. Tags are classified on read with the character's current rules.
+- Each chip cycles through three states: neutral → `[+tag]` (show only lines with that tag) → `[−tag]` (hide lines with that tag) → neutral.
+- Hidden lines are left out of exports: what you see is what you export.
+
+**Find:**
+- `/` enters a find term. Matches are highlighted in place, and `n`/`N` jump between them.
+- Find never hides lines, so context stays visible.
+- `g` jumps to a date.
+
+**Selection (range + exclude):**
+- `m` marks the range start and a second `m` marks the end. Click moves the cursor, and shift-click sets the range end.
+- `space`, or clicking the gutter, excludes an individual line inside the range (e.g. a stray page).
+- Selection is tracked per line, so paging in older history never shifts it.
+
+**Export:**
+- **Contents:** received lines only. Sent commands are dropped because the server already echoes poses and says, and client `*` lines are dropped too. There are no timestamps. Only lines inside the range, not excluded, and not hidden by chips are exported.
+- **Saving:** `e` asks for a format (plain, ANSI, or HTML), then shows an editable filename prefilled as `<export_dir>/YYYY-MM-DD HHMM <world> <Name>.<ext>`. Enter saves. HTML is a standalone, dark-background file with inline-styled spans.
+- **Copying:** `c` copies the plain text to the clipboard via OSC 52.
 
 ### Input box
 
