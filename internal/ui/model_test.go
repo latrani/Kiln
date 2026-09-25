@@ -2,8 +2,8 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
