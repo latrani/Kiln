@@ -1,11 +1,13 @@
 package session
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/telnet"
 )
 
 // fakeConn is a scripted LineConn.
@@ -690,4 +693,97 @@ func TestDisconnectDuringBackoffStops(t *testing.T) {
 	mu.Unlock()
 	s.Reconnect()
 	waitFor(t, s, isState(Connected))
+}
+
+// nawsServer accepts one telnet connection. If ask, it sends DO NAWS and
+// signals negotiated once the client's first NAWS report arrives. It then
+// returns every byte received up to and including "marker\r\n".
+func nawsServer(t *testing.T, ask bool) (port int, negotiated <-chan struct{}, received <-chan []byte) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	neg, got := make(chan struct{}), make(chan []byte, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		if ask {
+			c.Write([]byte{telnet.IAC, telnet.DO, telnet.OptNAWS})
+		}
+		c.SetReadDeadline(time.Now().Add(5 * time.Second))
+		var all []byte
+		buf := make([]byte, 256)
+		signalled := false
+		for !bytes.HasSuffix(all, []byte("marker\r\n")) {
+			n, err := c.Read(buf)
+			all = append(all, buf[:n]...)
+			if ask && !signalled && bytes.Contains(all, []byte{telnet.IAC, telnet.SE}) {
+				signalled = true
+				close(neg)
+			}
+			if err != nil {
+				break
+			}
+		}
+		got <- all
+	}()
+	return ln.Addr().(*net.TCPAddr).Port, neg, got
+}
+
+func TestResizeNoOpWithoutNAWS(t *testing.T) {
+	port, _, received := nawsServer(t, false)
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Log: &memLog{}, Dial: func(ctx context.Context) (LineConn, error) {
+		return conn.Dial(ctx, conn.Options{Host: "127.0.0.1", Port: port, Width: 80, Height: 24})
+	}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	s.Resize(100, 40)
+	s.Resize(120, 50)
+	if _, err := s.Send("marker"); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-received; string(got) != "marker\r\n" {
+		t.Errorf("server received %q, want only the line (no NAWS)", got)
+	}
+}
+
+func TestResizeReportsAfterNAWS(t *testing.T) {
+	port, negotiated, received := nawsServer(t, true)
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Log: &memLog{}, Dial: func(ctx context.Context) (LineConn, error) {
+		return conn.Dial(ctx, conn.Options{Host: "127.0.0.1", Port: port, Width: 80, Height: 24})
+	}})
+	s.Resize(90, 30) // before connecting: applied as soon as the conn exists
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	select {
+	case <-negotiated:
+	case <-time.After(5 * time.Second):
+		t.Fatal("NAWS never negotiated")
+	}
+	s.Resize(100, 40)
+	if _, err := s.Send("marker"); err != nil {
+		t.Fatal(err)
+	}
+	got := <-received
+	initial := []byte{telnet.IAC, telnet.SB, telnet.OptNAWS, 0, 90, 0, 30, telnet.IAC, telnet.SE}
+	resized := []byte{telnet.IAC, telnet.SB, telnet.OptNAWS, 0, 100, 0, 40, telnet.IAC, telnet.SE}
+	if !bytes.Contains(got, initial) {
+		t.Errorf("server received %v, want the pre-connect size %v in the first report", got, initial)
+	}
+	if i, j := bytes.Index(got, resized), bytes.Index(got, []byte("marker")); i < 0 || i > j {
+		t.Errorf("server received %v, want %v before the marker", got, resized)
+	}
 }
