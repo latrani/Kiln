@@ -58,8 +58,9 @@ type Model struct {
 	status    string
 	statusErr bool
 	mode      mode
-	pendingPW string // entered password awaiting the save y/n answer
-	confirm   bool   // next Enter sends an over-limit line anyway
+	pendingPW string    // entered password awaiting the save y/n answer
+	pendingCh [2]string // world and character id the pending password belongs to
+	confirm   bool      // next Enter sends an over-limit line anyway
 }
 
 type charState struct {
@@ -357,7 +358,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	if m.mode == modeSavePassword {
 		switch k.String() {
 		case "y", "Y":
-			if err := m.d.SavePassword(cs.ch.World, cs.ch.ID, m.pendingPW); err != nil {
+			// Save for the character that was asked about, even if another
+			// one is active now.
+			if err := m.d.SavePassword(m.pendingCh[0], m.pendingCh[1], m.pendingPW); err != nil {
 				m.setStatus(true, "keychain: %v", err)
 			} else {
 				m.setStatus(false, "password saved")
@@ -365,7 +368,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		default:
 			m.setStatus(false, "password not saved")
 		}
-		m.mode, m.pendingPW = modeNormal, ""
+		m.mode, m.pendingPW, m.pendingCh = modeNormal, "", [2]string{}
 		return nil
 	}
 	switch k.String() {
@@ -483,6 +486,7 @@ func (m *Model) submit() tea.Cmd {
 		cs.sb.Append(style.Dim("> " + e.Text))
 		if m.d.SavePassword != nil && pw != "" {
 			m.mode, m.pendingPW = modeSavePassword, pw
+			m.pendingCh = [2]string{cs.ch.World, cs.ch.ID}
 			m.setStatus(false, "save password for %s in the keychain? [y/n]", cs.ch.Name)
 		}
 		return nil
@@ -504,11 +508,11 @@ func (m *Model) submit() tea.Cmd {
 		return nil
 	}
 	m.confirm = false
-	cs.in.Commit()
 	lines := strings.Split(text, "\n")
 	if cs.ch.NewlineMode == "flatten" {
 		lines = []string{strings.Join(lines, " ")}
 	}
+	secret := false
 	for _, line := range lines {
 		e, err := cs.sess.Send(line)
 		if err != nil && !isLogErr(err) {
@@ -518,7 +522,13 @@ func (m *Model) submit() tea.Cmd {
 		if err != nil {
 			m.setStatus(true, "%v", err)
 		}
+		secret = secret || e.Text != line // the session redacted a typed password
 		cs.sb.Append(style.Dim("> " + ansi.Sanitize(e.Text)))
+	}
+	if secret {
+		cs.in.CommitSecret()
+	} else {
+		cs.in.Commit()
 	}
 	cs.sb.ToBottom()
 	return nil
@@ -532,6 +542,10 @@ func isLogErr(err error) bool {
 func (m *Model) command(cs *charState, args []string) tea.Cmd {
 	switch args[0] {
 	case "/connect":
+		if cs.sess != nil && cs.state == session.Connected {
+			m.setStatus(false, "%s is already connected", cs.ch.Name)
+			return nil
+		}
 		return m.connect(cs)
 	case "/reconnect":
 		return m.connect(cs)

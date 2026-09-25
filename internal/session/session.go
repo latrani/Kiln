@@ -105,6 +105,7 @@ type Session struct {
 	mu       sync.Mutex
 	c        LineConn
 	quitting bool // user sent QUIT (or Disconnect) on the current connection
+	halt     bool // Disconnect while not connected: stop dialing
 	char     config.Character
 	redact   *regexp.Regexp // matches typed login lines; nil if no template
 }
@@ -138,12 +139,16 @@ func (s *Session) SetChar(ch config.Character) {
 	s.mu.Unlock()
 }
 
+// DefaultLoginPattern is used to spot typed passwords when a character
+// has no login template (or one without {password}).
+const DefaultLoginPattern = "connect {name} {password}"
+
 // loginPattern turns a login template like "connect {name} {password}"
 // into a regexp whose first group captures the password in a typed line.
 // Literal words match case-insensitively; {name} matches any one word.
 func loginPattern(tmpl string) *regexp.Regexp {
 	if !strings.Contains(tmpl, "{password}") {
-		return nil
+		tmpl = DefaultLoginPattern
 	}
 	var b strings.Builder
 	b.WriteString(`(?i)^\s*`)
@@ -247,18 +252,43 @@ func loginLines(ch config.Character, password string) (wire, logged string) {
 		strings.ReplaceAll(withName, "{password}", "***")
 }
 
-// Disconnect closes the current connection on purpose: the session will
-// not reconnect until Reconnect is called.
+// Disconnect closes the current connection on purpose, or stops a
+// connect attempt or backoff in progress: the session will not reconnect
+// until Reconnect is called.
 func (s *Session) Disconnect() {
 	s.mu.Lock()
 	c := s.c
 	if c != nil {
 		s.quitting = true
+	} else {
+		s.halt = true
 	}
 	s.mu.Unlock()
 	if c != nil {
 		c.Close()
+	} else {
+		s.Reconnect() // wake a backoff wait so Run sees halt
 	}
+}
+
+// takeHalt reports and clears a pending Disconnect-while-not-connected.
+func (s *Session) takeHalt() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	h := s.halt
+	s.halt = false
+	return h
+}
+
+// stayDown waits until Reconnect, discarding any Reconnect that arrived
+// earlier (e.g. /connect while already connected). It reports false if
+// ctx ended.
+func (s *Session) stayDown(ctx context.Context) bool {
+	select {
+	case <-s.kick:
+	default:
+	}
+	return s.wait(ctx, -1)
 }
 
 // Run connects and keeps reconnecting until ctx is cancelled.
@@ -267,6 +297,14 @@ func (s *Session) Run(ctx context.Context) {
 	defer close(s.events)
 	attempt := 0
 	for ctx.Err() == nil {
+		if s.takeHalt() {
+			s.sys("disconnected (quit)")
+			s.state(Disconnected, nil)
+			if !s.stayDown(ctx) {
+				return
+			}
+			continue
+		}
 		s.state(Connecting, nil)
 		c, err := s.o.Dial(ctx)
 		if err != nil {
@@ -277,7 +315,7 @@ func (s *Session) Run(ctx context.Context) {
 			if errors.As(err, &pin) {
 				s.sys("connect failed: " + err.Error())
 				s.state(Failed, err)
-				if !s.wait(ctx, -1) {
+				if !s.stayDown(ctx) {
 					return
 				}
 				continue
@@ -292,6 +330,17 @@ func (s *Session) Run(ctx context.Context) {
 			continue
 		}
 
+		if s.takeHalt() { // Disconnect arrived while dialing
+			c.Close()
+			for range c.Lines() {
+			}
+			s.sys("disconnected (quit)")
+			s.state(Disconnected, nil)
+			if !s.stayDown(ctx) {
+				return
+			}
+			continue
+		}
 		attempt = 0
 		s.setConn(c)
 		ch := s.Char()
@@ -311,7 +360,7 @@ func (s *Session) Run(ctx context.Context) {
 		if quit {
 			s.sys("disconnected (quit)")
 			s.state(Disconnected, nil)
-			if !s.wait(ctx, -1) { // stay down until Reconnect
+			if !s.stayDown(ctx) {
 				return
 			}
 			continue

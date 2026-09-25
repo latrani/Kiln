@@ -18,20 +18,11 @@ func Sanitize(s string) string {
 		c := s[i]
 		switch {
 		case c == 0x1b:
-			if i+1 < len(s) && s[i+1] == '[' {
-				j := i + 2
-				for j < len(s) && (s[j] < 0x40 || s[j] > 0x7e) {
-					j++
-				}
-				if j < len(s) && s[j] == 'm' {
-					b.WriteString(s[i : j+1])
-				}
-				i = j + 1
-				continue
+			j := skipEscape(s, i)
+			if s[i+1:min(i+2, len(s))] == "[" && s[j-1] == 'm' {
+				b.WriteString(s[i:j]) // SGR: keep
 			}
-			// Not CSI: reuse Strip's handling by skipping one sequence.
-			n := len(Strip(s[i:]))
-			i = len(s) - n
+			i = j
 		case c == '\t':
 			b.WriteString("    ")
 			i++

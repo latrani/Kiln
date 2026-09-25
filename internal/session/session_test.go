@@ -461,7 +461,7 @@ func TestTypedLoginIsRedacted(t *testing.T) {
 		{"connect {name} {password}", "connect Kit", "connect Kit"},               // no password given
 		{"connect {name} {password}", "say connect Kit pw", "say connect Kit pw"}, // not a login
 		{"co {name}={password}", "co Kit=pw", "co Kit=pw"},                        // template tokens must be whole words
-		{"", "connect Kit hunter2", "connect Kit hunter2"},                        // no template, nothing to match
+		{"", "connect Kit hunter2", "connect Kit ***"},                            // no template: default connect pattern
 	}
 	for _, c := range cases {
 		fc := newFakeConn()
@@ -599,4 +599,68 @@ func TestSetCharChangesRedaction(t *testing.T) {
 	if e, _ := s.Send("login Kit pw"); e.Text != "login Kit ***" {
 		t.Errorf("logged %q", e.Text)
 	}
+}
+
+func TestReconnectWhileConnectedThenQuitStaysDown(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	first := newFakeConn()
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Log: &memLog{},
+		Dial: func(context.Context) (LineConn, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			calls++
+			if calls == 1 {
+				return first, nil
+			}
+			return newFakeConn(), nil
+		},
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	s.Reconnect() // e.g. /connect on an already-connected character
+	s.Send("QUIT")
+	first.Close()
+	waitFor(t, s, isState(Disconnected))
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	if calls != 1 {
+		t.Errorf("redialed %d times after QUIT", calls-1)
+	}
+}
+
+func TestDisconnectDuringBackoffStops(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	s := New(Options{Char: kit, Log: &memLog{},
+		Dial: func(context.Context) (LineConn, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			calls++
+			if calls == 1 {
+				return nil, errors.New("refused")
+			}
+			return newFakeConn(), nil
+		},
+		Backoff: func(int) time.Duration { return time.Hour },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Disconnected)) // first dial failed; now in a 1h backoff
+	s.Disconnect()
+	waitFor(t, s, func(e Event) bool { return e.Kind == EventLine && e.Entry.Text == "disconnected (quit)" })
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	if calls != 1 {
+		t.Errorf("dialed %d times after Disconnect", calls)
+	}
+	mu.Unlock()
+	s.Reconnect()
+	waitFor(t, s, isState(Connected))
 }

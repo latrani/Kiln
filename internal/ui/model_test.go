@@ -463,3 +463,46 @@ func TestPasteInsertsMultiline(t *testing.T) {
 		t.Errorf("input = %q", got)
 	}
 }
+
+func TestSavePasswordAnswerBindsToPromptingCharacter(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	delete(h.pw, "fm/kit")
+	h.init()
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.typeText("s3cret")
+	h.enter()
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // click Rook mid-question
+	h.m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if h.saved["fm/kit"] != "s3cret" || h.saved["fm/rook"] != "" {
+		t.Errorf("saved = %q, want only fm/kit", h.saved)
+	}
+}
+
+func TestTypedPasswordNotInHistory(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("connect Kit hunter2")
+	h.enter()
+	h.typeText("say hi")
+	h.enter()
+	h.press(tea.KeyUp, 0)
+	h.press(tea.KeyUp, 0)
+	if v := h.m.chars["fm/kit"].in.Value(); strings.Contains(v, "hunter2") {
+		t.Errorf("history recalled %q", v)
+	}
+	if strings.Contains(h.screen(), "hunter2") {
+		t.Errorf("password on screen:\n%s", h.screen())
+	}
+}
+
+func TestConnectWhenAlreadyConnected(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("/connect")
+	h.enter()
+	if !strings.Contains(h.screen(), "already connected") {
+		t.Errorf("screen:\n%s", h.screen())
+	}
+}
