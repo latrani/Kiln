@@ -29,6 +29,11 @@ func TestRender(t *testing.T) {
 			rules.Result{Styled: true, Attention: true, Runs: []rules.Run{
 				{Start: 0, End: 5, Style: config.Style{Bold: true}, Styled: true}, {Start: 5, End: 8}}},
 			"» \x1b[1mPAGE:\x1b[0m hi\x1b[0m"},
+		{"sanitized", in("\x1b]52;c;cHduZWQ=\x07\x1b]0;title\x07hi\x1b[2J"), rules.Result{}, "hi\x1b[0m"},
+		{"spans align after sanitizing", in("\x1b]0;t\x07\tPAGE: hi"),
+			rules.Result{Styled: true, Runs: []rules.Run{
+				{Start: 0, End: 4}, {Start: 4, End: 9, Style: config.Style{Bold: true}, Styled: true}, {Start: 9, End: 12}}},
+			"    \x1b[1mPAGE:\x1b[0m hi\x1b[0m"},
 		{"bad color ignored", in("x"), rules.Result{Style: config.Style{FG: "orange"}, Styled: true}, "x\x1b[0m"},
 	}
 	for _, c := range cases {
