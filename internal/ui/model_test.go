@@ -238,7 +238,7 @@ func (h *harness) openAll() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"▾ fm", "✕ Kit", "+ Add connection", "fm/Kit · disconnected · 21:14", "│Disconnected · Enter to connect"} {
+	for _, want := range []string{"× Kit", "+ Add connection", "fm/Kit · disconnected · 21:14", "│Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -269,7 +269,7 @@ func TestAutoconnectOnlyFlaggedCharacters(t *testing.T) {
 	if got := h.conn("fm/kit").Sent(); len(got) != 1 || got[0] != "connect Kit hunter2" {
 		t.Errorf("auto-login sent %q", got)
 	}
-	if s := h.screen(); strings.Contains(s, "✕ Kit") || strings.Contains(s, "○") || !strings.Contains(s, "connected to muck.test:8888") {
+	if s := h.screen(); strings.Contains(s, "× Kit") || strings.Contains(s, "○") || !strings.Contains(s, "connected to muck.test:8888") {
 		t.Errorf("screen:\n%s", s)
 	}
 }
@@ -523,8 +523,8 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 	if got := strings.Join(h.m.order, " "); got != "fm/kit fm/rook sp/ash" {
 		t.Errorf("order = %s, want the orphan kept in alphabetical order", got)
 	}
-	if n := strings.Count(h.screen(), "▾ fm"); n != 1 {
-		t.Errorf("fm header shown %d times:\n%s", n, h.screen())
+	if n := slices.Index(sideRows(h), "fm"); n < 0 || slices.Index(sideRows(h)[n+1:], "fm") >= 0 {
+		t.Errorf("want exactly one fm header:\n%s", h.screen())
 	}
 
 	h.conn("fm/kit").Close() // server drops the connection
@@ -565,7 +565,7 @@ func TestSidebarScrolls(t *testing.T) {
 	h.openAll()
 	rows := func() []string { return strings.Split(h.screen(), "\n") }
 	side := func(y int) string { return strings.TrimSpace(strings.SplitN(rows()[y], "│", 2)[0]) }
-	if side(0) != "▾ big" || side(22) != "✕ C21" || side(23) != "▾ 9 more" {
+	if side(0) != "big" || side(22) != "× C21" || side(23) != "▼ 9 more" {
 		t.Fatalf("top of list:\n%s", h.screen())
 	}
 
@@ -573,17 +573,17 @@ func TestSidebarScrolls(t *testing.T) {
 	for range 25 {
 		h.press(tea.KeyDown, tea.ModCtrl)
 	}
-	if h.m.active != "big/c25" || side(22) != "✕ C25" || side(0) != "▴ 5 more" {
+	if h.m.active != "big/c25" || side(22) != "× C25" || side(0) != "▲ 5 more" {
 		t.Fatalf("active %s not in view:\n%s", h.m.active, h.screen())
 	}
-	if side(23) != "▾ 5 more" {
+	if side(23) != "▼ 5 more" {
 		t.Errorf("bottom row = %q", side(23))
 	}
 
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(22) != "✕ C29" || side(23) != "+ Add connection" || side(0) != "▴ 9 more" {
+	if side(22) != "× C29" || side(23) != "+ Add connection" || side(0) != "▲ 9 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -595,12 +595,12 @@ func TestSidebarScrolls(t *testing.T) {
 
 	// Clicks map through the scroll offset; the hint scrolls a page.
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft})
-	if want := "big/c" + strings.TrimPrefix(top, "✕ C"); h.m.active != want {
+	if want := "big/c" + strings.TrimPrefix(top, "× C"); h.m.active != want {
 		t.Errorf("clicked %q, active = %s", top, h.m.active)
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
-	if side(0) != "▾ big" {
-		t.Errorf("clicking ▴ should page up to the top:\n%s", h.screen())
+	if side(0) != "big" {
+		t.Errorf("clicking ▲ should page up to the top:\n%s", h.screen())
 	}
 }
 
@@ -670,9 +670,9 @@ func TestSidebarClick(t *testing.T) {
 	if h.m.active != "fm/rook" {
 		t.Errorf("active = %q", h.m.active)
 	}
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft}) // collapse fm
-	if s := h.screen(); !strings.Contains(s, "▸ fm") || strings.Contains(s, "Kit") && strings.Contains(s, "✕ Kit") {
-		t.Errorf("collapse failed:\n%s", s)
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft}) // the fm header: nothing happens
+	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" || !strings.Contains(h.screen(), "× Kit") {
+		t.Errorf("header row = %q; worlds don't collapse:\n%s", got, h.screen())
 	}
 }
 

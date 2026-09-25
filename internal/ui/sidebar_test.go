@@ -90,7 +90,7 @@ func TestSidebarBadgesAndActivity(t *testing.T) {
 	if got := strings.TrimSpace(sideRow(h, 1)); got != "Kit" {
 		t.Errorf("connected row = %q, want no badge", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 2)); got != "✕ Rook" {
+	if got := strings.TrimSpace(sideRow(h, 2)); got != "× Rook" {
 		t.Errorf("disconnected row = %q", got)
 	}
 	if got := strings.TrimSpace(sideRow(h, 3)); got != "+ Add connection" {
@@ -134,7 +134,7 @@ func TestClickXClosesAndNameDoesnt(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
-	click(badgeX, 1) // kit is connected: no ✕ to hit
+	click(badgeX, 1) // kit is connected: no × to hit
 	if h.m.chars["fm/kit"] == nil {
 		t.Fatal("clicking a connected character's badge cell closed it")
 	}
@@ -147,7 +147,7 @@ func TestClickXClosesAndNameDoesnt(t *testing.T) {
 	h.open("fm/rook")
 	click(badgeX, 2)
 	if h.m.chars["fm/rook"] != nil {
-		t.Errorf("clicking ✕ didn't close rook:\n%s", h.screen())
+		t.Errorf("clicking × didn't close rook:\n%s", h.screen())
 	}
 }
 
@@ -209,5 +209,15 @@ func TestClosingLastCharacterShowsEmptyState(t *testing.T) {
 	h.enter()
 	if s := h.screen(); !strings.Contains(s, "│"+emptyHint) || strings.Contains(s, "Kit") {
 		t.Errorf("screen:\n%s", s)
+	}
+}
+
+func TestClickingWorldHeaderDoesNothing(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for _, x := range []int{badgeX, 6, badgeX, 6} { // badge column and name column, twice (a double-click)
+		h.m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
+	}
+	if h.m.active != "fm/kit" || h.m.chars["fm/kit"] == nil {
+		t.Errorf("active = %q after clicking the world header", h.m.active)
 	}
 }

@@ -122,7 +122,7 @@ type sidebarRow struct {
 const addLabel = "+ Add connection"
 
 // badgeX is the column of a character row's connection badge; clicking a
-// ✕ there closes the character.
+// × there closes the character.
 const badgeX = 2
 
 // attentionMark prefixes the unread count when a line needed attention.
@@ -139,15 +139,13 @@ func (m *Model) sidebarRows() []sidebarRow {
 			lastWorld = w
 			rows = append(rows, sidebarRow{kind: rowWorld, world: w})
 		}
-		if !m.collapsed[w] {
-			rows = append(rows, sidebarRow{kind: rowChar, world: w, char: k})
-		}
+		rows = append(rows, sidebarRow{kind: rowChar, world: w, char: k})
 	}
 	return append(rows, sidebarRow{kind: rowAdd})
 }
 
 // sideView is the part of the sidebar that fits on screen. When the rows
-// overflow, a "▴ N more" row replaces the top row and a "▾ N more" row
+// overflow, a "▲ N more" row replaces the top row and a "▼ N more" row
 // the bottom one, counting the rows hidden past each edge.
 type sideView struct {
 	rows         []sidebarRow
@@ -227,7 +225,7 @@ func (m *Model) scrollSidebar(delta int) {
 	m.sidebarView() // clamp
 }
 
-// closable reports whether cs shows a ✕ that closes it.
+// closable reports whether cs shows a × that closes it.
 func closable(cs *charState) bool {
 	return cs.state == session.Disconnected || cs.state == session.Failed
 }
@@ -238,11 +236,7 @@ func closable(cs *charState) bool {
 func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	switch r.kind {
 	case rowWorld:
-		arrow := "▾ "
-		if m.collapsed[r.world] {
-			arrow = "▸ "
-		}
-		return bold + fitName(arrow+r.world, w) + style.Reset
+		return bold + fitName(r.world, w) + style.Reset
 	case rowAdd:
 		return style.Dim(fitName(addLabel, w))
 	}
@@ -252,7 +246,7 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	case cs.state == session.Connecting:
 		badge = "…"
 	case closable(cs):
-		badge = "✕"
+		badge = "×"
 	}
 	activity, shown := "", ""
 	if cs.unread > 0 {
