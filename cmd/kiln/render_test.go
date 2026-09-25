@@ -24,7 +24,7 @@ func TestRender(t *testing.T) {
 			"\x1b[1;38;2;255;159;67m» Mira pages: hi\x1b[0m"},
 		{"style survives server reset", in("\x1b[1mMira\x1b[0m pages"),
 			rules.Result{Style: config.Style{Italic: true}, Styled: true},
-			"\x1b[3m\x1b[1mMira\x1b[0m\x1b[3m pages\x1b[0m"},
+			"\x1b[1m\x1b[3mMira\x1b[0m\x1b[3m pages\x1b[0m"},
 		{"partial", in("PAGE: hi"),
 			rules.Result{Styled: true, Attention: true, Runs: []rules.Run{
 				{Start: 0, End: 5, Style: config.Style{Bold: true}, Styled: true}, {Start: 5, End: 8}}},
