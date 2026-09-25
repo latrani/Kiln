@@ -453,3 +453,150 @@ func containsPrefix(xs []string, prefix string) bool {
 	}
 	return false
 }
+
+func TestTypedLoginIsRedacted(t *testing.T) {
+	cases := []struct{ tmpl, typed, want string }{
+		{"connect {name} {password}", "connect Kit hunter2", "connect Kit ***"},
+		{"connect {name} {password}", "  CONNECT rook s3cr3t  ", "  CONNECT rook ***  "},
+		{"connect {name} {password}", "connect Kit", "connect Kit"},               // no password given
+		{"connect {name} {password}", "say connect Kit pw", "say connect Kit pw"}, // not a login
+		{"co {name}={password}", "co Kit=pw", "co Kit=pw"},                        // template tokens must be whole words
+		{"", "connect Kit hunter2", "connect Kit hunter2"},                        // no template, nothing to match
+	}
+	for _, c := range cases {
+		fc := newFakeConn()
+		ch := kit
+		ch.Login = c.tmpl
+		log := &memLog{}
+		s := New(Options{Char: ch, Dial: func(context.Context) (LineConn, error) { return fc, nil }, Log: log,
+			Password: func() (string, error) { return "", errors.New("none") }})
+		ctx, cancel := context.WithCancel(context.Background())
+		go s.Run(ctx)
+		waitFor(t, s, isState(Connected))
+		e, err := s.Send(c.typed)
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if e.Text != c.want {
+			t.Errorf("tmpl %q typed %q: logged %q, want %q", c.tmpl, c.typed, e.Text, c.want)
+		}
+		if sent := fc.Sent(); sent[len(sent)-1] != c.typed {
+			t.Errorf("wire = %q, want the typed line unchanged", sent)
+		}
+	}
+}
+
+func TestNeedPasswordThenLogin(t *testing.T) {
+	fc := newFakeConn()
+	log := &memLog{}
+	s := New(Options{Char: kit, Dial: func(context.Context) (LineConn, error) { return fc, nil }, Log: log})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, func(e Event) bool { return e.Kind == EventNeedPassword })
+	e, err := s.Login("hunter2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Text != "connect Kit ***" {
+		t.Errorf("logged %q", e.Text)
+	}
+	if sent := fc.Sent(); len(sent) != 1 || sent[0] != "connect Kit hunter2" {
+		t.Errorf("wire = %q", sent)
+	}
+	for _, l := range log.Texts() {
+		if strings.Contains(l, "hunter2") {
+			t.Errorf("password in log: %q", l)
+		}
+	}
+}
+
+func TestLoginWhenDisconnected(t *testing.T) {
+	s := New(Options{Char: kit, Log: &memLog{}, Dial: func(context.Context) (LineConn, error) { return newFakeConn(), nil }})
+	if _, err := s.Login("pw"); !errors.Is(err, ErrNotConnected) {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestDisconnectStaysDown(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	ch := kit
+	ch.Login = ""
+	log := &memLog{}
+	s := New(Options{Char: ch, Log: log,
+		Dial: func(context.Context) (LineConn, error) {
+			mu.Lock()
+			calls++
+			mu.Unlock()
+			return newFakeConn(), nil
+		},
+		Backoff: func(int) time.Duration { t.Error("Disconnect must not back off"); return 0 },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	s.Disconnect()
+	waitFor(t, s, isState(Disconnected))
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	if calls != 1 {
+		t.Errorf("dialed %d times", calls)
+	}
+	mu.Unlock()
+	if !contains(log.Texts(), "* disconnected (quit)") {
+		t.Errorf("log = %q", log.Texts())
+	}
+	s.Reconnect()
+	waitFor(t, s, isState(Connected))
+}
+
+// promptConn adds Prompts() to fakeConn.
+type promptConn struct {
+	*fakeConn
+	prompts chan string
+}
+
+func (p promptConn) Prompts() <-chan string { return p.prompts }
+
+func TestPromptsAreEmittedNotLogged(t *testing.T) {
+	pc := promptConn{newFakeConn(), make(chan string, 1)}
+	pc.prompts <- "Password: "
+	ch := kit
+	ch.Login = ""
+	log := &memLog{}
+	s := New(Options{Char: ch, Log: log, Dial: func(context.Context) (LineConn, error) { return pc, nil }})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	ev := waitFor(t, s, func(e Event) bool { return e.Kind == EventPrompt })
+	if ev.Entry.Text != "Password: " {
+		t.Errorf("prompt = %q", ev.Entry.Text)
+	}
+	for _, l := range log.Texts() {
+		if strings.Contains(l, "Password:") {
+			t.Errorf("prompt was logged: %q", l)
+		}
+	}
+}
+
+func TestSetCharChangesRedaction(t *testing.T) {
+	fc := newFakeConn()
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Log: &memLog{}, Dial: func(context.Context) (LineConn, error) { return fc, nil }})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	ch.Login = "login {name} {password}"
+	s.SetChar(ch)
+	if s.Char().Login != ch.Login {
+		t.Errorf("Char() not updated")
+	}
+	if e, _ := s.Send("login Kit pw"); e.Text != "login Kit ***" {
+		t.Errorf("logged %q", e.Text)
+	}
+}

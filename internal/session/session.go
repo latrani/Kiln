@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -33,9 +34,11 @@ func (s State) String() string {
 type EventKind int
 
 const (
-	EventLine     EventKind = iota // Entry is set (already logged)
-	EventState                     // State is set; Err is set for Failed
-	EventLogError                  // Err is set: writing the log failed
+	EventLine         EventKind = iota // Entry is set (already logged)
+	EventState                         // State is set; Err is set for Failed
+	EventLogError                      // Err is set: writing the log failed
+	EventPrompt                        // Entry.Text is an unterminated prompt; not logged
+	EventNeedPassword                  // auto-login needs a password; call Login
 )
 
 // Event is something the UI should hear about.
@@ -53,6 +56,12 @@ type LineConn interface {
 	Err() error
 	Send(line string) error
 	Close() error
+}
+
+// prompter is implemented by connections that report unterminated
+// prompts (*conn.Conn does).
+type prompter interface {
+	Prompts() <-chan string
 }
 
 // Appender is where entries are logged. It must be safe for concurrent
@@ -95,7 +104,9 @@ type Session struct {
 
 	mu       sync.Mutex
 	c        LineConn
-	quitting bool // user sent QUIT on the current connection
+	quitting bool // user sent QUIT (or Disconnect) on the current connection
+	char     config.Character
+	redact   *regexp.Regexp // matches typed login lines; nil if no template
 }
 
 // New returns a Session; call Run to start it.
@@ -106,7 +117,66 @@ func New(o Options) *Session {
 	if o.Backoff == nil {
 		o.Backoff = DefaultBackoff
 	}
-	return &Session{o: o, events: make(chan Event, 256), kick: make(chan struct{}, 1)}
+	s := &Session{o: o, events: make(chan Event, 256), kick: make(chan struct{}, 1)}
+	s.SetChar(o.Char)
+	return s
+}
+
+// Char returns the character's current configuration.
+func (s *Session) Char() config.Character {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.char
+}
+
+// SetChar replaces the character's configuration (e.g. after a config
+// reload). It takes effect for the next login and log redaction.
+func (s *Session) SetChar(ch config.Character) {
+	re := loginPattern(ch.Login)
+	s.mu.Lock()
+	s.char, s.redact = ch, re
+	s.mu.Unlock()
+}
+
+// loginPattern turns a login template like "connect {name} {password}"
+// into a regexp whose first group captures the password in a typed line.
+// Literal words match case-insensitively; {name} matches any one word.
+func loginPattern(tmpl string) *regexp.Regexp {
+	if !strings.Contains(tmpl, "{password}") {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString(`(?i)^\s*`)
+	for i, field := range strings.Fields(tmpl) {
+		if i > 0 {
+			b.WriteString(`\s+`)
+		}
+		switch field {
+		case "{name}":
+			b.WriteString(`\S+`)
+		case "{password}":
+			b.WriteString(`(\S+)`)
+		default:
+			b.WriteString(regexp.QuoteMeta(field))
+		}
+	}
+	b.WriteString(`\s*$`)
+	return regexp.MustCompile(b.String())
+}
+
+// redacted returns line with a typed password replaced by "***".
+func (s *Session) redacted(line string) string {
+	s.mu.Lock()
+	re := s.redact
+	s.mu.Unlock()
+	if re == nil {
+		return line
+	}
+	m := re.FindStringSubmatchIndex(line)
+	if m == nil {
+		return line
+	}
+	return line[:m[2]] + "***" + line[m[3]:]
 }
 
 // Events delivers session events. It is closed when Run returns.
@@ -143,11 +213,52 @@ func (s *Session) Send(line string) (logstore.Entry, error) {
 		s.quitting = true
 		s.mu.Unlock()
 	}
-	e := logstore.Entry{Time: s.o.Now(), Dir: logstore.Out, Text: line}
+	e := logstore.Entry{Time: s.o.Now(), Dir: logstore.Out, Text: s.redacted(line)}
 	if err := s.o.Log.Append(e); err != nil {
 		return e, &LogError{Err: err}
 	}
 	return e, nil
+}
+
+// Login sends the character's login line with password, logging it with
+// the password redacted. Use it to answer EventNeedPassword.
+func (s *Session) Login(password string) (logstore.Entry, error) {
+	s.mu.Lock()
+	c, ch := s.c, s.char
+	s.mu.Unlock()
+	if c == nil {
+		return logstore.Entry{}, ErrNotConnected
+	}
+	wire, logged := loginLines(ch, password)
+	if err := c.Send(wire); err != nil {
+		return logstore.Entry{}, err
+	}
+	e := logstore.Entry{Time: s.o.Now(), Dir: logstore.Out, Text: logged}
+	if err := s.o.Log.Append(e); err != nil {
+		return e, &LogError{Err: err}
+	}
+	return e, nil
+}
+
+// loginLines returns the login line to send and the redacted one to log.
+func loginLines(ch config.Character, password string) (wire, logged string) {
+	withName := strings.ReplaceAll(ch.Login, "{name}", ch.Name)
+	return strings.ReplaceAll(withName, "{password}", password),
+		strings.ReplaceAll(withName, "{password}", "***")
+}
+
+// Disconnect closes the current connection on purpose: the session will
+// not reconnect until Reconnect is called.
+func (s *Session) Disconnect() {
+	s.mu.Lock()
+	c := s.c
+	if c != nil {
+		s.quitting = true
+	}
+	s.mu.Unlock()
+	if c != nil {
+		c.Close()
+	}
 }
 
 // Run connects and keeps reconnecting until ctx is cancelled.
@@ -183,7 +294,8 @@ func (s *Session) Run(ctx context.Context) {
 
 		attempt = 0
 		s.setConn(c)
-		s.sys(fmt.Sprintf("connected to %s:%d", s.o.Char.Host, s.o.Char.Port))
+		ch := s.Char()
+		s.sys(fmt.Sprintf("connected to %s:%d", ch.Host, ch.Port))
 		s.state(Connected, nil)
 		s.login(c)
 		s.pump(ctx, c)
@@ -221,8 +333,14 @@ func (s *Session) Run(ctx context.Context) {
 
 // pump forwards lines until the connection ends or ctx is cancelled.
 func (s *Session) pump(ctx context.Context, c LineConn) {
+	var prompts <-chan string // nil (never ready) unless c reports prompts
+	if p, ok := c.(prompter); ok {
+		prompts = p.Prompts()
+	}
 	for {
 		select {
+		case p := <-prompts:
+			s.emit(Event{Kind: EventPrompt, Entry: logstore.Entry{Time: s.o.Now(), Dir: logstore.In, Text: p}})
 		case <-ctx.Done():
 			c.Close()
 			for range c.Lines() { // drain so the reader goroutine exits
@@ -238,31 +356,30 @@ func (s *Session) pump(ctx context.Context, c LineConn) {
 }
 
 // login sends the auto-login line. The password is substituted only into
-// what goes over the wire; the log gets the template with "***".
+// what goes over the wire; the log gets the template with "***". With no
+// saved password it emits EventNeedPassword so the UI can ask.
 func (s *Session) login(c LineConn) {
-	tmpl := s.o.Char.Login
-	if tmpl == "" {
+	ch := s.Char()
+	if ch.Login == "" {
 		return
 	}
-	withName := strings.ReplaceAll(tmpl, "{name}", s.o.Char.Name)
-	wire := withName
-	if strings.Contains(tmpl, "{password}") {
-		var pw string
+	pw := ""
+	if strings.Contains(ch.Login, "{password}") {
 		var err error
 		if s.o.Password != nil {
 			pw, err = s.o.Password()
 		}
 		if s.o.Password == nil || err != nil || pw == "" {
-			s.sys(fmt.Sprintf("no saved password for %s/%s; skipping auto-login (run: kiln passwd %s %s)",
-				s.o.Char.World, s.o.Char.ID, s.o.Char.World, s.o.Char.ID))
+			s.sys(fmt.Sprintf("no saved password for %s/%s", ch.World, ch.ID))
+			s.emit(Event{Kind: EventNeedPassword})
 			return
 		}
-		wire = strings.ReplaceAll(withName, "{password}", pw)
 	}
+	wire, logged := loginLines(ch, pw)
 	if err := c.Send(wire); err != nil {
 		return // the read side will notice the dead connection
 	}
-	s.logLine(logstore.Out, strings.ReplaceAll(withName, "{password}", "***"))
+	s.logLine(logstore.Out, logged)
 }
 
 // wait sleeps for d (forever if d < 0) or until Reconnect or ctx ends.
