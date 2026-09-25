@@ -68,29 +68,36 @@ func TestPickerFilter(t *testing.T) {
 	}
 }
 
-func TestPickerArrowsSkipHeaders(t *testing.T) {
+func TestPickerArrows(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
 	h.press('o', tea.ModCtrl)
 	if h.m.picker.sel != "fm/rook" {
 		t.Fatalf("sel = %q, want the first character", h.m.picker.sel)
 	}
-	h.press(tea.KeyDown, 0)
-	h.press(tea.KeyDown, 0)
+	for range 3 { // fm's add row, sp's header, Ash
+		h.press(tea.KeyDown, 0)
+	}
 	if h.m.picker.sel != "sp/ash" {
-		t.Errorf("sel = %q after ↓↓", h.m.picker.sel)
-	}
-	for range 3 {
-		h.press(tea.KeyDown, 0) // clamps at the last
-	}
-	if h.m.picker.sel != addWorldSel {
 		t.Errorf("sel = %q after ↓↓↓", h.m.picker.sel)
 	}
 	for range 4 {
-		h.press(tea.KeyUp, 0) // through the add rows
+		h.press(tea.KeyDown, 0) // clamps at the last
+	}
+	if h.m.picker.sel != addWorldSel {
+		t.Errorf("sel = %q after ↓↓↓↓", h.m.picker.sel)
+	}
+	for range 5 {
+		h.press(tea.KeyUp, 0) // through the add rows and a header
 	}
 	if h.m.picker.sel != "fm/rook" {
-		t.Errorf("sel = %q after ↑↑↑↑", h.m.picker.sel)
+		t.Errorf("sel = %q after ↑×5", h.m.picker.sel)
 	}
+	h.press(tea.KeyUp, 0)
+	h.press(tea.KeyUp, 0) // clamps at the first header
+	if h.m.picker.sel != worldSel("fm") {
+		t.Errorf("sel = %q, want fm's header", h.m.picker.sel)
+	}
+	h.press(tea.KeyDown, 0)
 	h.typeText("a") // "a" matches Ash only (not Rook): the highlight follows
 	if h.m.picker.sel != "sp/ash" {
 		t.Errorf("sel = %q after filtering", h.m.picker.sel)
@@ -236,8 +243,9 @@ func TestPickerAddRows(t *testing.T) {
 		t.Errorf("sel = %q, want the first character", h.m.picker.sel)
 	}
 	h.press(tea.KeyUp, 0)
+	h.press(tea.KeyUp, 0) // past sp's header
 	if h.m.picker.sel != addCharSel("fm") {
-		t.Errorf("sel = %q after ↑, want fm's add row", h.m.picker.sel)
+		t.Errorf("sel = %q after ↑↑, want fm's add row", h.m.picker.sel)
 	}
 	h.typeText("zzz")
 	if got := strings.Join(sideRows(h), "|"); got != addWorldLabel {
@@ -277,7 +285,8 @@ func TestPickerAddWorld(t *testing.T) {
 	h.typeText("88a99") // so is the letter
 	h.press(tea.KeyTab, 0)
 	h.press(' ', 0)
-	h.enter() // to [ Save ]
+	h.press(tea.KeyDown, 0) // past the collapsed extras
+	h.press(tea.KeyDown, 0) // to [ Save ]
 	h.enter()
 	if h.m.picker == nil || h.m.picker.edit != nil {
 		t.Fatalf("saving should go back to the picker:\n%s", h.screen())
@@ -311,7 +320,8 @@ func TestPickerAddWorldErrorKeepsEditor(t *testing.T) {
 	h.press(tea.KeyTab, 0)
 	h.typeText("23")
 	h.press(tea.KeyTab, 0)
-	h.enter() // to [ Save ]
+	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // to [ Save ]
 	h.enter()
 	if h.m.picker.edit == nil || !strings.Contains(h.screen(), "already exists") {
 		t.Errorf("a taken id should keep the editor open and say why:\n%s", h.screen())
@@ -362,9 +372,9 @@ func TestPickerClickAddRows(t *testing.T) {
 	if e := h.m.picker.edit; e == nil || e.world != "" {
 		t.Fatalf("clicking %s didn't open the world editor", addWorldLabel)
 	}
-	click(0) // a header leaves the editor
-	if h.m.picker == nil || h.m.picker.edit != nil {
-		t.Error("clicking a header should close the editor, not the picker")
+	click(0) // a header opens its world's editor instead
+	if e := h.m.picker.edit; e == nil || e.kind != editWorld || e.world != "fm" {
+		t.Error("clicking a header should open that world's editor")
 	}
 }
 

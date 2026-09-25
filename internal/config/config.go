@@ -177,12 +177,10 @@ var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 // Load reads and resolves the config directory. config.toml and the
 // worlds/ and packs/ directories are all optional.
 func Load(dir string) (*Config, error) {
-	var g globalFile
-	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
+	g, base, err := loadGlobal(dir)
+	if err != nil {
 		return nil, err
 	}
-	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false), LocalEcho: ptr(false)}
-	base.overlay(g.Defaults)
 
 	worldPaths, err := filepath.Glob(filepath.Join(dir, "worlds", "*.toml"))
 	if err != nil {
@@ -234,14 +232,36 @@ func Load(dir string) (*Config, error) {
 	return cfg, nil
 }
 
+// loadGlobal reads config.toml, and the settings every world starts
+// from: the built-in defaults under its [defaults].
+func loadGlobal(dir string) (globalFile, settings, error) {
+	var g globalFile
+	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
+		return g, settings{}, err
+	}
+	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false), LocalEcho: ptr(false)}
+	base.overlay(g.Defaults)
+	return g, base, nil
+}
+
 func loadWorld(dir, path string, base settings, packs map[string]Rules) (World, error) {
+	return loadWorldData(dir, path, nil, base, packs)
+}
+
+// loadWorldData is loadWorld with the file's contents given as data,
+// or read from path when data is nil.
+func loadWorldData(dir, path string, data []byte, base settings, packs map[string]Rules) (World, error) {
 	id := strings.TrimSuffix(filepath.Base(path), ".toml")
 	rel := filepath.Join("worlds", filepath.Base(path))
 	if !idRE.MatchString(id) {
 		return World{}, fmt.Errorf("%s: world id %q may only use letters, digits, _ and -", rel, id)
 	}
 	var wf worldFile
-	if err := decodeFile(path, &wf, false); err != nil {
+	if data == nil {
+		if err := decodeFile(path, &wf, false); err != nil {
+			return World{}, err
+		}
+	} else if err := decodeBytes(path, data, &wf); err != nil {
 		return World{}, err
 	}
 	if wf.Host == "" {
@@ -364,6 +384,11 @@ func decodeFile(path string, v any, optional bool) error {
 	if err != nil {
 		return err
 	}
+	return decodeBytes(path, b, v)
+}
+
+// decodeBytes is decodeFile for contents already read from path.
+func decodeBytes(path string, b []byte, v any) error {
 	md, err := toml.Decode(string(b), v)
 	if err != nil {
 		return fmt.Errorf("%s: %w", filepath.Base(path), err)

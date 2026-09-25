@@ -234,6 +234,9 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 		SavePassword: func(store, world, char, password string) error {
 			return secrets.Open(store, dataDir).Set(world, char, password)
 		},
+		DeletePassword: func(store, world, char string) error {
+			return secrets.Open(store, dataDir).Delete(world, char)
+		},
 		Changes: watcher.Changes(),
 		OpenURL: openURL,
 	}, cfg)

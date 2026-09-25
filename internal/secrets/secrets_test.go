@@ -25,6 +25,18 @@ func roundTrip(t *testing.T, s Store) {
 	if _, err := s.Get("fm", "fox"); err != ErrNotFound {
 		t.Errorf("other character = %v, want ErrNotFound", err)
 	}
+	if err := s.Delete("fm", "kit"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Get("fm", "kit"); err != ErrNotFound {
+		t.Errorf("Get after Delete = %v, want ErrNotFound", err)
+	}
+	if pw, _ := s.Get("fm", "rook"); pw != "swordfish" {
+		t.Error("Delete took another character's password")
+	}
+	if err := s.Delete("fm", "kit"); err != nil {
+		t.Errorf("deleting again = %v, want nil", err)
+	}
 }
 
 func TestKeychainRoundTrip(t *testing.T) {
@@ -54,5 +66,8 @@ func TestNoneSavesNothing(t *testing.T) {
 	}
 	if _, err := s.Get("fm", "kit"); err != ErrNotFound {
 		t.Errorf("Get = %v, want ErrNotFound", err)
+	}
+	if err := s.Delete("fm", "kit"); err != nil {
+		t.Errorf("Delete = %v", err)
 	}
 }

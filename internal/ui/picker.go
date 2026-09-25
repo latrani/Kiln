@@ -1,10 +1,7 @@
 package ui
 
 import (
-	"errors"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -16,11 +13,8 @@ import (
 // pickerHint follows the filter in the input area.
 const pickerHint = "Enter to connect · Esc to close"
 
-// Hints for the editors that add a world or a character.
-const (
-	addWorldHint = "Esc to cancel"
-	addCharHint  = "Enter to connect · Esc to cancel"
-)
+// addCharHint is the hint for the editor that adds a character.
+const addCharHint = "Enter to connect · Esc to cancel"
 
 // The picker's add rows, and their selection keys. Neither key can be a
 // character's, which always has a "/".
@@ -31,6 +25,10 @@ const (
 )
 
 func addCharSel(world string) string { return "+" + world }
+
+// worldSel is the selection key of world's header row, which opens the
+// world's editor.
+func worldSel(world string) string { return "=" + world }
 
 // browseBlocksPicker is the status when the picker can't open because
 // browse mode has the pane. Short, so it fits after browse mode's
@@ -47,13 +45,7 @@ const questionBlocksPicker = "Answer the question first"
 type picker struct {
 	form *form
 	sel  string  // selection key of the highlighted row (see selKey)
-	edit *editor // non-nil while adding a world or character
-}
-
-// editor is the form for a new world, or a new character in world.
-type editor struct {
-	form  *form
-	world string // "" for a new world
+	edit *editor // non-nil while adding or editing a world or character
 }
 
 // selKey is what picker.sel holds when r is highlighted; "" for a row
@@ -62,6 +54,8 @@ func selKey(r sidebarRow) string {
 	switch r.kind {
 	case rowChar:
 		return r.char
+	case rowWorld:
+		return worldSel(r.world)
 	case rowAddChar:
 		return addCharSel(r.world)
 	case rowAddWorld:
@@ -207,80 +201,21 @@ func (m *Model) pick(k string) tea.Cmd {
 }
 
 // choose acts on the picker row with selection key sel: it connects a
-// character, or opens an editor for an add row.
+// character, or opens an editor for a world or an add row.
 func (m *Model) choose(sel string) tea.Cmd {
 	switch {
+	case strings.HasPrefix(sel, "="):
+		m.openWorldEditor(strings.TrimPrefix(sel, "="))
 	case sel == addWorldSel:
-		world, host, port := textField("World"), textField("Host"), textField("Port")
-		world.accept = onlyMatching(worldIDChar, "a world id can only use letters, digits, _ and -")
-		host.accept = func(s string) error {
-			if strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r > '~' }) {
-				return errors.New("a host can't have spaces")
-			}
-			return nil
-		}
-		port.accept = onlyMatching(portChar, "a port is a number")
-		m.picker.edit = &editor{form: newForm(addWorldHint, world, host, port, toggleField("TLS"), buttonField("Save"))}
+		m.openWorldEditor("")
 	case strings.HasPrefix(sel, "+"):
 		name := textField("Name")
 		name.accept = config.NameChars
-		m.picker.edit = &editor{form: newForm(addCharHint, name), world: strings.TrimPrefix(sel, "+")}
+		m.picker.edit = &editor{form: newForm(addCharHint, name), kind: addChar, world: strings.TrimPrefix(sel, "+")}
 	default:
 		return m.pick(sel)
 	}
 	return nil
-}
-
-var (
-	worldIDChar = regexp.MustCompile(`^[A-Za-z0-9_-]*$`)
-	portChar    = regexp.MustCompile(`^[0-9]{0,5}$`)
-)
-
-// onlyMatching accepts what re matches, and otherwise says why.
-func onlyMatching(re *regexp.Regexp, why string) func(string) error {
-	return func(s string) error {
-		if !re.MatchString(s) {
-			return errors.New(why)
-		}
-		return nil
-	}
-}
-
-// editorKey handles a key while an editor is open over the picker.
-func (m *Model) editorKey(k tea.KeyPressMsg) tea.Cmd {
-	e := m.picker.edit
-	switch k.String() {
-	case "esc", "ctrl+c":
-		m.picker.edit = nil
-	case "enter":
-		switch {
-		case e.form.key(k): // moved to the next field
-		case e.world == "":
-			m.saveWorld()
-		default:
-			return m.saveCharacter()
-		}
-	default:
-		e.form.key(k)
-	}
-	return nil
-}
-
-// saveWorld writes the world editor's world, then highlights its row
-// for adding a character. A problem is shown in the editor, which stays.
-func (m *Model) saveWorld() {
-	f := m.picker.edit.form
-	port, _ := strconv.Atoi(f.value(2))
-	id := f.value(0)
-	if err := config.AddWorld(m.d.ConfigDir, id, f.value(1), port, f.on(3)); err != nil {
-		f.reject = err.Error()
-		return
-	}
-	m.picker.edit = nil
-	m.picker.form.fields[0].in.SetValue("") // so the new world is listed
-	m.reloadNow()
-	m.picker.sel = addCharSel(id)
-	m.fixPick()
 }
 
 // saveCharacter writes the character editor's character, then opens and
@@ -310,6 +245,13 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 		m.closePicker()
 	case "enter":
 		return m.choose(m.picker.sel)
+	case openEditorKey:
+		switch sel := m.picker.sel; {
+		case strings.HasPrefix(sel, "="):
+			m.openWorldEditor(strings.TrimPrefix(sel, "="))
+		case strings.Contains(sel, "/"):
+			m.openCharEditor(sel)
+		}
 	case "up":
 		m.movePick(-1)
 	case "down":
@@ -332,6 +274,9 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 	var line string
 	switch r.kind {
 	case rowWorld:
+		if selKey(r) == m.picker.sel {
+			return reverse + bold + fitName(r.world, w) + style.Reset
+		}
 		return bold + fitName(r.world, w) + style.Reset
 	case rowAddChar:
 		line = fitName("  "+addCharLabel, w)

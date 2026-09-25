@@ -45,10 +45,16 @@ func (m *Model) layout() layout {
 	l.rw = max(1, m.width-l.sw-1)
 	cs := m.cur()
 	if rows, row, col, ok := m.prompt(cs); ok {
+		// A tall form gets up to half the screen, scrolled to its focus.
+		maxP, top := max(3, m.height/2), 0
+		if len(rows) > maxP {
+			top = min(max(0, row-maxP+1), len(rows)-maxP)
+			rows = rows[top : top+maxP]
+		}
 		for _, r := range rows {
 			l.inRows = append(l.inRows, fit(r, l.rw))
 		}
-		l.curRow, l.curCol, l.prompt = row, min(col, l.rw-1), true
+		l.curRow, l.curCol, l.prompt = row-top, min(col, l.rw-1), true
 	} else {
 		limit, flatten := 0, false
 		if cs != nil {
