@@ -42,11 +42,14 @@ type Match struct {
 	Pattern string   `toml:"pattern"`
 }
 
-// HighlightRule styles matching lines and optionally flags them for attention.
+// HighlightRule styles matching lines and optionally flags them for
+// attention. Scope "match" styles only the matched text (see
+// rules.Apply); "" or "line" styles the whole line.
 type HighlightRule struct {
-	Match     Match `toml:"match"`
-	Style     Style `toml:"style"`
-	Attention bool  `toml:"attention"`
+	Match     Match  `toml:"match"`
+	Style     Style  `toml:"style"`
+	Attention bool   `toml:"attention"`
+	Scope     string `toml:"scope"`
 }
 
 // Rules is the rule set carried by packs, worlds, and characters.
@@ -310,6 +313,9 @@ func validate(ch Character) error {
 		}
 		if _, err := regexp.Compile(r.Match.Pattern); err != nil {
 			return fmt.Errorf("highlight rule %d: %w", i+1, err)
+		}
+		if r.Scope != "" && r.Scope != "line" && r.Scope != "match" {
+			return fmt.Errorf(`highlight rule %d: scope must be "line" or "match"`, i+1)
 		}
 	}
 	return nil

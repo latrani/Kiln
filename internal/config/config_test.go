@@ -126,6 +126,7 @@ func TestLoadErrors(t *testing.T) {
 		{"bad trust", "host = \"h\"\nport = 1\ntls_trust = \"yolo\"\n", "tls_trust"},
 		{"bad newline mode", "host = \"h\"\nport = 1\nnewline_mode = \"x\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "newline_mode"},
 		{"bad char id", "host = \"h\"\nport = 1\n[[characters]]\nid = \"a/b\"\nname = \"X\"\n", "id may only use"},
+		{"bad scope", "host = \"h\"\nport = 1\n[[highlight]]\nmatch = { pattern = 'x' }\nscope = \"word\"\n[[characters]]\nname = \"Kit\"\n", `highlight rule 1: scope must be "line" or "match"`},
 		{"name needs an id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Big Kit\"\n", "set id"},
 		{"duplicate id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Kit\"\n[[characters]]\nid = \"kit\"\nname = \"Other\"\n", "used by another character"},
 	}
@@ -281,5 +282,38 @@ name = "Ash"
 	}
 	if ash, _ := cfg.Find("w", "Ash"); len(ash.Rules.Highlight) != 0 {
 		t.Errorf("rule leaked to the next character: %+v", ash.Rules)
+	}
+}
+
+func TestHighlightScope(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"worlds/fm.toml": `host = "h"
+port = 1
+
+[[highlight]]
+match = { tags = ["page"] }
+scope = "match"
+
+[[highlight]]
+match = { tags = ["page"] }
+scope = "line"
+
+[[highlight]]
+match = { tags = ["page"] }
+
+[[characters]]
+name = "Kit"
+`})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "Kit")
+	var got []string
+	for _, r := range kit.Rules.Highlight {
+		got = append(got, r.Scope)
+	}
+	if want := []string{"match", "line", ""}; !reflect.DeepEqual(got, want) {
+		t.Errorf("scopes = %q, want %q", got, want)
 	}
 }
