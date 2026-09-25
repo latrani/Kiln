@@ -83,7 +83,7 @@ newline_mode = "batch"          # "batch" | "flatten"
 host = "furrymuck.com"
 port = 8899
 tls = true
-tls_verify = false              # self-signed certs are the common case on MUCKs
+tls_trust = "pin"               # "pin" (default, trust-on-first-use) | "ca"
 login = "connect {name} {password}"   # inherited by every character
 use = ["fuzzball"]              # packs, applied in order
 
@@ -125,6 +125,11 @@ Contains only `[[classify]]` and `[[highlight]]` arrays. A pack is the unit peop
 - If a file fails to parse, Kiln keeps the last good config and shows the error in the statusline.
 - In-client conveniences (e.g. "highlight selected text") write to the relevant world file.
 
+### TLS trust
+
+- **`pin` (default):** trust-on-first-use. On the first TLS connect, the server certificate's SHA-256 fingerprint is saved to `~/.local/share/kiln/known_hosts`, silently. After that, a matching cert connects normally and a mismatch refuses to connect. Self-signed certs work with no configuration and no warnings.
+- **`ca`:** standard CA chain verification, for servers with real certificates.
+
 ### Secrets
 
 Passwords are never stored in config. They live in the OS keychain, keyed by world + character. If an entry is missing, Kiln prompts for it with masked input and then offers to save it.
@@ -164,7 +169,7 @@ Passwords are never stored in config. They live in the OS keychain, keyed by wor
 │   ○ Ash     │                        ▼ 12 new  │
 │             ├──────────────────────────────────┤
 │             │ > :grins, then leans on the      │
-│             │   counter.                 1980B │
+│             │   counter.                       │
 │             ├──────────────────────────────────┤
 │             │ FurryMUCK/Kit 🔒 · connected·21:14│
 └─────────────┴──────────────────────────────────┘
@@ -200,7 +205,7 @@ The log browser is a toggle on the scrollback itself, not a separate screen.
 - **Newline mode** (configurable per world or character):
   - `batch` (default): each hard line is sent as a separate command.
   - `flatten`: newlines are replaced with spaces and sent as one line.
-- **Buffer-bust guard:** each line's UTF-8 **byte** length is checked against `max_line_bytes`. A byte counter appears as a line approaches the limit, and over-limit lines are flagged red. Sending anything over the limit requires confirmation.
+- **Buffer-bust guard:** each line's UTF-8 **byte** length is checked against `max_line_bytes`. There is no counter. Text past the limit is highlighted red *from the exact cut point*, so you can see where the server would truncate and split the line there with a newline (which `batch` mode sends as separate commands). Sending while any line is over the limit requires confirmation.
 - Drafts and history are kept per character. Switching characters preserves the half-written draft with its character.
 
 ### Statusline
@@ -209,7 +214,7 @@ Shows the active world/character, a TLS indicator (🔒), the connection state, 
 
 ## 7. Protocol scope (v1)
 
-- **In:** TLS; telnet NAWS, CHARSET (UTF-8), and keepalive; auto-login; auto-reconnect with backoff (1s → 60s cap) plus a manual `/reconnect` that skips the wait; MCP minimal support, meaning `#$#` lines are swallowed and not displayed.
+- **In:** TLS with cert pinning; telnet NAWS, CHARSET (UTF-8), and keepalive; auto-login; auto-reconnect with backoff (1s → 60s cap) plus a manual `/reconnect` that skips the wait; MCP minimal support, meaning `#$#` lines are swallowed and not displayed.
 - **Out:** GMCP, MSDP, MXP, full MCP packages (e.g. `simpleedit`).
 
 ## 8. Error handling
@@ -219,7 +224,7 @@ The principle is: never crash, always surface the problem.
 | Condition | Behavior |
 |---|---|
 | Connection drop | A `*` sys line, a `✕` badge, and backoff reconnect |
-| TLS verify failure | Connection refused with a clear message pointing to `tls_verify = false` |
+| Pinned cert mismatch | Connection refused with the old and new fingerprints shown; `/trust` accepts the new cert and re-pins it |
 | Config parse error | Keep the last good config and show the error in the statusline |
 | Log write failure | A persistent statusline warning; the session continues |
 | Missing keychain entry | Masked password prompt, then an offer to save it |
@@ -228,7 +233,8 @@ The principle is: never crash, always surface the problem.
 
 - **Pure packages** (`ansi`, `classify`, `rules`, `logstore` format round-trip, `config` merge/inheritance): Go table-driven tests.
 - **`conn`:** an in-process fake telnet server covering negotiation, MCP swallowing, charset, and reconnect.
-- **`ui`:** `teatest` golden snapshots of the layout, input growth, the byte counter, and the new-output pill.
+- **`conn`, TLS:** first-use pinning, a matching reconnect, a mismatch refusal, and `/trust`.
+- **`ui`:** `teatest` golden snapshots of the layout, input growth, the over-limit highlight, and the new-output pill.
 
 ## 10. Deferred (not v1)
 
