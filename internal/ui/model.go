@@ -637,14 +637,26 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		cs.in.Left()
 	case "right":
 		cs.in.Right()
+	case "ctrl+left", "alt+left", "alt+b":
+		cs.in.WordLeft()
+	case "ctrl+right", "alt+right", "alt+f":
+		cs.in.WordRight()
 	case "home", "ctrl+a":
 		cs.in.Home()
 	case "end", "ctrl+e":
 		cs.in.End()
 	case "backspace":
 		cs.in.Backspace()
-	case "delete":
+	case "delete", "ctrl+d":
 		cs.in.Delete()
+	case "ctrl+w", "alt+backspace", "ctrl+backspace":
+		cs.in.DeleteWordBack()
+	case "alt+delete", "ctrl+delete", "alt+d":
+		cs.in.DeleteWordForward()
+	case "ctrl+u":
+		cs.in.KillToStart()
+	case "ctrl+k":
+		cs.in.KillToEnd()
 	default:
 		if k.Text != "" && k.Mod&(tea.ModCtrl|tea.ModAlt) == 0 {
 			cs.in.InsertText(k.Text)
@@ -876,7 +888,14 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) {
 		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
 		return
 	}
-	if cs := m.cur(); cs != nil && cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {
+	cs := m.cur()
+	if cs == nil {
+		return
+	}
+	if cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {
 		cs.sb.ToBottom()
+	}
+	if y := msg.Y - l.sbH - 1; y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+		cs.in.Click(msg.X-l.sw-3, l.inTop+y) // past the separator and gutter
 	}
 }

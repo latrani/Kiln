@@ -91,12 +91,18 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 |---|---|
 | `Enter` | Send |
 | `Shift+Enter` (or `Alt+Enter`) | New line in the input box |
-| `↑` / `↓` | Move between lines, or recall input history |
+| `↑` / `↓` | Move between rows, or recall input history from the top or bottom row |
+| `Ctrl+←` / `Ctrl+→` (or `Alt`/`Option`) | Move by word |
+| `Home` / `End` (or `Ctrl+A` / `Ctrl+E`) | Start or end of the line |
+| `Ctrl+W` (or `Alt+Backspace`) / `Alt+Delete` | Delete the word before or after the cursor |
+| `Ctrl+U` / `Ctrl+K` | Delete to the start or end of the line |
 | `Ctrl+↑` / `Ctrl+↓` | Switch character |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
 | `Ctrl+B` | Open browse mode |
 | `Esc` | Skip the login prompt |
 | `Ctrl+C` | Clear the input, or quit if it's empty |
+
+Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`.
 
 Click a character in the sidebar to switch to it, or a world header to collapse it. `●` means something needs your attention (a page or whisper, by default), `○` means connected, and `✕` means disconnected. The number is unread lines.
 

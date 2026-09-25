@@ -780,3 +780,14 @@ func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
 		t.Errorf("day dividers = %v, want one per day", dividers)
 	}
 }
+
+func TestClickPlacesInputCursor(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("hello")
+	l := h.m.layout()
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 3 + 2, Y: l.sbH + 1, Button: tea.MouseLeft})
+	h.typeText("^")
+	if got := h.m.cur().in.Value(); got != "he^llo" {
+		t.Errorf("input = %q, want the cursor where clicked", got)
+	}
+}
