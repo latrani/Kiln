@@ -2,10 +2,15 @@ package ui
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 
+	xansi "github.com/charmbracelet/x/ansi"
+
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/style"
 )
 
 // compareChars orders characters alphabetically, ignoring case: by world
@@ -95,4 +100,176 @@ func (m *Model) close(k string) {
 	if len(m.order) > 0 {
 		m.switchTo(m.order[min(i, len(m.order)-1)])
 	}
+}
+
+// rowKind says what a sidebar row is. #41 adds rows for adding a
+// character or a world to the picker.
+type rowKind int
+
+const (
+	rowWorld rowKind = iota // a world header
+	rowChar                 // a character
+	rowAdd                  // "+ Add connection"
+)
+
+type sidebarRow struct {
+	kind  rowKind
+	world string
+	char  string // character key, for rowChar
+}
+
+// addLabel is the sidebar's last row.
+const addLabel = "+ Add connection"
+
+// badgeX is the column of a character row's connection badge; clicking a
+// ✕ there closes the character.
+const badgeX = 2
+
+// attentionMark prefixes the unread count when a line needed attention.
+var attentionMark = style.SGR(config.HighlightStyle) + "●" + style.Reset
+
+// sidebarRows lists the open characters under their worlds, then the
+// add-connection row.
+func (m *Model) sidebarRows() []sidebarRow {
+	var rows []sidebarRow
+	lastWorld := ""
+	for _, k := range m.order {
+		w := m.chars[k].ch.World
+		if w != lastWorld {
+			lastWorld = w
+			rows = append(rows, sidebarRow{kind: rowWorld, world: w})
+		}
+		if !m.collapsed[w] {
+			rows = append(rows, sidebarRow{kind: rowChar, world: w, char: k})
+		}
+	}
+	return append(rows, sidebarRow{kind: rowAdd})
+}
+
+// sideView is the part of the sidebar that fits on screen. When the rows
+// overflow, a "▴ N more" row replaces the top row and a "▾ N more" row
+// the bottom one, counting the rows hidden past each edge.
+type sideView struct {
+	rows         []sidebarRow
+	top, avail   int // first row shown; rows shown between the hints
+	above, below bool
+}
+
+// at maps a screen row to a sidebar row, or to a hint: -1 above, 1 below.
+func (sv sideView) at(y int) (*sidebarRow, int) {
+	if sv.above {
+		if y == 0 {
+			return nil, -1
+		}
+		y--
+	}
+	if y < 0 || y >= sv.avail {
+		if sv.below && y == sv.avail {
+			return nil, 1
+		}
+		return nil, 0
+	}
+	if i := sv.top + y; i < len(sv.rows) {
+		return &sv.rows[i], 0
+	}
+	return nil, 0
+}
+
+// sidebarView lays the sidebar out for the screen height. It scrolls the
+// active character into view when it changes, and otherwise keeps the
+// position the mouse wheel left.
+func (m *Model) sidebarView() sideView {
+	sv := sideView{rows: m.sidebarRows()}
+	h := max(1, m.height)
+	total := len(sv.rows)
+	if total <= h {
+		m.sideTop = 0
+		sv.avail = total
+		return sv
+	}
+	fit := func(top int) sideView {
+		v := sv
+		v.top = min(max(0, top), total-h+1) // at the end only the top hint is shown
+		v.above = v.top > 0
+		v.avail = h
+		if v.above {
+			v.avail--
+		}
+		if v.top+v.avail < total {
+			v.below = true
+			v.avail--
+		}
+		return v
+	}
+	sv = fit(m.sideTop)
+	if m.active != m.sideShown {
+		m.sideShown = m.active
+		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool { return r.kind == rowChar && r.char == m.active }); a >= 0 {
+			if a < sv.top {
+				sv = fit(a - 1) // show the row above too (often its world header)
+			}
+			for a >= sv.top+sv.avail {
+				sv = fit(sv.top + 1)
+			}
+		}
+	}
+	m.sideTop = sv.top
+	return sv
+}
+
+// scrollSidebar moves the sidebar by delta rows.
+func (m *Model) scrollSidebar(delta int) {
+	m.sideTop += delta
+	m.sidebarView() // clamp
+}
+
+// closable reports whether cs shows a ✕ that closes it.
+func closable(cs *charState) bool {
+	return cs.state == session.Disconnected || cs.state == session.Failed
+}
+
+// sidebarLine draws one row: the connection badge on the left (blank
+// when connected), and activity (unread count, "●" for attention) on the
+// right, which the name gives way to.
+func (m *Model) sidebarLine(r sidebarRow, w int) string {
+	switch r.kind {
+	case rowWorld:
+		arrow := "▾ "
+		if m.collapsed[r.world] {
+			arrow = "▸ "
+		}
+		return bold + fitName(arrow+r.world, w) + style.Reset
+	case rowAdd:
+		return style.Dim(fitName(addLabel, w))
+	}
+	cs := m.chars[r.char]
+	badge := " "
+	switch {
+	case cs.state == session.Connecting:
+		badge = "…"
+	case closable(cs):
+		badge = "✕"
+	}
+	activity, shown := "", ""
+	if cs.unread > 0 {
+		activity = fmt.Sprintf(" %d", cs.unread)
+		shown = activity
+		if cs.attention {
+			activity = " ●" + activity
+			shown = " " + attentionMark + shown
+		}
+	}
+	line := fitName("  "+badge+" "+cs.ch.Name, w-xansi.StringWidth(activity)) + shown
+	if r.char == m.active {
+		return reverse + line + style.Reset
+	}
+	return line
+}
+
+// fitName is fit for names: too long, they're cut with "…".
+func fitName(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	return fit(xansi.Truncate(s, w, "…"), w)
 }

@@ -374,6 +374,7 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cs.sess, cs.cancel = s, cancel
+	cs.state = session.Connecting // until the session says otherwise; no ✕ flash
 	go s.Run(ctx)
 	return waitEvent(cs.key, s)
 }
@@ -776,6 +777,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		m.setStatus(false, "trusted new certificate for %s", cs.pin.HostPort)
 		cs.pin = nil
 		return m.connect(cs)
+	case "/close":
+		m.close(cs.key)
 	case "/quit":
 		return m.quit()
 	case "/browse":
@@ -850,9 +853,11 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 		switch r, hint := sv.at(msg.Y); {
 		case hint != 0:
 			m.scrollSidebar(hint * max(1, sv.avail-1))
-		case r == nil:
-		case r.char == "":
+		case r == nil, r.kind == rowAdd:
+		case r.kind == rowWorld:
 			m.collapsed[r.world] = !m.collapsed[r.world]
+		case msg.X == badgeX && closable(m.chars[r.char]):
+			m.close(r.char)
 		default:
 			m.switchTo(r.char)
 			m.sideShown = r.char // clicked, so already in view

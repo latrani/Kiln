@@ -235,7 +235,7 @@ func (h *harness) openAll() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"▾ fm", "✕ Kit", "fm/Kit 🔒 · disconnected · 21:14", "│Disconnected · Enter to connect"} {
+	for _, want := range []string{"▾ fm", "✕ Kit", "+ Add connection", "fm/Kit 🔒 · disconnected · 21:14", "│Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -266,7 +266,7 @@ func TestAutoconnectOnlyFlaggedCharacters(t *testing.T) {
 	if got := h.conn("fm/kit").Sent(); len(got) != 1 || got[0] != "connect Kit hunter2" {
 		t.Errorf("auto-login sent %q", got)
 	}
-	if s := h.screen(); !strings.Contains(s, "○ Kit") || !strings.Contains(s, "connected to muck.test:8888") {
+	if s := h.screen(); strings.Contains(s, "✕ Kit") || strings.Contains(s, "○") || !strings.Contains(s, "connected to muck.test:8888") {
 		t.Errorf("screen:\n%s", s)
 	}
 }
@@ -284,12 +284,12 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	if !h.m.chars["fm/kit"].attention {
 		t.Error("page did not set attention")
 	}
-	if s := h.screen(); !strings.Contains(s, "● Kit        2") {
-		t.Errorf("sidebar badge missing:\n%s", s)
+	if row := sideRow(h, 1); !strings.HasSuffix(row, " ● 2") {
+		t.Errorf("sidebar activity missing: %q", row)
 	}
 	h.press(tea.KeyUp, tea.ModCtrl)
 	s := h.screen()
-	if strings.Contains(s, "● Kit") || !strings.Contains(s, "○ Kit") {
+	if strings.Contains(sideRow(h, 1), "●") {
 		t.Errorf("switching back should clear badges:\n%s", s)
 	}
 	if !strings.Contains(s, "Mira pages: you around?") || strings.Contains(h.m.View().Content, "pwned") {
@@ -562,7 +562,7 @@ func TestSidebarScrolls(t *testing.T) {
 	h.openAll()
 	rows := func() []string { return strings.Split(h.screen(), "\n") }
 	side := func(y int) string { return strings.TrimSpace(strings.SplitN(rows()[y], "│", 2)[0]) }
-	if side(0) != "▾ big" || side(22) != "✕ C21" || side(23) != "▾ 8 more" {
+	if side(0) != "▾ big" || side(22) != "✕ C21" || side(23) != "▾ 9 more" {
 		t.Fatalf("top of list:\n%s", h.screen())
 	}
 
@@ -573,14 +573,14 @@ func TestSidebarScrolls(t *testing.T) {
 	if h.m.active != "big/c25" || side(22) != "✕ C25" || side(0) != "▴ 5 more" {
 		t.Fatalf("active %s not in view:\n%s", h.m.active, h.screen())
 	}
-	if side(23) != "▾ 4 more" {
+	if side(23) != "▾ 5 more" {
 		t.Errorf("bottom row = %q", side(23))
 	}
 
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(23) != "✕ C29" || side(0) != "▴ 8 more" {
+	if side(22) != "✕ C29" || side(23) != "+ Add connection" || side(0) != "▴ 9 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -602,9 +602,9 @@ func TestSidebarScrolls(t *testing.T) {
 }
 
 func TestSidebarNoHintsWhenItFits(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(23)}) // 24 rows, 24 high
+	h := newHarness(t, map[string]string{"big": manyChars(22)}) // 24 rows, 24 high
 	h.openAll()
-	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C22") {
+	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C21") {
 		t.Errorf("screen:\n%s", s)
 	}
 }
