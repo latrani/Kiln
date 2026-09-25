@@ -4,6 +4,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
+	xansi "github.com/charmbracelet/x/ansi"
+
+	"github.com/latrani/Kiln/internal/session"
 )
 
 func TestStartupOpensOnlyAutoconnect(t *testing.T) {
@@ -69,5 +74,99 @@ func TestLateEventFromClosedCharacterIgnored(t *testing.T) {
 		case <-deadline:
 			t.Fatal("closed session still running")
 		}
+	}
+}
+
+// sideRow is sidebar row y as plain text, untrimmed.
+func sideRow(h *harness, y int) string {
+	return strings.SplitN(strings.Split(h.screen(), "\n")[y], "│", 2)[0]
+}
+
+func TestSidebarBadgesAndActivity(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	if got := strings.TrimSpace(sideRow(h, 1)); got != "Kit" {
+		t.Errorf("connected row = %q, want no badge", got)
+	}
+	if got := strings.TrimSpace(sideRow(h, 2)); got != "✕ Rook" {
+		t.Errorf("disconnected row = %q", got)
+	}
+	if got := strings.TrimSpace(sideRow(h, 3)); got != "+ Add connection" {
+		t.Errorf("last row = %q", got)
+	}
+	h.m.chars["fm/rook"].state = session.Connecting
+	if got := strings.TrimSpace(sideRow(h, 2)); got != "… Rook" {
+		t.Errorf("connecting row = %q", got)
+	}
+	kit := h.m.chars["fm/kit"]
+	h.m.switchTo("fm/rook")
+	kit.unread, kit.attention = 3, true
+	if got := sideRow(h, 1); !strings.HasPrefix(strings.TrimSpace(got), "Kit") || !strings.HasSuffix(got, " ● 3") {
+		t.Errorf("attention row = %q, want the ● with the count on the right", got)
+	}
+	kit.attention = false
+	if got := sideRow(h, 1); !strings.HasSuffix(got, " 3") || strings.Contains(got, "●") {
+		t.Errorf("unread row = %q", got)
+	}
+}
+
+func TestSidebarNamesTruncate(t *testing.T) {
+	long := "host = \"h\"\nport = 1\n\n[[characters]]\nid = \"kit\"\nname = \"Kittenfluff-the-Magnificent\"\n"
+	h := newHarness(t, map[string]string{"fm-with-a-long-name": long})
+	h.openAll()
+	sw := h.m.layout().sw
+	if got := sideRow(h, 0); xansi.StringWidth(got) != sw || !strings.HasSuffix(strings.TrimSpace(got), "…") {
+		t.Errorf("world row = %q, want cut with … at %d cells", got, sw)
+	}
+	cs := h.m.chars["fm-with-a-long-name/kit"]
+	cs.unread, cs.attention = 12, true
+	got := sideRow(h, 1)
+	if xansi.StringWidth(got) != sw || !strings.HasSuffix(got, " ● 12") || !strings.Contains(got, "…") {
+		t.Errorf("char row = %q, want the name cut with … and the activity whole", got)
+	}
+}
+
+func TestClickXClosesAndNameDoesnt(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
+	click(badgeX, 1) // kit is connected: no ✕ to hit
+	if h.m.chars["fm/kit"] == nil {
+		t.Fatal("clicking a connected character's badge cell closed it")
+	}
+	click(6, 2) // rook's name: switch, not close
+	click(6, 2) // double-click: reconnect, not close
+	if h.m.chars["fm/rook"] == nil || h.m.chars["fm/rook"].sess == nil {
+		t.Fatal("double-clicking the name should connect rook")
+	}
+	h.m.close("fm/rook")
+	h.open("fm/rook")
+	click(badgeX, 2)
+	if h.m.chars["fm/rook"] != nil {
+		t.Errorf("clicking ✕ didn't close rook:\n%s", h.screen())
+	}
+}
+
+func TestCloseCommand(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("/close")
+	h.enter()
+	if h.m.chars["fm/kit"] != nil || h.m.active != "fm/rook" {
+		t.Errorf("active = %q; kit should be closed", h.m.active)
+	}
+}
+
+func TestOpeningShowsConnectingNotX(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.connect(h.m.chars["fm/kit"])
+	if got := strings.TrimSpace(sideRow(h, 1)); got != "… Kit" {
+		t.Errorf("row = %q right after connecting", got)
 	}
 }
