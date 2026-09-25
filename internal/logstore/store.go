@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 const dayLayout = "2006-01-02"
@@ -18,8 +19,10 @@ func CharDir(root, world, char string) string {
 
 // Writer appends entries to per-day files under CharDir. The day is taken
 // from each entry's own timestamp (in its own location), so a session
-// running past midnight rolls over to a new file automatically.
+// running past midnight rolls over to a new file automatically. It is safe
+// for concurrent use.
 type Writer struct {
+	mu  sync.Mutex
 	dir string
 	day string
 	f   *os.File
@@ -34,6 +37,8 @@ func NewWriter(root, world, char string) *Writer {
 // Append writes e to the day file for e.Time, creating it (with Header)
 // if needed.
 func (w *Writer) Append(e Entry) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	day := e.Time.Format(dayLayout)
 	if w.f == nil || day != w.day {
 		if err := w.open(day); err != nil {
@@ -73,6 +78,8 @@ func (w *Writer) open(day string) error {
 
 // Close closes the current file, if any.
 func (w *Writer) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.f == nil {
 		return nil
 	}

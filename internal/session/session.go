@@ -55,7 +55,8 @@ type LineConn interface {
 	Close() error
 }
 
-// Appender is where entries are logged.
+// Appender is where entries are logged. It must be safe for concurrent
+// use: Send logs from the caller's goroutine while Run logs from its own.
 type Appender interface {
 	Append(logstore.Entry) error
 }
@@ -79,11 +80,18 @@ func DefaultBackoff(attempt int) time.Duration {
 // ErrNotConnected is returned by Send while no connection is open.
 var ErrNotConnected = errors.New("not connected")
 
+// LogError is returned by Send when the line was sent but could not be logged.
+type LogError struct{ Err error }
+
+func (e *LogError) Error() string { return "sent, but not logged: " + e.Err.Error() }
+func (e *LogError) Unwrap() error { return e.Err }
+
 // Session is one character's connection lifecycle.
 type Session struct {
 	o      Options
 	events chan Event
 	kick   chan struct{}
+	done   <-chan struct{} // Run's ctx.Done(); only Run's goroutine reads it
 
 	mu       sync.Mutex
 	c        LineConn
@@ -116,26 +124,35 @@ func (s *Session) Reconnect() {
 // When the server hangs up after it, the session does not reconnect.
 const QuitCommand = "QUIT"
 
-// Send sends one line to the server and logs it.
-func (s *Session) Send(line string) error {
+// Send sends one line to the server and logs it, returning the logged
+// entry for the caller to display. It never emits an event, so it cannot
+// block behind a backlogged Events channel. If the line was sent but not
+// logged, the error is a *LogError.
+func (s *Session) Send(line string) (logstore.Entry, error) {
 	s.mu.Lock()
 	c := s.c
-	if c != nil && strings.TrimSpace(line) == QuitCommand {
-		s.quitting = true
-	}
 	s.mu.Unlock()
 	if c == nil {
-		return ErrNotConnected
+		return logstore.Entry{}, ErrNotConnected
 	}
 	if err := c.Send(line); err != nil {
-		return err
+		return logstore.Entry{}, err
 	}
-	s.logLine(logstore.Out, line)
-	return nil
+	if strings.TrimSpace(line) == QuitCommand { // Fuzzball matches QUIT case-sensitively
+		s.mu.Lock()
+		s.quitting = true
+		s.mu.Unlock()
+	}
+	e := logstore.Entry{Time: s.o.Now(), Dir: logstore.Out, Text: line}
+	if err := s.o.Log.Append(e); err != nil {
+		return e, &LogError{Err: err}
+	}
+	return e, nil
 }
 
 // Run connects and keeps reconnecting until ctx is cancelled.
 func (s *Session) Run(ctx context.Context) {
+	s.done = ctx.Done()
 	defer close(s.events)
 	attempt := 0
 	for ctx.Err() == nil {
@@ -274,16 +291,26 @@ func (s *Session) setConn(c LineConn) {
 }
 
 // logLine logs first, then tells the UI, so a UI failure never loses data.
+// Only Run's goroutine calls it.
 func (s *Session) logLine(d logstore.Dir, text string) {
 	e := logstore.Entry{Time: s.o.Now(), Dir: d, Text: text}
 	if err := s.o.Log.Append(e); err != nil {
-		s.events <- Event{Kind: EventLogError, Err: err}
+		s.emit(Event{Kind: EventLogError, Err: err})
 	}
-	s.events <- Event{Kind: EventLine, Entry: e}
+	s.emit(Event{Kind: EventLine, Entry: e})
 }
 
 func (s *Session) sys(text string) { s.logLine(logstore.Sys, text) }
 
 func (s *Session) state(st State, err error) {
-	s.events <- Event{Kind: EventState, State: st, Err: err}
+	s.emit(Event{Kind: EventState, State: st, Err: err})
+}
+
+// emit delivers an event, giving up if Run is being cancelled so a consumer
+// that stopped reading can never wedge shutdown.
+func (s *Session) emit(ev Event) {
+	select {
+	case s.events <- ev:
+	case <-s.done:
+	}
 }

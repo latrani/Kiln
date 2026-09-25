@@ -3,6 +3,8 @@ package conn
 import (
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 // maxLine bounds a single unterminated line so a server that never sends
@@ -55,15 +57,15 @@ func appendLine(out []string, raw []byte) []string {
 }
 
 // decode returns raw as a string if it is valid UTF-8, otherwise treats it
-// as Latin-1 (what most older MUCKs actually send).
+// as Windows-1252: Latin-1 plus smart quotes and dashes in 0x80–0x9F, which
+// is what older MUCKs actually relay from Windows clients.
 func decode(raw []byte) string {
 	if utf8.Valid(raw) {
 		return string(raw)
 	}
-	var b strings.Builder
-	b.Grow(len(raw) * 2)
-	for _, c := range raw {
-		b.WriteRune(rune(c))
+	out, err := charmap.Windows1252.NewDecoder().Bytes(raw)
+	if err != nil { // cannot happen: every byte maps to a rune
+		return strings.ToValidUTF8(string(raw), "\uFFFD")
 	}
-	return b.String()
+	return string(out)
 }
