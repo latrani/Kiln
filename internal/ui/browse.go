@@ -383,18 +383,25 @@ func (b *browse) save(path string) {
 		b.setStatus(true, "nothing to export")
 		return
 	}
-	if _, err := os.Stat(path); err == nil {
-		b.setStatus(true, "%s exists; pick another name", filepath.Base(path))
-		return
-	} else if !errors.Is(err, os.ErrNotExist) {
-		b.setStatus(true, "%v", err)
-		return
-	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		b.setStatus(true, "%v", err)
 		return
 	}
-	if err := os.WriteFile(path, []byte(scene.Render(b.format, sel, b.title())), 0o644); err != nil {
+	// O_EXCL makes "never overwrite" atomic: no window between checking
+	// for the file and creating it.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		b.setStatus(true, "%s exists; pick another name", filepath.Base(path))
+		return
+	} else if err != nil {
+		b.setStatus(true, "%v", err)
+		return
+	}
+	_, err = f.WriteString(scene.Render(b.format, sel, b.title()))
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
 		b.setStatus(true, "%v", err)
 		return
 	}
