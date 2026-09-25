@@ -1,7 +1,6 @@
 // Command kiln is a terminal MUCK client.
 //
-// Until the full TUI lands, it offers:
-//
+//	kiln                              the full-screen client
 //	kiln tail <world> <char>          connect, print output, send stdin lines
 //	kiln passwd <world> <char>        save a character's password in the keychain
 //	kiln trust <world> <fingerprint>  accept a changed server certificate
@@ -9,6 +8,8 @@ package main
 
 import (
 	"bufio"
+
+	tea "charm.land/bubbletea/v2"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"golang.org/x/term"
 
@@ -27,9 +29,11 @@ import (
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/ui"
 )
 
 const usage = `usage:
+  kiln
   kiln tail <world> <char>
   kiln passwd <world> <char>
   kiln trust <world> <fingerprint>`
@@ -42,7 +46,7 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) != 3 {
+	if len(args) != 0 && len(args) != 3 {
 		return errors.New(usage)
 	}
 	cfgDir, err := config.Dir()
@@ -59,6 +63,9 @@ func run(args []string) error {
 	dataDir, err := config.DataDir()
 	if err != nil {
 		return err
+	}
+	if len(args) == 0 {
+		return tui(cfgDir, dataDir, cfg)
 	}
 	switch args[0] {
 	case "tail":
@@ -170,4 +177,52 @@ func tail(ch config.Character, dataDir string) error {
 		}
 	}
 	return nil
+}
+
+func tui(cfgDir, dataDir string, cfg *config.Config) error {
+	watcher, err := config.Watch(cfgDir)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	logRoot := filepath.Join(dataDir, "logs")
+	var mu sync.Mutex
+	writers := map[string]*logstore.Writer{}
+	defer func() {
+		for _, w := range writers {
+			w.Close()
+		}
+	}()
+	m := ui.New(ui.Deps{
+		ConfigDir:  cfgDir,
+		LogRoot:    logRoot,
+		KnownHosts: knownHosts(dataDir),
+		Load:       config.Load,
+		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {
+			w, h, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				w, h = 80, 24
+			}
+			// Report roughly the right pane's size, where text is shown.
+			w -= min(22, max(12, w/5)) + 1
+			return conn.Dial(ctx, conn.Options{
+				Host: ch.Host, Port: ch.Port, TLS: ch.TLS, TLSTrust: ch.TLSTrust,
+				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
+			})
+		},
+		NewLog: func(world, char string) session.Appender {
+			mu.Lock()
+			defer mu.Unlock()
+			k := world + "/" + char
+			if writers[k] == nil {
+				writers[k] = logstore.NewWriter(logRoot, world, char)
+			}
+			return writers[k]
+		},
+		Password:     secrets.Get,
+		SavePassword: secrets.Set,
+		Changes:      watcher.Changes(),
+	}, cfg)
+	_, err = tea.NewProgram(m).Run()
+	return err
 }
