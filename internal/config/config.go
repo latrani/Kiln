@@ -68,6 +68,7 @@ type Character struct {
 	Login        string // template with {name} and {password}; "" = no auto-login
 	MaxLineBytes int
 	NewlineMode  string // "batch" or "flatten"
+	Autoconnect  bool   // connect when Kiln starts
 	Rules        Rules
 }
 
@@ -103,6 +104,7 @@ type settings struct {
 	MaxLineBytes *int    `toml:"max_line_bytes"`
 	NewlineMode  *string `toml:"newline_mode"`
 	Login        *string `toml:"login"`
+	Autoconnect  *bool   `toml:"autoconnect"`
 }
 
 func (s *settings) overlay(o settings) {
@@ -114,6 +116,9 @@ func (s *settings) overlay(o settings) {
 	}
 	if o.Login != nil {
 		s.Login = o.Login
+	}
+	if o.Autoconnect != nil {
+		s.Autoconnect = o.Autoconnect
 	}
 }
 
@@ -154,7 +159,7 @@ func Load(dir string) (*Config, error) {
 	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
 		return nil, err
 	}
-	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr("")}
+	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false)}
 	base.overlay(g.Defaults)
 
 	worldPaths, err := filepath.Glob(filepath.Join(dir, "worlds", "*.toml"))
@@ -231,7 +236,7 @@ func loadWorld(dir, path string, base settings, packs map[string]Rules) (World, 
 		ch := Character{
 			World: id, ID: cid, Name: cf.Name, Aliases: cf.Aliases,
 			Host: wf.Host, Port: wf.Port, TLS: wf.TLS, TLSTrust: wf.TLSTrust,
-			Login: *cs.Login, MaxLineBytes: *cs.MaxLineBytes, NewlineMode: *cs.NewlineMode,
+			Login: *cs.Login, MaxLineBytes: *cs.MaxLineBytes, NewlineMode: *cs.NewlineMode, Autoconnect: *cs.Autoconnect,
 			Rules: appendRules(worldRules, cf.Rules),
 		}
 		if err := validate(ch); err != nil {
