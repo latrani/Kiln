@@ -62,7 +62,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 1. **Run `kiln` once.** It creates the config directory, `~/.config/kiln/`, with a starter `config.toml` and a rule pack for Fuzzball MUCKs. With no worlds yet, it tells you where to add one. Quit with `Ctrl+C` twice.
 
-2. **Add a world.** Create `~/.config/kiln/worlds/furrymuck.toml`. The file name is the world's id.
+2. **Add a world.** Either press `Ctrl+O` in Kiln and pick `+ World` then `+ Character` (which writes a file like the one below), or create `~/.config/kiln/worlds/furrymuck.toml` yourself. The file name is the world's id.
 
    ```toml
    host = "furrymuck.com"
@@ -76,6 +76,8 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
    aliases = ["Kitty"]         # other names that count as you
    autoconnect = true
    ```
+
+   Worlds added from Kiln don't get a `login` line; to log in automatically, set `login` in the world file or in `config.toml`'s `[defaults]`.
 
    A character's id (used for its log folder, saved password and `kiln passwd`) is its name. If the name has anything besides letters, digits, `_` and `-`, give it one with `id = "…"`.
 
@@ -163,6 +165,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `max_line_bytes` | any level | Longest line the server accepts (Fuzzball: 2047) |
 | `newline_mode` | any level | `"batch"`: each line is its own command; `"flatten"`: lines are joined with spaces |
 | `autoconnect` | any level | Connect when Kiln starts |
+| `local_echo` | any level | Show what you send in the scrollback (default `false`; the server usually echoes poses, and sent lines are always logged) |
 | `name`, `aliases` | character | Your in-game name and the others that count as you |
 
 ### Rules
