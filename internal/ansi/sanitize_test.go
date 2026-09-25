@@ -17,6 +17,9 @@ func TestSanitize(t *testing.T) {
 		{"keeps unicode", "Zoë 🦊 日本", "Zoë 🦊 日本"},
 		{"unterminated csi", "a\x1b[31", "a"},
 		{"lone esc", "a\x1b", "a"},
+		{"osc then sgr then text", "\x1b]0;t\x07hi \x1b[31mred", "hi \x1b[31mred"},
+		{"repeated charset resets", "\x1b(Bx\x1b(By\x1b(Bz", "xyz"},
+		{"two-byte esc mid-line", "a\x1b7b\x1b8c", "abc"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
