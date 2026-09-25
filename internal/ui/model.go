@@ -604,34 +604,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		cs.in.Up()
 	case "down":
 		cs.in.Down()
-	case "left":
-		cs.in.Left()
-	case "right":
-		cs.in.Right()
-	case "ctrl+left", "alt+left", "alt+b":
-		cs.in.WordLeft()
-	case "ctrl+right", "alt+right", "alt+f":
-		cs.in.WordRight()
-	case "home", "ctrl+a":
-		cs.in.Home()
-	case "end", "ctrl+e":
-		cs.in.End()
-	case "backspace":
-		cs.in.Backspace()
-	case "delete", "ctrl+d":
-		cs.in.Delete()
-	case "ctrl+w", "alt+backspace", "ctrl+backspace":
-		cs.in.DeleteWordBack()
-	case "alt+delete", "ctrl+delete", "alt+d":
-		cs.in.DeleteWordForward()
-	case "ctrl+u":
-		cs.in.KillToStart()
-	case "ctrl+k":
-		cs.in.KillToEnd()
 	default:
-		if k.Text != "" && k.Mod&(tea.ModCtrl|tea.ModAlt) == 0 {
-			cs.in.InsertText(k.Text)
-		} else {
+		if !editKey(cs.in, k) {
 			return nil
 		}
 	}
