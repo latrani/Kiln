@@ -215,13 +215,33 @@ func (h *harness) init() {
 	h.m.Init() // starts autoconnect sessions; the returned cmds (clock, waits) are not run
 }
 
+// open opens configured characters by key, as the picker would.
+func (h *harness) open(keys ...string) {
+	h.t.Helper()
+	for _, k := range keys {
+		if h.m.open(k) == nil {
+			h.t.Fatalf("no character %s", k)
+		}
+	}
+}
+
+// openAll opens every configured character.
+func (h *harness) openAll() {
+	for _, ch := range h.m.allChars() {
+		h.m.open(key(ch.World, ch.ID))
+	}
+}
+
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"▾ fm", "✕ Kit", "✕ Rook", "fm/Kit 🔒 · disconnected · 21:14", "│Disconnected · Enter to connect"} {
+	for _, want := range []string{"▾ fm", "✕ Kit", "fm/Kit 🔒 · disconnected · 21:14", "│Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
+	}
+	if strings.Contains(s, "Rook") {
+		t.Errorf("rook isn't open but is in the sidebar:\n%s", s)
 	}
 	if rows := strings.Split(h.m.View().Content, "\n"); len(rows) != 24 {
 		t.Errorf("screen has %d rows, want 24", len(rows))
@@ -240,8 +260,8 @@ func TestAutoconnectOnlyFlaggedCharacters(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	if h.m.chars["fm/rook"].sess != nil {
-		t.Error("rook connected without autoconnect")
+	if h.m.chars["fm/rook"] != nil {
+		t.Error("rook opened without autoconnect")
 	}
 	if got := h.conn("fm/kit").Sent(); len(got) != 1 || got[0] != "connect Kit hunter2" {
 		t.Errorf("auto-login sent %q", got)
@@ -253,6 +273,7 @@ func TestAutoconnectOnlyFlaggedCharacters(t *testing.T) {
 
 func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.press(tea.KeyDown, tea.ModCtrl) // look at rook; kit is now in the background
@@ -470,13 +491,13 @@ func TestReloadAddsCharactersAndKeepsOldOnError(t *testing.T) {
 	p := filepath.Join(h.dir, "worlds", "fm.toml")
 	os.WriteFile(p, []byte(fmWorld+"\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
-	if !strings.Contains(h.screen(), "Ash") {
-		t.Errorf("new character missing:\n%s", h.screen())
+	if _, ok := h.m.find("fm/ash"); !ok {
+		t.Error("reload didn't pick up the new character")
 	}
 	os.WriteFile(p, []byte("host = \n"), 0o600)
 	h.m.Update(reloadMsg{})
 	s := h.screen()
-	if !strings.Contains(s, "config not reloaded") || !strings.Contains(s, "Ash") {
+	if !strings.Contains(s, "config not reloaded") || func() bool { _, ok := h.m.find("fm/ash"); return !ok }() {
 		t.Errorf("screen:\n%s", s)
 	}
 }
@@ -486,6 +507,7 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": sp})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
+	h.open("fm/rook", "sp/ash")
 	cs := h.m.chars["fm/kit"]
 	sess := cs.sess
 
@@ -495,8 +517,8 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 	if !cs.orphan || h.m.chars["fm/kit"] != cs {
 		t.Fatal("connected character should stay as an orphan")
 	}
-	if got := strings.Join(h.m.order, " "); got != "fm/rook fm/kit sp/ash" {
-		t.Errorf("order = %s, want the orphan grouped under fm", got)
+	if got := strings.Join(h.m.order, " "); got != "fm/kit fm/rook sp/ash" {
+		t.Errorf("order = %s, want the orphan kept in alphabetical order", got)
 	}
 	if n := strings.Count(h.screen(), "▾ fm"); n != 1 {
 		t.Errorf("fm header shown %d times:\n%s", n, h.screen())
@@ -537,6 +559,7 @@ func manyChars(n int) string {
 
 func TestSidebarScrolls(t *testing.T) {
 	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 31 rows, 24 high
+	h.openAll()
 	rows := func() []string { return strings.Split(h.screen(), "\n") }
 	side := func(y int) string { return strings.TrimSpace(strings.SplitN(rows()[y], "│", 2)[0]) }
 	if side(0) != "▾ big" || side(22) != "✕ C21" || side(23) != "▾ 8 more" {
@@ -580,6 +603,7 @@ func TestSidebarScrolls(t *testing.T) {
 
 func TestSidebarNoHintsWhenItFits(t *testing.T) {
 	h := newHarness(t, map[string]string{"big": manyChars(23)}) // 24 rows, 24 high
+	h.openAll()
 	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C22") {
 		t.Errorf("screen:\n%s", s)
 	}
@@ -638,6 +662,7 @@ func TestScrollPill(t *testing.T) {
 
 func TestSidebarClick(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // row 2 = Rook
 	if h.m.active != "fm/rook" {
 		t.Errorf("active = %q", h.m.active)
@@ -694,6 +719,7 @@ func TestSavePasswordAnswerBindsToPromptingCharacter(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
+	h.open("fm/rook")
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
 	h.enter()
@@ -854,6 +880,7 @@ func TestTypingReplacesConnectHint(t *testing.T) {
 
 func TestDoubleClickSidebarConnects(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
 	now := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
 	h.m.d.Now = func() time.Time { return now }
 	click := func() tea.Cmd {
