@@ -211,6 +211,7 @@ func fit(s string, w int) string {
 
 // statusLine shows the active character, its connection and the clock,
 // or, while there is a status message, just the character and the message.
+// In browse mode it starts with "BROWSE · N selected".
 func (m *Model) statusLine(w int) string {
 	cs := m.cur()
 	name := ""
@@ -218,6 +219,9 @@ func (m *Model) statusLine(w int) string {
 		name = cs.ch.World + "/" + cs.ch.Name
 		if cs.ch.TLS {
 			name += " 🔒"
+		}
+		if cs.browse != nil {
+			name = fmt.Sprintf("%sBROWSE%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
 		}
 	}
 	if m.status != "" {
@@ -250,8 +254,8 @@ func (m *Model) View() tea.View {
 	cs := m.cur()
 	var cursor *tea.Cursor
 	if cs != nil && cs.browse != nil {
-		rows, x, y, show := cs.browse.view(l.rw, m.height)
-		right = rows
+		rows, x, y, show := cs.browse.view(l.rw, m.height-1)
+		right = append(rows, m.statusLine(l.rw))
 		if show {
 			cursor = tea.NewCursor(l.sw+1+x, y)
 		}

@@ -681,8 +681,9 @@ func (m *Model) openBrowse(cs *charState) {
 	m.status = ""
 }
 
-// browseBodyH is the number of line rows in browse mode.
-func (m *Model) browseBodyH() int { return max(1, m.height-5) }
+// browseBodyH is the number of line rows in browse mode: the pane less
+// two header rows, two rules, the action bar and the statusline.
+func (m *Model) browseBodyH() int { return max(1, m.height-6) }
 
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
 	l := m.layout()
