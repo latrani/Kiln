@@ -14,14 +14,21 @@ type Scrollback struct {
 	offset  int // visual rows scrolled up from the bottom; 0 = live
 	unseen  int // lines appended while scrolled up
 	prompt  string
-	more    bool // older lines exist that have not been paged in yet
-	loading bool // a page of older lines is being read; see RequestOlder
+	more    bool       // older lines exist that have not been paged in yet
+	loading bool       // a page of older lines is being read; see RequestOlder
+	shown   []sbRef    // what each row of the last View shows
+	sel     *selection // a mouse selection; see sbmouse.go
 }
 
 type sbLine struct {
 	text  string
 	rows  []string
 	wrapW int
+	// Plain text and its rows, for the mouse; see plainRows.
+	plain   string
+	pRows   []string
+	pStarts []int
+	plainW  int
 }
 
 func (l *sbLine) wrap(w int) []string {
@@ -123,6 +130,10 @@ func (s *Scrollback) Prepend(lines []string, more bool) {
 		batch[i] = sbLine{text: l}
 	}
 	s.lines = append(batch, s.lines...)
+	if s.sel != nil {
+		s.sel.anchor.line += len(batch)
+		s.sel.head.line += len(batch)
+	}
 }
 
 // SetPrompt shows an unterminated prompt below the last line.
@@ -166,10 +177,12 @@ func (s *Scrollback) View(h int) []string {
 	}
 	w := s.w()
 	var tail []string // rows in reverse order, newest first
+	var refs []sbRef  // what each tail row shows
 	if s.prompt != "" && s.offset == 0 {
 		rows := ansi.Wrap(s.prompt, w)
 		for i := len(rows) - 1; i >= 0; i-- {
 			tail = append(tail, rows[i])
+			refs = append(refs, sbRef{line: -1})
 		}
 	}
 	need := s.offset + h
@@ -178,6 +191,7 @@ func (s *Scrollback) View(h int) []string {
 		rows := s.lines[i].wrap(w)
 		for j := len(rows) - 1; j >= 0; j-- {
 			tail = append(tail, rows[j])
+			refs = append(refs, sbRef{line: i, row: j})
 		}
 		i--
 	}
@@ -187,6 +201,7 @@ func (s *Scrollback) View(h int) []string {
 			// Older lines are on their way: show the top with a loading
 			// row, but keep the offset so the scroll lands once they arrive.
 			tail = append(tail, loadingRow)
+			refs = append(refs, sbRef{line: -1})
 			start = max(0, len(tail)-h)
 		} else { // hit the very top: clamp the offset
 			s.offset = max(0, len(tail)-h)
@@ -199,8 +214,16 @@ func (s *Scrollback) View(h int) []string {
 	start = min(start, len(tail))
 	end := min(start+h, len(tail))
 	out := make([]string, h)
+	s.shown = make([]sbRef, h)
+	for k := range s.shown {
+		s.shown[k].line = -1
+	}
 	for k := start; k < end; k++ {
-		out[h-1-(k-start)] = tail[k]
+		y := h - 1 - (k - start)
+		out[y], s.shown[y] = tail[k], refs[k]
+		if refs[k].line >= 0 {
+			out[y] = s.highlightRow(out[y], refs[k])
+		}
 	}
 	return out
 }
