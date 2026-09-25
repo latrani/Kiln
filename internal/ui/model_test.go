@@ -701,13 +701,63 @@ func TestCtrlCClearsThenQuits(t *testing.T) {
 	if !h.m.chars["fm/kit"].in.Empty() {
 		t.Error("ctrl+c did not clear")
 	}
-	cmd := h.press('c', tea.ModCtrl)
-	if cmd == nil {
-		t.Fatal("ctrl+c on empty input should quit")
+	if h.quits(h.press('c', tea.ModCtrl)) {
+		t.Fatal("one ctrl+c on empty input quit")
 	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Error("not a quit")
+	if !strings.Contains(h.screen(), "Press Ctrl+C again to quit") {
+		t.Errorf("no hint:\n%s", h.screen())
 	}
+	if !h.quits(h.press('c', tea.ModCtrl)) {
+		t.Error("second ctrl+c should quit")
+	}
+}
+
+func TestCtrlDQuitsOnEmptyInputOnly(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("ab")
+	h.press(tea.KeyLeft, 0)
+	if h.quits(h.press('d', tea.ModCtrl)) || h.m.chars["fm/kit"].in.Value() != "a" {
+		t.Fatalf("ctrl+d with text should delete forward, got %q", h.m.chars["fm/kit"].in.Value())
+	}
+	h.press(tea.KeyBackspace, 0)
+	if h.quits(h.press('d', tea.ModCtrl)) || !strings.Contains(h.screen(), "Press Ctrl+D again to quit") {
+		t.Fatalf("first ctrl+d should arm:\n%s", h.screen())
+	}
+	if !h.quits(h.press('d', tea.ModCtrl)) {
+		t.Error("second ctrl+d should quit")
+	}
+}
+
+func TestQuitKeyDisarms(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('c', tea.ModCtrl)
+	if h.quits(h.press('d', tea.ModCtrl)) {
+		t.Error("ctrl+c then ctrl+d quit; the keys should have to match")
+	}
+	h.typeText("x") // another key disarms, and takes the hint with it
+	if strings.Contains(h.screen(), "again to quit") {
+		t.Errorf("hint outlived the arming:\n%s", h.screen())
+	}
+	h.press(tea.KeyBackspace, 0)
+	h.press('c', tea.ModCtrl)
+	h.m.Update(quitExpiredMsg(h.m.quitGen - 1)) // a stale timer does nothing
+	if h.m.quitKey != "ctrl+c" {
+		t.Fatal("stale expiry disarmed")
+	}
+	h.m.Update(quitExpiredMsg(h.m.quitGen))
+	if strings.Contains(h.screen(), "again to quit") || h.quits(h.press('c', tea.ModCtrl)) {
+		t.Error("ctrl+c after the window expired should arm again, not quit")
+	}
+}
+
+// quits reports whether cmd, returned by the last key, quits the program.
+// While a quit key is armed, cmd is its expiry timer, so it isn't run.
+func (h *harness) quits(cmd tea.Cmd) bool {
+	if cmd == nil || h.m.quitKey != "" {
+		return false
+	}
+	_, ok := cmd().(tea.QuitMsg)
+	return ok
 }
 
 func TestPasteInsertsMultiline(t *testing.T) {

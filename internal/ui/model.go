@@ -72,6 +72,8 @@ type Model struct {
 	sideTop   int                    // first sidebar row shown when it overflows
 	sideShown string                 // active character last scrolled into view
 	pwStore   atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
+	quitKey   string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen   int                    // bumped per arming; see quitExpiredMsg
 	lastClick struct {               // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
@@ -140,6 +142,9 @@ type (
 	}
 	reloadMsg struct{}
 	tickMsg   time.Time
+	// quitExpiredMsg fires quitWindow after a quit key is armed; it
+	// carries that arming's generation, and only the latest disarms.
+	quitExpiredMsg int
 )
 
 // New builds the model from an already-loaded config and opens the
@@ -431,6 +436,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tickMsg:
 		return m, tick(time.Time(msg))
+	case quitExpiredMsg:
+		if int(msg) == m.quitGen {
+			m.disarmQuit()
+		}
 	case reloadMsg:
 		cfg, err := m.d.Load(m.d.ConfigDir)
 		if err != nil {
@@ -540,6 +549,10 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 }
 
 func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
+	armed := m.quitKey
+	if armed != "" {
+		m.disarmQuit() // any key but the armed one again starts over
+	}
 	cs := m.cur()
 	if m.mode == modeSavePassword {
 		switch k.String() {
@@ -595,11 +608,13 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			m.openBrowse(cs)
 		}
 		return nil
-	case "ctrl+c":
+	case "ctrl+c", "ctrl+d": // Ctrl+D with text deletes forward, below
 		if m.input().Empty() {
-			return m.quit()
+			return m.armQuit(k.String(), armed)
 		}
-		m.input().Reset()
+		if k.String() == "ctrl+c" {
+			m.input().Reset()
+		}
 	case "pgup":
 		if cs != nil {
 			cs.sb.ScrollUp(max(1, m.layout().sbH-1))
@@ -632,6 +647,35 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	m.confirm = false
 	return nil
+}
+
+// quitWindow is how long a first Ctrl+C or Ctrl+D waits for its second.
+const quitWindow = 2 * time.Second
+
+// quitHint is the status shown while key is armed.
+func quitHint(key string) string {
+	return "Press Ctrl+" + strings.ToUpper(strings.TrimPrefix(key, "ctrl+")) + " again to quit"
+}
+
+// armQuit quits if key was already armed (pressed just before), and
+// otherwise arms it and says so for quitWindow.
+func (m *Model) armQuit(key, armed string) tea.Cmd {
+	if key == armed {
+		return m.quit()
+	}
+	m.quitKey = key
+	m.quitGen++
+	m.setStatus(false, "%s", quitHint(key))
+	gen := m.quitGen
+	return tea.Tick(quitWindow, func(time.Time) tea.Msg { return quitExpiredMsg(gen) })
+}
+
+// disarmQuit forgets an armed quit key, and its hint if still shown.
+func (m *Model) disarmQuit() {
+	if m.quitKey != "" && m.status == quitHint(m.quitKey) {
+		m.status = ""
+	}
+	m.quitKey = ""
 }
 
 func (m *Model) quit() tea.Cmd {
