@@ -65,3 +65,56 @@ func TestNoNamesNoSelf(t *testing.T) {
 		t.Errorf("got %v", got)
 	}
 }
+
+func TestTagsSpans(t *testing.T) {
+	c, err := New([]config.ClassifyRule{
+		{Tag: "page", Pattern: `^PAGE:`},
+		{Tag: "page", Pattern: `pages: `},
+		{Tag: "ooc", Pattern: `OOC`},
+		{Tag: "start", Pattern: `^`},
+	}, "Kit", []string{"Kitty"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// PAGE: 0-5, "pages: " 11-18, OOC 18-21, Kit 22-25, Kit 27-30, kitty 32-37
+	got := c.Tags("PAGE: Mira pages: OOC Kit, Kit! kitty")
+	want := []Tag{
+		{Name: "page", Spans: []Span{{0, 5}, {11, 18}}},
+		{Name: "ooc", Spans: []Span{{18, 21}}},
+		{Name: "start"}, // zero-width: tagged, but no spans
+		{Name: SelfTag, Spans: []Span{{22, 25}, {27, 30}, {32, 37}}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Tags = %+v\nwant   %+v", got, want)
+	}
+}
+
+func TestSelfSpansCoverOnlyTheName(t *testing.T) {
+	cases := []struct {
+		name    string
+		aliases []string
+		in      string
+		want    []Span
+	}{
+		{"Kit", nil, "KitKit Kit", []Span{{7, 10}}},                     // not a whole word, then a whole word
+		{"Kit", nil, "Kitë Kit", []Span{{6, 9}}},                        // ë continues the word
+		{"Zoë", nil, "hi ZOË!", []Span{{3, 7}}},                         // multi-byte, any case
+		{"Kit", []string{"(Ash)"}, "hello (Ash) here", []Span{{6, 11}}}, // literal regex specials
+		{"Kit", nil, "Rook waves.", nil},
+	}
+	for _, tc := range cases {
+		c, err := New(nil, tc.name, tc.aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []Span
+		for _, tag := range c.Tags(tc.in) {
+			if tag.Name == SelfTag {
+				got = tag.Spans
+			}
+		}
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("%q: self spans = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
