@@ -109,7 +109,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Ctrl+C` | Clear the input; on an empty input, press twice to quit |
 | `Ctrl+D` | Delete the character after the cursor; on an empty input, press twice to quit |
 
-Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
+Links (`http://` or `https://`) in the scrollback are underlined and turn blue under the pointer; click one to open it in your browser. Drag across text in the scrollback or the input box to select it; it's copied to the clipboard when you let go, with line breaks only where the lines really break, not where they wrap. (Your terminal's own selection usually still works with `Shift` or `Option` held.) Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
 The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
 

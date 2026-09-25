@@ -41,6 +41,7 @@ type Deps struct {
 	Password     func(store, world, char string) (string, error)
 	SavePassword func(store, world, char, password string) error // nil: never offer
 	Changes      <-chan struct{}                                 // config changes; nil: no hot reload
+	OpenURL      func(url string) error                          // opens a clicked link; nil: links do nothing
 	Now          func() time.Time
 }
 
@@ -505,6 +506,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
 		return m, m.handleClick(msg)
+	case tea.MouseMotionMsg:
+		m.handleDrag(msg.Mouse())
+	case tea.MouseReleaseMsg:
+		return m, m.handleRelease()
 	}
 	return m, nil
 }
@@ -578,6 +583,10 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 }
 
 func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
+	if cs := m.cur(); cs != nil {
+		cs.sb.ClearSelection()
+	}
+	m.input().ClearSelection()
 	armed := m.quitKey
 	if armed != "" {
 		m.disarmQuit() // any key but the armed one again starts over
@@ -615,12 +624,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+down":
 		m.switchBy(1)
 		return nil
-	case "tab":
-		m.switchToUnread(1)
-		return nil
-	case "shift+tab":
-		m.switchToUnread(-1)
-		return nil
+	case "tab", "shift+tab":
+		if m.picker == nil { // the picker's forms move between fields with Tab
+			m.switchToUnread(map[string]int{"tab": 1, "shift+tab": -1}[k.String()])
+			return nil
+		}
 	case openPickerKey:
 		if m.picker == nil {
 			m.openPicker() // says why not, in browse mode
@@ -992,11 +1000,86 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 		return nil
 	}
 	cs := m.cur()
+	if cs != nil {
+		cs.sb.ClearSelection()
+	}
+	m.input().ClearSelection()
 	if cs != nil && cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {
 		cs.sb.ToBottom()
+		return nil
+	}
+	if cs != nil && msg.Y < l.sbH && msg.X > l.sw {
+		if p, ok := cs.sb.At(msg.Y, msg.X-l.sw-1); ok {
+			cs.sb.StartSelect(p) // a drag selects; a click opens a link
+		}
+		return nil
 	}
 	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
-		m.input().Click(msg.X-l.sw-1-gutterWidth, l.inTop+y) // past the separator and gutter
+		m.input().StartSelect(msg.X-l.sw-1-gutterWidth, l.inTop+y) // past the separator and gutter
 	}
 	return nil
+}
+
+// handleDrag follows a drag that started in the scrollback or the input,
+// clamping the pointer to where it started. With no button down, it
+// tracks what the pointer is over, so links light up.
+func (m *Model) handleDrag(msg tea.Mouse) {
+	l := m.layout()
+	x := max(0, msg.X-l.sw-1)
+	if cs := m.cur(); cs != nil && msg.Button == tea.MouseNone {
+		cs.sb.Hover(nil)
+		if msg.X > l.sw && msg.Y < l.sbH && cs.browse == nil {
+			if p, ok := cs.sb.At(msg.Y, x); ok {
+				cs.sb.Hover(&p)
+			}
+		}
+		return
+	}
+	if cs := m.cur(); cs != nil && cs.sb.Dragging() {
+		for y := min(max(0, msg.Y), l.sbH-1); y >= 0; y-- { // the nearest text row at or above
+			if p, ok := cs.sb.At(y, x); ok {
+				cs.sb.DragTo(p)
+				return
+			}
+		}
+		return
+	}
+	if in := m.input(); in.Dragging() && len(l.inRows) > 0 {
+		y := min(max(0, msg.Y-l.sbH-1), len(l.inRows)-1)
+		in.DragTo(max(0, x-gutterWidth), l.inTop+y)
+	}
+}
+
+// openLink opens u, if it's a link and links can be opened.
+func (m *Model) openLink(u string) {
+	if u == "" || m.d.OpenURL == nil {
+		return
+	}
+	if err := m.d.OpenURL(u); err != nil {
+		m.setStatus(true, "can't open link: %v", err)
+	} else {
+		m.setStatus(false, "opened %s", u)
+	}
+}
+
+// handleRelease ends a drag: a selection is copied to the clipboard, and
+// a click on a link in the scrollback opens it.
+func (m *Model) handleRelease() tea.Cmd {
+	text := ""
+	if cs := m.cur(); cs != nil && cs.sb.Dragging() {
+		var click sbPos
+		var clicked bool
+		text, click, clicked = cs.sb.EndSelect()
+		if clicked {
+			m.openLink(cs.sb.URLAt(click))
+			return nil
+		}
+	} else if in := m.input(); in.Dragging() {
+		text = in.EndSelect()
+	}
+	if text == "" {
+		return nil
+	}
+	m.setStatus(false, "copied to clipboard")
+	return tea.SetClipboard(text)
 }

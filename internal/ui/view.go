@@ -174,7 +174,7 @@ func (m *Model) statusLine(w int) string {
 
 // View draws the whole screen.
 func (m *Model) View() tea.View {
-	v := tea.View{AltScreen: true, MouseMode: tea.MouseModeCellMotion}
+	v := tea.View{AltScreen: true, MouseMode: tea.MouseModeAllMotion} // all motion: links light up on hover
 	if m.width < MinWidth || m.height < MinHeight {
 		v.Content = fmt.Sprintf("Kiln needs at least %dx%d (now %dx%d)", MinWidth, MinHeight, m.width, m.height)
 		return v
