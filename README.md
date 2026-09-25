@@ -85,6 +85,8 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 4. **Run `kiln`.** Characters with `autoconnect = true` open and log in. Press `Ctrl+O` (or click `+ Add connection`) to open another.
 
+You can also edit worlds and characters from inside Kiln (`Ctrl+E` in the `Ctrl+O` list, or `/edit`): a world's server and settings, a character's aliases and settings, and forgetting a saved password or deleting a character (logs are kept) or an empty world. Kiln changes only the lines it has to, so your comments and layout stay put.
+
 Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps the last working config and shows the error in the statusline.
 
 ## Using Kiln
@@ -103,6 +105,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Ctrl+↑` / `Ctrl+↓` | Switch between open characters |
 | `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines |
 | `Ctrl+O` | Add a connection: type to filter, `Enter` to connect, `Esc` to close |
+| `Ctrl+E` (in the `Ctrl+O` list) | Edit the highlighted world or character (`Enter` on a world does it too) |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
 | `Ctrl+B` | Open browse mode |
 | `Esc` | Skip the login prompt |
@@ -122,6 +125,7 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/close` | Disconnect and remove the character from the sidebar |
 | `/browse` | Open browse mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
+| `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see below) |
 | `/quit` | Quit Kiln |
 

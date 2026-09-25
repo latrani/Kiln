@@ -38,11 +38,12 @@ type Deps struct {
 	Dial       func(ctx context.Context, ch config.Character) (session.LineConn, error)
 	NewLog     func(dir, char string) session.Appender // dir from logDir
 	// Password and SavePassword use the password_store setting in store.
-	Password     func(store, world, char string) (string, error)
-	SavePassword func(store, world, char, password string) error // nil: never offer
-	Changes      <-chan struct{}                                 // config changes; nil: no hot reload
-	OpenURL      func(url string) error                          // opens a clicked link; nil: links do nothing
-	Now          func() time.Time
+	Password       func(store, world, char string) (string, error)
+	SavePassword   func(store, world, char, password string) error // nil: never offer
+	DeletePassword func(store, world, char string) error           // nil: passwords can't be forgotten
+	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
+	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
+	Now            func() time.Time
 }
 
 type mode int
@@ -899,6 +900,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		return m.quit()
 	case "/browse":
 		m.openBrowse(cs)
+	case "/edit":
+		m.editCommand(cs, strings.Join(args[1:], " "))
 	case "/highlight":
 		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), args[0]))
 		if err := config.AppendHighlight(m.d.ConfigDir, cs.ch.World, text); err != nil {

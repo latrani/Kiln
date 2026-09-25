@@ -22,6 +22,9 @@ func key(world, char string) string { return world + "/" + char }
 type Store interface {
 	Get(world, char string) (string, error)
 	Set(world, char, password string) error
+	// Delete forgets the character's password. Nothing saved is not an
+	// error.
+	Delete(world, char string) error
 }
 
 // Open returns the store named by config's password_store: "keychain",
@@ -47,6 +50,13 @@ func (Keychain) Set(world, char, password string) error {
 	return keyring.Set(service, key(world, char), password)
 }
 
+func (Keychain) Delete(world, char string) error {
+	if err := keyring.Delete(service, key(world, char)); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		return err
+	}
+	return nil
+}
+
 // None saves nothing.
 type None struct{}
 
@@ -55,6 +65,8 @@ func (None) Get(string, string) (string, error) { return "", ErrNotFound }
 func (None) Set(string, string, string) error {
 	return errors.New(`password_store is "none"`)
 }
+
+func (None) Delete(string, string) error { return nil }
 
 // File is a JSON object of "world/char" to password, readable only by the
 // user (mode 0600, in a 0700 directory).
@@ -93,6 +105,23 @@ func (f File) Set(world, char, password string) error {
 		return err
 	}
 	m[key(world, char)] = password
+	return f.save(m)
+}
+
+func (f File) Delete(world, char string) error {
+	m, err := f.load()
+	if err != nil {
+		return err
+	}
+	if _, ok := m[key(world, char)]; !ok {
+		return nil
+	}
+	delete(m, key(world, char))
+	return f.save(m)
+}
+
+// save writes m atomically, readable only by the user.
+func (f File) save(m map[string]string) error {
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
