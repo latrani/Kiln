@@ -44,7 +44,8 @@ func AppendHighlight(dir, world, text string) error {
 }
 
 // tomlString quotes s as a TOML basic string. JSON string escapes
-// (\" \\ \n \uXXXX) are all valid TOML escapes.
+// (\" \\ \n \uXXXX) are all valid TOML escapes. JSON leaves DEL (0x7f)
+// raw, but TOML forbids it in a basic string, so it is escaped here.
 func tomlString(s string) (string, error) {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
@@ -52,5 +53,6 @@ func tomlString(s string) (string, error) {
 	if err := enc.Encode(s); err != nil {
 		return "", err
 	}
-	return strings.TrimSuffix(b.String(), "\n"), nil
+	out := strings.TrimSuffix(b.String(), "\n")
+	return strings.ReplaceAll(out, "\x7f", `\u007f`), nil
 }
