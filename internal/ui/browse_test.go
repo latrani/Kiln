@@ -122,7 +122,7 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 		rows := strings.Split(h.screen(), "\n")
 		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); got != "BROWSE · 0 selected · fm/Kit 🔒 · disconnected · 21:14" {
+	if got := last(); got != "BROWSE · 0 selected · fm/Kit · disconnected · 21:14" {
 		t.Errorf("statusline = %q", got)
 	}
 	if !strings.Contains(rows[len(rows)-2], "m mark") {

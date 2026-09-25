@@ -13,7 +13,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 │             │ > :grins, then leans on the      │
 │             │   counter.                       │
 │             ├──────────────────────────────────┤
-│             │ FurryMUCK/Kit 🔒 · connected·21:14│
+│             │ FurryMUCK/Kit · connected · 21:14│
 └─────────────┴──────────────────────────────────┘
 ```
 
