@@ -316,6 +316,22 @@ func TestSlashCommandsAndEscape(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 }
 
+func TestHighlightKeepsSpacing(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.typeText("/highlight   the  old   lighthouse ")
+	h.enter()
+	cfg, err := config.Load(h.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "kit")
+	rs := kit.Rules.Highlight
+	if len(rs) == 0 || rs[len(rs)-1].Match.Pattern != "(?i)the  old   lighthouse" {
+		t.Errorf("rules = %+v", rs)
+	}
+}
+
 func TestNotConnectedStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("hello")

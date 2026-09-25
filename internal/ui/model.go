@@ -527,7 +527,7 @@ func (m *Model) submit() tea.Cmd {
 	text := cs.in.Value()
 	if strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "//") {
 		cs.in.Commit()
-		return m.command(cs, strings.Fields(text))
+		return m.command(cs, text)
 	}
 	text = strings.TrimPrefix(text, "/") // "//foo" sends "/foo"
 	if cs.sess == nil || cs.state != session.Connected {
@@ -571,7 +571,10 @@ func isLogErr(err error) bool {
 	return errors.As(err, &le)
 }
 
-func (m *Model) command(cs *charState, args []string) tea.Cmd {
+// command runs a slash command. text is the whole input line, so commands
+// that take free text (/highlight) can keep its spacing.
+func (m *Model) command(cs *charState, text string) tea.Cmd {
+	args := strings.Fields(text)
 	switch args[0] {
 	case "/connect":
 		if cs.sess != nil && cs.state == session.Connected {
@@ -602,7 +605,7 @@ func (m *Model) command(cs *charState, args []string) tea.Cmd {
 	case "/browse":
 		m.openBrowse(cs)
 	case "/highlight":
-		text := strings.Join(args[1:], " ")
+		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), args[0]))
 		if err := config.AppendHighlight(m.d.ConfigDir, cs.ch.World, text); err != nil {
 			m.setStatus(true, "highlight: %v", err)
 			return nil

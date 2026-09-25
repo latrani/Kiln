@@ -37,6 +37,23 @@ func TestAppendHighlightAfterCharacterTable(t *testing.T) {
 	}
 }
 
+func TestAppendHighlightKeepsSpacingAndEscapesDEL(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"worlds/fm.toml": "host = \"h\"\nport = 1\n\n[characters.kit]\nname = \"Kit\"\n"})
+	if err := AppendHighlight(dir, "fm", "a  b\x7fc"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("appended file no longer loads: %v", err)
+	}
+	kit, _ := cfg.Find("fm", "kit")
+	re := regexp.MustCompile(kit.Rules.Highlight[0].Match.Pattern)
+	if !re.MatchString("A  B\x7fC") || re.MatchString("a b\x7fc") {
+		t.Errorf("pattern %q should keep both spaces and the DEL", re)
+	}
+}
+
 func TestAppendHighlightErrors(t *testing.T) {
 	dir := t.TempDir()
 	if err := AppendHighlight(dir, "fm", "   "); err == nil {
