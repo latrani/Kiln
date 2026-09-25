@@ -351,7 +351,7 @@ func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entr
 		return style.Dim("* " + text), false
 	}
 	plain := ansi.Strip(text)
-	res := hl.Apply(plain, cls.Classify(plain))
+	res := hl.Apply(plain, cls.Tags(plain))
 	if !res.Styled {
 		return text + style.Reset, res.Attention
 	}
