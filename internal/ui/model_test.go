@@ -195,6 +195,18 @@ func (h *harness) press(code rune, mod tea.KeyMod) tea.Cmd {
 	return cmd
 }
 
+// drainScrollback runs scrollback history reads the way Bubble Tea
+// would, feeding each result back in until no read is in flight.
+func (h *harness) drainScrollback(cmd tea.Cmd) {
+	for cmd != nil {
+		msg, ok := cmd().(sbOlderMsg)
+		if !ok {
+			return
+		}
+		_, cmd = h.m.Update(msg)
+	}
+}
+
 func (h *harness) enter() tea.Cmd { return h.press(tea.KeyEnter, 0) }
 
 func (h *harness) init() {
@@ -738,9 +750,12 @@ func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
 	// The preload took day 24 plus the last 50 lines of day 23; scrolling
 	// to the very top must bring in the rest of day 23 exactly once.
 	for i := 0; i < 100; i++ {
-		h.press(tea.KeyPgUp, 0)
+		h.drainScrollback(h.press(tea.KeyPgUp, 0))
+		h.screen()
 	}
-	h.screen()
+	if cs.sb.loading || cs.sb.more {
+		t.Errorf("loading=%v more=%v after paging to the top", cs.sb.loading, cs.sb.more)
+	}
 	var got []string
 	dividers := map[string]int{}
 	for _, l := range cs.sb.lines {
