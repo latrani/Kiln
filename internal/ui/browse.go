@@ -311,7 +311,7 @@ func (b *browse) mark() {
 		return
 	}
 	if b.start == nil || b.end != nil {
-		b.start, b.end = b.cursor, nil
+		b.newRange(b.cursor, nil)
 		b.setStatus(false, "range start marked; m again at the end")
 		return
 	}
@@ -319,7 +319,36 @@ func (b *browse) mark() {
 	if b.index(b.end) < b.index(b.start) {
 		b.start, b.end = b.end, b.start
 	}
-	b.setStatus(false, "%d lines in range", b.index(b.end)-b.index(b.start)+1)
+	b.rangeStatus()
+}
+
+// newRange starts a range, dropping exclusions left from an earlier one
+// so they can't resurface if it grows over them.
+func (b *browse) newRange(start, end *bline) {
+	b.start, b.end = start, end
+	clear(b.excluded)
+}
+
+func (b *browse) rangeStatus() {
+	if n := b.index(b.end) - b.index(b.start) + 1; n == 1 {
+		b.setStatus(false, "1 line in range")
+	} else {
+		b.setStatus(false, "%d lines in range", n)
+	}
+}
+
+// extendTo grows the range to take in l, from whichever end is nearer.
+// With only a start marked, l becomes the other end.
+func (b *browse) extendTo(l *bline) {
+	if b.end == nil {
+		b.end = b.start
+	}
+	if b.index(l) < b.index(b.start) {
+		b.start = l
+	} else if b.index(l) > b.index(b.end) {
+		b.end = l
+	}
+	b.rangeStatus()
 }
 
 func (b *browse) toggleExclude(l *bline) {
@@ -861,19 +890,25 @@ func (b *browse) click(x, y int, shift bool) {
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return
 	}
+	// Like selecting files in Finder: a click selects its line, a
+	// shift-click outside the range extends it, and one inside toggles
+	// that line out of (or back into) it. The gutter column toggles too.
 	l := b.rowLines[row]
 	switch {
+	case shift && b.start != nil && b.end != nil && b.inRange(l):
+		b.toggleExclude(l)
 	case shift:
 		if b.start == nil {
-			b.start = b.cursor
+			b.newRange(b.cursor, nil)
 		}
 		b.cursor = l
-		b.end = nil
-		b.mark()
-	case x == browsePrefixW-2: // the gutter column
+		b.extendTo(l)
+	case x == browsePrefixW-2 && b.inRange(l) && b.end != nil:
 		b.toggleExclude(l)
 	default:
 		b.cursor = l
+		b.newRange(l, l)
+		b.rangeStatus()
 	}
 }
 
