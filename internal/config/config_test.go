@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -41,16 +42,18 @@ login = "connect {name} {password}"
 tag = "ooc"
 pattern = '^OOC'
 
-[characters.kit]
+[[characters]]
+id = "kit"
 name = "Kit"
 aliases = ["Kitty"]
 
-[characters.rook]
+[[characters]]
+id = "rook"
 name = "Rook"
 max_line_bytes = 500
 login = "co {name} {password}"
 
-[[characters.rook.classify]]
+[[characters.classify]]
 tag = "mine"
 pattern = 'Rook'
 `,
@@ -115,14 +118,16 @@ func TestLoadErrors(t *testing.T) {
 	}{
 		{"missing host", "port = 1\n", "host is required"},
 		{"bad port", "host = \"h\"\nport = 0\n", "port must be"},
-		{"missing name", "host = \"h\"\nport = 1\n[characters.kit]\n", "name is required"},
+		{"missing name", "host = \"h\"\nport = 1\n[[characters]]\nid = \"kit\"\n", "name is required"},
 		{"unknown key", "host = \"h\"\nport = 1\nhots = \"typo\"\n", `unknown key "hots"`},
 		{"unknown pack", "host = \"h\"\nport = 1\nuse = [\"nope\"]\n", `unknown pack "nope"`},
-		{"bad regex", "host = \"h\"\nport = 1\n[[classify]]\ntag = \"x\"\npattern = '('\n[characters.kit]\nname = \"Kit\"\n", "classify rule 1"},
-		{"empty highlight match", "host = \"h\"\nport = 1\n[[highlight]]\nattention = true\n[characters.kit]\nname = \"Kit\"\n", "match needs tags or pattern"},
+		{"bad regex", "host = \"h\"\nport = 1\n[[classify]]\ntag = \"x\"\npattern = '('\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "classify rule 1"},
+		{"empty highlight match", "host = \"h\"\nport = 1\n[[highlight]]\nattention = true\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "match needs tags or pattern"},
 		{"bad trust", "host = \"h\"\nport = 1\ntls_trust = \"yolo\"\n", "tls_trust"},
-		{"bad newline mode", "host = \"h\"\nport = 1\nnewline_mode = \"x\"\n[characters.kit]\nname = \"Kit\"\n", "newline_mode"},
-		{"bad char id", "host = \"h\"\nport = 1\n[characters.\"a/b\"]\nname = \"X\"\n", "id may only use"},
+		{"bad newline mode", "host = \"h\"\nport = 1\nnewline_mode = \"x\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "newline_mode"},
+		{"bad char id", "host = \"h\"\nport = 1\n[[characters]]\nid = \"a/b\"\nname = \"X\"\n", "id may only use"},
+		{"name needs an id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Big Kit\"\n", "set id"},
+		{"duplicate id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Kit\"\n[[characters]]\nid = \"kit\"\nname = \"Other\"\n", "used by another character"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -163,7 +168,7 @@ func TestEnsureDefaultsWritesStarterFilesOnce(t *testing.T) {
 func TestStarterPackLoads(t *testing.T) {
 	dir := t.TempDir()
 	EnsureDefaults(dir)
-	write(t, dir, map[string]string{"worlds/fm.toml": "host = \"h\"\nport = 1\nuse = [\"fuzzball\"]\n[characters.kit]\nname = \"Kit\"\n"})
+	write(t, dir, map[string]string{"worlds/fm.toml": "host = \"h\"\nport = 1\nuse = [\"fuzzball\"]\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n"})
 	cfg, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -180,8 +185,8 @@ func TestStarterPackLoads(t *testing.T) {
 func TestAutoconnectInherits(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, map[string]string{
-		"worlds/a.toml": "host = \"h\"\nport = 1\nautoconnect = true\n[characters.kit]\nname = \"Kit\"\n[characters.rook]\nname = \"Rook\"\nautoconnect = false\n",
-		"worlds/b.toml": "host = \"h\"\nport = 1\n[characters.ash]\nname = \"Ash\"\n",
+		"worlds/a.toml": "host = \"h\"\nport = 1\nautoconnect = true\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n[[characters]]\nid = \"rook\"\nname = \"Rook\"\nautoconnect = false\n",
+		"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n",
 	})
 	cfg, err := Load(dir)
 	if err != nil {
@@ -239,5 +244,42 @@ func TestPasswordStore(t *testing.T) {
 		if cfg.PasswordStore != c.want {
 			t.Errorf("password_store %q → %q, want %q", c.toml, cfg.PasswordStore, c.want)
 		}
+	}
+}
+
+func TestCharacterIDsAndOrder(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"worlds/w.toml": `host = "h"
+port = 1
+
+[[characters]]
+name = "Zed"
+
+[[characters]]
+id = "big-kit"
+name = "Big Kit"
+
+[[characters.highlight]]
+match = { pattern = 'x' }
+
+[[characters]]
+name = "Ash"
+`})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, ch := range cfg.Worlds[0].Characters {
+		ids = append(ids, ch.ID)
+	}
+	if want := []string{"Zed", "big-kit", "Ash"}; !reflect.DeepEqual(ids, want) {
+		t.Errorf("ids = %q, want %q (id defaults to name; file order kept)", ids, want)
+	}
+	if kit, _ := cfg.Find("w", "big-kit"); len(kit.Rules.Highlight) != 1 {
+		t.Errorf("per-character rule missing: %+v", kit.Rules)
+	}
+	if ash, _ := cfg.Find("w", "Ash"); len(ash.Rules.Highlight) != 0 {
+		t.Errorf("rule leaked to the next character: %+v", ash.Rules)
 	}
 }

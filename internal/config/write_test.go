@@ -10,7 +10,7 @@ import (
 
 func TestAppendHighlightAfterCharacterTable(t *testing.T) {
 	dir := t.TempDir()
-	world := "# my world\nhost = \"h\"\nport = 1\n\n[characters.kit]\nname = \"Kit\"\n"
+	world := "# my world\nhost = \"h\"\nport = 1\n\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n"
 	write(t, dir, map[string]string{"worlds/fm.toml": world})
 	if err := AppendHighlight(dir, "fm", `the "lighthouse" (old)`); err != nil {
 		t.Fatal(err)
@@ -25,7 +25,7 @@ func TestAppendHighlightAfterCharacterTable(t *testing.T) {
 	}
 	kit, _ := cfg.Find("fm", "kit")
 	if len(kit.Rules.Highlight) != 1 {
-		t.Fatalf("rules = %+v (the rule must land at world level, not inside [characters.kit])", kit.Rules.Highlight)
+		t.Fatalf("rules = %+v (the rule must land at world level, not inside the last [[characters]])", kit.Rules.Highlight)
 	}
 	r := kit.Rules.Highlight[0]
 	re := regexp.MustCompile(r.Match.Pattern)
@@ -39,7 +39,7 @@ func TestAppendHighlightAfterCharacterTable(t *testing.T) {
 
 func TestAppendHighlightKeepsSpacingAndEscapesDEL(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, map[string]string{"worlds/fm.toml": "host = \"h\"\nport = 1\n\n[characters.kit]\nname = \"Kit\"\n"})
+	write(t, dir, map[string]string{"worlds/fm.toml": "host = \"h\"\nport = 1\n\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n"})
 	if err := AppendHighlight(dir, "fm", "a  b\x7fc"); err != nil {
 		t.Fatal(err)
 	}
