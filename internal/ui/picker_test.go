@@ -137,8 +137,28 @@ func TestPickerBlockedInBrowse(t *testing.T) {
 	if h.m.picker != nil {
 		t.Fatal("picker opened over browse mode")
 	}
-	h.m.openPicker() // as a click on + Add connection would
-	if h.m.picker != nil || h.m.status != "leave browse mode (Esc) to add a connection" {
-		t.Errorf("screen:\n%s", h.screen())
+	// Shown in full on an 80-column screen, for Ctrl+O and for a click on
+	// + Add connection alike.
+	if s := h.screen(); !strings.Contains(s, browseBlocksPicker) {
+		t.Errorf("Ctrl+O: status not shown in full:\n%s", s)
+	}
+	h.m.status = ""
+	h.m.openPicker()
+	if s := h.screen(); h.m.picker != nil || !strings.Contains(s, browseBlocksPicker) {
+		t.Errorf("click: status not shown in full:\n%s", s)
+	}
+}
+
+func TestSwitchingIntoBrowseClosesPicker(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.m.switchTo("fm/rook")
+	h.typeText("/browse")
+	h.enter()
+	h.m.switchTo("fm/kit")
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyDown, tea.ModCtrl) // to rook, who is browsing
+	if h.m.active != "fm/rook" || h.m.picker != nil {
+		t.Errorf("active = %q, picker open = %v; browse would hide the filter", h.m.active, h.m.picker != nil)
 	}
 }
