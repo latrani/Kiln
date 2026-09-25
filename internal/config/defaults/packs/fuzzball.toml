@@ -1,0 +1,42 @@
+# Starter rules for Fuzzball MUCKs (built-in commands plus the stock
+# cmd-page and cmd-whisper programs). Servers customize these heavily;
+# edit freely.
+
+[[classify]]
+tag = "say"
+pattern = '^(You say|\S+ says), "'
+
+[[classify]]
+tag = "whisper"
+pattern = '^\S+ whispers,? "'
+
+[[classify]]
+tag = "page"
+pattern = '^\S+ pages( from [^:]+)?: '
+
+[[classify]]
+tag = "page"
+pattern = '^\S+ pages, ".*" to '
+
+[[classify]]
+tag = "page"
+pattern = '^In a page-pose to '
+
+[[classify]]
+tag = "page"
+pattern = '^You sense that \S+ is paging you'
+
+[[highlight]]
+match = { tags = ["page"] }
+style = { fg = "#ff9f43", bold = true }
+attention = true
+
+[[highlight]]
+match = { tags = ["whisper"] }
+style = { fg = "#c39bd3", italic = true }
+attention = true
+
+[[highlight]]
+match = { tags = ["self"] }
+style = { bold = true }
+attention = true
