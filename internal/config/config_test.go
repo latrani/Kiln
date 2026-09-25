@@ -204,6 +204,27 @@ func TestAutoconnectInherits(t *testing.T) {
 	}
 }
 
+func TestLocalEchoInherits(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{
+		"worlds/a.toml": "host = \"h\"\nport = 1\nlocal_echo = true\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n[[characters]]\nid = \"rook\"\nname = \"Rook\"\nlocal_echo = false\n",
+		"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n",
+	})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		world, char string
+		want        bool
+	}{{"a", "kit", true}, {"a", "rook", false}, {"b", "ash", false}} {
+		ch, _ := cfg.Find(c.world, c.char)
+		if ch.LocalEcho != c.want {
+			t.Errorf("%s/%s LocalEcho = %v, want %v", c.world, c.char, ch.LocalEcho, c.want)
+		}
+	}
+}
+
 func TestExportDir(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	for _, c := range []struct{ toml, want string }{
