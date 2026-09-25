@@ -153,6 +153,11 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 // disconnect.
 func (m *Model) applyConfig(cfg *config.Config) {
 	m.exportDir = cfg.ExportDir
+	for _, cs := range m.chars {
+		if cs.browse != nil {
+			cs.browse.exportDir = cfg.ExportDir
+		}
+	}
 	var order []string
 	seen := map[string]bool{}
 	for _, w := range cfg.Worlds {
@@ -296,7 +301,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case eventMsg:
 		return m, m.handleEvent(msg)
 	case tea.PasteMsg:
-		if cs := m.cur(); cs != nil && m.mode == modeNormal {
+		if cs := m.cur(); cs != nil && cs.browse != nil {
+			// Only a text prompt takes a paste; the chat draft must not.
+			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
+				cs.browse.pin.InsertText(strings.ReplaceAll(msg.Content, "\n", " "))
+			}
+		} else if cs := m.cur(); cs != nil && m.mode == modeNormal {
 			cs.in.InsertText(msg.Content)
 			m.confirm = false
 		}
@@ -386,7 +396,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	if cs != nil && cs.browse != nil {
-		cmd, closed := cs.browse.key(k, m.exportDir, m.browseBodyH())
+		cmd, closed := cs.browse.key(k, m.browseBodyH())
 		if closed {
 			cs.browse = nil
 		}
@@ -607,6 +617,7 @@ func (m *Model) command(cs *charState, args []string) tea.Cmd {
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
 	cs.browse = newBrowse(cs, m.d.LogRoot)
+	cs.browse.exportDir = m.exportDir
 	m.status = ""
 }
 

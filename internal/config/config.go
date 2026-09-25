@@ -171,7 +171,7 @@ func Load(dir string) (*Config, error) {
 	sort.Strings(worldPaths)
 
 	packs := map[string]Rules{}
-	exportDir, err := expandHome(g.ExportDir)
+	exportDir, err := ExpandHome(g.ExportDir)
 	if err != nil {
 		return nil, err
 	}
@@ -320,8 +320,9 @@ func decodeFile(path string, v any, optional bool) error {
 // DefaultExportDir is used when config.toml sets no export_dir.
 const DefaultExportDir = "~/Documents/Kiln Scenes"
 
-// expandHome expands a leading "~/" (and defaults an empty path).
-func expandHome(p string) (string, error) {
+// ExpandHome expands a leading "~/" (and defaults an empty path to
+// DefaultExportDir).
+func ExpandHome(p string) (string, error) {
 	if p == "" {
 		p = DefaultExportDir
 	}

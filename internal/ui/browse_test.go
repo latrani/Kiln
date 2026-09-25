@@ -7,9 +7,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 )
@@ -97,6 +99,8 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 func TestBrowseMarkExcludeExport(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
+	exportDir := t.TempDir()
+	h.m.exportDir = exportDir
 	h.key("ctrl+b")
 	// Cursor starts on the last line (Rook yawns). Mark 21:01..21:05.
 	h.keys("up", "m")                   // Rook says lighthouse = end
@@ -116,8 +120,6 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 		t.Errorf("gutter glyphs missing:\n%s", s)
 	}
 
-	exportDir := t.TempDir()
-	h.m.exportDir = exportDir
 	h.keys("e", "h")
 	if !strings.Contains(h.screen(), "save as: ") || !strings.Contains(h.screen(), "fm Kit.html") {
 		t.Fatalf("filename prompt missing:\n%s", h.screen())
@@ -366,5 +368,158 @@ func TestPromptWindow(t *testing.T) {
 		if got != c.want || x != c.wantCurX {
 			t.Errorf("promptWindow(%q, %d, %d) = %q, %d; want %q, %d", c.in, c.col, c.w, got, x, c.want, c.wantCurX)
 		}
+	}
+}
+
+func TestHighlightFindSurvivesCaseFolding(t *testing.T) {
+	for _, c := range []struct{ plain, needle string }{
+		{"ȺȺȺȺȺȺ x", "x"},   // Ⱥ lowercases to a longer encoding
+		{"İİİ foo", "foo"},  // İ lowercases to a different length
+		{"KELVIN K x", "x"}, // Kelvin sign
+		{"Straße STRASSE", "ß"},
+	} {
+		got := highlightFind(c.plain, c.needle)
+		if !utf8.ValidString(got) {
+			t.Errorf("highlightFind(%q, %q) = %q: invalid UTF-8", c.plain, c.needle, got)
+		}
+		if ansi.Strip(got) != c.plain {
+			t.Errorf("highlightFind(%q, %q) changed the text: %q", c.plain, c.needle, ansi.Strip(got))
+		}
+		if !strings.Contains(got, reverse+c.needle) {
+			t.Errorf("highlightFind(%q, %q) = %q: match not highlighted", c.plain, c.needle, got)
+		}
+	}
+}
+
+func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	base := day24.Add(123456789 * time.Nanosecond) // not a whole millisecond
+	w := logstore.NewWriter(h.m.d.LogRoot, "fm", "kit")
+	var sent []logstore.Entry
+	for i, text := range []string{"one", "two", "three"} {
+		e := logstore.Entry{Time: base.Add(time.Duration(i) * time.Second), Dir: logstore.In, Text: text}
+		w.Append(e)
+		sent = append(sent, e)
+	}
+	w.Close()
+	h.key("ctrl+b")
+	b := h.br()
+	for _, e := range sent { // the same burst arrives as events after browse opened
+		b.appendLive(e)
+	}
+	b.appendLive(logstore.Entry{Time: base.Add(5 * time.Second), Dir: logstore.In, Text: "four"})
+	var got []string
+	for _, l := range b.lines {
+		got = append(got, l.e.Text)
+	}
+	if strings.Join(got, ",") != "one,two,three,four" {
+		t.Errorf("lines = %q", got)
+	}
+}
+
+func TestChipClickDuringFormatPromptDoesNotCrash(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+b")
+	h.keys("up", "m", "up", "up", "m") // Sable..Kit grins region
+	h.key("e")
+	h.screen()
+	b := h.br()
+	for _, c := range b.chipSpans {
+		if c.tag == "page" { // clicking would make "page only" hide the whole selection
+			h.m.Update(tea.MouseClickMsg{X: h.m.layout().sw + 1 + c.from, Y: 1, Button: tea.MouseLeft})
+		}
+	}
+	h.key("p") // must not panic
+	if b.chips["page"] != 0 {
+		t.Error("clicks should be ignored while a prompt is open")
+	}
+}
+
+func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.key("ctrl+b")
+	b := h.br()
+	for i := 0; i < 50000; i++ {
+		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: fmt.Sprintf("the line %d", i)}, text: fmt.Sprintf("the line %d", i), day: "2026-09-24"})
+	}
+	b.cursor = b.lines[len(b.lines)-1]
+	b.find = "the"
+	start := time.Now()
+	for i := 0; i < 10; i++ {
+		b.jumpMatch(1, false) // wraps around every time from the end
+		b.cursor = b.lines[len(b.lines)-1]
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("10 find jumps on 50k lines took %v", d)
+	}
+}
+
+func TestPasteInBrowse(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+b")
+	h.m.Update(tea.PasteMsg{Content: "stray"})
+	if v := h.m.chars["fm/kit"].in.Value(); v != "" {
+		t.Errorf("paste leaked into the chat draft: %q", v)
+	}
+	h.key("/")
+	h.m.Update(tea.PasteMsg{Content: "lighthouse"})
+	h.key("enter")
+	if h.br().find != "lighthouse" {
+		t.Errorf("paste into find prompt: find = %q", h.br().find)
+	}
+}
+
+func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.m.exportDir = filepath.Join(home, "scenes")
+	h.key("ctrl+b")
+	h.keys("m", "up", "m")
+	b := h.br()
+	b.format = "plain"
+	b.save("~/Desktop/a.txt")
+	if _, err := os.Stat(filepath.Join(home, "Desktop", "a.txt")); err != nil {
+		t.Errorf("~ not expanded: %v (%s)", err, b.status)
+	}
+	b.save("b.txt")
+	if _, err := os.Stat(filepath.Join(home, "scenes", "b.txt")); err != nil {
+		t.Errorf("relative name not placed in export_dir: %v (%s)", err, b.status)
+	}
+	b.save("  ")
+	if !strings.Contains(b.status, "file name") {
+		t.Errorf("empty name status = %q", b.status)
+	}
+}
+
+func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.m.exportDir = ""
+	h.key("ctrl+b")
+	h.keys("m", "up", "m")
+	b := h.br()
+	b.format = "plain"
+	b.save("scene.txt")
+	if !strings.Contains(b.status, "no export_dir") {
+		t.Errorf("status = %q", b.status)
+	}
+	if _, err := os.Stat("scene.txt"); err == nil {
+		os.Remove("scene.txt")
+		t.Error("wrote into the working directory")
+	}
+}
+
+func TestReloadUpdatesOpenBrowseExportDir(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.key("ctrl+b")
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\n"), 0o600)
+	h.m.Update(reloadMsg{})
+	if h.br().exportDir != dir {
+		t.Errorf("open browse exportDir = %q, want %q", h.br().exportDir, dir)
 	}
 }
