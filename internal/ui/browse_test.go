@@ -463,6 +463,61 @@ func TestBrowseMouse(t *testing.T) {
 	}
 }
 
+func TestBrowseMouseSelectsLikeFinder(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+b")
+	h.screen()
+	b := h.br()
+	x := h.m.layout().sw + 1 + 10
+	click := func(i int, shift bool) {
+		t.Helper()
+		var mod tea.KeyMod
+		if shift {
+			mod = tea.ModShift
+		}
+		for row, bl := range b.rowLines {
+			if bl == b.lines[i] {
+				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 3, Button: tea.MouseLeft, Mod: mod})
+				h.screen()
+				return
+			}
+		}
+		t.Fatalf("line %d not on screen", i)
+	}
+	span := func() (int, int) { return b.index(b.start), b.index(b.end) }
+
+	click(2, false)
+	if s, e := span(); b.end == nil || s != 2 || e != 2 || b.cursor != b.lines[2] {
+		t.Fatalf("click should select just its line, got %d–%d", s, e)
+	}
+	click(4, true)
+	if s, e := span(); s != 2 || e != 4 {
+		t.Fatalf("shift-click below should extend to %d–%d, got %d–%d", 2, 4, s, e)
+	}
+	click(1, true)
+	if s, e := span(); s != 1 || e != 4 {
+		t.Fatalf("shift-click above should extend to %d–%d, got %d–%d", 1, 4, s, e)
+	}
+	click(3, true)
+	if !b.excluded[b.lines[3]] {
+		t.Fatal("shift-click inside the range should exclude")
+	}
+	if s, e := span(); s != 1 || e != 4 {
+		t.Errorf("excluding changed the range to %d–%d", s, e)
+	}
+	click(3, true)
+	if b.excluded[b.lines[3]] {
+		t.Error("shift-click on an excluded line should bring it back")
+	}
+	click(3, true)
+	click(0, false) // a new selection forgets old exclusions
+	click(4, true)
+	if s, e := span(); s != 0 || e != 4 || b.excluded[b.lines[3]] {
+		t.Errorf("new range %d–%d, line 3 excluded %v", s, e, b.excluded[b.lines[3]])
+	}
+}
+
 func TestHighlightCommand(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("/highlight the lighthouse")
