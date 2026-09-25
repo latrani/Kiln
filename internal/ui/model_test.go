@@ -83,11 +83,13 @@ use = ["fuzzball"]
 login = "connect {name} {password}"
 max_line_bytes = 20
 
-[characters.kit]
+[[characters]]
+id = "kit"
 name = "Kit"
 autoconnect = true
 
-[characters.rook]
+[[characters]]
+id = "rook"
 name = "Rook"
 `
 
@@ -466,7 +468,7 @@ func TestPreloadsHistory(t *testing.T) {
 func TestReloadAddsCharactersAndKeepsOldOnError(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	p := filepath.Join(h.dir, "worlds", "fm.toml")
-	os.WriteFile(p, []byte(fmWorld+"\n[characters.ash]\nname = \"Ash\"\n"), 0o600)
+	os.WriteFile(p, []byte(fmWorld+"\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	if !strings.Contains(h.screen(), "Ash") {
 		t.Errorf("new character missing:\n%s", h.screen())
@@ -480,14 +482,14 @@ func TestReloadAddsCharactersAndKeepsOldOnError(t *testing.T) {
 }
 
 func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
-	sp := "host = \"sp.test\"\nport = 1\n\n[characters.ash]\nname = \"Ash\"\n"
+	sp := "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n"
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": sp})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	cs := h.m.chars["fm/kit"]
 	sess := cs.sess
 
-	noKit := strings.Replace(fmWorld, "[characters.kit]\nname = \"Kit\"\nautoconnect = true\n", "", 1)
+	noKit := strings.Replace(fmWorld, "[[characters]]\nid = \"kit\"\nname = \"Kit\"\nautoconnect = true\n", "", 1)
 	os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(noKit), 0o600)
 	h.m.Update(reloadMsg{})
 	if !cs.orphan || h.m.chars["fm/kit"] != cs {
@@ -528,7 +530,7 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 func manyChars(n int) string {
 	w := "host = \"big.test\"\nport = 1\n"
 	for i := range n {
-		w += fmt.Sprintf("\n[characters.c%02d]\nname = \"C%02d\"\n", i, i)
+		w += fmt.Sprintf("\n[[characters]]\nid = \"c%02d\"\nname = \"C%02d\"\n", i, i)
 	}
 	return w
 }

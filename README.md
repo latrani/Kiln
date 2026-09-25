@@ -71,13 +71,15 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
    login = "connect {name} {password}"
    use = ["fuzzball"]          # starter rules for pages, whispers and says
 
-   [characters.kit]            # "kit" is just an id
+   [[characters]]              # one of these per character, in sidebar order
    name = "Kit"                # the in-game name
    aliases = ["Kitty"]         # other names that count as you
    autoconnect = true
    ```
 
-3. **Save the password** (optional). Run `kiln passwd furrymuck kit`. If you skip this, Kiln asks for the password when it connects and offers to save it.
+   A character's id (used for its log folder, saved password and `kiln passwd`) is its name. If the name has anything besides letters, digits, `_` and `-`, give it one with `id = "…"`.
+
+3. **Save the password** (optional). Run `kiln passwd furrymuck Kit`. If you skip this, Kiln asks for the password when it connects and offers to save it.
 
 4. **Run `kiln`.** Characters with `autoconnect = true` connect and log in. For the rest, press `Enter` on an empty input or double-click them in the sidebar.
 
@@ -175,7 +177,7 @@ style = { fg = "#ff9f43", bold = true }
 attention = true                     # light up the ● badge
 ```
 
-Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own under `[[characters.<id>.classify]]` and `[[characters.<id>.highlight]]`.
+Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` and `[[characters.highlight]]` right after its `[[characters]]` entry.
 
 ### Certificates
 

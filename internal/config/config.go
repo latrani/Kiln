@@ -75,7 +75,7 @@ type Character struct {
 // World groups resolved characters under their world id.
 type World struct {
 	ID         string
-	Characters []Character // sorted by ID
+	Characters []Character // in file order
 }
 
 // Config is the resolved configuration.
@@ -133,6 +133,7 @@ type globalFile struct {
 type charFile struct {
 	settings
 	Rules
+	ID      string   `toml:"id"` // defaults to Name
 	Name    string   `toml:"name"`
 	Aliases []string `toml:"aliases"`
 }
@@ -140,12 +141,12 @@ type charFile struct {
 type worldFile struct {
 	settings
 	Rules
-	Host       string              `toml:"host"`
-	Port       int                 `toml:"port"`
-	TLS        bool                `toml:"tls"`
-	TLSTrust   string              `toml:"tls_trust"`
-	Use        []string            `toml:"use"`
-	Characters map[string]charFile `toml:"characters"`
+	Host       string     `toml:"host"`
+	Port       int        `toml:"port"`
+	TLS        bool       `toml:"tls"`
+	TLSTrust   string     `toml:"tls_trust"`
+	Use        []string   `toml:"use"`
+	Characters []charFile `toml:"characters"`
 }
 
 // Built-in defaults, applied beneath config.toml's [defaults].
@@ -234,20 +235,25 @@ func loadWorld(dir, path string, base settings, packs map[string]Rules) (World, 
 	ws.overlay(wf.settings)
 
 	w := World{ID: id}
-	charIDs := make([]string, 0, len(wf.Characters))
-	for cid := range wf.Characters {
-		charIDs = append(charIDs, cid)
-	}
-	sort.Strings(charIDs)
-	for _, cid := range charIDs {
-		cf := wf.Characters[cid]
-		where := fmt.Sprintf("%s: characters.%s", rel, cid)
-		if !idRE.MatchString(cid) {
-			return World{}, fmt.Errorf("%s: id may only use letters, digits, _ and -", where)
-		}
+	seen := map[string]bool{}
+	for i, cf := range wf.Characters {
+		where := fmt.Sprintf("%s: characters #%d", rel, i+1)
 		if strings.TrimSpace(cf.Name) == "" {
 			return World{}, fmt.Errorf("%s: name is required", where)
 		}
+		cid := cf.ID
+		if cid == "" {
+			cid = cf.Name
+		}
+		where = fmt.Sprintf("%s: characters %q", rel, cid)
+		if !idRE.MatchString(cid) {
+			return World{}, fmt.Errorf("%s: id may only use letters, digits, _ and - (set id = \"...\" if the name has others)", where)
+		}
+		// Case-insensitively, since the id names log folders.
+		if seen[strings.ToLower(cid)] {
+			return World{}, fmt.Errorf("%s: id is used by another character in this world", where)
+		}
+		seen[strings.ToLower(cid)] = true
 		cs := ws
 		cs.overlay(cf.settings)
 		ch := Character{
