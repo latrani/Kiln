@@ -83,9 +83,20 @@ type charState struct {
 	attention bool
 	pin       *conn.PinMismatchError
 	needPW    bool
-	pwDraft   string  // input stashed while the password prompt is up
-	orphan    bool    // removed from the config; dropped when it disconnects
-	browse    *browse // non-nil while browse mode is open
+	pwDraft   string           // input stashed while the password prompt is up
+	orphan    bool             // removed from the config; dropped when it disconnects
+	browse    *browse          // non-nil while browse mode is open
+	hist      *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
+	leftover  []logstore.Entry // the preload's unshown start of its oldest day
+}
+
+// sbOlderMsg carries older scrollback lines, read and rendered off the UI
+// goroutine by pageOlder.
+type sbOlderMsg struct {
+	key   string
+	hist  *history.Reader // the reader that was asked; stale if it has changed
+	lines []string
+	more  bool
 }
 
 // startPassword shows the masked password prompt, stashing any draft so
@@ -307,24 +318,44 @@ func (m *Model) preload(cs *charState) {
 		cs.sb.Append(text)
 	}
 	cs.sb.Append(style.Dim("─── history ends " + entries[len(entries)-1].Time.Format("Mon Jan 2 15:04") + " ───"))
-	cs.sb.SetOlder(func() ([]string, bool) {
+	cs.hist, cs.leftover = hist, leftover
+	cs.sb.SetMore(leftover != nil || !hist.Exhausted())
+}
+
+// pageOlder starts reading the next older batch into the current
+// character's scrollback in a tea.Cmd, when its view has scrolled past
+// the oldest line. The first batch is the preload's leftover; after that,
+// one log day per read.
+func (m *Model) pageOlder() tea.Cmd {
+	cs := m.cur()
+	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
+		return nil
+	}
+	key, h, cls, hl, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.leftover
+	cs.leftover = nil
+	return func() tea.Msg {
+		msg := sbOlderMsg{key: key, hist: h}
 		if leftover != nil {
-			batch := leftover
-			leftover = nil
-			return cs.renderDays(batch, true), !hist.Exhausted()
+			msg.lines, msg.more = renderDays(cls, hl, leftover, true), !h.Exhausted()
+			return msg
 		}
-		es, _, ok, err := hist.LoadOlder()
-		if !ok || err != nil {
-			return nil, false
+		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
+			msg.lines, msg.more = renderDays(cls, hl, es, true), !h.Exhausted()
 		}
-		return cs.renderDays(es, true), !hist.Exhausted()
-	})
+		return msg
+	}
 }
 
 // renderDays renders log entries with a dim divider before the first line
 // of each day. The very first entry gets one only if startsDay, i.e. it
 // really is the first line of its day.
 func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []string {
+	return renderDays(cs.cls, cs.hl, entries, startsDay)
+}
+
+// renderDays is charState.renderDays with the given rules; like
+// renderLine it is safe off the UI goroutine.
+func renderDays(cls *classify.Classifier, hl *rules.Highlighter, entries []logstore.Entry, startsDay bool) []string {
 	out := make([]string, 0, len(entries)+2)
 	prev := ""
 	for i, e := range entries {
@@ -333,7 +364,7 @@ func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []stri
 			out = append(out, style.Dim("── "+dayLabel(day)+" ──"))
 		}
 		prev = day
-		text, _ := cs.render(e)
+		text, _ := renderLine(cls, hl, e)
 		out = append(out, text)
 	}
 	return out
@@ -416,8 +447,17 @@ func (m *Model) reportSize() {
 	}
 }
 
-// Update handles one message.
+// Update handles one message, then pages in older scrollback if the
+// view has run past it.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	_, cmd := m.update(msg)
+	if older := m.pageOlder(); older != nil {
+		cmd = tea.Batch(cmd, older)
+	}
+	return m, cmd
+}
+
+func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -441,6 +481,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.watch()
 	case eventMsg:
 		return m, m.handleEvent(msg)
+	case sbOlderMsg:
+		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
+			cs.sb.Prepend(msg.lines, msg.more)
+		}
 	case olderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.browse == msg.b {
 			return m, cs.browse.receive(msg)

@@ -143,25 +143,29 @@ func TestScrollbackResizeKeepsPosition(t *testing.T) {
 	}
 }
 
-// olderSource serves batches of older lines, newest batch first.
-func olderSource(batches ...[]string) func() ([]string, bool) {
-	return func() ([]string, bool) {
-		if len(batches) == 0 {
-			return nil, false
-		}
-		b := batches[0]
-		batches = batches[1:]
-		return b, len(batches) > 0
+// pageIn answers RequestOlder the way the model does, feeding batches
+// (newest first) until the view is satisfied or they run out.
+func pageIn(s *Scrollback, h int, batches *[][]string) {
+	for s.RequestOlder(h) {
+		b := (*batches)[0]
+		*batches = (*batches)[1:]
+		s.Prepend(b, len(*batches) > 0)
 	}
 }
 
 func TestScrollbackPagesOlderPastTheTop(t *testing.T) {
 	s := sb(20, "l1", "l2", "l3")
-	s.SetOlder(olderSource([]string{"o1", "o2"}, nil, []string{"p1"}))
-	if got := s.View(3); !reflect.DeepEqual(got, []string{"l1", "l2", "l3"}) {
-		t.Errorf("live view = %q", got)
+	batches := [][]string{{"o1", "o2"}, nil, {"p1"}}
+	s.SetMore(true)
+	pageIn(s, 3, &batches)
+	if got := s.View(3); !reflect.DeepEqual(got, []string{"l1", "l2", "l3"}) || len(batches) != 3 {
+		t.Errorf("live view = %q, %d batches left (want none read)", got, len(batches))
 	}
 	s.ScrollUp(100)
+	if got := s.View(6); !reflect.DeepEqual(got, []string{"", "", loadingRow, "l1", "l2", "l3"}) {
+		t.Errorf("before older arrives = %q, want a loading row", got)
+	}
+	pageIn(s, 6, &batches)
 	if got := s.View(6); !reflect.DeepEqual(got, []string{"p1", "o1", "o2", "l1", "l2", "l3"}) {
 		t.Errorf("after scrolling to the top = %q", got)
 	}
@@ -170,20 +174,32 @@ func TestScrollbackPagesOlderPastTheTop(t *testing.T) {
 	}
 }
 
-func TestScrollbackFillsScreenFromOlder(t *testing.T) {
+func TestScrollbackRequestsOlderOncePerRead(t *testing.T) {
 	s := sb(20, "l1")
-	s.SetOlder(olderSource([]string{"o1", "o2"}))
+	s.SetMore(true)
+	if !s.RequestOlder(3) {
+		t.Fatal("no request with a blank top")
+	}
+	if s.RequestOlder(3) {
+		t.Error("second request while the first is in flight")
+	}
+	s.Prepend([]string{"o1", "o2"}, false)
 	if got := s.View(3); !reflect.DeepEqual(got, []string{"o1", "o2", "l1"}) {
 		t.Errorf("View = %q, want older lines filling the blank top", got)
+	}
+	if s.RequestOlder(3) {
+		t.Error("request after history is exhausted")
 	}
 }
 
 func TestScrollbackPrependKeepsViewAnchored(t *testing.T) {
 	s := sb(20, "l1", "l2", "l3", "l4")
-	s.SetOlder(olderSource([]string{"o1", "o2", "o3"}))
+	batches := [][]string{{"o1", "o2", "o3"}}
+	s.SetMore(true)
 	s.ScrollUp(2)
 	before := s.View(2) // l1 l2
 	s.ScrollUp(2)       // into older lines
+	pageIn(s, 2, &batches)
 	s.View(2)
 	s.ScrollDown(2)
 	if got := s.View(2); !reflect.DeepEqual(got, before) {

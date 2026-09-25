@@ -1,17 +1,21 @@
 package ui
 
-import "github.com/latrani/Kiln/internal/ansi"
+import (
+	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/style"
+)
 
 // Scrollback holds one character's rendered lines. Lines are stored
 // ready to draw (sanitized and styled) and wrapped lazily, only when they
 // come into view, with the result cached per width.
 type Scrollback struct {
-	lines  []sbLine
-	width  int
-	offset int // visual rows scrolled up from the bottom; 0 = live
-	unseen int // lines appended while scrolled up
-	prompt string
-	older  func() (lines []string, more bool) // pages in older lines; nil when exhausted
+	lines   []sbLine
+	width   int
+	offset  int // visual rows scrolled up from the bottom; 0 = live
+	unseen  int // lines appended while scrolled up
+	prompt  string
+	more    bool // older lines exist that have not been paged in yet
+	loading bool // a page of older lines is being read; see RequestOlder
 }
 
 type sbLine struct {
@@ -74,31 +78,51 @@ func (s *Scrollback) Append(text string) {
 	}
 }
 
-// SetOlder sets where lines older than the first one come from. Each call
-// returns the next older batch (oldest first; possibly empty) and whether
-// more may follow. View calls it when it needs rows above the top.
-func (s *Scrollback) SetOlder(fn func() (lines []string, more bool)) { s.older = fn }
+// loadingRow sits above the oldest line while more history may exist.
+var loadingRow = style.Dim("─── loading older history… ───")
 
-// loadOlder prepends the next non-empty older batch and returns how many
-// lines it added (0 once the source is exhausted). The view is anchored
-// to the bottom, so prepending never moves what is on screen.
-func (s *Scrollback) loadOlder() int {
-	for s.older != nil {
-		lines, more := s.older()
-		if !more {
-			s.older = nil
-		}
-		if len(lines) == 0 {
-			continue
-		}
-		batch := make([]sbLine, len(lines))
-		for i, l := range lines {
-			batch[i] = sbLine{text: l}
-		}
-		s.lines = append(batch, s.lines...)
-		return len(batch)
+// SetMore records whether lines older than the first one exist. The
+// scrollback never reads them itself: RequestOlder says when the view
+// needs them, and the caller reads them off the UI goroutine and hands
+// them to Prepend.
+func (s *Scrollback) SetMore(more bool) { s.more = more }
+
+// RequestOlder reports whether a view h rows tall at the current offset
+// runs past the oldest line while more may exist and no read is already
+// in flight. If so it marks a read as in flight; the caller must answer
+// with Prepend.
+func (s *Scrollback) RequestOlder(h int) bool {
+	if !s.more || s.loading || s.hasRows(s.offset+h) {
+		return false
 	}
-	return 0
+	s.loading = true
+	return true
+}
+
+// hasRows reports whether the lines (and prompt) wrap to at least n rows.
+func (s *Scrollback) hasRows(n int) bool {
+	w := s.w()
+	rows := 0
+	if s.prompt != "" && s.offset == 0 {
+		rows = len(ansi.Wrap(s.prompt, w))
+	}
+	for i := len(s.lines) - 1; i >= 0 && rows < n; i-- {
+		rows += len(s.lines[i].wrap(w))
+	}
+	return rows >= n
+}
+
+// Prepend adds an older batch (oldest first; possibly empty) above the
+// first line, ending the read RequestOlder started; more says whether
+// still older lines exist. The view is anchored to the bottom, so
+// prepending never moves what is on screen.
+func (s *Scrollback) Prepend(lines []string, more bool) {
+	s.loading, s.more = false, more
+	batch := make([]sbLine, len(lines))
+	for i, l := range lines {
+		batch[i] = sbLine{text: l}
+	}
+	s.lines = append(batch, s.lines...)
 }
 
 // SetPrompt shows an unterminated prompt below the last line.
@@ -150,27 +174,29 @@ func (s *Scrollback) View(h int) []string {
 	}
 	need := s.offset + h
 	i := len(s.lines) - 1
-	for len(tail) < need {
-		if i < 0 {
-			n := s.loadOlder()
-			if n == 0 {
-				break
-			}
-			i = n - 1
-		}
+	for len(tail) < need && i >= 0 {
 		rows := s.lines[i].wrap(w)
 		for j := len(rows) - 1; j >= 0; j-- {
 			tail = append(tail, rows[j])
 		}
 		i--
 	}
-	if i < 0 && len(tail) < need { // hit the very top: clamp the offset
-		s.offset = max(0, len(tail)-h)
-		if s.offset == 0 {
-			s.unseen = 0
+	start := s.offset
+	if i < 0 && len(tail) < need {
+		if s.more {
+			// Older lines are on their way: show the top with a loading
+			// row, but keep the offset so the scroll lands once they arrive.
+			tail = append(tail, loadingRow)
+			start = max(0, len(tail)-h)
+		} else { // hit the very top: clamp the offset
+			s.offset = max(0, len(tail)-h)
+			start = s.offset
+			if s.offset == 0 {
+				s.unseen = 0
+			}
 		}
 	}
-	start := min(s.offset, len(tail))
+	start = min(start, len(tail))
 	end := min(start+h, len(tail))
 	out := make([]string, h)
 	for k := start; k < end; k++ {
