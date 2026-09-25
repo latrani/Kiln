@@ -327,7 +327,7 @@ func TestBrowseLoadsOlderDaysOffTheUIGoroutine(t *testing.T) {
 	if len(b.lines) != 300 || b.cursor.e.Text != "day 23 line 0" {
 		t.Errorf("Update must not load synchronously: %d lines, cursor %q", len(b.lines), b.cursor.e.Text)
 	}
-	if !strings.Contains(h.screen(), "loading older history") {
+	if s := h.screen(); !strings.Contains(s, "loading older history…") || strings.Contains(s, "⋯") {
 		t.Errorf("no loading row:\n%s", h.screen())
 	}
 	// A second Home while loading doesn't start another read.

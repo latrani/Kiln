@@ -209,9 +209,9 @@ func (m *Model) View() tea.View {
 		}
 		switch r, hint := sv.at(y); {
 		case hint < 0:
-			b.WriteString(style.Dim(fit(fmt.Sprintf("▴ %d more", sv.top), l.sw)))
+			b.WriteString(style.Dim(fit(fmt.Sprintf("▲ %d more", sv.top), l.sw)))
 		case hint > 0:
-			b.WriteString(style.Dim(fit(fmt.Sprintf("▾ %d more", len(sv.rows)-sv.top-sv.avail), l.sw)))
+			b.WriteString(style.Dim(fit(fmt.Sprintf("▼ %d more", len(sv.rows)-sv.top-sv.avail), l.sw)))
 		case r != nil && m.picker != nil:
 			b.WriteString(m.pickerLine(*r, l.sw))
 		case r != nil:

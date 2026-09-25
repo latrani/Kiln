@@ -4,10 +4,10 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 
 ```
 ┌─────────────┬──────────────────────────────────┐
-│ ▾ FurryMUCK │ Rook says, "Evening!"            │
+│ FurryMUCK   │ Rook says, "Evening!"            │
 │   Kit       │ Sable waves a paw.               │
 │   Rook      │ Mira pages: you around?          │
-│ ▾ Tapestries│                                  │
+│ Tapestries  │                                  │
 │   Ash    ● 2│                        ▼ 12 new  │
 │ + Add conne…├──────────────────────────────────┤
 │             │ > :grins, then leans on the      │
@@ -107,7 +107,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 
 Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
-The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `✕` to close it. Click a world header to collapse it. Connected characters have no mark; `…` means connecting and `✕` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
+The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
 
 ### Commands
 

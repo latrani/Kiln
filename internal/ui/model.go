@@ -58,7 +58,6 @@ type Model struct {
 	idle      *Input         // the input box while nothing is open
 	chars     map[string]*charState
 	order     []string // sidebar order of character keys
-	collapsed map[string]bool
 	active    string
 	width     int
 	height    int
@@ -150,7 +149,7 @@ func New(d Deps, cfg *config.Config) *Model {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	m := &Model{d: d, chars: map[string]*charState{}, collapsed: map[string]bool{}, idle: NewInput()}
+	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
 	m.applyConfig(cfg)
 	for _, ch := range m.allChars() {
 		if ch.Autoconnect {
@@ -376,7 +375,7 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cs.sess, cs.cancel = s, cancel
-	cs.state = session.Connecting // until the session says otherwise; no ✕ flash
+	cs.state = session.Connecting // until the session says otherwise; no × flash
 	go s.Run(ctx)
 	return waitEvent(cs.key, s)
 }
@@ -666,7 +665,6 @@ func (m *Model) switchTo(k string) {
 		m.closePicker() // browse has the pane; the filter would be hidden
 	}
 	cs.unread, cs.attention = 0, false
-	delete(m.collapsed, cs.ch.World)
 }
 
 // submit handles Enter: a command, a password, or lines for the server.
@@ -870,8 +868,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 			}
 		case r.kind == rowAdd:
 			m.openPicker()
-		case r.kind == rowWorld:
-			m.collapsed[r.world] = !m.collapsed[r.world]
+		case r.kind == rowWorld: // headers do nothing
 		case msg.X == badgeX && closable(m.chars[r.char]):
 			m.close(r.char)
 		default:

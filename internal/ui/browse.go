@@ -751,7 +751,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	ms := b.matches()
 	start := slices.Index(v, b.top)
 	if b.loading && start <= 0 { // the oldest loaded line is at the top
-		rows = append(rows, style.Dim("⋯ loading older history…"))
+		rows = append(rows, style.Dim("loading older history…"))
 		b.rowLines = append(b.rowLines, nil)
 	}
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
