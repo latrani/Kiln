@@ -4,6 +4,16 @@
 # readable only by you; for systems without a keychain) or "none" (never save).
 # password_store = "keychain"
 
+# Where logs go; {world} and {char} (the character's id) are filled in.
+# log_dir = "~/.local/share/kiln/logs/{world}/{char}"
+
+# Browse-mode exports: the folder, the file name ({date}, {time}, {world},
+# {name}) and the format Enter picks ("plain", "ansi" or "html"; unset asks).
+# export_dir = "~/Documents/Kiln Scenes"
+# export_name = "{date} {time} {world} {name}"
+# export_format = "html"
+
 [defaults]
 max_line_bytes = 2047   # Fuzzball's limit; override per world if yours differs
 newline_mode = "batch"  # "batch": each line is its own command; "flatten": join with spaces
+local_echo = false      # true: show what you send in the scrollback (it is always logged)

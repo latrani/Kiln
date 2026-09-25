@@ -75,7 +75,7 @@ func run(args []string) error {
 		if !ok {
 			return fmt.Errorf("no character %s/%s (define it in %s)", args[1], args[2], filepath.Join(cfgDir, "worlds", args[1]+".toml"))
 		}
-		return tail(ch, dataDir, cfg.PasswordStore)
+		return tail(ch, dataDir, cfg.PasswordStore, cfg.LogDir)
 	case "passwd":
 		if _, ok := cfg.Find(args[1], args[2]); !ok {
 			return fmt.Errorf("no character %s/%s", args[1], args[2])
@@ -118,7 +118,7 @@ func knownHosts(dataDir string) conn.KnownHosts {
 	return conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")}
 }
 
-func tail(ch config.Character, dataDir, pwStore string) error {
+func tail(ch config.Character, dataDir, pwStore, logDir string) error {
 	cls, err := classify.New(ch.Rules.Classify, ch.Name, ch.Aliases)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func tail(ch config.Character, dataDir, pwStore string) error {
 	if err != nil {
 		w, h = 80, 24
 	}
-	logw := logstore.NewWriter(filepath.Join(dataDir, "logs"), ch.World, ch.ID)
+	logw := logstore.NewWriter(logstore.CharDir(logDir, filepath.Join(dataDir, "logs"), ch.World, ch.ID), ch.ID)
 	defer logw.Close()
 
 	s := session.New(session.Options{
@@ -219,12 +219,12 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
 			})
 		},
-		NewLog: func(world, char string) session.Appender {
+		NewLog: func(dir, char string) session.Appender {
 			mu.Lock()
 			defer mu.Unlock()
-			k := world + "/" + char
+			k := filepath.Join(dir, char)
 			if writers[k] == nil {
-				writers[k] = logstore.NewWriter(logRoot, world, char)
+				writers[k] = logstore.NewWriter(dir, char)
 			}
 			return writers[k]
 		},

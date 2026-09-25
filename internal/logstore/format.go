@@ -1,6 +1,7 @@
 // Package logstore reads and writes Kiln's plain-text log files.
 //
-// Each file holds one character's traffic for one local day:
+// Each file holds one character's traffic for one session (older
+// versions of Kiln wrote one file per local day):
 //
 //	#kiln-log v1
 //	2026-09-24T21:14:03.120-07:00 <	Rook says, "Evening!"
