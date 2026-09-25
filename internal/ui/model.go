@@ -573,6 +573,12 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+down":
 		m.switchBy(1)
 		return nil
+	case "tab":
+		m.switchToUnread(1)
+		return nil
+	case "shift+tab":
+		m.switchToUnread(-1)
+		return nil
 	case openPickerKey:
 		if m.picker == nil {
 			m.openPicker() // says why not, in browse mode
@@ -656,6 +662,21 @@ func (m *Model) switchBy(delta int) {
 	}
 	i = (i + delta + len(m.order)) % len(m.order)
 	m.switchTo(m.order[i])
+}
+
+// switchToUnread moves to the next character (dir 1) or previous one
+// (dir -1) in sidebar order that has unseen lines, wrapping around.
+func (m *Model) switchToUnread(dir int) {
+	n := len(m.order)
+	i := slices.Index(m.order, m.active) // -1 when nothing is open
+	for step := 1; step <= n; step++ {
+		k := m.order[((i+dir*step)%n+n)%n]
+		if k != m.active && m.chars[k].unread > 0 {
+			m.switchTo(k)
+			return
+		}
+	}
+	m.setStatus(false, "nothing unread")
 }
 
 func (m *Model) switchTo(k string) {
