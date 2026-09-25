@@ -935,3 +935,36 @@ func TestRenderLineMatchScope(t *testing.T) {
 		t.Errorf("renderLine = %q, %v; want %q, true", got, attn, want)
 	}
 }
+
+func TestTabJumpsToUnread(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.open("fm/rook", "sp/ash")
+	if got := strings.Join(h.m.order, " "); got != "fm/kit fm/rook sp/ash" {
+		t.Fatalf("order = %s", got)
+	}
+	h.m.switchTo("fm/kit")
+	h.m.chars["fm/rook"].unread, h.m.chars["sp/ash"].unread = 1, 3
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "fm/rook" || h.m.chars["fm/rook"].unread != 0 {
+		t.Fatalf("Tab: active %s, want fm/rook with its unread seen", h.m.active)
+	}
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" {
+		t.Fatalf("Tab: active %s, want sp/ash", h.m.active)
+	}
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" || !strings.Contains(h.screen(), "nothing unread") {
+		t.Errorf("Tab with nothing unread moved or said nothing: active %s\n%s", h.m.active, h.screen())
+	}
+	h.m.chars["fm/kit"].unread, h.m.chars["sp/ash"].unread = 2, 0
+	h.m.chars["fm/rook"].unread = 0
+	h.press(tea.KeyTab, 0) // wraps past the end
+	if h.m.active != "fm/kit" {
+		t.Errorf("Tab should wrap to fm/kit, active %s", h.m.active)
+	}
+	h.m.chars["sp/ash"].unread, h.m.chars["fm/rook"].unread = 1, 1
+	h.press(tea.KeyTab, tea.ModShift) // backwards, wrapping
+	if h.m.active != "sp/ash" {
+		t.Errorf("Shift+Tab should wrap back to sp/ash, active %s", h.m.active)
+	}
+}
