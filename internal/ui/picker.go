@@ -13,6 +13,11 @@ import (
 // pickerHint follows the filter in the input area.
 const pickerHint = "Enter to connect · Esc to close"
 
+// browseBlocksPicker is the status when the picker can't open because
+// browse mode has the pane. Short, so it fits after browse mode's
+// status-line prefix on an 80-column screen.
+const browseBlocksPicker = "Esc out of browse mode first"
+
 // noMatches fills the picker when it has nothing to offer.
 const noMatches = "No matches"
 
@@ -27,7 +32,7 @@ type picker struct {
 // mode, which has the pane (and the input area) to itself.
 func (m *Model) openPicker() {
 	if cs := m.cur(); cs != nil && cs.browse != nil {
-		m.setStatus(true, "leave browse mode (Esc) to add a connection")
+		m.setStatus(true, browseBlocksPicker)
 		return
 	}
 	m.picker = &picker{form: newForm(pickerHint, "Filter")}

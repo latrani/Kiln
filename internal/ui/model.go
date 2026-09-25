@@ -574,6 +574,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+down":
 		m.switchBy(1)
 		return nil
+	case openPickerKey:
+		if m.picker == nil {
+			m.openPicker() // says why not, in browse mode
+			return nil
+		}
 	}
 	if m.picker != nil {
 		return m.pickerKey(k)
@@ -586,9 +591,6 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 	switch k.String() {
-	case openPickerKey:
-		m.openPicker()
-		return nil
 	case openBrowseKey:
 		if cs != nil {
 			m.openBrowse(cs)
@@ -663,6 +665,9 @@ func (m *Model) switchTo(k string) {
 		return
 	}
 	m.active, m.confirm = k, false
+	if cs.browse != nil && m.picker != nil {
+		m.closePicker() // browse has the pane; the filter would be hidden
+	}
 	cs.unread, cs.attention = 0, false
 	delete(m.collapsed, cs.ch.World)
 }
