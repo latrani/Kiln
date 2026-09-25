@@ -554,7 +554,7 @@ func (m *Model) submit() tea.Cmd {
 		m.setStatus(true, "%s is not connected (/connect)", cs.ch.Name)
 		return nil
 	}
-	if cs.in.OverLimit(cs.ch.MaxLineBytes) && !m.confirm {
+	if cs.in.OverLimit(cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten") && !m.confirm {
 		m.confirm = true
 		m.setStatus(true, "over %d bytes: Enter again to send anyway", cs.ch.MaxLineBytes)
 		return nil

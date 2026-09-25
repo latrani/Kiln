@@ -294,6 +294,23 @@ func TestOverLimitNeedsConfirm(t *testing.T) {
 	}
 }
 
+func TestFlattenChecksJoinedLength(t *testing.T) {
+	flat := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
+	h := newHarness(t, map[string]string{"fm": flat})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("say one two")
+	h.press(tea.KeyEnter, tea.ModShift)
+	h.typeText("three four") // each line fits; joined is 22 bytes
+	h.enter()
+	if n := len(h.conn("fm/kit").Sent()); n != 1 {
+		t.Fatalf("sent %d lines before confirm", n)
+	}
+	if !strings.Contains(h.screen(), "over 20 bytes") {
+		t.Errorf("no warning:\n%s", h.screen())
+	}
+}
+
 func TestSlashCommandsAndEscape(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
