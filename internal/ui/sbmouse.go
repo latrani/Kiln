@@ -51,6 +51,10 @@ func (l *sbLine) plainRows(w int) (plain string, rows []string, starts []int) {
 			pos += len(r)
 		}
 		l.plainW = w
+		l.links = nil
+		for _, m := range urlRE.FindAllStringIndex(l.plain, -1) {
+			l.links = append(l.links, [2]int{m[0], m[0] + len(trimURL(l.plain[m[0]:m[1]]))})
+		}
 	}
 	return l.plain, l.pRows, l.pStarts
 }
@@ -98,16 +102,65 @@ func trimURL(u string) string {
 	return u
 }
 
-// URLAt is the link at p, or "".
-func (s *Scrollback) URLAt(p sbPos) string {
-	plain, _, _ := s.lines[p.line].plainRows(s.w())
-	for _, m := range urlRE.FindAllStringIndex(plain, -1) {
-		u := trimURL(plain[m[0]:m[1]])
-		if p.off >= m[0] && p.off < m[0]+len(u) {
-			return u
+// linkAt is the byte range of the link at p, if there is one.
+func (s *Scrollback) linkAt(p sbPos) ([2]int, bool) {
+	if p.line < 0 || p.line >= len(s.lines) {
+		return [2]int{}, false
+	}
+	l := &s.lines[p.line]
+	l.plainRows(s.w())
+	for _, lk := range l.links {
+		if p.off >= lk[0] && p.off < lk[1] {
+			return lk, true
 		}
 	}
-	return ""
+	return [2]int{}, false
+}
+
+// URLAt is the link at p, or "".
+func (s *Scrollback) URLAt(p sbPos) string {
+	lk, ok := s.linkAt(p)
+	if !ok {
+		return ""
+	}
+	return s.lines[p.line].plain[lk[0]:lk[1]]
+}
+
+// Hover records the text under the pointer (nil when it's elsewhere), so
+// the link there is drawn lit.
+func (s *Scrollback) Hover(p *sbPos) { s.hover = p }
+
+// Link styles. They replace the line's own styling across the link.
+const (
+	linkSGR  = "\x1b[4m"    // underlined
+	hoverSGR = "\x1b[4;94m" // underlined, bright blue: under the pointer
+)
+
+// linkRow draws the links in one row underlined, and the one under the
+// pointer blue as well, whatever the line's own colors.
+func (s *Scrollback) linkRow(row string, ref sbRef) string {
+	l := &s.lines[ref.line]
+	_, rows, starts := l.plainRows(s.w())
+	pr, start := rows[ref.row], starts[ref.row]
+	var hovered [2]int
+	hoverOK := false
+	if s.hover != nil && s.hover.line == ref.line {
+		hovered, hoverOK = s.linkAt(*s.hover)
+	}
+	for i := len(l.links) - 1; i >= 0; i-- { // right to left, so earlier columns hold
+		lk := l.links[i]
+		a, z := max(0, lk[0]-start), min(len(pr), lk[1]-start)
+		if a >= z {
+			continue
+		}
+		sgr := linkSGR
+		if hoverOK && lk == hovered {
+			sgr = hoverSGR
+		}
+		c1, c2 := xansi.StringWidth(pr[:a]), xansi.StringWidth(pr[:z])
+		row = xansi.Cut(row, 0, c1) + style.Reset + sgr + pr[a:z] + style.Reset + xansi.Cut(row, c2, 1<<30)
+	}
+	return row
 }
 
 // StartSelect starts a drag at p, dropping any earlier selection.

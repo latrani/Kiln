@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/latrani/Kiln/internal/style"
 )
 
 func TestTrimURL(t *testing.T) {
@@ -169,5 +171,47 @@ func TestMouseSelectAndLinks(t *testing.T) {
 	mouse(tea.MouseMotionMsg{X: x0 + gutterWidth + 4, Y: iy, Button: tea.MouseLeft})
 	if got := clipboard(mouse(tea.MouseReleaseMsg{X: x0 + gutterWidth + 4, Y: iy, Button: tea.MouseLeft})); got != "hello" {
 		t.Errorf("input clipboard = %q", got)
+	}
+}
+
+func TestLinksUnderlinedAndLitOnHover(t *testing.T) {
+	// Red text with a link that wraps: "\x1b[31mgo", "https://ex", "ample.com", "now".
+	s := sbWith(10, 4, "\x1b[31mgo https://example.com now\x1b[0m")
+	rows := s.View(4)
+	if !strings.Contains(rows[1], style.Reset+linkSGR+"https://ex"+style.Reset) ||
+		!strings.Contains(rows[2], style.Reset+linkSGR+"ample.com"+style.Reset) {
+		t.Fatalf("link not underlined on both rows (over the line's red): %q", rows)
+	}
+	if strings.Contains(rows[0], linkSGR) || strings.Contains(rows[3], linkSGR) {
+		t.Errorf("text outside the link underlined: %q", rows)
+	}
+	p, _ := s.At(2, 2)
+	s.Hover(&p)
+	rows = s.View(4)
+	if !strings.Contains(rows[1], hoverSGR+"https://ex") || !strings.Contains(rows[2], hoverSGR+"ample.com") {
+		t.Errorf("hovered link not blue on every row: %q", rows)
+	}
+	q, _ := s.At(3, 1)
+	s.Hover(&q) // off the link
+	if rows = s.View(4); strings.Contains(strings.Join(rows, ""), hoverSGR) {
+		t.Errorf("link still lit after the pointer left: %q", rows)
+	}
+}
+
+func TestHoverTracksPointer(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	cs := h.m.chars["fm/kit"]
+	line := "see https://kiln.test/map"
+	cs.sb.Append(line)
+	h.screen()
+	l := h.m.layout()
+	col := strings.Index(line, "kiln")
+	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + col, Y: l.sbH - 1})
+	if !strings.Contains(h.m.View().Content, hoverSGR+"https://kiln.test/map") {
+		t.Error("link under the pointer isn't lit")
+	}
+	h.m.Update(tea.MouseMotionMsg{X: 2, Y: 0}) // over the sidebar
+	if strings.Contains(h.m.View().Content, hoverSGR) {
+		t.Error("link stayed lit after the pointer left the scrollback")
 	}
 }

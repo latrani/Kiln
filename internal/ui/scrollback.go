@@ -18,6 +18,7 @@ type Scrollback struct {
 	loading bool       // a page of older lines is being read; see RequestOlder
 	shown   []sbRef    // what each row of the last View shows
 	sel     *selection // a mouse selection; see sbmouse.go
+	hover   *sbPos     // the text under the pointer, if any
 }
 
 type sbLine struct {
@@ -29,6 +30,7 @@ type sbLine struct {
 	pRows   []string
 	pStarts []int
 	plainW  int
+	links   [][2]int // byte ranges of the links in plain
 }
 
 func (l *sbLine) wrap(w int) []string {
@@ -222,7 +224,7 @@ func (s *Scrollback) View(h int) []string {
 		y := h - 1 - (k - start)
 		out[y], s.shown[y] = tail[k], refs[k]
 		if refs[k].line >= 0 {
-			out[y] = s.highlightRow(out[y], refs[k])
+			out[y] = s.highlightRow(s.linkRow(out[y], refs[k]), refs[k])
 		}
 	}
 	return out

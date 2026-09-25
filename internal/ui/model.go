@@ -922,10 +922,20 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 }
 
 // handleDrag follows a drag that started in the scrollback or the input,
-// clamping the pointer to where it started.
+// clamping the pointer to where it started. With no button down, it
+// tracks what the pointer is over, so links light up.
 func (m *Model) handleDrag(msg tea.Mouse) {
 	l := m.layout()
 	x := max(0, msg.X-l.sw-1)
+	if cs := m.cur(); cs != nil && msg.Button == tea.MouseNone {
+		cs.sb.Hover(nil)
+		if msg.X > l.sw && msg.Y < l.sbH && cs.browse == nil {
+			if p, ok := cs.sb.At(msg.Y, x); ok {
+				cs.sb.Hover(&p)
+			}
+		}
+		return
+	}
 	if cs := m.cur(); cs != nil && cs.sb.Dragging() {
 		for y := min(max(0, msg.Y), l.sbH-1); y >= 0; y-- { // the nearest text row at or above
 			if p, ok := cs.sb.At(y, x); ok {
