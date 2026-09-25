@@ -169,7 +169,7 @@ func tail(ch config.Character, dataDir, pwStore string) error {
 			var res rules.Result
 			if ev.Entry.Dir == logstore.In {
 				plain := ansi.Strip(ev.Entry.Text)
-				res = hl.Apply(plain, cls.Classify(plain))
+				res = hl.Apply(plain, cls.Tags(plain))
 			}
 			fmt.Println(render(ev.Entry, res))
 		case session.EventLogError:
