@@ -485,6 +485,7 @@ func TestHighlightCommand(t *testing.T) {
 
 func TestBrowseCommandAndSwitching(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
 	h.typeText("/browse")
 	h.enter()
 	if h.br() == nil || !strings.Contains(h.screen(), "no logs yet") {

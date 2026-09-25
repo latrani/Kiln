@@ -53,6 +53,7 @@ const (
 // Model is the Bubble Tea model.
 type Model struct {
 	d         Deps
+	cfg       *config.Config // the loaded config; the picker lists from it
 	chars     map[string]*charState
 	order     []string // sidebar order of character keys
 	collapsed map[string]bool
@@ -140,19 +141,19 @@ type (
 	tickMsg   time.Time
 )
 
-// New builds the model from an already-loaded config and preloads each
-// character's recent history. Nothing connects until Init.
+// New builds the model from an already-loaded config and opens the
+// autoconnect characters, preloading their recent history. Nothing
+// connects until Init.
 func New(d Deps, cfg *config.Config) *Model {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
 	m := &Model{d: d, chars: map[string]*charState{}, collapsed: map[string]bool{}}
 	m.applyConfig(cfg)
-	for _, k := range m.order {
-		m.preload(m.chars[k])
-	}
-	if len(m.order) > 0 {
-		m.active = m.order[0]
+	for _, ch := range m.allChars() {
+		if ch.Autoconnect {
+			m.open(key(ch.World, ch.ID))
+		}
 	}
 	return m
 }
@@ -193,89 +194,38 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 	}
 }
 
-// applyConfig adds, updates and removes characters to match cfg.
-// Connected characters that vanished from the config become orphans: they
-// stay, grouped under their world, until they next disconnect.
+// applyConfig keeps cfg for the picker and updates open characters to
+// match it. An open character that vanished from the config stays as an
+// orphan while it's connected, until it next disconnects; otherwise it
+// closes.
 func (m *Model) applyConfig(cfg *config.Config) {
+	m.cfg = cfg
 	m.exportDir = cfg.ExportDir
 	store := cfg.PasswordStore
 	m.pwStore.Store(&store)
-	for _, cs := range m.chars {
+	for _, k := range slices.Clone(m.order) {
+		cs := m.chars[k]
 		if cs.browse != nil {
 			cs.browse.exportDir = cfg.ExportDir
 		}
-	}
-	var order []string
-	seen := map[string]bool{}
-	for _, w := range cfg.Worlds {
-		for _, ch := range w.Characters {
-			k := key(ch.World, ch.ID)
-			seen[k] = true
-			order = append(order, k)
-			cs, ok := m.chars[k]
-			if !ok {
-				cs = &charState{key: k, in: NewInput()}
-				m.chars[k] = cs
+		ch, ok := m.find(k)
+		if !ok {
+			if cs.sess != nil && cs.state != session.Disconnected && cs.state != session.Failed {
+				cs.orphan = true
+			} else {
+				m.close(k)
 			}
-			cs.ch, cs.orphan = ch, false
-			if err := cs.compile(); err != nil {
-				m.setStatus(true, "%s: %v", k, err)
-			}
-			if cs.sess != nil {
-				cs.sess.SetChar(ch)
-			}
-		}
-	}
-	for _, k := range m.order {
-		if seen[k] {
 			continue
 		}
-		cs := m.chars[k]
-		if cs.sess != nil && cs.state != session.Disconnected && cs.state != session.Failed {
-			cs.orphan = true
-			order = insertInWorld(order, m.chars, k)
-			continue
+		cs.ch, cs.orphan = ch, false
+		if err := cs.compile(); err != nil {
+			m.setStatus(true, "%s: %v", k, err)
 		}
-		if cs.cancel != nil {
-			cs.cancel()
-		}
-		delete(m.chars, k)
-	}
-	m.order = order
-	m.fixActive()
-}
-
-// insertInWorld adds k to order after the last character of its world, so
-// the sidebar shows it under that world's existing header.
-func insertInWorld(order []string, chars map[string]*charState, k string) []string {
-	world := chars[k].ch.World
-	at := len(order)
-	for i, o := range order {
-		if chars[o].ch.World == world {
-			at = i + 1
+		if cs.sess != nil {
+			cs.sess.SetChar(ch)
 		}
 	}
-	return slices.Insert(order, at, k)
-}
-
-// drop stops an orphaned character's session and removes it.
-func (m *Model) drop(k string) {
-	if cs := m.chars[k]; cs != nil && cs.cancel != nil {
-		cs.cancel()
-	}
-	delete(m.chars, k)
-	m.order = slices.DeleteFunc(m.order, func(o string) bool { return o == k })
-	m.fixActive()
-}
-
-// fixActive picks the first character if the active one is gone.
-func (m *Model) fixActive() {
-	if _, ok := m.chars[m.active]; !ok {
-		m.active = ""
-		if len(m.order) > 0 {
-			m.active = m.order[0]
-		}
-	}
+	m.sortOrder() // names may have changed
 }
 
 func (cs *charState) compile() error {
@@ -554,7 +504,7 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	case session.EventState:
 		cs.state = ev.State
 		if cs.orphan && (ev.State == session.Disconnected || ev.State == session.Failed) {
-			m.drop(msg.key) // don't reconnect (and log in) a deleted character
+			m.close(msg.key) // don't reconnect (and log in) a deleted character
 			return nil
 		}
 		var pin *conn.PinMismatchError
