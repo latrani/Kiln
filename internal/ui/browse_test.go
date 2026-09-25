@@ -58,6 +58,18 @@ func (h *harness) key(s string) tea.Cmd {
 		k = tea.KeyPressMsg{Code: r, Text: s}
 	}
 	_, cmd := h.m.Update(k)
+	return h.drainLoads(cmd)
+}
+
+// drainLoads runs history loads the way Bubble Tea would, feeding each
+// result back in, until browse stops loading. Other commands are returned.
+func (h *harness) drainLoads(cmd tea.Cmd) tea.Cmd {
+	for cmd != nil {
+		if b := h.br(); b == nil || !b.loading {
+			break
+		}
+		_, cmd = h.m.Update(cmd())
+	}
 	return cmd
 }
 
@@ -294,6 +306,64 @@ func TestBrowseFind(t *testing.T) {
 	}
 	if !strings.Contains(h.screen(), "Sable") {
 		t.Error("find must not hide lines")
+	}
+}
+
+func TestBrowseLoadsOlderDaysOffTheUIGoroutine(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for d := 21; d <= 24; d++ {
+		lines := make([]string, 150)
+		for i := range lines {
+			lines[i] = fmt.Sprintf("day %d line %d", d, i)
+		}
+		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
+	}
+	h.key("ctrl+b")
+	b := h.br()
+	_, cmd := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
+	if cmd == nil || !b.loading {
+		t.Fatal("Home should start a background load")
+	}
+	if len(b.lines) != 300 || b.cursor.e.Text != "day 23 line 0" {
+		t.Errorf("Update must not load synchronously: %d lines, cursor %q", len(b.lines), b.cursor.e.Text)
+	}
+	if !strings.Contains(h.screen(), "loading older history") {
+		t.Errorf("no loading row:\n%s", h.screen())
+	}
+	// A second Home while loading doesn't start another read.
+	if _, cmd2 := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome}); cmd2 != nil {
+		t.Error("second load started while one is in flight")
+	}
+	// The first day arrives; Home keeps paging until history runs out.
+	_, cmd = h.m.Update(cmd())
+	if len(b.lines) != 450 || cmd == nil {
+		t.Fatalf("after one day: %d lines, next cmd %v", len(b.lines), cmd != nil)
+	}
+	h.drainLoads(cmd)
+	if b.loading || !b.histDone || b.cursor.e.Text != "day 21 line 0" {
+		t.Errorf("loading=%v done=%v cursor=%q", b.loading, b.histDone, b.cursor.e.Text)
+	}
+	if strings.Contains(h.screen(), "loading older history") {
+		t.Errorf("loading row left behind:\n%s", h.screen())
+	}
+}
+
+func TestBrowseDropsLoadForClosedBrowse(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24.AddDate(0, 0, -1), "old line")
+	h.writeLog(day24, make([]string, 250)...)
+	h.key("ctrl+b")
+	_, cmd := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
+	if cmd == nil {
+		t.Fatal("no load started")
+	}
+	h.key("esc")
+	h.key("ctrl+b") // a new browse
+	fresh := h.br()
+	n := len(fresh.lines)
+	h.m.Update(cmd()) // the old browse's day arrives late
+	if len(fresh.lines) != n {
+		t.Errorf("stale load changed the new browse: %d → %d lines", n, len(fresh.lines))
 	}
 }
 

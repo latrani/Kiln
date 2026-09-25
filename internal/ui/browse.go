@@ -15,9 +15,11 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/style"
 )
@@ -69,6 +71,18 @@ type browse struct {
 	chipSpans []chipSpan
 	loadedTo  time.Time // newest logged time at open, at log (millisecond) precision
 	exportDir string
+	histDone  bool           // every log day is loaded (or there is no history)
+	loading   bool           // an older day is being read in a tea.Cmd
+	pending   func() tea.Cmd // what to do when it arrives; see requestOlder
+}
+
+// olderMsg carries one older day, read and rendered off the UI goroutine.
+type olderMsg struct {
+	key   string
+	b     *browse // the browse that asked; stale if it has since closed
+	lines []*bline
+	done  bool // history is now exhausted
+	err   error
 }
 
 type chipSpan struct {
@@ -83,6 +97,7 @@ func newBrowse(cs *charState, logRoot string) *browse {
 			b.hist = h
 		}
 	}
+	b.histDone = b.hist == nil || b.hist.Exhausted()
 	for len(b.lines) < browseInitialLines && b.loadOlder() {
 	}
 	b.cursor = b.last()
@@ -93,35 +108,81 @@ func newBrowse(cs *charState, logRoot string) *browse {
 	return b
 }
 
-func (b *browse) newLine(e logstore.Entry) *bline {
-	text, _ := b.cs.render(e)
+func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.cls, b.cs.hl, e) }
+
+// makeLine renders and classifies e. Like renderLine it only reads cls
+// and hl, so older days can be prepared off the UI goroutine.
+func makeLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry) *bline {
+	text, _ := renderLine(cls, hl, e)
 	plain := ansi.Strip(ansi.Sanitize(e.Text))
 	var tags []string
 	if e.Dir == logstore.In {
-		tags = b.cs.cls.Classify(plain)
+		tags = cls.Classify(plain)
 	}
 	return &bline{e: e, tags: tags, text: text, day: e.Time.Local().Format("2006-01-02")}
 }
 
-// loadOlder prepends the next older day. It reports false when there is
+// readOlder reads and renders the next older day. Only one call may run
+// at a time, and nothing else may touch h meanwhile.
+func readOlder(h *history.Reader, cls *classify.Classifier, hl *rules.Highlighter) olderMsg {
+	es, _, _, err := h.LoadOlder()
+	msg := olderMsg{done: h.Exhausted(), err: err}
+	for _, e := range es {
+		msg.lines = append(msg.lines, makeLine(cls, hl, e))
+	}
+	return msg
+}
+
+// loadOlder synchronously prepends the next older day; only newBrowse
+// uses it, for the bounded initial load. It reports false when there is
 // nothing more to load.
 func (b *browse) loadOlder() bool {
-	if b.hist == nil || b.hist.Exhausted() {
+	if b.histDone {
 		return false
 	}
-	es, _, ok, err := b.hist.LoadOlder()
-	if err != nil {
-		b.setStatus(true, "reading logs: %v", err)
-	}
-	if !ok {
-		return false
-	}
-	older := make([]*bline, 0, len(es))
-	for _, e := range es {
-		older = append(older, b.newLine(e))
-	}
-	b.lines = append(older, b.lines...)
+	b.prepend(readOlder(b.hist, b.cs.cls, b.cs.hl))
 	return true
+}
+
+func (b *browse) prepend(msg olderMsg) {
+	if msg.err != nil {
+		b.setStatus(true, "reading logs: %v", msg.err)
+	}
+	b.histDone = msg.done
+	b.lines = append(msg.lines, b.lines...)
+}
+
+// requestOlder starts reading the next older day in a tea.Cmd, so a big
+// log never stalls Update. then runs when it arrives (it may request
+// again to keep paging). While a read is in flight, a newer request just
+// replaces then. It returns nil if history is exhausted.
+func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
+	if b.histDone {
+		return nil
+	}
+	b.pending = then
+	if b.loading {
+		return nil
+	}
+	b.loading = true
+	h, cls, hl, key := b.hist, b.cs.cls, b.cs.hl, b.cs.key
+	return func() tea.Msg {
+		msg := readOlder(h, cls, hl)
+		msg.key, msg.b = key, b
+		return msg
+	}
+}
+
+// receive prepends a day read by requestOlder and runs what was waiting.
+func (b *browse) receive(msg olderMsg) tea.Cmd {
+	b.loading = false
+	b.prepend(msg)
+	then := b.pending
+	b.pending = nil
+	if then != nil {
+		return then()
+	}
+	return nil
 }
 
 // dedupeTail is how many of the newest loaded lines appendLive checks for
@@ -215,24 +276,34 @@ func (b *browse) tagList() []string {
 	return b.tagOrder
 }
 
-// moveCursor moves by delta visible lines, paging in older history when
-// moving up past the oldest loaded line.
-func (b *browse) moveCursor(delta int) {
+// moveCursor moves by delta visible lines. Moving up past the oldest
+// loaded line stops there and pages in older history; the rest of the
+// move happens when it arrives.
+func (b *browse) moveCursor(delta int) tea.Cmd {
 	v := b.visible()
 	if len(v) == 0 {
-		return
+		if delta < 0 { // everything loaded is hidden; look further back
+			return b.requestOlder(func() tea.Cmd { return b.moveCursor(delta) })
+		}
+		return nil
 	}
 	i := slices.Index(v, b.cursor)
 	if i < 0 {
 		i = len(v) - 1
 	}
-	for i+delta < 0 && b.loadOlder() {
-		nv := b.visible()
-		i += len(nv) - len(v)
-		v = nv
+	b.cursor = v[min(max(0, i+delta), len(v)-1)]
+	if rest := i + delta; rest < 0 {
+		return b.requestOlder(func() tea.Cmd { return b.moveCursor(rest) })
 	}
-	i = min(max(0, i+delta), len(v)-1)
-	b.cursor = v[i]
+	return nil
+}
+
+// toTop pages in all history, then moves to the oldest visible line.
+func (b *browse) toTop() tea.Cmd {
+	if v := b.visible(); len(v) > 0 {
+		b.cursor = v[0]
+	}
+	return b.requestOlder(b.toTop)
 }
 
 func (b *browse) mark() {
@@ -324,23 +395,26 @@ func (b *browse) matchPos() (int, int) {
 	return slices.Index(ms, b.cursor) + 1, len(ms)
 }
 
-// gotoDate loads history back to day and moves to its first visible line.
-func (b *browse) gotoDate(day string) {
+// gotoDate pages in history back to day, then moves to its first
+// visible line.
+func (b *browse) gotoDate(day string) tea.Cmd {
 	if _, err := time.Parse("2006-01-02", day); err != nil {
 		b.setStatus(true, "dates look like 2026-09-24")
-		return
+		return nil
 	}
-	for (len(b.lines) == 0 || b.lines[0].day > day) && b.loadOlder() {
+	if (len(b.lines) == 0 || b.lines[0].day > day) && !b.histDone {
+		return b.requestOlder(func() tea.Cmd { return b.gotoDate(day) })
 	}
 	for _, l := range b.visible() {
 		if l.day >= day {
 			b.cursor = l
 			b.top = l
 			b.status = ""
-			return
+			return nil
 		}
 	}
 	b.setStatus(true, "no logs on or after %s", day)
+	return nil
 }
 
 // selection is what an export contains: received lines inside the range,
@@ -435,19 +509,15 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	case actBack:
 		return nil, true
 	case actUp:
-		b.moveCursor(-1)
+		return b.moveCursor(-1), false
 	case actDown:
-		b.moveCursor(1)
+		return b.moveCursor(1), false
 	case actPageUp:
-		b.moveCursor(-max(1, pageH-1))
+		return b.moveCursor(-max(1, pageH-1)), false
 	case actPageDown:
-		b.moveCursor(max(1, pageH-1))
+		return b.moveCursor(max(1, pageH-1)), false
 	case actTop:
-		for b.loadOlder() {
-		}
-		if v := b.visible(); len(v) > 0 {
-			b.cursor = v[0]
-		}
+		return b.toTop(), false
 	case actBottom:
 		b.cursor = b.lastVisible()
 	case actMark:
@@ -540,7 +610,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 				b.jumpMatch(1, true)
 			}
 		case promptDate:
-			b.gotoDate(v)
+			return b.gotoDate(v)
 		case promptFilename:
 			b.save(v)
 		}
@@ -646,7 +716,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	span := "no logs yet"
 	if len(b.lines) > 0 {
 		span = dayLabel(b.lines[0].day) + " → today"
-		if b.hist != nil && !b.hist.Exhausted() {
+		if !b.histDone {
 			span = "…" + span
 		}
 	}
@@ -680,6 +750,10 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	b.rowLines = b.rowLines[:0]
 	ms := b.matches()
 	start := slices.Index(v, b.top)
+	if b.loading && start <= 0 { // the oldest loaded line is at the top
+		rows = append(rows, style.Dim("⋯ loading older history…"))
+		b.rowLines = append(b.rowLines, nil)
+	}
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
 		if i == 0 || v[i-1].day != l.day {
