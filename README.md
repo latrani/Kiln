@@ -181,6 +181,25 @@ attention = true                     # light up the ● badge
 
 Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` and `[[characters.highlight]]` right after its `[[characters]]` entry.
 
+By default a highlight styles the whole line. With `scope = "match"` it styles only the part that matched: its own `pattern`'s matches, or else the text its tags' classify rules matched. So a server that prefixes pages with `PAGE:` can color just the prefix, and `self` can bold just your name:
+
+```toml
+[[classify]]
+tag = "page"
+pattern = '^PAGE:'
+
+[[highlight]]
+match = { tags = ["page"] }
+style = { fg = "#2053ff", bold = true }
+scope = "match"                      # just "PAGE:"; attention still marks the line
+attention = true
+
+[[highlight]]
+match = { tags = ["self"] }
+style = { bold = true }
+scope = "match"                      # just your name, wherever it appears
+```
+
 ### Certificates
 
 With `tls_trust = "pin"` (the default), Kiln remembers a server's certificate the first time it connects, which suits the self-signed certificates most MUCKs use. If the certificate later changes, Kiln refuses to connect and says so. If you expected the change (the server renewed its certificate), accept it with `/trust`, or from a shell:
