@@ -28,6 +28,7 @@ type layout struct {
 	sw, rw     int // sidebar width; right pane width
 	sbH        int // scrollback rows
 	inRows     []string
+	inTop      int // input row shown first, when it's too tall to fit
 	curRow     int // cursor row within inRows
 	curCol     int
 	pillW      int
@@ -52,7 +53,7 @@ func (m *Model) layout() layout {
 			top = min(max(0, r-maxIn+1), len(rows)-maxIn)
 		}
 		l.inRows = rows[top:min(len(rows), top+maxIn)]
-		l.curRow, l.curCol = r-top, c
+		l.inTop, l.curRow, l.curCol = top, r-top, c
 	}
 	l.sbH = max(1, m.height-len(l.inRows)-3) // two rules + statusline
 	if cs != nil && cs.sb.Scrolled() {

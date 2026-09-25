@@ -221,3 +221,112 @@ func TestRenderMasked(t *testing.T) {
 		t.Errorf("masked = %q", got)
 	}
 }
+
+func TestRenderMarksEachSentLine(t *testing.T) {
+	in := typed("abcdefgh\nij")
+	rows, _, _ := in.Render(6, 0, false, false)
+	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> abcd", "  efgh", "> ij"}) {
+		t.Errorf("batch rows = %q", got)
+	}
+	rows, _, _ = in.Render(6, 0, true, false)
+	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> abcd", "  efgh", "  ij"}) {
+		t.Errorf("flatten rows = %q, want one marker for the one line sent", got)
+	}
+}
+
+func TestInputWordMovement(t *testing.T) {
+	in := typed("say  héllo, world_2!\nnext")
+	in.Up()
+	in.End()
+	in.WordLeft()
+	in.InsertText("[")
+	in.WordLeft()
+	in.InsertText("[")
+	if want := "say  [héllo, [world_2!\nnext"; in.Value() != want {
+		t.Errorf("WordLeft: %q, want %q", in.Value(), want)
+	}
+	in.Home()
+	in.WordRight()
+	in.WordRight()
+	in.InsertText("]")
+	if want := "say  [héllo], [world_2!\nnext"; in.Value() != want {
+		t.Errorf("WordRight: %q, want %q", in.Value(), want)
+	}
+	in.End()
+	in.WordRight() // wraps to the next line
+	in.WordRight()
+	in.InsertText("!")
+	if want := "say  [héllo], [world_2!\nnext!"; in.Value() != want {
+		t.Errorf("WordRight wrap: %q, want %q", in.Value(), want)
+	}
+}
+
+func TestInputWordDeletion(t *testing.T) {
+	in := typed("pose waves hello")
+	in.DeleteWordBack()
+	if in.Value() != "pose waves " {
+		t.Errorf("DeleteWordBack = %q", in.Value())
+	}
+	in.Home()
+	in.DeleteWordForward()
+	if in.Value() != " waves " {
+		t.Errorf("DeleteWordForward = %q", in.Value())
+	}
+	in.SetValue("one\ntwo three")
+	in.Home()
+	in.Right()
+	in.KillToEnd()
+	in.KillToStart()
+	if in.Value() != "one\n" {
+		t.Errorf("kills = %q", in.Value())
+	}
+	in.DeleteWordBack() // at a line start, joins like Backspace
+	if in.Value() != "one" {
+		t.Errorf("join = %q", in.Value())
+	}
+}
+
+func TestInputUpDownWrappedRows(t *testing.T) {
+	in := typed("abcdefghij") // 4 cells per row: abcd / efgh / ij
+	in.Render(6, 0, false, false)
+	in.Up()
+	in.InsertText("^")
+	if in.Value() != "abcdef^ghij" {
+		t.Errorf("Up within a wrapped line: %q", in.Value())
+	}
+	in.SetValue("abcdefghij")
+	in.Commit()
+	in.InsertText("abcdefghij")
+	in.Home()
+	in.Up() // top row: history
+	if in.Value() != "abcdefghij" || in.hist != 0 {
+		t.Errorf("Up on the top row should recall history (hist=%d)", in.hist)
+	}
+}
+
+func TestInputUpDownKeepsGoalColumn(t *testing.T) {
+	in := typed("abcdef\nx\nabcdef")
+	in.Render(40, 0, false, false)
+	in.Left() // column 5
+	in.Up()
+	in.Up()
+	in.InsertText("^")
+	if in.Value() != "abcde^f\nx\nabcdef" {
+		t.Errorf("goal column lost across a short line: %q", in.Value())
+	}
+}
+
+func TestInputClick(t *testing.T) {
+	in := typed("abcdefgh\nij")
+	in.Render(6, 0, false, false) // abcd / efgh / ij
+	in.Click(1, 1)
+	in.InsertText("^")
+	in.Render(6, 0, false, false) // abcd / e^fg / h / ij
+	in.Click(9, 3)                // past the end of "ij"
+	in.InsertText("$")
+	in.Click(0, 9) // below the text: the last row
+	in.InsertText("<")
+	if want := "abcde^fgh\n<ij$"; in.Value() != want {
+		t.Errorf("clicks = %q, want %q", in.Value(), want)
+	}
+}
