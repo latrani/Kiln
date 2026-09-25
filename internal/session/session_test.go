@@ -2,7 +2,10 @@ package session
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -399,6 +402,30 @@ func TestPinMismatchFailsUntilReconnect(t *testing.T) {
 	mu.Unlock()
 	s.Reconnect()
 	waitFor(t, s, isState(Connected))
+}
+
+func TestCertificateErrorsFailWithoutRetry(t *testing.T) {
+	for name, dialErr := range map[string]error{
+		"unknown authority": &tls.CertificateVerificationError{Err: x509.UnknownAuthorityError{}},
+		"hostname":          fmt.Errorf("dial: %w", x509.HostnameError{Host: "h"}),
+		"expired":           x509.CertificateInvalidError{Reason: x509.Expired},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := New(Options{
+				Char:    kit,
+				Log:     &memLog{},
+				Dial:    func(context.Context) (LineConn, error) { return nil, dialErr },
+				Backoff: func(int) time.Duration { t.Error("certificate error must not use backoff"); return 0 },
+			})
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go s.Run(ctx)
+			ev := waitFor(t, s, isState(Failed))
+			if ev.Err != dialErr {
+				t.Errorf("Failed err = %v", ev.Err)
+			}
+		})
+	}
 }
 
 func TestLogFailureStillDeliversLine(t *testing.T) {
