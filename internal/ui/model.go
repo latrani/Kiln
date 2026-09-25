@@ -195,6 +195,17 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 	}
 }
 
+// reloadNow loads the config and applies it, reporting whether it could.
+func (m *Model) reloadNow() bool {
+	cfg, err := m.d.Load(m.d.ConfigDir)
+	if err != nil {
+		m.setStatus(true, "config not reloaded: %v", err)
+		return false
+	}
+	m.applyConfig(cfg)
+	return true
+}
+
 // applyConfig keeps cfg for the picker and updates open characters to
 // match it. An open character that vanished from the config stays as an
 // orphan while it's connected, until it next disconnects; otherwise it
@@ -432,11 +443,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		return m, tick(time.Time(msg))
 	case reloadMsg:
-		cfg, err := m.d.Load(m.d.ConfigDir)
-		if err != nil {
-			m.setStatus(true, "config not reloaded: %v", err)
-		} else {
-			m.applyConfig(cfg)
+		if m.reloadNow() {
 			m.setStatus(false, "config reloaded")
 		}
 		return m, m.watch()
@@ -451,7 +458,9 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cs.browse.receive(msg)
 		}
 	case tea.PasteMsg:
-		if m.picker != nil {
+		if m.picker != nil && m.picker.edit != nil {
+			m.picker.edit.form.paste(msg.Content)
+		} else if m.picker != nil {
 			m.picker.form.paste(msg.Content)
 			m.fixPick()
 		} else if cs := m.cur(); cs != nil && cs.browse != nil {
@@ -866,8 +875,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 			m.scrollSidebar(hint * max(1, sv.avail-1))
 		case r == nil:
 		case m.picker != nil:
-			if r.kind == rowChar {
-				return m.pick(r.char)
+			m.picker.edit = nil
+			if k := selKey(*r); k != "" {
+				m.picker.sel = k
+				return m.choose(k)
 			}
 		case r.kind == rowAdd:
 			m.openPicker()
