@@ -370,6 +370,32 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	}
 }
 
+func TestPasswordPromptKeepsDraft(t *testing.T) {
+	for _, skip := range []bool{false, true} {
+		h := newHarness(t, map[string]string{"fm": fmWorld})
+		delete(h.pw, "fm/kit")
+		h.init()
+		h.typeText("half a pose")
+		cs := h.m.chars["fm/kit"]
+		h.settle("fm/kit", func() bool { return cs.needPW })
+		if v := cs.in.Value(); v != "" {
+			t.Fatalf("password prompt starts with %q", v)
+		}
+		h.typeText("s3cret")
+		if skip {
+			h.press(tea.KeyEscape, 0)
+		} else {
+			h.enter()
+			if got := h.conn("fm/kit").Sent(); len(got) != 1 || got[0] != "connect Kit s3cret" {
+				t.Errorf("sent %q", got)
+			}
+		}
+		if v := cs.in.Value(); v != "half a pose" || cs.needPW {
+			t.Errorf("skip=%v: input = %q, needPW = %v; want the draft back", skip, v, cs.needPW)
+		}
+	}
+}
+
 func TestPromptShown(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
