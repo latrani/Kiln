@@ -58,6 +58,7 @@ type browse struct {
 	end       *bline
 	excluded  map[*bline]bool
 	chips     map[string]scene.Chip
+	tagOrder  []string // chip order; see tagList
 	find      string
 	prompt    promptKind
 	pin       *Input
@@ -88,6 +89,7 @@ func newBrowse(cs *charState, logRoot string) *browse {
 	if l := b.last(); l != nil {
 		b.loadedTo = l.e.Time
 	}
+	b.tagList() // pin chip numbers for the tags loaded at open
 	return b
 }
 
@@ -190,20 +192,27 @@ func (b *browse) inRange(l *bline) bool {
 	return i >= b.index(b.start) && i <= b.index(b.end)
 }
 
-// tagList is every tag in the loaded lines, sorted, for the chip row.
+// tagList is every tag in the loaded lines, in chip order. Chip numbers
+// are what 1–9 act on, so they stay stable while browse is open: the tags
+// present at open are sorted, and tags that first appear later (live
+// lines, paged-in history) are appended after them.
 func (b *browse) tagList() []string {
-	seen := map[string]bool{}
+	known := map[string]bool{}
+	for _, t := range b.tagOrder {
+		known[t] = true
+	}
+	var added []string
 	for _, l := range b.lines {
 		for _, t := range l.tags {
-			seen[t] = true
+			if !known[t] {
+				known[t] = true
+				added = append(added, t)
+			}
 		}
 	}
-	tags := make([]string, 0, len(seen))
-	for t := range seen {
-		tags = append(tags, t)
-	}
-	sort.Strings(tags)
-	return tags
+	sort.Strings(added)
+	b.tagOrder = append(b.tagOrder, added...)
+	return b.tagOrder
 }
 
 // moveCursor moves by delta visible lines, paging in older history when
@@ -476,11 +485,27 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 func (b *browse) cycleChip(tag string) {
 	b.chips[tag] = b.chips[tag].Next()
 	if b.cursor != nil && !scene.Visible(b.cursor.tags, b.chips) {
-		b.moveCursor(0)
-		if v := b.visible(); len(v) > 0 && !slices.Contains(v, b.cursor) {
-			b.cursor = v[len(v)-1]
+		if n := b.nearestVisible(b.cursor); n != nil {
+			b.cursor = n
 		}
 	}
+}
+
+// nearestVisible returns the first visible line after l, or failing that
+// the last visible line before it, so hiding l keeps the reader's place.
+func (b *browse) nearestVisible(l *bline) *bline {
+	i := b.index(l)
+	for j := i + 1; j < len(b.lines); j++ {
+		if scene.Visible(b.lines[j].tags, b.chips) {
+			return b.lines[j]
+		}
+	}
+	for j := i - 1; j >= 0; j-- {
+		if scene.Visible(b.lines[j].tags, b.chips) {
+			return b.lines[j]
+		}
+	}
+	return nil
 }
 
 func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
