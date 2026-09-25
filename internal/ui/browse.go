@@ -51,29 +51,31 @@ const (
 // browse is one character's browse-mode state. Lines are referenced by
 // pointer so paging in older history never disturbs marks or exclusions.
 type browse struct {
-	cs        *charState
-	hist      *history.Reader
-	lines     []*bline // oldest first
-	cursor    *bline
-	top       *bline // first line drawn at the top of the body
-	start     *bline
-	end       *bline
-	excluded  map[*bline]bool
-	chips     map[string]scene.Chip
-	tagOrder  []string // chip order; see tagList
-	find      string
-	prompt    promptKind
-	pin       *Input
-	format    string
-	status    string
-	statusErr bool
-	rowLines  []*bline // body row → line (nil for dividers), from the last draw
-	chipSpans []chipSpan
-	loadedTo  time.Time // newest logged time at open, at log (millisecond) precision
-	exportDir string
-	histDone  bool           // every log day is loaded (or there is no history)
-	loading   bool           // an older day is being read in a tea.Cmd
-	pending   func() tea.Cmd // what to do when it arrives; see requestOlder
+	cs           *charState
+	hist         *history.Reader
+	lines        []*bline // oldest first
+	cursor       *bline
+	top          *bline // first line drawn at the top of the body
+	start        *bline
+	end          *bline
+	excluded     map[*bline]bool
+	chips        map[string]scene.Chip
+	tagOrder     []string // chip order; see tagList
+	find         string
+	prompt       promptKind
+	pin          *Input
+	format       string
+	status       string
+	statusErr    bool
+	rowLines     []*bline // body row → line (nil for dividers), from the last draw
+	chipSpans    []chipSpan
+	loadedTo     time.Time // newest logged time at open, at log (millisecond) precision
+	exportDir    string
+	exportName   string         // file name template; see config.ExportNameVars
+	exportFormat string         // preselected format; "" asks
+	histDone     bool           // every log day is loaded (or there is no history)
+	loading      bool           // an older day is being read in a tea.Cmd
+	pending      func() tea.Cmd // what to do when it arrives; see requestOlder
 }
 
 // olderMsg carries one older day, read and rendered off the UI goroutine.
@@ -90,10 +92,11 @@ type chipSpan struct {
 	from, to int // columns within the right pane
 }
 
-func newBrowse(cs *charState, logRoot string) *browse {
+// newBrowse opens browse mode over the logs in logDir ("" for none).
+func newBrowse(cs *charState, logDir string) *browse {
 	b := &browse{cs: cs, excluded: map[*bline]bool{}, chips: map[string]scene.Chip{}, pin: NewInput()}
-	if logRoot != "" {
-		if h, err := history.NewReader(logRoot, cs.ch.World, cs.ch.ID); err == nil {
+	if logDir != "" {
+		if h, err := history.NewReader(logDir, cs.ch.ID); err == nil {
 			b.hist = h
 		}
 	}
@@ -106,6 +109,11 @@ func newBrowse(cs *charState, logRoot string) *browse {
 	}
 	b.tagList() // pin chip numbers for the tags loaded at open
 	return b
+}
+
+// setExport takes the export settings from cfg.
+func (b *browse) setExport(cfg *config.Config) {
+	b.exportDir, b.exportName, b.exportFormat = cfg.ExportDir, cfg.ExportName, cfg.ExportFormat
 }
 
 func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.cls, b.cs.hl, e) }
@@ -585,7 +593,11 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	if b.prompt == promptFormat {
-		if f, ok := exportFormatKeys[s]; ok {
+		f, ok := exportFormatKeys[s]
+		if s == "enter" && b.exportFormat != "" {
+			f, ok = b.exportFormat, true
+		}
+		if ok {
 			sel := b.selection()
 			if len(sel) == 0 {
 				b.prompt = promptNone
@@ -594,7 +606,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 			b.format = f
 			b.prompt = promptFilename
-			b.pin.SetValue(scene.FileName(b.exportDir, sel[0].Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
+			b.pin.SetValue(scene.FileName(b.exportDir, b.exportName, sel[0].Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
 		}
 		return nil
 	}
@@ -640,6 +652,9 @@ func (b *browse) promptLabel() string {
 	case promptDate:
 		return "go to date (YYYY-MM-DD): "
 	case promptFormat:
+		if b.exportFormat != "" {
+			return "export as (p)lain · (a)nsi · (h)tml · enter " + b.exportFormat + "   esc cancel"
+		}
 		return "export as (p)lain · (a)nsi · (h)tml   esc cancel"
 	case promptFilename:
 		return "save as: "
