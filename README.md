@@ -5,11 +5,11 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 ```
 ┌─────────────┬──────────────────────────────────┐
 │ ▾ FurryMUCK │ Rook says, "Evening!"            │
-│   ● Kit   2 │ Sable waves a paw.               │
-│   ○ Rook    │ Mira pages: you around?          │
+│   Kit       │ Sable waves a paw.               │
+│   Rook      │ Mira pages: you around?          │
 │ ▾ Tapestries│                                  │
-│   ○ Ash     │                        ▼ 12 new  │
-│             ├──────────────────────────────────┤
+│   Ash    ● 2│                        ▼ 12 new  │
+│ + Add conne…├──────────────────────────────────┤
 │             │ > :grins, then leans on the      │
 │             │   counter.                       │
 │             ├──────────────────────────────────┤
@@ -17,7 +17,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 └─────────────┴──────────────────────────────────┘
 ```
 
-- **Many worlds, many characters, all at once.** The sidebar groups characters under their worlds. Each one has its own scrollback, draft and history.
+- **Many worlds, many characters, all at once.** The sidebar shows the characters you have open, grouped under their worlds; everything else is a Ctrl+O away. Each one has its own scrollback, draft and history.
 - **Knows what a page is.** Lines are tagged (page, whisper, say, and `self` when they mention you) by rules you can edit. Tags drive colors and the attention badge.
 - **Everything is logged** to plain, greppable text, one file per character per day.
 - **Browse mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
@@ -81,7 +81,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 3. **Save the password** (optional). Run `kiln passwd furrymuck Kit`. If you skip this, Kiln asks for the password when it connects and offers to save it.
 
-4. **Run `kiln`.** Characters with `autoconnect = true` connect and log in. For the rest, press `Enter` on an empty input or double-click them in the sidebar.
+4. **Run `kiln`.** Characters with `autoconnect = true` open and log in. Press `Ctrl+O` (or click `+ Add connection`) to open another.
 
 Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps the last working config and shows the error in the statusline.
 
@@ -98,7 +98,8 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Home` / `End` (or `Ctrl+A` / `Ctrl+E`) | Start or end of the line |
 | `Ctrl+W` (or `Alt+Backspace`) / `Alt+Delete` | Delete the word before or after the cursor |
 | `Ctrl+U` / `Ctrl+K` | Delete to the start or end of the line |
-| `Ctrl+↑` / `Ctrl+↓` | Switch character |
+| `Ctrl+↑` / `Ctrl+↓` | Switch between open characters |
+| `Ctrl+O` | Add a connection: type to filter, `Enter` to connect, `Esc` to close |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
 | `Ctrl+B` | Open browse mode |
 | `Esc` | Skip the login prompt |
@@ -106,7 +107,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 
 Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
-Click a character in the sidebar to switch to it (double-click to also connect), or a world header to collapse it. `●` means something needs your attention (a page or whisper, by default), `○` means connected, and `✕` means disconnected. The number is unread lines.
+The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `✕` to close it. Click a world header to collapse it. Connected characters have no mark; `…` means connecting and `✕` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
 
 ### Commands
 
@@ -114,6 +115,7 @@ Click a character in the sidebar to switch to it (double-click to also connect),
 |---|---|
 | `/connect`, `/reconnect` | Connect now (skips the reconnect wait) |
 | `/disconnect` | Disconnect and stay disconnected |
+| `/close` | Disconnect and remove the character from the sidebar |
 | `/browse` | Open browse mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
 | `/trust` | Accept a changed server certificate (see below) |
