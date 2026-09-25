@@ -18,6 +18,10 @@ const pickerHint = "Enter to connect · Esc to close"
 // status-line prefix on an 80-column screen.
 const browseBlocksPicker = "Esc out of browse mode first"
 
+// questionBlocksPicker is the status when the picker can't open because
+// the save-password question owns the input area.
+const questionBlocksPicker = "Answer the question first"
+
 // noMatches fills the picker when it has nothing to offer.
 const noMatches = "No matches"
 
@@ -29,8 +33,13 @@ type picker struct {
 }
 
 // openPicker shows the picker, unless the active character is in browse
-// mode, which has the pane (and the input area) to itself.
+// mode, which has the pane (and the input area) to itself, or the
+// save-password question owns the input area.
 func (m *Model) openPicker() {
+	if m.mode == modeSavePassword {
+		m.setStatus(true, questionBlocksPicker)
+		return
+	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		m.setStatus(true, browseBlocksPicker)
 		return
@@ -111,6 +120,24 @@ func (m *Model) movePick(delta int) {
 	m.picker.sel = keys[min(max(0, i+delta), len(keys)-1)]
 }
 
+// pagePick moves the highlight about one page of rows (world headers
+// included) in direction dir, landing on the last character within that
+// page, or on the next character when the page holds none.
+func (m *Model) pagePick(dir, page int) {
+	rows := m.pickerRows()
+	cur := slices.IndexFunc(rows, func(r sidebarRow) bool { return r.kind == rowChar && r.char == m.picker.sel })
+	if cur < 0 {
+		return
+	}
+	for i := min(max(0, cur+dir*page), len(rows)-1); i != cur; i -= dir {
+		if rows[i].kind == rowChar {
+			m.picker.sel = rows[i].char
+			return
+		}
+	}
+	m.movePick(dir)
+}
+
 // pick opens, connects and switches to k, closing the picker.
 func (m *Model) pick(k string) tea.Cmd {
 	cs := m.open(k)
@@ -135,9 +162,9 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 	case "down":
 		m.movePick(1)
 	case "pgup":
-		m.movePick(-page)
+		m.pagePick(-1, page)
 	case "pgdown":
-		m.movePick(page)
+		m.pagePick(1, page)
 	default:
 		if m.picker.form.key(k) {
 			m.fixPick()
