@@ -33,6 +33,7 @@ type Input struct {
 	goal    int    // screen column Up/Down aim for; -1 = the cursor's own
 	width   int    // text width of the last Render; 0 = no wrapping
 	masked  bool   // the last Render showed bullets
+	sel     *inSel // a mouse selection; see StartSelect
 }
 
 // NewInput returns an empty editor.
@@ -490,9 +491,12 @@ func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRo
 				red = true
 				b.WriteString(overLimit)
 			}
-			if masked {
+			switch {
+			case masked:
 				b.WriteString("•")
-			} else {
+			case in.selected(vr.line, c.col):
+				b.WriteString(reverse + c.text + "\x1b[27m")
+			default:
 				b.WriteString(c.text)
 			}
 		}
@@ -519,4 +523,124 @@ func (in *Input) OverLimit(limit int, joined bool) bool {
 		}
 	}
 	return false
+}
+
+// inPos is a place in the input: a line and a rune index in it.
+type inPos struct{ line, col int }
+
+func (p inPos) before(q inPos) bool {
+	return p.line < q.line || p.line == q.line && p.col < q.col
+}
+
+// inSel is a mouse selection in the input. Both ends are the start of a
+// character, and both characters are selected.
+type inSel struct {
+	anchor, head inPos
+	dragging     bool
+	moved        bool
+}
+
+// posAt is the character under cell x of screen row y (both from the
+// last Render, x past the gutter), clamped to the text.
+func (in *Input) posAt(x, y int) inPos {
+	rows := in.visualRows()
+	vr := rows[min(max(0, y), len(rows)-1)]
+	p := inPos{vr.line, vr.start}
+	for _, c := range vr.cells {
+		if c.x > x {
+			break
+		}
+		p.col = c.col
+	}
+	return p
+}
+
+// StartSelect puts the cursor at the clicked cell and starts a drag
+// there. A masked (password) input never selects.
+func (in *Input) StartSelect(x, y int) {
+	in.Click(x, y)
+	in.sel = nil
+	if !in.masked {
+		p := in.posAt(x, y)
+		in.sel = &inSel{anchor: p, head: p, dragging: true}
+	}
+}
+
+// Dragging reports whether a drag is in progress.
+func (in *Input) Dragging() bool { return in.sel != nil && in.sel.dragging }
+
+// DragTo moves the drag's free end, and the cursor, to the cell.
+func (in *Input) DragTo(x, y int) {
+	if !in.Dragging() {
+		return
+	}
+	in.Click(x, y)
+	p := in.posAt(x, y)
+	in.sel.head = p
+	in.sel.moved = in.sel.moved || p != in.sel.anchor
+}
+
+// EndSelect finishes the drag and returns the selected text: logical
+// lines joined with "\n", with no breaks where rows merely wrap. A click
+// that never moved selects nothing and returns "".
+func (in *Input) EndSelect() string {
+	if !in.Dragging() {
+		return ""
+	}
+	in.sel.dragging = false
+	if !in.sel.moved {
+		in.sel = nil
+		return ""
+	}
+	from, to, _ := in.selRange()
+	var b strings.Builder
+	for li := from.line; li <= to.line; li++ {
+		line := in.lines[li]
+		a, z := 0, len(line)
+		if li == from.line {
+			a = from.col
+		}
+		if li == to.line {
+			z = to.col
+		}
+		if li > from.line {
+			b.WriteByte('\n')
+		}
+		b.WriteString(string(line[min(a, z):z]))
+	}
+	return b.String()
+}
+
+// ClearSelection drops the selection.
+func (in *Input) ClearSelection() { in.sel = nil }
+
+// selRange is the selection as rune ranges [from, to) across lines,
+// clamped to the current text.
+func (in *Input) selRange() (from, to inPos, ok bool) {
+	if in.sel == nil || !in.sel.moved {
+		return inPos{}, inPos{}, false
+	}
+	from, to = in.sel.anchor, in.sel.head
+	if to.before(from) {
+		from, to = to, from
+	}
+	clamp := func(p inPos) inPos {
+		p.line = min(max(0, p.line), len(in.lines)-1)
+		p.col = min(max(0, p.col), len(in.lines[p.line]))
+		return p
+	}
+	from, to = clamp(from), clamp(to)
+	if rest := string(in.lines[to.line][to.col:]); rest != "" { // take in the last character
+		c, _, _, _ := uniseg.FirstGraphemeClusterInString(rest, -1)
+		to.col += utf8.RuneCountInString(c)
+	}
+	return from, to, true
+}
+
+// selected reports whether the character at line li, rune col, is in the
+// selection.
+func (in *Input) selected(li, col int) bool {
+	from, to, ok := in.selRange()
+	p := inPos{li, col}
+	return ok && !p.before(from) && p.before(to)
 }

@@ -420,7 +420,7 @@ func TestNotConnectedStatus(t *testing.T) {
 func TestLocalEchoDefaultsOff(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(root, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", root, "fm", "kit"), "kit")
 	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
 	w.Append(logstore.Entry{Time: ts, Dir: logstore.Out, Text: ":yawns."})
 	w.Append(logstore.Entry{Time: ts.Add(time.Minute), Dir: logstore.In, Text: "Kit yawns."})
