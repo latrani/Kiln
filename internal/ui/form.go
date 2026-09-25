@@ -89,6 +89,6 @@ func (f *form) row() (text string, col int) {
 	fl := f.fields[f.focus]
 	rows, _, c := fl.in.Render(1<<20, 0, false, false)
 	label := fl.label + ": "
-	text = style.Dim(label) + strings.TrimPrefix(rows[0], "> ") + style.Dim("  · "+f.hint)
-	return text, c - 2 + xansi.StringWidth(label)
+	text = style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim("  · "+f.hint)
+	return text, c - gutterWidth + xansi.StringWidth(label)
 }

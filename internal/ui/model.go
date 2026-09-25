@@ -345,7 +345,7 @@ func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entr
 	text := ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
-		return style.Dim("> " + text), false
+		return style.Dim(gutterMark + text), false
 	case logstore.Sys:
 		return style.Dim("* " + text), false
 	}
@@ -690,7 +690,7 @@ func (m *Model) submit() tea.Cmd {
 			return nil
 		}
 		cs.endPassword()
-		cs.sb.Append(style.Dim("> " + e.Text))
+		cs.sb.Append(style.Dim(gutterMark + e.Text))
 		if m.d.SavePassword != nil && pw != "" && m.passwordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
 			m.pendingCh = [2]string{cs.ch.World, cs.ch.ID}
@@ -735,7 +735,7 @@ func (m *Model) submit() tea.Cmd {
 			m.setStatus(true, "%v", err)
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
-		cs.sb.Append(style.Dim("> " + ansi.Sanitize(e.Text)))
+		cs.sb.Append(style.Dim(gutterMark + ansi.Sanitize(e.Text)))
 	}
 	if secret {
 		cs.in.CommitSecret()
@@ -893,7 +893,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 		cs.sb.ToBottom()
 	}
 	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
-		m.input().Click(msg.X-l.sw-3, l.inTop+y) // past the separator and gutter
+		m.input().Click(msg.X-l.sw-1-gutterWidth, l.inTop+y) // past the separator and gutter
 	}
 	return nil
 }

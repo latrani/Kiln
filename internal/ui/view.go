@@ -66,7 +66,7 @@ func (m *Model) layout() layout {
 
 // prompt is what the input area shows instead of the editable text while
 // Kiln is asking something, or hinting at what Enter will do: understated
-// text with no "> " (starting where the "> " would), so it never looks
+// text with no "›" (starting where the "›" would), so it never looks
 // like a line bound for the server.
 // It returns the row and the cursor's column.
 func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
@@ -89,8 +89,8 @@ func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
 		// Bullets for what's typed, between a label and the keys to press.
 		rows, _, c := cs.in.Render(1<<20, 0, false, true)
 		label := fmt.Sprintf("Password for %s: ", cs.ch.Name)
-		text = style.Dim(label) + strings.TrimPrefix(rows[0], "> ") + style.Dim("   Enter to log in · Esc to skip")
-		return text, c - 2 + xansi.StringWidth(label), true
+		text = style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim("   Enter to log in · Esc to skip")
+		return text, c - gutterWidth + xansi.StringWidth(label), true
 	case !cs.in.Empty() || cs.state == session.Connected:
 		return "", 0, false
 	case cs.pin != nil:

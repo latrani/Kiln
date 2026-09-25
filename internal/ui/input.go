@@ -12,6 +12,14 @@ import (
 // overLimit is the style for bytes past a line's max_line_bytes.
 const overLimit = "\x1b[97;41m"
 
+// Input gutter, that we show at the beginning of the line we send to the server
+// (and the aligner that goes below it for continuation rows)
+const (
+	gutterMark  = "›"
+	gutterBlank = " "
+	gutterWidth = 1
+)
+
 // Input is a multi-line editor with per-character history. The cursor
 // moves, and Backspace/Delete remove, whole grapheme clusters, so emoji
 // ZWJ sequences, flags and skin-tone modifiers act as one character.
@@ -444,12 +452,12 @@ func (in *Input) cursorAt(rows []vrow) (r, x int) {
 // Render lays the text out for width w (including a 2-cell gutter),
 // highlighting bytes past limit in red, and returns the rows plus the
 // cursor's row and column. Each line that will be sent on its own starts
-// with "> ": every line, or with joined (newline_mode = "flatten") only
+// with "›": every line, or with joined (newline_mode = "flatten") only
 // the first, and the limit applies to the lines joined by spaces. Masked
 // text shows as bullets. Render remembers w and masked for Up, Down and
 // Click, which move by screen row.
 func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRow, curCol int) {
-	in.width, in.masked = max(1, w-2), masked
+	in.width, in.masked = max(1, w-gutterWidth), masked
 	vrows := in.visualRows()
 	curRow, curCol = in.cursorAt(vrows)
 	total, bytes, red := 0, 0, false // total: bytes before this line when joined
@@ -469,9 +477,9 @@ func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRo
 		}
 		var b strings.Builder
 		if vr.start == 0 && (!joined || vr.line == 0) {
-			b.WriteString("> ")
+			b.WriteString(gutterMark)
 		} else {
-			b.WriteString("  ")
+			b.WriteString(gutterBlank)
 		}
 		if red {
 			b.WriteString(overLimit)
@@ -493,7 +501,7 @@ func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRo
 		}
 		rows = append(rows, b.String())
 	}
-	return rows, curRow, curCol + 2
+	return rows, curRow, curCol + gutterWidth
 }
 
 // OverLimit reports whether any line is longer than limit bytes, or with
