@@ -19,7 +19,7 @@ func Sanitize(s string) string {
 		switch {
 		case c == 0x1b:
 			j := skipEscape(s, i)
-			if s[i+1:min(i+2, len(s))] == "[" && s[j-1] == 'm' {
+			if isSGR(s[i:j]) {
 				b.WriteString(s[i:j]) // SGR: keep
 			}
 			i = j
@@ -34,6 +34,22 @@ func Sanitize(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// isSGR reports whether seq (one whole escape sequence) is ESC [ params m
+// with every parameter byte in 0x30–0x3F (digits, ';', ':', '<'–'?').
+// Anything else ending in 'm', such as a CSI with a control byte or a
+// nested ESC in its parameters, is not SGR.
+func isSGR(seq string) bool {
+	if len(seq) < 3 || seq[1] != '[' || seq[len(seq)-1] != 'm' {
+		return false
+	}
+	for i := 2; i < len(seq)-1; i++ {
+		if seq[i] < 0x30 || seq[i] > 0x3f {
+			return false
+		}
+	}
+	return true
 }
 
 // Wrap soft-wraps one logical line (which may contain SGR sequences) to

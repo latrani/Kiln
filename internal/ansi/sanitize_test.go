@@ -20,6 +20,10 @@ func TestSanitize(t *testing.T) {
 		{"osc then sgr then text", "\x1b]0;t\x07hi \x1b[31mred", "hi \x1b[31mred"},
 		{"repeated charset resets", "\x1b(Bx\x1b(By\x1b(Bz", "xyz"},
 		{"two-byte esc mid-line", "a\x1b7b\x1b8c", "abc"},
+		{"drops csi m with nested esc", "a\x1b[\x1b#8mb", "ab"},
+		{"drops csi m with bel in params", "a\x1b[1;\x07mb", "ab"},
+		{"drops csi m with intermediate", "a\x1b[1 mb", "ab"},
+		{"keeps colon sgr", "\x1b[38:5:196mx", "\x1b[38:5:196mx"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
