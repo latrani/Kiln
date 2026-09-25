@@ -305,16 +305,16 @@ func (m *Model) pageOlder() tea.Cmd {
 	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
 		return nil
 	}
-	key, h, cls, hl, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.leftover
+	key, h, cls, hl, echo, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.ch.LocalEcho, cs.leftover
 	cs.leftover = nil
 	return func() tea.Msg {
 		msg := sbOlderMsg{key: key, hist: h}
 		if leftover != nil {
-			msg.lines, msg.more = renderDays(cls, hl, leftover, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(cls, hl, echo, leftover, true), !h.Exhausted()
 			return msg
 		}
 		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
-			msg.lines, msg.more = renderDays(cls, hl, es, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(cls, hl, echo, es, true), !h.Exhausted()
 		}
 		return msg
 	}
@@ -322,17 +322,21 @@ func (m *Model) pageOlder() tea.Cmd {
 
 // renderDays renders log entries with a dim divider before the first line
 // of each day. The very first entry gets one only if startsDay, i.e. it
-// really is the first line of its day.
+// really is the first line of its day. Sent lines are left out unless the
+// character has local_echo on.
 func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []string {
-	return renderDays(cs.cls, cs.hl, entries, startsDay)
+	return renderDays(cs.cls, cs.hl, cs.ch.LocalEcho, entries, startsDay)
 }
 
 // renderDays is charState.renderDays with the given rules; like
 // renderLine it is safe off the UI goroutine.
-func renderDays(cls *classify.Classifier, hl *rules.Highlighter, entries []logstore.Entry, startsDay bool) []string {
+func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []string {
 	out := make([]string, 0, len(entries)+2)
 	prev := ""
 	for i, e := range entries {
+		if e.Dir == logstore.Out && !echo {
+			continue
+		}
 		day := e.Time.Local().Format("2006-01-02")
 		if day != prev && (i > 0 || startsDay) {
 			out = append(out, style.Dim("── "+dayLabel(day)+" ──"))
@@ -342,6 +346,12 @@ func renderDays(cls *classify.Classifier, hl *rules.Highlighter, entries []logst
 		out = append(out, text)
 	}
 	return out
+}
+
+// echoes reports whether e belongs in the scrollback: everything but sent
+// lines, which only show with local_echo on. They're logged either way.
+func (cs *charState) echoes(e logstore.Entry) bool {
+	return e.Dir != logstore.Out || cs.ch.LocalEcho
 }
 
 // render turns a log entry into a drawable line; the bool reports whether
@@ -513,7 +523,9 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	switch ev.Kind {
 	case session.EventLine:
 		text, attn := cs.render(ev.Entry)
-		cs.sb.Append(text)
+		if cs.echoes(ev.Entry) {
+			cs.sb.Append(text)
+		}
 		if cs.browse != nil {
 			cs.browse.appendLive(ev.Entry)
 		}
@@ -702,7 +714,9 @@ func (m *Model) submit() tea.Cmd {
 			return nil
 		}
 		cs.endPassword()
-		cs.sb.Append(style.Dim(gutterMark + e.Text))
+		if cs.echoes(e) {
+			cs.sb.Append(style.Dim(gutterMark + e.Text))
+		}
 		if m.d.SavePassword != nil && pw != "" && m.passwordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
 			m.pendingCh = [2]string{cs.ch.World, cs.ch.ID}
@@ -747,7 +761,9 @@ func (m *Model) submit() tea.Cmd {
 			m.setStatus(true, "%v", err)
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
-		cs.sb.Append(style.Dim(gutterMark + ansi.Sanitize(e.Text)))
+		if cs.echoes(e) {
+			cs.sb.Append(style.Dim(gutterMark + ansi.Sanitize(e.Text)))
+		}
 	}
 	if secret {
 		cs.in.CommitSecret()
