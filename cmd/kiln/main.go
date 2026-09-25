@@ -14,8 +14,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 
@@ -233,7 +235,27 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 			return secrets.Open(store, dataDir).Set(world, char, password)
 		},
 		Changes: watcher.Changes(),
+		OpenURL: openURL,
 	}, cfg)
 	_, err = tea.NewProgram(m).Run()
 	return err
+}
+
+// openURL hands a link to the system's opener, without waiting for it.
+// url is always an http(s) link, passed as an argument, never to a shell.
+func openURL(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go cmd.Wait()
+	return nil
 }
