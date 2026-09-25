@@ -3,9 +3,9 @@ package main
 import (
 	"testing"
 
-	"kiln/internal/config"
-	"kiln/internal/logstore"
-	"kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 )
 
 func TestRender(t *testing.T) {

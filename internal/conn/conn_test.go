@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"kiln/internal/telnet"
+	"github.com/latrani/Kiln/internal/telnet"
 )
 
 // fakeServer accepts one connection and hands it to handle.

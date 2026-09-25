@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"kiln/internal/config"
+	"github.com/latrani/Kiln/internal/config"
 )
 
 func TestClassify(t *testing.T) {

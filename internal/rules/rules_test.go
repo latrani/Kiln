@@ -3,7 +3,7 @@ package rules
 import (
 	"testing"
 
-	"kiln/internal/config"
+	"github.com/latrani/Kiln/internal/config"
 )
 
 func TestApply(t *testing.T) {

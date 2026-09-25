@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"kiln/internal/config"
-	"kiln/internal/logstore"
-	"kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 )
 
 // render formats one entry for plain terminal output. Highlighted lines

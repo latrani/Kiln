@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"kiln/internal/config"
-	"kiln/internal/conn"
-	"kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/logstore"
 )
 
 // State is a session's connection state.

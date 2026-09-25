@@ -19,14 +19,14 @@ import (
 
 	"golang.org/x/term"
 
-	"kiln/internal/ansi"
-	"kiln/internal/classify"
-	"kiln/internal/config"
-	"kiln/internal/conn"
-	"kiln/internal/logstore"
-	"kiln/internal/rules"
-	"kiln/internal/secrets"
-	"kiln/internal/session"
+	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/classify"
+	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/secrets"
+	"github.com/latrani/Kiln/internal/session"
 )
 
 const usage = `usage:

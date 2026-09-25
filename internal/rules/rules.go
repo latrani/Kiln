@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"slices"
 
-	"kiln/internal/config"
+	"github.com/latrani/Kiln/internal/config"
 )
 
 // Highlighter holds one character's compiled highlight rules.

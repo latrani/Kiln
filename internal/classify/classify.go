@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"kiln/internal/config"
+	"github.com/latrani/Kiln/internal/config"
 )
 
 // SelfTag is added to any line that mentions the character's own name
