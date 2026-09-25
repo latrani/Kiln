@@ -14,6 +14,9 @@ import (
 // emptyHint is the input area's prompt while nothing is open.
 const emptyHint = "Nothing open · Enter or Ctrl+O to add a connection"
 
+// noCharacters fills the pane when nothing is configured.
+const noCharacters = "No characters yet · Ctrl+O to add one"
+
 // Minimum usable terminal size.
 const (
 	MinWidth  = 40
@@ -41,8 +44,11 @@ func (m *Model) layout() layout {
 	l := layout{sw: min(22, max(12, m.width/5))}
 	l.rw = max(1, m.width-l.sw-1)
 	cs := m.cur()
-	if text, col, ok := m.prompt(cs); ok {
-		l.inRows, l.curCol, l.prompt = []string{fit(text, l.rw)}, min(col, l.rw-1), true
+	if rows, row, col, ok := m.prompt(cs); ok {
+		for _, r := range rows {
+			l.inRows = append(l.inRows, fit(r, l.rw))
+		}
+		l.curRow, l.curCol, l.prompt = row, min(col, l.rw-1), true
 	} else {
 		limit, flatten := 0, false
 		if cs != nil {
@@ -68,9 +74,10 @@ func (m *Model) layout() layout {
 // Kiln is asking something, or hinting at what Enter will do: understated
 // text with no "›" (starting where the "›" would), so it never looks
 // like a line bound for the server.
-// It returns the row and the cursor's column.
-func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
-	hint := func(s string) (string, int, bool) { return style.Dim(s), 0, true }
+// It returns the rows (one, except for a form with several fields) and
+// the cursor's row and column.
+func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
+	hint := func(s string) ([]string, int, int, bool) { return []string{style.Dim(s)}, 0, 0, true }
 	switch {
 	case m.mode == modeSavePassword:
 		name := m.pendingCh[1]
@@ -79,20 +86,24 @@ func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
 		}
 		return hint(fmt.Sprintf("Save password for %s in %s? [Y/n]", name, storeName(m.passwordStore())))
 	case m.picker != nil:
-		text, col := m.picker.form.row()
-		return text, col, true
+		f := m.picker.form
+		if m.picker.edit != nil {
+			f = m.picker.edit.form
+		}
+		rows, row, col := f.rows()
+		return rows, row, col, true
 	case cs == nil && m.idle.Empty():
 		return hint(emptyHint)
 	case cs == nil:
-		return "", 0, false
+		return nil, 0, 0, false
 	case cs.needPW:
 		// Bullets for what's typed, between a label and the keys to press.
 		rows, _, c := cs.in.Render(1<<20, 0, false, true)
 		label := fmt.Sprintf("Password for %s: ", cs.ch.Name)
-		text = style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim("   Enter to log in · Esc to skip")
-		return text, c - gutterWidth + xansi.StringWidth(label), true
+		text := style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim("   Enter to log in · Esc to skip")
+		return []string{text}, 0, c - gutterWidth + xansi.StringWidth(label), true
 	case !cs.in.Empty() || cs.state == session.Connected:
-		return "", 0, false
+		return nil, 0, 0, false
 	case cs.pin != nil:
 		return hint("Certificate changed · /trust to accept it")
 	case cs.state == session.Connecting:
@@ -181,7 +192,7 @@ func (m *Model) View() tea.View {
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
 		if len(m.allChars()) == 0 {
-			right[0] = style.Dim("No characters yet: add one in " + m.d.ConfigDir + "/worlds/")
+			right[0] = style.Dim(noCharacters)
 		}
 	} else {
 		cs.sb.SetWidth(l.rw)
@@ -216,8 +227,6 @@ func (m *Model) View() tea.View {
 			b.WriteString(m.pickerLine(*r, l.sw))
 		case r != nil:
 			b.WriteString(m.sidebarLine(*r, l.sw))
-		case y == 0 && m.picker != nil:
-			b.WriteString(style.Dim(fitName(noMatches, l.sw)))
 		default:
 			b.WriteString(strings.Repeat(" ", l.sw))
 		}

@@ -7,3 +7,4 @@
 [defaults]
 max_line_bytes = 2047   # Fuzzball's limit; override per world if yours differs
 newline_mode = "batch"  # "batch": each line is its own command; "flatten": join with spaces
+local_echo = false      # true: show what you send in the scrollback (it is always logged)
