@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -85,6 +86,9 @@ type World struct {
 type Config struct {
 	Worlds        []World // sorted by ID
 	ExportDir     string  // where browse-mode exports go; "~" already expanded
+	ExportName    string  // export file name template; see ExportNameVars
+	ExportFormat  string  // "plain", "ansi" or "html" preselected for exports; "" asks
+	LogDir        string  // log directory template ({world}, {char}); "~" expanded, "" for the default
 	PasswordStore string  // "keychain", "file" or "none"
 }
 
@@ -129,6 +133,9 @@ func (s *settings) overlay(o settings) {
 
 type globalFile struct {
 	ExportDir     string   `toml:"export_dir"`
+	ExportName    string   `toml:"export_name"`
+	ExportFormat  string   `toml:"export_format"`
+	LogDir        string   `toml:"log_dir"`
 	PasswordStore string   `toml:"password_store"`
 	Defaults      settings `toml:"defaults"`
 }
@@ -190,7 +197,28 @@ func Load(dir string) (*Config, error) {
 	if store != "keychain" && store != "file" && store != "none" {
 		return nil, errors.New(`config.toml: password_store must be "keychain", "file" or "none"`)
 	}
-	cfg := &Config{ExportDir: exportDir, PasswordStore: store}
+	exportName := g.ExportName
+	if exportName == "" {
+		exportName = DefaultExportName
+	}
+	if err := checkVars("export_name", exportName, ExportNameVars); err != nil {
+		return nil, err
+	}
+	switch g.ExportFormat {
+	case "", "plain", "ansi", "html":
+	default:
+		return nil, errors.New(`config.toml: export_format must be "plain", "ansi" or "html"`)
+	}
+	logDir := g.LogDir
+	if logDir != "" {
+		if logDir, err = ExpandHome(logDir); err != nil {
+			return nil, err
+		}
+	}
+	if err := checkVars("log_dir", logDir, []string{"world", "char"}); err != nil {
+		return nil, err
+	}
+	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, PasswordStore: store}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, packs)
 		if err != nil {
@@ -336,6 +364,26 @@ func decodeFile(path string, v any, optional bool) error {
 	}
 	if und := md.Undecoded(); len(und) > 0 {
 		return fmt.Errorf("%s: unknown key %q", filepath.Base(path), und[0].String())
+	}
+	return nil
+}
+
+// DefaultExportName is used when config.toml sets no export_name.
+const DefaultExportName = "{date} {time} {world} {name}"
+
+// ExportNameVars are the placeholders export_name may use: the date
+// (YYYY-MM-DD) and time (HHMM) of the scene's first line, the world id
+// and the character's name.
+var ExportNameVars = []string{"date", "time", "world", "name"}
+
+var varRE = regexp.MustCompile(`\{([^{}]*)\}`)
+
+// checkVars rejects placeholders in a template other than vars.
+func checkVars(setting, template string, vars []string) error {
+	for _, m := range varRE.FindAllStringSubmatch(template, -1) {
+		if !slices.Contains(vars, m[1]) {
+			return fmt.Errorf("config.toml: %s: unknown placeholder {%s} (use {%s})", setting, m[1], strings.Join(vars, "}, {"))
+		}
 	}
 	return nil
 }

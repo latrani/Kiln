@@ -19,7 +19,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 
 - **Many worlds, many characters, all at once.** The sidebar shows the characters you have open, grouped under their worlds; everything else is a Ctrl+O away. Each one has its own scrollback, draft and history.
 - **Knows what a page is.** Lines are tagged (page, whisper, say, and `self` when they mention you) by rules you can edit. Tags drive colors and the attention badge.
-- **Everything is logged** to plain, greppable text, one file per character per day.
+- **Everything is logged** to plain, greppable text, one file per session, in whatever folder you like.
 - **Browse mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
 - **Safe input.** The input box shows exactly where the server would cut an over-long line, so you can break it before sending.
 - **Secure by default.** Passwords live in your OS keychain, never in config (or, if you opt in, a file only you can read). TLS certificates are pinned on first use, so self-signed MUCK certificates just work.
@@ -138,7 +138,7 @@ To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
 | `e` | Export the range as plain text, ANSI or HTML |
 | `c` | Copy the range as plain text |
 
-Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`), and Kiln never overwrites an existing file.
+Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
 
 ## Configuration
 
@@ -154,6 +154,9 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | Setting | Where | Meaning |
 |---|---|---|
 | `export_dir` | config.toml | Where browse exports are saved |
+| `export_name` | config.toml | Export file name, from `{date}`, `{time}`, `{world}` and `{name}` (default `"{date} {time} {world} {name}"`; may include `/` for subfolders) |
+| `export_format` | config.toml | `"plain"`, `"ansi"` or `"html"`: what `Enter` picks when exporting (default: always ask) |
+| `log_dir` | config.toml | Where logs go, with `{world}` and `{char}` filled in (default `~/.local/share/kiln/logs/{world}/{char}`), see [Logs](#logs) |
 | `password_store` | config.toml | `"keychain"` (default), `"file"` (`~/.local/share/kiln/passwords.json`, readable only by you) or `"none"` (never save) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
@@ -212,7 +215,15 @@ Use `tls_trust = "ca"` for servers with certificates from a real certificate aut
 
 ## Logs
 
-Logs are kept in `~/.local/share/kiln/logs/<world>/<character>/YYYY-MM-DD.log`:
+Kiln starts a new log file each time a character connects, named after that moment: `~/.local/share/kiln/logs/<world>/<character>/2026-09-24 211403 Kit.log`. To keep them with your other logs, set `log_dir` in `config.toml`:
+
+```toml
+log_dir = "~/Documents/Logs/Mucks/{world}"   # {char} is the character's id
+```
+
+Characters can share a folder: each file name ends with the character's id, and Kiln only reads back its own files. Files that aren't Kiln logs are left alone and skipped, even if their names look like Kiln's. Changing `log_dir` doesn't move old logs; move them yourself if you want Kiln to show them. Older versions of Kiln wrote one file per day (`YYYY-MM-DD.log`), and those are still read.
+
+Every file looks like this:
 
 ```
 #kiln-log v1

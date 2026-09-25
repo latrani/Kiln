@@ -78,6 +78,10 @@ type Appender interface {
 	Append(logstore.Entry) error
 }
 
+// sessioner is an Appender that keeps one log file per connection, like
+// logstore.Writer: Run calls NewSession as each connection comes up.
+type sessioner interface{ NewSession() }
+
 // Options configures a Session. Dial, Log and Char are required.
 type Options struct {
 	Char     config.Character
@@ -369,6 +373,9 @@ func (s *Session) Run(ctx context.Context) {
 		attempt = 0
 		s.setConn(c)
 		ch := s.Char()
+		if l, ok := s.o.Log.(sessioner); ok {
+			l.NewSession()
+		}
 		s.sys(fmt.Sprintf("connected to %s:%d", ch.Host, ch.Port))
 		s.state(Connected, nil)
 		s.login(c)
