@@ -60,7 +60,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 ## Getting started
 
-1. **Run `kiln` once.** It creates the config directory, `~/.config/kiln/`, with a starter `config.toml` and a rule pack for Fuzzball MUCKs. Quit with `Ctrl+C`.
+1. **Run `kiln` once.** It creates the config directory, `~/.config/kiln/`, with a starter `config.toml` and a rule pack for Fuzzball MUCKs. With no worlds yet, it tells you where to add one. Quit with `Ctrl+C` twice.
 
 2. **Add a world.** Either press `Ctrl+O` in Kiln and pick `+ World` then `+ Character` (which writes a file like the one below), or create `~/.config/kiln/worlds/furrymuck.toml` yourself. The file name is the world's id.
 
@@ -105,7 +105,8 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
 | `Ctrl+B` | Open browse mode |
 | `Esc` | Skip the login prompt |
-| `Ctrl+C` | Clear the input, or quit if it's empty |
+| `Ctrl+C` | Clear the input; on an empty input, press twice to quit |
+| `Ctrl+D` | Delete the character after the cursor; on an empty input, press twice to quit |
 
 Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
