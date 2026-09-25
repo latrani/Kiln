@@ -60,7 +60,8 @@ type Model struct {
 	mode      mode
 	pendingPW string    // entered password awaiting the save y/n answer
 	pendingCh [2]string // world and character id the pending password belongs to
-	confirm   bool      // next Enter sends an over-limit line anyway
+	exportDir string
+	confirm   bool // next Enter sends an over-limit line anyway
 }
 
 type charState struct {
@@ -77,6 +78,7 @@ type charState struct {
 	attention bool
 	pin       *conn.PinMismatchError
 	needPW    bool
+	browse    *browse // non-nil while browse mode is open
 }
 
 func key(world, char string) string { return world + "/" + char }
@@ -150,6 +152,7 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 // Connected characters that vanished from the config stay until they
 // disconnect.
 func (m *Model) applyConfig(cfg *config.Config) {
+	m.exportDir = cfg.ExportDir
 	var order []string
 	seen := map[string]bool{}
 	for _, w := range cfg.Worlds {
@@ -323,6 +326,9 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	case session.EventLine:
 		text, attn := cs.render(ev.Entry)
 		cs.sb.Append(text)
+		if cs.browse != nil {
+			cs.browse.appendLive(ev.Entry)
+		}
 		if msg.key != m.active && ev.Entry.Dir == logstore.In {
 			cs.unread++
 			cs.attention = cs.attention || attn
@@ -372,15 +378,31 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	switch k.String() {
+	case "ctrl+up":
+		m.switchBy(-1)
+		return nil
+	case "ctrl+down":
+		m.switchBy(1)
+		return nil
+	}
+	if cs != nil && cs.browse != nil {
+		cmd, closed := cs.browse.key(k, m.exportDir, m.browseBodyH())
+		if closed {
+			cs.browse = nil
+		}
+		return cmd
+	}
+	switch k.String() {
+	case openBrowseKey:
+		if cs != nil {
+			m.openBrowse(cs)
+		}
+		return nil
 	case "ctrl+c":
 		if cs == nil || cs.in.Empty() {
 			return m.quit()
 		}
 		cs.in.Reset()
-	case "ctrl+up":
-		m.switchBy(-1)
-	case "ctrl+down":
-		m.switchBy(1)
 	case "pgup":
 		if cs != nil {
 			cs.sb.ScrollUp(max(1, m.layout().sbH-1))
@@ -567,15 +589,42 @@ func (m *Model) command(cs *charState, args []string) tea.Cmd {
 		return m.connect(cs)
 	case "/quit":
 		return m.quit()
+	case "/browse":
+		m.openBrowse(cs)
+	case "/highlight":
+		text := strings.Join(args[1:], " ")
+		if err := config.AppendHighlight(m.d.ConfigDir, cs.ch.World, text); err != nil {
+			m.setStatus(true, "highlight: %v", err)
+			return nil
+		}
+		m.setStatus(false, "added highlight for %q", text)
 	default:
 		m.setStatus(true, "unknown command %s", args[0])
 	}
 	return nil
 }
 
+// openBrowse opens browse mode for cs.
+func (m *Model) openBrowse(cs *charState) {
+	cs.browse = newBrowse(cs, m.d.LogRoot)
+	m.status = ""
+}
+
+// browseBodyH is the number of line rows in browse mode.
+func (m *Model) browseBodyH() int { return max(1, m.height-5) }
+
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
 	l := m.layout()
 	cs := m.cur()
+	if cs != nil && cs.browse != nil && msg.X > l.sw {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			cs.browse.moveCursor(-3)
+		case tea.MouseWheelDown:
+			cs.browse.moveCursor(3)
+		}
+		return
+	}
 	if cs == nil || msg.X <= l.sw || msg.Y >= l.sbH {
 		return
 	}
@@ -602,6 +651,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) {
 				m.switchTo(r.char)
 			}
 		}
+		return
+	}
+	if cs := m.cur(); cs != nil && cs.browse != nil {
+		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
 		return
 	}
 	if cs := m.cur(); cs != nil && cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {

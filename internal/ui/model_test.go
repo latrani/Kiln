@@ -152,8 +152,20 @@ func (h *harness) settle(k string, pred func() bool) {
 	}
 }
 
+// connected waits for the Connected state and, when the character has a
+// saved password, for the auto-login line (sent just after the state
+// change) so tests never race it.
 func (h *harness) connected(k string) func() bool {
-	return func() bool { return h.m.chars[k].state == session.Connected }
+	return func() bool {
+		if h.m.chars[k].state != session.Connected {
+			return false
+		}
+		h.mu.Lock()
+		_, hasPW := h.pw[k]
+		h.mu.Unlock()
+		c := h.conn(k)
+		return !hasPW || (c != nil && len(c.Sent()) > 0)
+	}
 }
 
 func (h *harness) screen() string { return ansi.Strip(h.m.View().Content) }
