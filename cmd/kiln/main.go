@@ -90,6 +90,9 @@ func run(args []string) error {
 		if w == nil {
 			return fmt.Errorf("no world %s", args[1])
 		}
+		if err := conn.ValidateFingerprint(args[2]); err != nil {
+			return err
+		}
 		ch := w.Characters[0]
 		hp := ch.Host + ":" + strconv.Itoa(ch.Port)
 		return knownHosts(dataDir).Trust(hp, args[2])

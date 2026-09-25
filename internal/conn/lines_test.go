@@ -77,6 +77,17 @@ func TestSplitterBoundsRunawayLine(t *testing.T) {
 	}
 }
 
+func TestSplitterRunawayCutKeepsRunesWhole(t *testing.T) {
+	var s splitter
+	// "é" is 2 bytes; the prefix puts its first byte at the last slot.
+	in := strings.Repeat("x", maxLine-1) + "é" + strings.Repeat("y", 3) + "\n"
+	got := s.push([]byte(in))
+	want := []string{strings.Repeat("x", maxLine-1), "éyyy"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %d lines, first len %d", len(got), len(got[0]))
+	}
+}
+
 func TestSplitterPartialDoesNotConsume(t *testing.T) {
 	var s splitter
 	s.push([]byte("Password: "))

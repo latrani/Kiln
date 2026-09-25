@@ -47,6 +47,8 @@ func (h *harness) key(s string) tea.Cmd {
 		k = tea.KeyPressMsg{Code: tea.KeyDown}
 	case "home":
 		k = tea.KeyPressMsg{Code: tea.KeyHome}
+	case "end":
+		k = tea.KeyPressMsg{Code: tea.KeyEnd}
 	case "space":
 		k = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 	case "ctrl+b":
@@ -186,6 +188,51 @@ func TestBrowseChips(t *testing.T) {
 	h.key("1") // neutral
 	if !strings.Contains(h.screen(), "Mira pages") {
 		t.Error("neutral chip should show everything")
+	}
+}
+
+func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+b")
+	h.keys("home", "down", "down") // Mira pages
+	b := h.br()
+	if b.cursor.e.Text != "Mira pages: you around?" {
+		t.Fatalf("cursor on %q", b.cursor.e.Text)
+	}
+	h.keys("1", "1") // page → only → hide
+	if got := b.cursor.e.Text; got != "> :grins." && got != ":grins." {
+		t.Errorf("cursor moved to %q, want the next line", got)
+	}
+	h.keys("1", "home", "down", "down", "down", "down") // neutral; Kit grins. (self)
+	h.keys("3", "3")                                    // self → only → hide
+	if got := b.cursor.e.Text; got != "Rook says, \"The lighthouse is dark.\"" {
+		t.Errorf("cursor moved to %q, want the next visible line", got)
+	}
+	// With nothing visible after it, fall back to the previous line.
+	h.keys("3", "end", "1") // self neutral; Rook yawns; page → only
+	if got := b.cursor.e.Text; got != "Mira pages: you around?" {
+		t.Errorf("cursor moved to %q, want the previous visible line", got)
+	}
+}
+
+func TestBrowseChipNumbersStayStable(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, "Rook says, \"Hi, Kit.\"")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+b")
+	if s := h.screen(); !strings.Contains(s, "tags: 1[say] 2[self]") {
+		t.Fatalf("chips:\n%s", s)
+	}
+	h.conn("fm/kit").lines <- "Mira pages: you around?"
+	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Mira pages") })
+	if s := h.screen(); !strings.Contains(s, "tags: 1[say] 2[self] 3[page]") {
+		t.Errorf("new tag renumbered chips:\n%s", s)
+	}
+	h.key("1")
+	if b := h.br(); b.chips["say"] == 0 || b.chips["page"] != 0 {
+		t.Errorf("1 should still target say: %v", b.chips)
 	}
 }
 

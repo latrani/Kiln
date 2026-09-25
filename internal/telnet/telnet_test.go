@@ -112,3 +112,16 @@ func TestEscape(t *testing.T) {
 		t.Errorf("Escape=%q", got)
 	}
 }
+
+func TestUnterminatedSubnegotiationIsBounded(t *testing.T) {
+	p := NewParser(80, 24)
+	in := append([]byte{IAC, SB, OptCharset}, bytes.Repeat([]byte{'z'}, maxSB+1)...)
+	in = append(in, "hello"...)
+	data, reply := p.Feed(in)
+	if string(data) != "hello" || reply != nil {
+		t.Errorf("data=%q reply=%v", data, reply)
+	}
+	if cap(p.sbBuf) > 2*maxSB {
+		t.Errorf("sbBuf cap = %d", cap(p.sbBuf))
+	}
+}

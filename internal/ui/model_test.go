@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -294,6 +295,23 @@ func TestOverLimitNeedsConfirm(t *testing.T) {
 	}
 }
 
+func TestFlattenChecksJoinedLength(t *testing.T) {
+	flat := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
+	h := newHarness(t, map[string]string{"fm": flat})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("say one two")
+	h.press(tea.KeyEnter, tea.ModShift)
+	h.typeText("three four") // each line fits; joined is 22 bytes
+	h.enter()
+	if n := len(h.conn("fm/kit").Sent()); n != 1 {
+		t.Fatalf("sent %d lines before confirm", n)
+	}
+	if !strings.Contains(h.screen(), "over 20 bytes") {
+		t.Errorf("no warning:\n%s", h.screen())
+	}
+}
+
 func TestSlashCommandsAndEscape(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
@@ -314,6 +332,22 @@ func TestSlashCommandsAndEscape(t *testing.T) {
 	h.typeText("/connect")
 	h.enter()
 	h.settle("fm/kit", h.connected("fm/kit"))
+}
+
+func TestHighlightKeepsSpacing(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.typeText("/highlight   the  old   lighthouse ")
+	h.enter()
+	cfg, err := config.Load(h.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "kit")
+	rs := kit.Rules.Highlight
+	if len(rs) == 0 || rs[len(rs)-1].Match.Pattern != "(?i)the  old   lighthouse" {
+		t.Errorf("rules = %+v", rs)
+	}
 }
 
 func TestNotConnectedStatus(t *testing.T) {
@@ -354,6 +388,32 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	}
 }
 
+func TestPasswordPromptKeepsDraft(t *testing.T) {
+	for _, skip := range []bool{false, true} {
+		h := newHarness(t, map[string]string{"fm": fmWorld})
+		delete(h.pw, "fm/kit")
+		h.init()
+		h.typeText("half a pose")
+		cs := h.m.chars["fm/kit"]
+		h.settle("fm/kit", func() bool { return cs.needPW })
+		if v := cs.in.Value(); v != "" {
+			t.Fatalf("password prompt starts with %q", v)
+		}
+		h.typeText("s3cret")
+		if skip {
+			h.press(tea.KeyEscape, 0)
+		} else {
+			h.enter()
+			if got := h.conn("fm/kit").Sent(); len(got) != 1 || got[0] != "connect Kit s3cret" {
+				t.Errorf("sent %q", got)
+			}
+		}
+		if v := cs.in.Value(); v != "half a pose" || cs.needPW {
+			t.Errorf("skip=%v: input = %q, needPW = %v; want the draft back", skip, v, cs.needPW)
+		}
+	}
+}
+
 func TestPromptShown(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
@@ -391,6 +451,52 @@ func TestReloadAddsCharactersAndKeepsOldOnError(t *testing.T) {
 	s := h.screen()
 	if !strings.Contains(s, "config not reloaded") || !strings.Contains(s, "Ash") {
 		t.Errorf("screen:\n%s", s)
+	}
+}
+
+func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
+	sp := "host = \"sp.test\"\nport = 1\n\n[characters.ash]\nname = \"Ash\"\n"
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": sp})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	cs := h.m.chars["fm/kit"]
+	sess := cs.sess
+
+	noKit := strings.Replace(fmWorld, "[characters.kit]\nname = \"Kit\"\nautoconnect = true\n", "", 1)
+	os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(noKit), 0o600)
+	h.m.Update(reloadMsg{})
+	if !cs.orphan || h.m.chars["fm/kit"] != cs {
+		t.Fatal("connected character should stay as an orphan")
+	}
+	if got := strings.Join(h.m.order, " "); got != "fm/rook fm/kit sp/ash" {
+		t.Errorf("order = %s, want the orphan grouped under fm", got)
+	}
+	if n := strings.Count(h.screen(), "▾ fm"); n != 1 {
+		t.Errorf("fm header shown %d times:\n%s", n, h.screen())
+	}
+
+	h.conn("fm/kit").Close() // server drops the connection
+	deadline := time.After(3 * time.Second)
+	for h.m.chars["fm/kit"] != nil {
+		select {
+		case ev, ok := <-sess.Events():
+			h.m.Update(eventMsg{key: "fm/kit", sess: sess, ev: ev, ok: ok})
+		case <-deadline:
+			t.Fatal("orphan not dropped after disconnect")
+		}
+	}
+	if slices.Contains(h.m.order, "fm/kit") {
+		t.Errorf("order = %v", h.m.order)
+	}
+	for { // the session is stopped: it must not redial and log in again
+		select {
+		case _, ok := <-sess.Events():
+			if !ok {
+				return
+			}
+		case <-deadline:
+			t.Fatal("orphan session still running")
+		}
 	}
 }
 
