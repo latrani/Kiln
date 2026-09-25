@@ -57,3 +57,7 @@ func skipEscape(s string, i int) int {
 		return min(j+1, len(s))
 	}
 }
+
+// EscapeEnd returns the index just past the escape sequence that starts
+// at s[i] (which must be ESC), exactly as Strip skips it.
+func EscapeEnd(s string, i int) int { return skipEscape(s, i) }

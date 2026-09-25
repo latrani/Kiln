@@ -25,6 +25,10 @@ func TestRender(t *testing.T) {
 		{"style survives server reset", in("\x1b[1mMira\x1b[0m pages"),
 			rules.Result{Style: config.Style{Italic: true}, Styled: true},
 			"\x1b[3m\x1b[1mMira\x1b[0m\x1b[3m pages\x1b[0m"},
+		{"partial", in("PAGE: hi"),
+			rules.Result{Styled: true, Attention: true, Runs: []rules.Run{
+				{Start: 0, End: 5, Style: config.Style{Bold: true}, Styled: true}, {Start: 5, End: 8}}},
+			"» \x1b[1mPAGE:\x1b[0m hi\x1b[0m"},
 		{"bad color ignored", in("x"), rules.Result{Style: config.Style{FG: "orange"}, Styled: true}, "x\x1b[0m"},
 	}
 	for _, c := range cases {
