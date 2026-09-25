@@ -185,3 +185,47 @@ func TestTLSCAModeRejectsSelfSigned(t *testing.T) {
 		t.Fatal("ca mode accepted a self-signed cert")
 	}
 }
+
+func TestPromptReportedAfterIdleThenLineCompletes(t *testing.T) {
+	proceed := make(chan struct{})
+	host, port := fakeServer(t, tcpListener(t), func(c net.Conn) {
+		c.Write([]byte("Password: "))
+		<-proceed
+		c.Write([]byte("\r\nWelcome!\r\n"))
+	})
+	c, err := Dial(context.Background(), Options{Host: host, Port: port})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case p := <-c.Prompts():
+		if p != "Password: " {
+			t.Errorf("prompt = %q", p)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no prompt reported")
+	}
+	close(proceed)
+	got := collect(t, c)
+	want := []string{"Password: ", "Welcome!"}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("lines = %q, want %q", got, want)
+	}
+}
+
+func TestNoPromptForPromptlyCompletedLines(t *testing.T) {
+	host, port := fakeServer(t, tcpListener(t), func(c net.Conn) {
+		c.Write([]byte("part"))
+		c.Write([]byte("ial\r\n"))
+	})
+	c, err := Dial(context.Background(), Options{Host: host, Port: port})
+	if err != nil {
+		t.Fatal(err)
+	}
+	collect(t, c)
+	select {
+	case p := <-c.Prompts():
+		t.Errorf("unexpected prompt %q", p)
+	case <-time.After(PromptDelay + 100*time.Millisecond):
+	}
+}

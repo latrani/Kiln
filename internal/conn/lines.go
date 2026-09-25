@@ -35,6 +35,20 @@ func (s *splitter) push(data []byte) []string {
 	return out
 }
 
+// partial returns the decoded unterminated line currently buffered, or ""
+// if there is none (or it is an MCP message). The buffer is not consumed:
+// when the rest of the line arrives, push returns the whole line.
+func (s *splitter) partial() string {
+	if len(s.buf) == 0 {
+		return ""
+	}
+	out := appendLine(nil, s.buf)
+	if len(out) == 0 {
+		return ""
+	}
+	return out[0]
+}
+
 // flush returns any partial line left at end of stream.
 func (s *splitter) flush() []string {
 	if len(s.buf) == 0 {

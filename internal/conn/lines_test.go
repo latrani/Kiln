@@ -76,3 +76,25 @@ func TestSplitterBoundsRunawayLine(t *testing.T) {
 		t.Errorf("got %d lines", len(got))
 	}
 }
+
+func TestSplitterPartialDoesNotConsume(t *testing.T) {
+	var s splitter
+	s.push([]byte("Password: "))
+	if got := s.partial(); got != "Password: " {
+		t.Errorf("partial = %q", got)
+	}
+	if got := s.push([]byte("\r\n")); !reflect.DeepEqual(got, []string{"Password: "}) {
+		t.Errorf("completed line = %q", got)
+	}
+	if got := s.partial(); got != "" {
+		t.Errorf("partial after completion = %q", got)
+	}
+}
+
+func TestSplitterPartialHidesMCP(t *testing.T) {
+	var s splitter
+	s.push([]byte("#$#mcp-negotiate"))
+	if got := s.partial(); got != "" {
+		t.Errorf("partial = %q, want MCP hidden", got)
+	}
+}
