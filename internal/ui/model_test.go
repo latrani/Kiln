@@ -319,7 +319,7 @@ func TestSendBatchAndFlatten(t *testing.T) {
 		if got := h.conn("fm/kit").Sent(); strings.Join(got, "|") != strings.Join(c.want, "|") {
 			t.Errorf("sent %q, want %q", got, c.want)
 		}
-		if !strings.Contains(h.screen(), "> :waves.") {
+		if !strings.Contains(h.screen(), "›:waves.") {
 			t.Errorf("echo missing:\n%s", h.screen())
 		}
 		if !h.m.chars["fm/kit"].in.Empty() {
@@ -816,7 +816,7 @@ func TestClickPlacesInputCursor(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("hello")
 	l := h.m.layout()
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 3 + 2, Y: l.sbH + 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 4, Y: l.sbH + 1, Button: tea.MouseLeft})
 	h.typeText("^")
 	if got := h.m.cur().in.Value(); got != "he^llo" {
 		t.Errorf("input = %q, want the cursor where clicked", got)
@@ -868,15 +868,15 @@ func TestEnterOnEmptyInputConnects(t *testing.T) {
 		t.Fatal("Enter did not connect")
 	}
 	h.settle("fm/kit", h.connected("fm/kit"))
-	if s := h.screen(); strings.Contains(s, "Enter to connect") || !strings.Contains(s, "│> ") {
-		t.Errorf("connected input should be a plain > line:\n%s", s)
+	if s := h.screen(); strings.Contains(s, "Enter to connect") || !strings.Contains(s, "│›") {
+		t.Errorf("connected input should be a plain › line:\n%s", s)
 	}
 }
 
 func TestTypingReplacesConnectHint(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("/help")
-	if s := h.screen(); strings.Contains(s, "Enter to connect") || !strings.Contains(s, "> /help") {
+	if s := h.screen(); strings.Contains(s, "Enter to connect") || !strings.Contains(s, "›/help") {
 		t.Errorf("screen:\n%s", s)
 	}
 }

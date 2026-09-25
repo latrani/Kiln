@@ -65,7 +65,7 @@ func TestInputGraphemeClusters(t *testing.T) {
 	)
 	in := typed("a" + family + wave + flag + accent)
 	rows, _, c := in.Render(40, 0, false, false)
-	if want := 2 + 1 + 2 + 2 + 2 + 1; c != want {
+	if want := 1 + 1 + 2 + 2 + 2 + 1; c != want {
 		t.Errorf("cursor col = %d, want %d (row %q)", c, want, ansi.Strip(rows[0]))
 	}
 	in.Backspace()
@@ -74,8 +74,8 @@ func TestInputGraphemeClusters(t *testing.T) {
 	}
 	in.Left()
 	in.Left()
-	if _, _, c := in.Render(40, 0, false, false); c != 2+1+2 {
-		t.Errorf("after two Lefts cursor col = %d, want 5", c)
+	if _, _, c := in.Render(40, 0, false, false); c != 1+1+2 {
+		t.Errorf("after two Lefts cursor col = %d, want 4", c)
 	}
 	in.Delete()
 	if in.Value() != "a"+family+flag {
@@ -89,7 +89,7 @@ func TestInputGraphemeClusters(t *testing.T) {
 		t.Errorf("Right should skip the whole family: %q", in.Value())
 	}
 	rows, _, _ = typed(family+wave).Render(20, 0, false, true)
-	if got := ansi.Strip(rows[0]); got != "> ••" {
+	if got := ansi.Strip(rows[0]); got != "›••" {
 		t.Errorf("masked = %q, want one bullet per cluster", got)
 	}
 }
@@ -150,12 +150,12 @@ func plainRows(rows []string) []string {
 }
 
 func TestRenderSoftWraps(t *testing.T) {
-	rows, r, c := typed("abcdefgh").Render(6, 0, false, false) // 4 cells of text per row
-	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> abcd", "  efgh", "  "}) {
+	rows, r, c := typed("abcdefgh").Render(5, 0, false, false) // 4 cells of text per row
+	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"›abcd", " efgh", " "}) {
 		t.Errorf("rows = %q", got)
 	}
-	if r != 2 || c != 2 {
-		t.Errorf("cursor = %d,%d; want 2,2 (wrapped past a full row)", r, c)
+	if r != 2 || c != 1 {
+		t.Errorf("cursor = %d,%d; want 2,1 (wrapped past a full row)", r, c)
 	}
 }
 
@@ -164,14 +164,14 @@ func TestRenderCursorMidLine(t *testing.T) {
 	in.Home()
 	in.Right()
 	_, r, c := in.Render(20, 0, false, false)
-	if r != 0 || c != 3 {
-		t.Errorf("cursor = %d,%d; want 0,3", r, c)
+	if r != 0 || c != 2 {
+		t.Errorf("cursor = %d,%d; want 0,2", r, c)
 	}
 }
 
 func TestRenderWideRunes(t *testing.T) {
 	rows, _, _ := typed("日本語").Render(6, 0, false, false) // 4 cells: 2 wide runes per row
-	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> 日本", "  語"}) {
+	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"›日本", " 語"}) {
 		t.Errorf("rows = %q", got)
 	}
 }
@@ -210,26 +210,26 @@ func TestRenderOverLimitJoined(t *testing.T) {
 		t.Errorf("rows = %q, want red from f", rows)
 	}
 	rows, _, _ = in.Render(40, 6, true, false) // the joining space is byte 7
-	if !strings.HasPrefix(rows[2], "  "+overLimit+"fg") {
+	if !strings.HasPrefix(rows[2], " "+overLimit+"fg") {
 		t.Errorf("rows = %q, want the whole last line red", rows)
 	}
 }
 
 func TestRenderMasked(t *testing.T) {
 	rows, _, _ := typed("pw!").Render(20, 0, false, true)
-	if got := ansi.Strip(rows[0]); got != "> •••" {
+	if got := ansi.Strip(rows[0]); got != "›•••" {
 		t.Errorf("masked = %q", got)
 	}
 }
 
 func TestRenderMarksEachSentLine(t *testing.T) {
 	in := typed("abcdefgh\nij")
-	rows, _, _ := in.Render(6, 0, false, false)
-	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> abcd", "  efgh", "> ij"}) {
+	rows, _, _ := in.Render(5, 0, false, false)
+	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"›abcd", " efgh", "›ij"}) {
 		t.Errorf("batch rows = %q", got)
 	}
-	rows, _, _ = in.Render(6, 0, true, false)
-	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"> abcd", "  efgh", "  ij"}) {
+	rows, _, _ = in.Render(5, 0, true, false)
+	if got := plainRows(rows); !reflect.DeepEqual(got, []string{"›abcd", " efgh", " ij"}) {
 		t.Errorf("flatten rows = %q, want one marker for the one line sent", got)
 	}
 }
@@ -288,7 +288,7 @@ func TestInputWordDeletion(t *testing.T) {
 
 func TestInputUpDownWrappedRows(t *testing.T) {
 	in := typed("abcdefghij") // 4 cells per row: abcd / efgh / ij
-	in.Render(6, 0, false, false)
+	in.Render(5, 0, false, false)
 	in.Up()
 	in.InsertText("^")
 	if in.Value() != "abcdef^ghij" {
@@ -318,10 +318,10 @@ func TestInputUpDownKeepsGoalColumn(t *testing.T) {
 
 func TestInputClick(t *testing.T) {
 	in := typed("abcdefgh\nij")
-	in.Render(6, 0, false, false) // abcd / efgh / ij
+	in.Render(5, 0, false, false) // abcd / efgh / ij
 	in.Click(1, 1)
 	in.InsertText("^")
-	in.Render(6, 0, false, false) // abcd / e^fg / h / ij
+	in.Render(5, 0, false, false) // abcd / e^fg / h / ij
 	in.Click(9, 3)                // past the end of "ij"
 	in.InsertText("$")
 	in.Click(0, 9) // below the text: the last row
