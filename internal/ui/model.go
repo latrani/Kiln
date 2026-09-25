@@ -300,6 +300,12 @@ func (m *Model) preload(cs *charState) {
 // render turns a log entry into a drawable line; the bool reports whether
 // a highlight rule asked for attention.
 func (cs *charState) render(e logstore.Entry) (string, bool) {
+	return renderLine(cs.cls, cs.hl, e)
+}
+
+// renderLine styles e with the given rules. It only reads cls and hl
+// (compiled once, never mutated), so it is safe off the UI goroutine.
+func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry) (string, bool) {
 	text := ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
@@ -308,7 +314,7 @@ func (cs *charState) render(e logstore.Entry) (string, bool) {
 		return style.Dim("* " + text), false
 	}
 	plain := ansi.Strip(text)
-	res := cs.hl.Apply(plain, cs.cls.Classify(plain))
+	res := hl.Apply(plain, cls.Classify(plain))
 	if !res.Styled {
 		return text + style.Reset, res.Attention
 	}
@@ -393,6 +399,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.watch()
 	case eventMsg:
 		return m, m.handleEvent(msg)
+	case olderMsg:
+		if cs := m.chars[msg.key]; cs != nil && cs.browse == msg.b {
+			return m, cs.browse.receive(msg)
+		}
 	case tea.PasteMsg:
 		if cs := m.cur(); cs != nil && cs.browse != nil {
 			// Only a text prompt takes a paste; the chat draft must not.
@@ -406,7 +416,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m, m.handleKey(msg)
 	case tea.MouseWheelMsg:
-		m.handleWheel(msg)
+		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
 		m.handleClick(msg)
 	}
@@ -724,17 +734,17 @@ func (m *Model) openBrowse(cs *charState) {
 // two header rows, two rules, the action bar and the statusline.
 func (m *Model) browseBodyH() int { return max(1, m.height-6) }
 
-func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
+func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()
 	cs := m.cur()
 	if cs != nil && cs.browse != nil && msg.X > l.sw {
 		switch msg.Button {
 		case tea.MouseWheelUp:
-			cs.browse.moveCursor(-3)
+			return cs.browse.moveCursor(-3)
 		case tea.MouseWheelDown:
-			cs.browse.moveCursor(3)
+			return cs.browse.moveCursor(3)
 		}
-		return
+		return nil
 	}
 	if msg.X < l.sw {
 		switch msg.Button {
@@ -743,10 +753,10 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
 		case tea.MouseWheelDown:
 			m.scrollSidebar(3)
 		}
-		return
+		return nil
 	}
 	if cs == nil || msg.X <= l.sw || msg.Y >= l.sbH {
-		return
+		return nil
 	}
 	switch msg.Button {
 	case tea.MouseWheelUp:
@@ -754,6 +764,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
 	case tea.MouseWheelDown:
 		cs.sb.ScrollDown(3)
 	}
+	return nil
 }
 
 func (m *Model) handleClick(msg tea.MouseClickMsg) {
