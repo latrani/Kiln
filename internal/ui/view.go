@@ -74,6 +74,9 @@ func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
 			name = pc.ch.Name
 		}
 		return hint(fmt.Sprintf("Save password for %s in %s? [Y/n]", name, storeName(m.passwordStore())))
+	case m.picker != nil:
+		text, col := m.picker.form.row()
+		return text, col, true
 	case cs == nil:
 		return "", 0, false
 	case cs.needPW:
@@ -204,8 +207,12 @@ func (m *Model) View() tea.View {
 			b.WriteString(style.Dim(fit(fmt.Sprintf("▴ %d more", sv.top), l.sw)))
 		case hint > 0:
 			b.WriteString(style.Dim(fit(fmt.Sprintf("▾ %d more", len(sv.rows)-sv.top-sv.avail), l.sw)))
+		case r != nil && m.picker != nil:
+			b.WriteString(m.pickerLine(*r, l.sw))
 		case r != nil:
 			b.WriteString(m.sidebarLine(*r, l.sw))
+		case y == 0 && m.picker != nil:
+			b.WriteString(style.Dim(fitName(noMatches, l.sw)))
 		default:
 			b.WriteString(strings.Repeat(" ", l.sw))
 		}

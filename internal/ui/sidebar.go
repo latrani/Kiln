@@ -179,7 +179,11 @@ func (sv sideView) at(y int) (*sidebarRow, int) {
 // active character into view when it changes, and otherwise keeps the
 // position the mouse wheel left.
 func (m *Model) sidebarView() sideView {
-	sv := sideView{rows: m.sidebarRows()}
+	rows, focus := m.sidebarRows(), m.active
+	if m.picker != nil {
+		rows, focus = m.pickerRows(), m.picker.sel
+	}
+	sv := sideView{rows: rows}
 	h := max(1, m.height)
 	total := len(sv.rows)
 	if total <= h {
@@ -202,9 +206,9 @@ func (m *Model) sidebarView() sideView {
 		return v
 	}
 	sv = fit(m.sideTop)
-	if m.active != m.sideShown {
-		m.sideShown = m.active
-		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool { return r.kind == rowChar && r.char == m.active }); a >= 0 {
+	if focus != m.sideShown {
+		m.sideShown = focus
+		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool { return r.kind == rowChar && r.char == focus }); a >= 0 {
 			if a < sv.top {
 				sv = fit(a - 1) // show the row above too (often its world header)
 			}

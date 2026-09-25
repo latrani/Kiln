@@ -27,6 +27,9 @@ const (
 // openBrowseKey opens browse mode from the normal view.
 const openBrowseKey = "ctrl+b"
 
+// openPickerKey opens the add-connection picker.
+const openPickerKey = "ctrl+o"
+
 var browseKeys = map[string]browseAction{
 	"esc":    actBack,
 	"ctrl+c": actBack,
