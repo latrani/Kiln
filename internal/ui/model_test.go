@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"errors"
 	"os"
 	"path/filepath"
@@ -497,6 +498,64 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 		case <-deadline:
 			t.Fatal("orphan session still running")
 		}
+	}
+}
+
+func manyChars(n int) string {
+	w := "host = \"big.test\"\nport = 1\n"
+	for i := range n {
+		w += fmt.Sprintf("\n[characters.c%02d]\nname = \"C%02d\"\n", i, i)
+	}
+	return w
+}
+
+func TestSidebarScrolls(t *testing.T) {
+	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 31 rows, 24 high
+	rows := func() []string { return strings.Split(h.screen(), "\n") }
+	side := func(y int) string { return strings.TrimSpace(strings.SplitN(rows()[y], "│", 2)[0]) }
+	if side(0) != "▾ big" || side(22) != "✕ C21" || side(23) != "▾ 8 more" {
+		t.Fatalf("top of list:\n%s", h.screen())
+	}
+
+	// Ctrl+↓ past the bottom scrolls the active character into view.
+	for range 25 {
+		h.press(tea.KeyDown, tea.ModCtrl)
+	}
+	if h.m.active != "big/c25" || side(22) != "✕ C25" || side(0) != "▴ 5 more" {
+		t.Fatalf("active %s not in view:\n%s", h.m.active, h.screen())
+	}
+	if side(23) != "▾ 4 more" {
+		t.Errorf("bottom row = %q", side(23))
+	}
+
+	// The wheel scrolls freely; re-rendering doesn't snap back to active.
+	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
+	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
+	if side(23) != "✕ C29" || side(0) != "▴ 8 more" {
+		t.Errorf("wheel down to the end:\n%s", h.screen())
+	}
+	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
+	top := side(1)
+	h.screen()
+	if side(1) != top {
+		t.Error("sidebar snapped back after scrolling")
+	}
+
+	// Clicks map through the scroll offset; the hint scrolls a page.
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft})
+	if want := "big/c" + strings.TrimPrefix(top, "✕ C"); h.m.active != want {
+		t.Errorf("clicked %q, active = %s", top, h.m.active)
+	}
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
+	if side(0) != "▾ big" {
+		t.Errorf("clicking ▴ should page up to the top:\n%s", h.screen())
+	}
+}
+
+func TestSidebarNoHintsWhenItFits(t *testing.T) {
+	h := newHarness(t, map[string]string{"big": manyChars(23)}) // 24 rows, 24 high
+	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C22") {
+		t.Errorf("screen:\n%s", s)
 	}
 }
 
