@@ -73,7 +73,7 @@ TOML has no include mechanism, so config is organized by directory convention:
 
 ```toml
 [defaults]
-max_line_bytes = 4000
+max_line_bytes = 2047             # Fuzzball: MAX_COMMAND_LEN 2048 incl. NUL; excess is silently truncated
 newline_mode = "batch"          # "batch" | "flatten"
 ```
 
@@ -83,8 +83,8 @@ newline_mode = "batch"          # "batch" | "flatten"
 host = "furrymuck.com"
 port = 8899
 tls = true
-tls_verify = true               # false for self-signed; shows ⚠ in statusline
-max_line_bytes = 8000
+tls_verify = false              # self-signed certs are the common case on MUCKs
+login = "connect {name} {password}"   # inherited by every character
 use = ["fuzzball"]              # packs, applied in order
 
 [[classify]]
@@ -96,14 +96,21 @@ match = { tags = ["page"] }     # and/or pattern = '…'
 style = { fg = "#ff9f43", bold = true }
 attention = true
 
-[characters.kit]
-login = "connect Kit {password}"   # {password} is resolved from the OS keychain
+[characters.kit]                 # the key is only an id (used for paths and the keychain)
+name = "Kit"                     # required: the canonical in-game name
+aliases = ["Kitty"]              # optional: other names that count as "me"
+# {name} and {password} (from the OS keychain) are the login template's variables
 # characters may add their own [[characters.kit.classify]] / [[characters.kit.highlight]]
 ```
 
 ### `packs/fuzzball.toml`
 
 Contains only `[[classify]]` and `[[highlight]]` arrays. A pack is the unit people share with each other.
+
+### Character identity
+
+- `name` and `aliases` feed a built-in `self` tag. A line that mentions the character's own name is tagged `self` without the user writing a rule, so highlight rules can match on `tags = ["self"]`.
+- Name matching is case-insensitive and respects word boundaries.
 
 ### Inheritance
 
@@ -141,7 +148,7 @@ Passwords are never stored in config. They live in the OS keychain, keyed by wor
 - Raw text is stored UTF-8-decoded with ANSI bytes intact. **Nothing is escaped.** Readers split only on the first TAB, so tabs inside the raw text are safe.
 - `less -R` renders the colors, `grep` works directly, and `cut -f2-` yields a pure transcript.
 - **Tags are not stored.** Raw text is canonical, and classification always runs on read using the current rules. This means fixing a bad classifier fixes history too.
-- Lines sent by auto-login are logged as `connect Kit ***`, never with the password.
+- Lines sent by auto-login are logged with the password replaced, e.g. `connect Kit ***`, never with the password.
 - The `#kiln-log v1` header allows the format to evolve.
 
 ## 6. UI
@@ -157,11 +164,13 @@ Passwords are never stored in config. They live in the OS keychain, keyed by wor
 │   ○ Ash     │                        ▼ 12 new  │
 │             ├──────────────────────────────────┤
 │             │ > :grins, then leans on the      │
-│             │   counter.                  3812B│
-├─────────────┴──────────────────────────────────┤
-│ FurryMUCK/Kit 🔒 · connected · 21:14           │
-└────────────────────────────────────────────────┘
+│             │   counter.                 1980B │
+│             ├──────────────────────────────────┤
+│             │ FurryMUCK/Kit 🔒 · connected·21:14│
+└─────────────┴──────────────────────────────────┘
 ```
+
+The sidebar spans the full height of the window and sits at the top of the information hierarchy. It selects *which* character the right pane is showing. Everything else (scrollback, input box, statusline) lives in the right pane and belongs to the selected character.
 
 ### Sidebar
 
@@ -196,7 +205,7 @@ The log browser is a toggle on the scrollback itself, not a separate screen.
 
 ### Statusline
 
-Shows the active world/character, a TLS indicator (🔒, or ⚠ when unverified), the connection state, a browse-mode/selection indicator, and a clock.
+Shows the active world/character, a TLS indicator (🔒), the connection state, a browse-mode/selection indicator, and a clock.
 
 ## 7. Protocol scope (v1)
 
