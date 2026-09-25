@@ -238,7 +238,7 @@ func (h *harness) openAll() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"▾ fm", "✕ Kit", "+ Add connection", "fm/Kit 🔒 · disconnected · 21:14", "│Disconnected · Enter to connect"} {
+	for _, want := range []string{"▾ fm", "✕ Kit", "+ Add connection", "fm/Kit · disconnected · 21:14", "│Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}

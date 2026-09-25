@@ -139,9 +139,6 @@ func (m *Model) statusLine(w int) string {
 	name := ""
 	if cs != nil {
 		name = cs.ch.World + "/" + cs.ch.Name
-		if cs.ch.TLS {
-			name += " 🔒"
-		}
 		if cs.browse != nil {
 			name = fmt.Sprintf("%sBROWSE%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
 		}
