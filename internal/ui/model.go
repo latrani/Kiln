@@ -54,6 +54,7 @@ const (
 type Model struct {
 	d         Deps
 	cfg       *config.Config // the loaded config; the picker lists from it
+	picker    *picker        // non-nil while the add-connection picker is open
 	chars     map[string]*charState
 	order     []string // sidebar order of character keys
 	collapsed map[string]bool
@@ -226,6 +227,9 @@ func (m *Model) applyConfig(cfg *config.Config) {
 		}
 	}
 	m.sortOrder() // names may have changed
+	if m.picker != nil {
+		m.fixPick()
+	}
 }
 
 func (cs *charState) compile() error {
@@ -450,7 +454,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cs.browse.receive(msg)
 		}
 	case tea.PasteMsg:
-		if cs := m.cur(); cs != nil && cs.browse != nil {
+		if m.picker != nil {
+			m.picker.form.paste(msg.Content)
+			m.fixPick()
+		} else if cs := m.cur(); cs != nil && cs.browse != nil {
 			// Only a text prompt takes a paste; the chat draft must not.
 			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
 				cs.browse.pin.InsertText(strings.ReplaceAll(msg.Content, "\n", " "))
@@ -559,6 +566,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		m.switchBy(1)
 		return nil
 	}
+	if m.picker != nil {
+		return m.pickerKey(k)
+	}
 	if cs != nil && cs.browse != nil {
 		cmd, closed := cs.browse.key(k, m.browseBodyH())
 		if closed {
@@ -567,6 +577,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 	switch k.String() {
+	case openPickerKey:
+		m.openPicker()
+		return nil
 	case openBrowseKey:
 		if cs != nil {
 			m.openBrowse(cs)
@@ -824,10 +837,17 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 	l := m.layout()
 	if msg.X < l.sw {
 		sv := m.sidebarView()
-		switch r, hint := sv.at(msg.Y); {
+		r, hint := sv.at(msg.Y)
+		switch {
 		case hint != 0:
 			m.scrollSidebar(hint * max(1, sv.avail-1))
-		case r == nil, r.kind == rowAdd:
+		case r == nil:
+		case m.picker != nil:
+			if r.kind == rowChar {
+				return m.pick(r.char)
+			}
+		case r.kind == rowAdd:
+			m.openPicker()
 		case r.kind == rowWorld:
 			m.collapsed[r.world] = !m.collapsed[r.world]
 		case msg.X == badgeX && closable(m.chars[r.char]):
