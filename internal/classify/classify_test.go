@@ -118,3 +118,25 @@ func TestSelfSpansCoverOnlyTheName(t *testing.T) {
 		}
 	}
 }
+
+func TestLongerAliasDoesntHideName(t *testing.T) {
+	c, err := New(nil, "Ash", []string{"Ash Grey"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for in, want := range map[string][]Span{
+		"Ash Greyson waves": {{0, 3}}, // "Ash Grey" isn't a whole word here; "Ash" is
+		"Ash Grey waves":    {{0, 8}}, // the longer mention covers the shorter
+		"hi Ash":            {{3, 6}},
+	} {
+		var got []Span
+		for _, tag := range c.Tags(in) {
+			if tag.Name == SelfTag {
+				got = tag.Spans
+			}
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%q: self spans = %v, want %v", in, got, want)
+		}
+	}
+}
