@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"kiln/internal/telnet"
+	"github.com/latrani/Kiln/internal/telnet"
 )
 
 // Options configures Dial.

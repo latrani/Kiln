@@ -1,4 +1,4 @@
-module kiln
+module github.com/latrani/Kiln
 
 go 1.27.1
 
