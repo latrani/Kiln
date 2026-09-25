@@ -27,12 +27,39 @@ func (l *sbLine) wrap(w int) []string {
 }
 
 // SetWidth sets the wrap width; cached wraps at other widths are redone
-// lazily.
+// lazily. While scrolled up, the offset is rebased so the same logical
+// line stays at the bottom of the view instead of whatever row now sits
+// the old number of rows up.
 func (s *Scrollback) SetWidth(w int) {
 	if w < 1 {
 		w = 1
 	}
+	if w != s.width && s.offset > 0 {
+		s.offset = s.rebase(s.w(), w)
+	}
 	s.width = w
+}
+
+// rebase maps the offset at width from to the offset at width to. The
+// bottom row of the view is anchored to (logical line, position within
+// the line); the position scales with the line's new row count.
+func (s *Scrollback) rebase(from, to int) int {
+	acc := 0
+	for i := len(s.lines) - 1; i >= 0; i-- {
+		n := len(s.lines[i].wrap(from))
+		if s.offset < acc+n {
+			fromTop := n - 1 - (s.offset - acc)
+			nn := len(s.lines[i].wrap(to))
+			newTop := min(fromTop*nn/n, nn-1)
+			off := nn - 1 - newTop
+			for _, l := range s.lines[i+1:] {
+				off += len(l.wrap(to))
+			}
+			return off
+		}
+		acc += n
+	}
+	return s.offset // past the top; View clamps it
 }
 
 // Append adds a line. A pending prompt is cleared: the server has moved on.
