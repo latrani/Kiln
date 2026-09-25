@@ -718,3 +718,50 @@ func TestConnectWhenAlreadyConnected(t *testing.T) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 }
+
+func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "logs")
+	w := logstore.NewWriter(root, "fm", "kit")
+	for _, d := range []int{23, 24} {
+		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
+		for i := 0; i < 150; i++ {
+			w.Append(logstore.Entry{Time: start.Add(time.Duration(i) * time.Minute), Dir: logstore.In, Text: fmt.Sprintf("d%d-%03d", d, i)})
+		}
+	}
+	w.Close()
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.LogRoot = root
+	cs := h.m.chars["fm/kit"]
+	cs.sb = Scrollback{}
+	h.m.preload(cs)
+	// The preload took day 24 plus the last 50 lines of day 23; scrolling
+	// to the very top must bring in the rest of day 23 exactly once.
+	for i := 0; i < 100; i++ {
+		h.press(tea.KeyPgUp, 0)
+	}
+	h.screen()
+	var got []string
+	dividers := map[string]int{}
+	for _, l := range cs.sb.lines {
+		p := ansi.Strip(l.text)
+		switch {
+		case strings.HasPrefix(p, "── "):
+			dividers[p]++
+		case strings.HasPrefix(p, "d2"):
+			got = append(got, p)
+		}
+	}
+	if len(got) != 300 {
+		t.Fatalf("history lines = %d, want 300", len(got))
+	}
+	for i, p := range got {
+		want := fmt.Sprintf("d%d-%03d", 23+i/150, i%150)
+		if p != want {
+			t.Fatalf("line %d = %q, want %q (order or duplication broken)", i, p, want)
+		}
+	}
+	if dividers["── Wed Sep 23 ──"] != 1 || dividers["── Thu Sep 24 ──"] != 1 {
+		t.Errorf("day dividers = %v, want one per day", dividers)
+	}
+}

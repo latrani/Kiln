@@ -142,3 +142,59 @@ func TestScrollbackResizeKeepsPosition(t *testing.T) {
 		t.Errorf("after widening bottom = %q, want the same line's 2nd row", got)
 	}
 }
+
+// olderSource serves batches of older lines, newest batch first.
+func olderSource(batches ...[]string) func() ([]string, bool) {
+	return func() ([]string, bool) {
+		if len(batches) == 0 {
+			return nil, false
+		}
+		b := batches[0]
+		batches = batches[1:]
+		return b, len(batches) > 0
+	}
+}
+
+func TestScrollbackPagesOlderPastTheTop(t *testing.T) {
+	s := sb(20, "l1", "l2", "l3")
+	s.SetOlder(olderSource([]string{"o1", "o2"}, nil, []string{"p1"}))
+	if got := s.View(3); !reflect.DeepEqual(got, []string{"l1", "l2", "l3"}) {
+		t.Errorf("live view = %q", got)
+	}
+	s.ScrollUp(100)
+	if got := s.View(6); !reflect.DeepEqual(got, []string{"p1", "o1", "o2", "l1", "l2", "l3"}) {
+		t.Errorf("after scrolling to the top = %q", got)
+	}
+	if s.Len() != 6 {
+		t.Errorf("Len = %d", s.Len())
+	}
+}
+
+func TestScrollbackFillsScreenFromOlder(t *testing.T) {
+	s := sb(20, "l1")
+	s.SetOlder(olderSource([]string{"o1", "o2"}))
+	if got := s.View(3); !reflect.DeepEqual(got, []string{"o1", "o2", "l1"}) {
+		t.Errorf("View = %q, want older lines filling the blank top", got)
+	}
+}
+
+func TestScrollbackPrependKeepsViewAnchored(t *testing.T) {
+	s := sb(20, "l1", "l2", "l3", "l4")
+	s.SetOlder(olderSource([]string{"o1", "o2", "o3"}))
+	s.ScrollUp(2)
+	before := s.View(2) // l1 l2
+	s.ScrollUp(2)       // into older lines
+	s.View(2)
+	s.ScrollDown(2)
+	if got := s.View(2); !reflect.DeepEqual(got, before) {
+		t.Errorf("view after loading older = %q, want %q", got, before)
+	}
+}
+
+func TestScrollbackNoOlderSourceClampsAsBefore(t *testing.T) {
+	s := sb(20, "1", "2")
+	s.ScrollUp(50)
+	if got := s.View(2); !reflect.DeepEqual(got, []string{"1", "2"}) || s.Scrolled() {
+		t.Errorf("View = %q scrolled=%v", got, s.Scrolled())
+	}
+}

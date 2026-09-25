@@ -11,6 +11,7 @@ type Scrollback struct {
 	offset int // visual rows scrolled up from the bottom; 0 = live
 	unseen int // lines appended while scrolled up
 	prompt string
+	older  func() (lines []string, more bool) // pages in older lines; nil when exhausted
 }
 
 type sbLine struct {
@@ -73,6 +74,33 @@ func (s *Scrollback) Append(text string) {
 	}
 }
 
+// SetOlder sets where lines older than the first one come from. Each call
+// returns the next older batch (oldest first; possibly empty) and whether
+// more may follow. View calls it when it needs rows above the top.
+func (s *Scrollback) SetOlder(fn func() (lines []string, more bool)) { s.older = fn }
+
+// loadOlder prepends the next non-empty older batch and returns how many
+// lines it added (0 once the source is exhausted). The view is anchored
+// to the bottom, so prepending never moves what is on screen.
+func (s *Scrollback) loadOlder() int {
+	for s.older != nil {
+		lines, more := s.older()
+		if !more {
+			s.older = nil
+		}
+		if len(lines) == 0 {
+			continue
+		}
+		batch := make([]sbLine, len(lines))
+		for i, l := range lines {
+			batch[i] = sbLine{text: l}
+		}
+		s.lines = append(batch, s.lines...)
+		return len(batch)
+	}
+	return 0
+}
+
 // SetPrompt shows an unterminated prompt below the last line.
 func (s *Scrollback) SetPrompt(p string) { s.prompt = p }
 
@@ -122,13 +150,21 @@ func (s *Scrollback) View(h int) []string {
 	}
 	need := s.offset + h
 	i := len(s.lines) - 1
-	for ; i >= 0 && len(tail) < need; i-- {
+	for len(tail) < need {
+		if i < 0 {
+			n := s.loadOlder()
+			if n == 0 {
+				break
+			}
+			i = n - 1
+		}
 		rows := s.lines[i].wrap(w)
 		for j := len(rows) - 1; j >= 0; j-- {
 			tail = append(tail, rows[j])
 		}
+		i--
 	}
-	if i < 0 && len(tail) < need { // hit the top: clamp the offset
+	if i < 0 && len(tail) < need { // hit the very top: clamp the offset
 		s.offset = max(0, len(tail)-h)
 		if s.offset == 0 {
 			s.unseen = 0
