@@ -34,6 +34,11 @@ const (
 	charsetRejected byte = 3
 )
 
+// maxSB bounds subnegotiation data. NAWS and CHARSET need a few dozen
+// bytes; a server that opens SB and never closes it would otherwise grow
+// the buffer forever and swallow all later output.
+const maxSB = 4096
+
 type state int
 
 const (
@@ -101,7 +106,7 @@ func (p *Parser) Feed(in []byte) (data, reply []byte) {
 			if b == IAC {
 				p.st = stSBIAC
 			} else {
-				p.sbBuf = append(p.sbBuf, b)
+				p.sbAppend(b)
 			}
 		case stSBIAC:
 			switch b {
@@ -109,14 +114,25 @@ func (p *Parser) Feed(in []byte) (data, reply []byte) {
 				reply = append(reply, p.subneg(p.sbOpt, p.sbBuf)...)
 				p.st = stData
 			case IAC:
-				p.sbBuf = append(p.sbBuf, IAC)
 				p.st = stSB
+				p.sbAppend(IAC)
 			default: // malformed; abandon the subnegotiation
 				p.st = stData
 			}
 		}
 	}
 	return data, reply
+}
+
+// sbAppend adds b to the subnegotiation buffer, or abandons the
+// subnegotiation and returns to data state once the buffer is full.
+func (p *Parser) sbAppend(b byte) {
+	if len(p.sbBuf) >= maxSB {
+		p.sbBuf = p.sbBuf[:0]
+		p.st = stData
+		return
+	}
+	p.sbBuf = append(p.sbBuf, b)
 }
 
 func (p *Parser) negotiate(verb, opt byte) []byte {
