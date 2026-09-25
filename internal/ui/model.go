@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -29,15 +30,16 @@ const HistoryLines = 200
 // Deps are the UI's connections to the outside world. Tests substitute
 // fakes; cmd/kiln wires the real ones.
 type Deps struct {
-	ConfigDir    string
-	LogRoot      string
-	KnownHosts   conn.KnownHosts
-	Load         func(dir string) (*config.Config, error)
-	Dial         func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog       func(world, char string) session.Appender
-	Password     func(world, char string) (string, error)
-	SavePassword func(world, char, password string) error // nil: never offer
-	Changes      <-chan struct{}                          // config changes; nil: no hot reload
+	ConfigDir  string
+	LogRoot    string
+	KnownHosts conn.KnownHosts
+	Load       func(dir string) (*config.Config, error)
+	Dial       func(ctx context.Context, ch config.Character) (session.LineConn, error)
+	NewLog     func(world, char string) session.Appender
+	// Password and SavePassword use the password_store setting in store.
+	Password     func(store, world, char string) (string, error)
+	SavePassword func(store, world, char, password string) error // nil: never offer
+	Changes      <-chan struct{}                                 // config changes; nil: no hot reload
 	Now          func() time.Time
 }
 
@@ -63,10 +65,15 @@ type Model struct {
 	pendingPW string    // entered password awaiting the save y/n answer
 	pendingCh [2]string // world and character id the pending password belongs to
 	exportDir string
-	confirm   bool   // next Enter sends an over-limit line anyway
-	resizeGen int    // bumped per WindowSizeMsg; see resizeMsg
-	sideTop   int    // first sidebar row shown when it overflows
-	sideShown string // active character last scrolled into view
+	confirm   bool                   // next Enter sends an over-limit line anyway
+	resizeGen int                    // bumped per WindowSizeMsg; see resizeMsg
+	sideTop   int                    // first sidebar row shown when it overflows
+	sideShown string                 // active character last scrolled into view
+	pwStore   atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
+	lastClick struct {               // for spotting a double-click in the sidebar
+		char string
+		at   time.Time
+	}
 }
 
 type charState struct {
@@ -191,6 +198,8 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 // stay, grouped under their world, until they next disconnect.
 func (m *Model) applyConfig(cfg *config.Config) {
 	m.exportDir = cfg.ExportDir
+	store := cfg.PasswordStore
+	m.pwStore.Store(&store)
 	for _, cs := range m.chars {
 		if cs.browse != nil {
 			cs.browse.exportDir = cfg.ExportDir
@@ -407,7 +416,7 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 		Dial: func(ctx context.Context) (session.LineConn, error) { return m.d.Dial(ctx, s.Char()) },
 		Password: func() (string, error) {
 			ch := s.Char()
-			return m.d.Password(ch.World, ch.ID)
+			return m.d.Password(m.passwordStore(), ch.World, ch.ID)
 		},
 	})
 	if w, h := m.paneSize(); w > 0 {
@@ -504,12 +513,20 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
-		m.handleClick(msg)
+		return m, m.handleClick(msg)
 	}
 	return m, nil
 }
 
 func (m *Model) cur() *charState { return m.chars[m.active] }
+
+// passwordStore is the password_store setting.
+func (m *Model) passwordStore() string {
+	if p := m.pwStore.Load(); p != nil && *p != "" {
+		return *p
+	}
+	return config.DefaultPasswordStore
+}
 
 func (m *Model) setStatus(isErr bool, format string, args ...any) {
 	m.status, m.statusErr = fmt.Sprintf(format, args...), isErr
@@ -555,9 +572,6 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		m.setStatus(true, "%s: log write failed: %v", cs.ch.Name, ev.Err)
 	case session.EventNeedPassword:
 		cs.startPassword()
-		if msg.key == m.active {
-			m.setStatus(false, "enter password for %s (Esc to skip)", cs.ch.Name)
-		}
 	}
 	return waitEvent(msg.key, msg.sess)
 }
@@ -566,16 +580,22 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	cs := m.cur()
 	if m.mode == modeSavePassword {
 		switch k.String() {
-		case "y", "Y":
+		case "enter", "y", "Y":
 			// Save for the character that was asked about, even if another
 			// one is active now.
-			if err := m.d.SavePassword(m.pendingCh[0], m.pendingCh[1], m.pendingPW); err != nil {
-				m.setStatus(true, "keychain: %v", err)
-			} else {
+			store := m.passwordStore()
+			switch err := m.d.SavePassword(store, m.pendingCh[0], m.pendingCh[1], m.pendingPW); {
+			case err != nil && store == "keychain":
+				m.setStatus(true, `keychain: %v (set password_store = "file" or "none" in config.toml)`, err)
+			case err != nil:
+				m.setStatus(true, "password not saved: %v", err)
+			default:
 				m.setStatus(false, "password saved")
 			}
-		default:
+		case "n", "N", "esc", "ctrl+c":
 			m.setStatus(false, "password not saved")
+		default:
+			return nil
 		}
 		m.mode, m.pendingPW, m.pendingCh = modeNormal, "", [2]string{}
 		return nil
@@ -700,9 +720,6 @@ func (m *Model) switchTo(k string) {
 	m.active, m.confirm = k, false
 	cs.unread, cs.attention = 0, false
 	delete(m.collapsed, cs.ch.World)
-	if cs.needPW {
-		m.setStatus(false, "enter password for %s (Esc to skip)", cs.ch.Name)
-	}
 }
 
 // submit handles Enter: a command, a password, or lines for the server.
@@ -720,14 +737,19 @@ func (m *Model) submit() tea.Cmd {
 		}
 		cs.endPassword()
 		cs.sb.Append(style.Dim("> " + e.Text))
-		if m.d.SavePassword != nil && pw != "" {
+		if m.d.SavePassword != nil && pw != "" && m.passwordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
 			m.pendingCh = [2]string{cs.ch.World, cs.ch.ID}
-			m.setStatus(false, "save password for %s in the keychain? [y/n]", cs.ch.Name)
 		}
 		return nil
 	}
 	m.status = ""
+	if cs.in.Empty() && cs.state != session.Connected {
+		if cs.state == session.Connecting || cs.pin != nil {
+			return nil // nothing Enter can do; the prompt says why
+		}
+		return m.connect(cs)
+	}
 	text := cs.in.Value()
 	if strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "//") {
 		cs.in.Commit()
@@ -865,9 +887,12 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleClick(msg tea.MouseClickMsg) {
+// doubleClick is the longest gap between the clicks of a double-click.
+const doubleClick = 400 * time.Millisecond
+
+func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 	if msg.Button != tea.MouseLeft {
-		return
+		return nil
 	}
 	l := m.layout()
 	if msg.X < l.sw {
@@ -881,21 +906,29 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) {
 		default:
 			m.switchTo(r.char)
 			m.sideShown = r.char // clicked, so already in view
+			now := m.d.Now()
+			double := m.lastClick.char == r.char && now.Sub(m.lastClick.at) <= doubleClick
+			m.lastClick.char, m.lastClick.at = r.char, now
+			if cs := m.chars[r.char]; double && cs.state != session.Connected && cs.state != session.Connecting {
+				m.lastClick.char = "" // a third click starts over
+				return m.connect(cs)
+			}
 		}
-		return
+		return nil
 	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
-		return
+		return nil
 	}
 	cs := m.cur()
 	if cs == nil {
-		return
+		return nil
 	}
 	if cs.sb.Scrolled() && msg.Y == l.sbH-1 && msg.X >= m.width-l.pillW {
 		cs.sb.ToBottom()
 	}
-	if y := msg.Y - l.sbH - 1; y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
 		cs.in.Click(msg.X-l.sw-3, l.inTop+y) // past the separator and gutter
 	}
+	return nil
 }

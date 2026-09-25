@@ -1,5 +1,9 @@
 # Kiln global config. World files live in worlds/<id>.toml.
 
+# Where saved passwords go: "keychain", "file" (~/.local/share/kiln/passwords.json,
+# readable only by you; for systems without a keychain) or "none" (never save).
+# password_store = "keychain"
+
 [defaults]
 max_line_bytes = 2047   # Fuzzball's limit; override per world if yours differs
 newline_mode = "batch"  # "batch": each line is its own command; "flatten": join with spaces

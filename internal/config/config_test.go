@@ -216,3 +216,28 @@ func TestExportDir(t *testing.T) {
 		}
 	}
 }
+
+func TestPasswordStore(t *testing.T) {
+	for _, c := range []struct{ toml, want string }{
+		{"", "keychain"},
+		{"password_store = \"file\"\n", "file"},
+		{"password_store = \"none\"\n", "none"},
+		{"password_store = \"vault\"\n", ""},
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"config.toml": c.toml})
+		cfg, err := Load(dir)
+		if c.want == "" {
+			if err == nil {
+				t.Errorf("password_store %q: no error", c.toml)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.PasswordStore != c.want {
+			t.Errorf("password_store %q → %q, want %q", c.toml, cfg.PasswordStore, c.want)
+		}
+	}
+}

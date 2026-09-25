@@ -25,28 +25,27 @@ const (
 )
 
 type layout struct {
-	sw, rw     int // sidebar width; right pane width
-	sbH        int // scrollback rows
-	inRows     []string
-	inTop      int // input row shown first, when it's too tall to fit
-	curRow     int // cursor row within inRows
-	curCol     int
-	pillW      int
-	masked     bool
-	inputLimit int
+	sw, rw int // sidebar width; right pane width
+	sbH    int // scrollback rows
+	inRows []string
+	inTop  int  // input row shown first, when it's too tall to fit
+	prompt bool // inRows is a prompt, not the editable text
+	curRow int  // cursor row within inRows
+	curCol int
+	pillW  int
 }
 
 func (m *Model) layout() layout {
 	l := layout{sw: min(22, max(12, m.width/5))}
 	l.rw = max(1, m.width-l.sw-1)
 	cs := m.cur()
-	if cs == nil {
+	if text, col, ok := m.prompt(cs); ok {
+		l.inRows, l.curCol, l.prompt = []string{fit(text, l.rw)}, min(col, l.rw-1), true
+	} else if cs == nil {
 		l.inRows = []string{"> "}
 		l.curCol = 2
 	} else {
-		l.masked = cs.needPW
-		l.inputLimit = cs.ch.MaxLineBytes
-		rows, r, c := cs.in.Render(l.rw, l.inputLimit, cs.ch.NewlineMode == "flatten", l.masked)
+		rows, r, c := cs.in.Render(l.rw, cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten", false)
 		maxIn := max(1, m.height/3)
 		top := 0
 		if len(rows) > maxIn {
@@ -60,6 +59,47 @@ func (m *Model) layout() layout {
 		l.pillW = xansi.StringWidth(pillText(cs))
 	}
 	return l
+}
+
+// prompt is what the input area shows instead of the editable text while
+// Kiln is asking something, or hinting at what Enter will do: understated
+// text with no "> ", so it never looks like a line bound for the server.
+// It returns the row and the cursor's column.
+func (m *Model) prompt(cs *charState) (text string, col int, ok bool) {
+	hint := func(s string) (string, int, bool) { return "  " + style.Dim(s), 2, true }
+	switch {
+	case m.mode == modeSavePassword:
+		name := m.pendingCh[1]
+		if pc := m.chars[key(m.pendingCh[0], m.pendingCh[1])]; pc != nil {
+			name = pc.ch.Name
+		}
+		return hint(fmt.Sprintf("Save password for %s in %s? [Y/n]", name, storeName(m.passwordStore())))
+	case cs == nil:
+		return "", 0, false
+	case cs.needPW:
+		// Bullets for what's typed, between a label and the keys to press.
+		rows, _, c := cs.in.Render(1<<20, 0, false, true)
+		label := fmt.Sprintf("Password for %s: ", cs.ch.Name)
+		text = "  " + style.Dim(label) + strings.TrimPrefix(rows[0], "> ") + style.Dim("   Enter to log in · Esc to skip")
+		return text, c + xansi.StringWidth(label), true
+	case !cs.in.Empty() || cs.state == session.Connected:
+		return "", 0, false
+	case cs.pin != nil:
+		return hint("Certificate changed · /trust to accept it")
+	case cs.state == session.Connecting:
+		return hint("Connecting…")
+	case cs.state == session.Failed:
+		return hint("Connection failed · Enter to retry")
+	}
+	return hint("Disconnected · Enter to connect")
+}
+
+// storeName describes a password_store setting for the save prompt.
+func storeName(store string) string {
+	if store == "file" {
+		return "the password file"
+	}
+	return "the keychain"
 }
 
 // pillText is the "jump to live" marker shown while scrolled up.
