@@ -60,9 +60,9 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 ## Getting started
 
-1. **Run `kiln` once.** It creates the config directory, `~/.config/kiln/`, with a starter `config.toml` and a rule pack for Fuzzball MUCKs. With no worlds yet, it tells you where to add one. Quit with `Ctrl+C`.
+1. **Run `kiln` once.** It creates the config directory, `~/.config/kiln/`, with a starter `config.toml` and a rule pack for Fuzzball MUCKs. Quit with `Ctrl+C`.
 
-2. **Add a world.** Create `~/.config/kiln/worlds/furrymuck.toml`. The file name is the world's id.
+2. **Add a world.** Either press `Ctrl+O` in Kiln and pick `+ World` then `+ Character` (which writes a file like the one below), or create `~/.config/kiln/worlds/furrymuck.toml` yourself. The file name is the world's id.
 
    ```toml
    host = "furrymuck.com"
@@ -76,6 +76,8 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
    aliases = ["Kitty"]         # other names that count as you
    autoconnect = true
    ```
+
+   Worlds added from Kiln don't get a `login` line; to log in automatically, set `login` in the world file or in `config.toml`'s `[defaults]`.
 
    A character's id (used for its log folder, saved password and `kiln passwd`) is its name. If the name has anything besides letters, digits, `_` and `-`, give it one with `id = "…"`.
 
