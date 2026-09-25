@@ -303,12 +303,16 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	}
 }
 
+// echoWorld is fmWorld with local_echo on, for tests that look for sent
+// lines in the scrollback.
+var echoWorld = strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nlocal_echo = true", 1)
+
 func TestSendBatchAndFlatten(t *testing.T) {
-	flat := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
+	flat := strings.Replace(echoWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
 	for _, c := range []struct {
 		world string
 		want  []string
-	}{{fmWorld, []string{"connect Kit hunter2", ":waves.", "say hi"}}, {flat, []string{"connect Kit hunter2", ":waves. say hi"}}} {
+	}{{echoWorld, []string{"connect Kit hunter2", ":waves.", "say hi"}}, {flat, []string{"connect Kit hunter2", ":waves. say hi"}}} {
 		h := newHarness(t, map[string]string{"fm": c.world})
 		h.init()
 		h.settle("fm/kit", h.connected("fm/kit"))
@@ -413,8 +417,35 @@ func TestNotConnectedStatus(t *testing.T) {
 	}
 }
 
-func TestPasswordPromptAndSave(t *testing.T) {
+func TestLocalEchoDefaultsOff(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "logs")
+	w := logstore.NewWriter(root, "fm", "kit")
+	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
+	w.Append(logstore.Entry{Time: ts, Dir: logstore.Out, Text: ":yawns."})
+	w.Append(logstore.Entry{Time: ts.Add(time.Minute), Dir: logstore.In, Text: "Kit yawns."})
+	w.Close()
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.LogRoot = root
+	h.m.preload(h.m.chars["fm/kit"])
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText(":waves.")
+	h.enter()
+	if got := h.conn("fm/kit").Sent(); strings.Join(got, "|") != "connect Kit hunter2|:waves." {
+		t.Errorf("sent %q", got)
+	}
+	s := h.screen()
+	if strings.Contains(s, ":waves.") || strings.Contains(s, "connect Kit") || strings.Contains(s, ":yawns.") {
+		t.Errorf("sent lines shown with local_echo off:\n%s", s)
+	}
+	if !strings.Contains(s, "Kit yawns.") {
+		t.Errorf("received history missing:\n%s", s)
+	}
+}
+
+func TestPasswordPromptAndSave(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": echoWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
