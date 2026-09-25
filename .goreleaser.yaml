@@ -1,13 +1,10 @@
 # GoReleaser config: builds static Kiln binaries and publishes them as a
 # draft GitHub Release. Run by .github/workflows/release.yml when a v* tag
-# is pushed. Try it locally with: goreleaser release --snapshot --clean
+# is pushed (or its "Run workflow" button is used). Try it locally with:
+# goreleaser release --snapshot --clean
 version: 2
 
 project_name: kiln
-
-before:
-  hooks:
-    - go test ./...
 
 builds:
   - main: ./cmd/kiln

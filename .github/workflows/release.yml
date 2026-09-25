@@ -1,13 +1,19 @@
-# Builds and uploads release binaries when a version tag (v1.2.3) is
-# pushed. The release is created as a draft for review; see README.md.
+# Builds release binaries and uploads them to a draft GitHub Release; see
+# README.md. It runs when a version tag (v1.2.3) is pushed, or from the
+# Actions tab: "release" → "Run workflow", which tags main itself.
 name: release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, like v0.1.0"
+        required: true
 
 permissions:
-  contents: write # create the release and upload files to it
+  contents: write # push the tag, create the release, upload files
 
 jobs:
   release:
@@ -19,6 +25,30 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - name: Test
+        run: go test ./...
+      - name: Tag main (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this from the main branch."
+            exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The version must look like v1.2.3 (got \"$VERSION\")."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::$VERSION already exists; pick the next version."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Kiln $VERSION"
+          # Pushed with GITHUB_TOKEN, so this doesn't start a second run.
+          git push origin "$VERSION"
       - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
