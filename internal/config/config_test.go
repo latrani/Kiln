@@ -176,3 +176,24 @@ func TestStarterPackLoads(t *testing.T) {
 		t.Errorf("MaxLineBytes = %d, want 2047", kit.MaxLineBytes)
 	}
 }
+
+func TestAutoconnectInherits(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{
+		"worlds/a.toml": "host = \"h\"\nport = 1\nautoconnect = true\n[characters.kit]\nname = \"Kit\"\n[characters.rook]\nname = \"Rook\"\nautoconnect = false\n",
+		"worlds/b.toml": "host = \"h\"\nport = 1\n[characters.ash]\nname = \"Ash\"\n",
+	})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		world, char string
+		want        bool
+	}{{"a", "kit", true}, {"a", "rook", false}, {"b", "ash", false}} {
+		ch, _ := cfg.Find(c.world, c.char)
+		if ch.Autoconnect != c.want {
+			t.Errorf("%s/%s Autoconnect = %v, want %v", c.world, c.char, ch.Autoconnect, c.want)
+		}
+	}
+}
