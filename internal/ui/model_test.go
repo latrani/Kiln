@@ -143,6 +143,13 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			h.saved[key(world, char)] = pw
 			return nil
 		},
+		DeletePassword: func(store, world, char string) error {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			delete(h.saved, key(world, char))
+			delete(h.pw, key(world, char))
+			return nil
+		},
 		Now: func() time.Time { return time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local) },
 	}
 	h.m = New(d, cfg)

@@ -30,6 +30,10 @@ const openBrowseKey = "ctrl+b"
 // openPickerKey opens the add-connection picker.
 const openPickerKey = "ctrl+o"
 
+// editKey opens the editor for the world or character highlighted in the
+// picker.
+const openEditorKey = "ctrl+e"
+
 var browseKeys = map[string]browseAction{
 	"esc":    actBack,
 	"ctrl+c": actBack,
