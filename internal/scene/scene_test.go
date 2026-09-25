@@ -82,9 +82,13 @@ func TestHTML(t *testing.T) {
 
 func TestFileName(t *testing.T) {
 	ts := time.Date(2026, 9, 24, 21, 14, 0, 0, time.UTC)
-	got := FileName("/x/Kiln Scenes", ts, "furrymuck", "Kit", "html")
+	got := FileName("/x/Kiln Scenes", "", ts, "furrymuck", "Kit", "html")
 	if got != "/x/Kiln Scenes/2026-09-24 2114 furrymuck Kit.html" {
 		t.Errorf("FileName = %q", got)
+	}
+	got = FileName("/x", "{world}/{name} {date}", ts, "furrymuck", "Kit", "plain")
+	if got != "/x/furrymuck/Kit 2026-09-24.txt" {
+		t.Errorf("FileName with a template = %q", got)
 	}
 	if Ext("ansi") != "ans" || Ext("plain") != "txt" || Ext("bogus") != "txt" {
 		t.Error("Ext wrong")

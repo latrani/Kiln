@@ -204,6 +204,27 @@ func TestAutoconnectInherits(t *testing.T) {
 	}
 }
 
+func TestLocalEchoInherits(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{
+		"worlds/a.toml": "host = \"h\"\nport = 1\nlocal_echo = true\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n[[characters]]\nid = \"rook\"\nname = \"Rook\"\nlocal_echo = false\n",
+		"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n",
+	})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		world, char string
+		want        bool
+	}{{"a", "kit", true}, {"a", "rook", false}, {"b", "ash", false}} {
+		ch, _ := cfg.Find(c.world, c.char)
+		if ch.LocalEcho != c.want {
+			t.Errorf("%s/%s LocalEcho = %v, want %v", c.world, c.char, ch.LocalEcho, c.want)
+		}
+	}
+}
+
 func TestExportDir(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	for _, c := range []struct{ toml, want string }{
@@ -315,5 +336,42 @@ name = "Kit"
 	}
 	if want := []string{"match", "line", ""}; !reflect.DeepEqual(got, want) {
 		t.Errorf("scopes = %q, want %q", got, want)
+	}
+}
+
+func TestLogAndExportSettings(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"config.toml": "log_dir = \"~/Logs/{world}/{char}\"\nexport_name = \"{name} {date}\"\nexport_format = \"ansi\"\n"})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(home, "Logs/{world}/{char}"); cfg.LogDir != want {
+		t.Errorf("LogDir = %q, want %q", cfg.LogDir, want)
+	}
+	if cfg.ExportName != "{name} {date}" || cfg.ExportFormat != "ansi" {
+		t.Errorf("ExportName %q, ExportFormat %q", cfg.ExportName, cfg.ExportFormat)
+	}
+
+	dir = t.TempDir()
+	cfg, err = Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LogDir != "" || cfg.ExportName != DefaultExportName || cfg.ExportFormat != "" {
+		t.Errorf("defaults: LogDir %q, ExportName %q, ExportFormat %q", cfg.LogDir, cfg.ExportName, cfg.ExportFormat)
+	}
+
+	for _, bad := range []string{
+		"log_dir = \"/logs/{wrld}\"\n",
+		"export_name = \"{date} {character}\"\n",
+		"export_format = \"pdf\"\n",
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"config.toml": bad})
+		if _, err := Load(dir); err == nil {
+			t.Errorf("%q: no error", bad)
+		}
 	}
 }

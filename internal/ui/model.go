@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -31,11 +32,11 @@ const HistoryLines = 200
 // fakes; cmd/kiln wires the real ones.
 type Deps struct {
 	ConfigDir  string
-	LogRoot    string
+	LogRoot    string // where log_dir is relative to; "" (and no absolute log_dir): no history
 	KnownHosts conn.KnownHosts
 	Load       func(dir string) (*config.Config, error)
 	Dial       func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog     func(world, char string) session.Appender
+	NewLog     func(dir, char string) session.Appender // dir from logDir
 	// Password and SavePassword use the password_store setting in store.
 	Password     func(store, world, char string) (string, error)
 	SavePassword func(store, world, char, password string) error // nil: never offer
@@ -65,14 +66,15 @@ type Model struct {
 	status    string
 	statusErr bool
 	mode      mode
-	pendingPW string    // entered password awaiting the save y/n answer
-	pendingCh [2]string // world and character id the pending password belongs to
-	exportDir string
+	pendingPW string                 // entered password awaiting the save y/n answer
+	pendingCh [2]string              // world and character id the pending password belongs to
 	confirm   bool                   // next Enter sends an over-limit line anyway
 	resizeGen int                    // bumped per WindowSizeMsg; see resizeMsg
 	sideTop   int                    // first sidebar row shown when it overflows
 	sideShown string                 // active character last scrolled into view
 	pwStore   atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
+	quitKey   string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen   int                    // bumped per arming; see quitExpiredMsg
 	lastClick struct {               // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
@@ -141,6 +143,9 @@ type (
 	}
 	reloadMsg struct{}
 	tickMsg   time.Time
+	// quitExpiredMsg fires quitWindow after a quit key is armed; it
+	// carries that arming's generation, and only the latest disarms.
+	quitExpiredMsg int
 )
 
 // New builds the model from an already-loaded config and opens the
@@ -196,19 +201,29 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 	}
 }
 
+// reloadNow loads the config and applies it, reporting whether it could.
+func (m *Model) reloadNow() bool {
+	cfg, err := m.d.Load(m.d.ConfigDir)
+	if err != nil {
+		m.setStatus(true, "config not reloaded: %v", err)
+		return false
+	}
+	m.applyConfig(cfg)
+	return true
+}
+
 // applyConfig keeps cfg for the picker and updates open characters to
 // match it. An open character that vanished from the config stays as an
 // orphan while it's connected, until it next disconnects; otherwise it
 // closes.
 func (m *Model) applyConfig(cfg *config.Config) {
 	m.cfg = cfg
-	m.exportDir = cfg.ExportDir
 	store := cfg.PasswordStore
 	m.pwStore.Store(&store)
 	for _, k := range slices.Clone(m.order) {
 		cs := m.chars[k]
 		if cs.browse != nil {
-			cs.browse.exportDir = cfg.ExportDir
+			cs.browse.setExport(cfg)
 		}
 		ch, ok := m.find(k)
 		if !ok {
@@ -246,14 +261,23 @@ func (cs *charState) compile() error {
 	return nil
 }
 
+// logDir is where ch's logs go (see logstore.CharDir), or "" for none.
+func (m *Model) logDir(ch config.Character) string {
+	if m.d.LogRoot == "" && !filepath.IsAbs(m.cfg.LogDir) {
+		return ""
+	}
+	return logstore.CharDir(m.cfg.LogDir, m.d.LogRoot, ch.World, ch.ID)
+}
+
 // preload fills the scrollback with the tail of the most recent log days
 // and hands everything older to the scrollback to page in on demand, so
 // scrollback is unlimited.
 func (m *Model) preload(cs *charState) {
-	if m.d.LogRoot == "" {
+	dir := m.logDir(cs.ch)
+	if dir == "" {
 		return
 	}
-	hist, err := history.NewReader(m.d.LogRoot, cs.ch.World, cs.ch.ID)
+	hist, err := history.NewReader(dir, cs.ch.ID)
 	if err != nil {
 		return
 	}
@@ -295,16 +319,16 @@ func (m *Model) pageOlder() tea.Cmd {
 	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
 		return nil
 	}
-	key, h, cls, hl, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.leftover
+	key, h, cls, hl, echo, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.ch.LocalEcho, cs.leftover
 	cs.leftover = nil
 	return func() tea.Msg {
 		msg := sbOlderMsg{key: key, hist: h}
 		if leftover != nil {
-			msg.lines, msg.more = renderDays(cls, hl, leftover, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(cls, hl, echo, leftover, true), !h.Exhausted()
 			return msg
 		}
 		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
-			msg.lines, msg.more = renderDays(cls, hl, es, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(cls, hl, echo, es, true), !h.Exhausted()
 		}
 		return msg
 	}
@@ -312,17 +336,21 @@ func (m *Model) pageOlder() tea.Cmd {
 
 // renderDays renders log entries with a dim divider before the first line
 // of each day. The very first entry gets one only if startsDay, i.e. it
-// really is the first line of its day.
+// really is the first line of its day. Sent lines are left out unless the
+// character has local_echo on.
 func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []string {
-	return renderDays(cs.cls, cs.hl, entries, startsDay)
+	return renderDays(cs.cls, cs.hl, cs.ch.LocalEcho, entries, startsDay)
 }
 
 // renderDays is charState.renderDays with the given rules; like
 // renderLine it is safe off the UI goroutine.
-func renderDays(cls *classify.Classifier, hl *rules.Highlighter, entries []logstore.Entry, startsDay bool) []string {
+func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []string {
 	out := make([]string, 0, len(entries)+2)
 	prev := ""
 	for i, e := range entries {
+		if e.Dir == logstore.Out && !echo {
+			continue
+		}
 		day := e.Time.Local().Format("2006-01-02")
 		if day != prev && (i > 0 || startsDay) {
 			out = append(out, style.Dim("── "+dayLabel(day)+" ──"))
@@ -332,6 +360,12 @@ func renderDays(cls *classify.Classifier, hl *rules.Highlighter, entries []logst
 		out = append(out, text)
 	}
 	return out
+}
+
+// echoes reports whether e belongs in the scrollback: everything but sent
+// lines, which only show with local_echo on. They're logged either way.
+func (cs *charState) echoes(e logstore.Entry) bool {
+	return e.Dir != logstore.Out || cs.ch.LocalEcho
 }
 
 // render turns a log entry into a drawable line; the bool reports whether
@@ -364,7 +398,7 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 	var s *session.Session
 	s = session.New(session.Options{
 		Char: cs.ch,
-		Log:  m.d.NewLog(cs.ch.World, cs.ch.ID),
+		Log:  m.d.NewLog(m.logDir(cs.ch), cs.ch.ID),
 		Dial: func(ctx context.Context) (session.LineConn, error) { return m.d.Dial(ctx, s.Char()) },
 		Password: func() (string, error) {
 			ch := s.Char()
@@ -432,12 +466,12 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tickMsg:
 		return m, tick(time.Time(msg))
+	case quitExpiredMsg:
+		if int(msg) == m.quitGen {
+			m.disarmQuit()
+		}
 	case reloadMsg:
-		cfg, err := m.d.Load(m.d.ConfigDir)
-		if err != nil {
-			m.setStatus(true, "config not reloaded: %v", err)
-		} else {
-			m.applyConfig(cfg)
+		if m.reloadNow() {
 			m.setStatus(false, "config reloaded")
 		}
 		return m, m.watch()
@@ -452,7 +486,9 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cs.browse.receive(msg)
 		}
 	case tea.PasteMsg:
-		if m.picker != nil {
+		if m.picker != nil && m.picker.edit != nil {
+			m.picker.edit.form.paste(msg.Content)
+		} else if m.picker != nil {
 			m.picker.form.paste(msg.Content)
 			m.fixPick()
 		} else if cs := m.cur(); cs != nil && cs.browse != nil {
@@ -509,7 +545,9 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	switch ev.Kind {
 	case session.EventLine:
 		text, attn := cs.render(ev.Entry)
-		cs.sb.Append(text)
+		if cs.echoes(ev.Entry) {
+			cs.sb.Append(text)
+		}
 		if cs.browse != nil {
 			cs.browse.appendLive(ev.Entry)
 		}
@@ -549,6 +587,10 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		cs.sb.ClearSelection()
 	}
 	m.input().ClearSelection()
+	armed := m.quitKey
+	if armed != "" {
+		m.disarmQuit() // any key but the armed one again starts over
+	}
 	cs := m.cur()
 	if m.mode == modeSavePassword {
 		switch k.String() {
@@ -582,6 +624,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+down":
 		m.switchBy(1)
 		return nil
+	case "tab", "shift+tab":
+		if m.picker == nil { // the picker's forms move between fields with Tab
+			m.switchToUnread(map[string]int{"tab": 1, "shift+tab": -1}[k.String()])
+			return nil
+		}
 	case openPickerKey:
 		if m.picker == nil {
 			m.openPicker() // says why not, in browse mode
@@ -604,11 +651,13 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			m.openBrowse(cs)
 		}
 		return nil
-	case "ctrl+c":
+	case "ctrl+c", "ctrl+d": // Ctrl+D with text deletes forward, below
 		if m.input().Empty() {
-			return m.quit()
+			return m.armQuit(k.String(), armed)
 		}
-		m.input().Reset()
+		if k.String() == "ctrl+c" {
+			m.input().Reset()
+		}
 	case "pgup":
 		if cs != nil {
 			cs.sb.ScrollUp(max(1, m.layout().sbH-1))
@@ -643,6 +692,35 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
+// quitWindow is how long a first Ctrl+C or Ctrl+D waits for its second.
+const quitWindow = 2 * time.Second
+
+// quitHint is the status shown while key is armed.
+func quitHint(key string) string {
+	return "Press Ctrl+" + strings.ToUpper(strings.TrimPrefix(key, "ctrl+")) + " again to quit"
+}
+
+// armQuit quits if key was already armed (pressed just before), and
+// otherwise arms it and says so for quitWindow.
+func (m *Model) armQuit(key, armed string) tea.Cmd {
+	if key == armed {
+		return m.quit()
+	}
+	m.quitKey = key
+	m.quitGen++
+	m.setStatus(false, "%s", quitHint(key))
+	gen := m.quitGen
+	return tea.Tick(quitWindow, func(time.Time) tea.Msg { return quitExpiredMsg(gen) })
+}
+
+// disarmQuit forgets an armed quit key, and its hint if still shown.
+func (m *Model) disarmQuit() {
+	if m.quitKey != "" && m.status == quitHint(m.quitKey) {
+		m.status = ""
+	}
+	m.quitKey = ""
+}
+
 func (m *Model) quit() tea.Cmd {
 	for _, cs := range m.chars {
 		if cs.cancel != nil {
@@ -665,6 +743,21 @@ func (m *Model) switchBy(delta int) {
 	}
 	i = (i + delta + len(m.order)) % len(m.order)
 	m.switchTo(m.order[i])
+}
+
+// switchToUnread moves to the next character (dir 1) or previous one
+// (dir -1) in sidebar order that has unseen lines, wrapping around.
+func (m *Model) switchToUnread(dir int) {
+	n := len(m.order)
+	i := slices.Index(m.order, m.active) // -1 when nothing is open
+	for step := 1; step <= n; step++ {
+		k := m.order[((i+dir*step)%n+n)%n]
+		if k != m.active && m.chars[k].unread > 0 {
+			m.switchTo(k)
+			return
+		}
+	}
+	m.setStatus(false, "nothing unread")
 }
 
 func (m *Model) switchTo(k string) {
@@ -702,7 +795,9 @@ func (m *Model) submit() tea.Cmd {
 			return nil
 		}
 		cs.endPassword()
-		cs.sb.Append(style.Dim(gutterMark + e.Text))
+		if cs.echoes(e) {
+			cs.sb.Append(style.Dim(gutterMark + e.Text))
+		}
 		if m.d.SavePassword != nil && pw != "" && m.passwordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
 			m.pendingCh = [2]string{cs.ch.World, cs.ch.ID}
@@ -747,7 +842,9 @@ func (m *Model) submit() tea.Cmd {
 			m.setStatus(true, "%v", err)
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
-		cs.sb.Append(style.Dim(gutterMark + ansi.Sanitize(e.Text)))
+		if cs.echoes(e) {
+			cs.sb.Append(style.Dim(gutterMark + ansi.Sanitize(e.Text)))
+		}
 	}
 	if secret {
 		cs.in.CommitSecret()
@@ -817,8 +914,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
-	cs.browse = newBrowse(cs, m.d.LogRoot)
-	cs.browse.exportDir = m.exportDir
+	cs.browse = newBrowse(cs, m.logDir(cs.ch))
+	cs.browse.setExport(m.cfg)
 	m.status = ""
 }
 
@@ -875,8 +972,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 			m.scrollSidebar(hint * max(1, sv.avail-1))
 		case r == nil:
 		case m.picker != nil:
-			if r.kind == rowChar {
-				return m.pick(r.char)
+			m.picker.edit = nil
+			if k := selKey(*r); k != "" {
+				m.picker.sel = k
+				return m.choose(k)
 			}
 		case r.kind == rowAdd:
 			m.openPicker()

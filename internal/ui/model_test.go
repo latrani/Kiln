@@ -128,7 +128,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			h.conns[k] = c
 			return c, nil
 		},
-		NewLog: func(world, char string) session.Appender { return memLog{} },
+		NewLog: func(dir, char string) session.Appender { return memLog{} },
 		Password: func(store, world, char string) (string, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
@@ -303,12 +303,16 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	}
 }
 
+// echoWorld is fmWorld with local_echo on, for tests that look for sent
+// lines in the scrollback.
+var echoWorld = strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nlocal_echo = true", 1)
+
 func TestSendBatchAndFlatten(t *testing.T) {
-	flat := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
+	flat := strings.Replace(echoWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
 	for _, c := range []struct {
 		world string
 		want  []string
-	}{{fmWorld, []string{"connect Kit hunter2", ":waves.", "say hi"}}, {flat, []string{"connect Kit hunter2", ":waves. say hi"}}} {
+	}{{echoWorld, []string{"connect Kit hunter2", ":waves.", "say hi"}}, {flat, []string{"connect Kit hunter2", ":waves. say hi"}}} {
 		h := newHarness(t, map[string]string{"fm": c.world})
 		h.init()
 		h.settle("fm/kit", h.connected("fm/kit"))
@@ -413,8 +417,35 @@ func TestNotConnectedStatus(t *testing.T) {
 	}
 }
 
-func TestPasswordPromptAndSave(t *testing.T) {
+func TestLocalEchoDefaultsOff(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "logs")
+	w := logstore.NewWriter(logstore.CharDir("", root, "fm", "kit"), "kit")
+	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
+	w.Append(logstore.Entry{Time: ts, Dir: logstore.Out, Text: ":yawns."})
+	w.Append(logstore.Entry{Time: ts.Add(time.Minute), Dir: logstore.In, Text: "Kit yawns."})
+	w.Close()
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.LogRoot = root
+	h.m.preload(h.m.chars["fm/kit"])
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText(":waves.")
+	h.enter()
+	if got := h.conn("fm/kit").Sent(); strings.Join(got, "|") != "connect Kit hunter2|:waves." {
+		t.Errorf("sent %q", got)
+	}
+	s := h.screen()
+	if strings.Contains(s, ":waves.") || strings.Contains(s, "connect Kit") || strings.Contains(s, ":yawns.") {
+		t.Errorf("sent lines shown with local_echo off:\n%s", s)
+	}
+	if !strings.Contains(s, "Kit yawns.") {
+		t.Errorf("received history missing:\n%s", s)
+	}
+}
+
+func TestPasswordPromptAndSave(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": echoWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
@@ -476,7 +507,7 @@ func TestPromptShown(t *testing.T) {
 func TestPreloadsHistory(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(root, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", root, "fm", "kit"), "kit")
 	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
 	w.Append(logstore.Entry{Time: ts, Dir: logstore.In, Text: "yesterday's news"})
 	w.Close()
@@ -701,13 +732,63 @@ func TestCtrlCClearsThenQuits(t *testing.T) {
 	if !h.m.chars["fm/kit"].in.Empty() {
 		t.Error("ctrl+c did not clear")
 	}
-	cmd := h.press('c', tea.ModCtrl)
-	if cmd == nil {
-		t.Fatal("ctrl+c on empty input should quit")
+	if h.quits(h.press('c', tea.ModCtrl)) {
+		t.Fatal("one ctrl+c on empty input quit")
 	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Error("not a quit")
+	if !strings.Contains(h.screen(), "Press Ctrl+C again to quit") {
+		t.Errorf("no hint:\n%s", h.screen())
 	}
+	if !h.quits(h.press('c', tea.ModCtrl)) {
+		t.Error("second ctrl+c should quit")
+	}
+}
+
+func TestCtrlDQuitsOnEmptyInputOnly(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("ab")
+	h.press(tea.KeyLeft, 0)
+	if h.quits(h.press('d', tea.ModCtrl)) || h.m.chars["fm/kit"].in.Value() != "a" {
+		t.Fatalf("ctrl+d with text should delete forward, got %q", h.m.chars["fm/kit"].in.Value())
+	}
+	h.press(tea.KeyBackspace, 0)
+	if h.quits(h.press('d', tea.ModCtrl)) || !strings.Contains(h.screen(), "Press Ctrl+D again to quit") {
+		t.Fatalf("first ctrl+d should arm:\n%s", h.screen())
+	}
+	if !h.quits(h.press('d', tea.ModCtrl)) {
+		t.Error("second ctrl+d should quit")
+	}
+}
+
+func TestQuitKeyDisarms(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('c', tea.ModCtrl)
+	if h.quits(h.press('d', tea.ModCtrl)) {
+		t.Error("ctrl+c then ctrl+d quit; the keys should have to match")
+	}
+	h.typeText("x") // another key disarms, and takes the hint with it
+	if strings.Contains(h.screen(), "again to quit") {
+		t.Errorf("hint outlived the arming:\n%s", h.screen())
+	}
+	h.press(tea.KeyBackspace, 0)
+	h.press('c', tea.ModCtrl)
+	h.m.Update(quitExpiredMsg(h.m.quitGen - 1)) // a stale timer does nothing
+	if h.m.quitKey != "ctrl+c" {
+		t.Fatal("stale expiry disarmed")
+	}
+	h.m.Update(quitExpiredMsg(h.m.quitGen))
+	if strings.Contains(h.screen(), "again to quit") || h.quits(h.press('c', tea.ModCtrl)) {
+		t.Error("ctrl+c after the window expired should arm again, not quit")
+	}
+}
+
+// quits reports whether cmd, returned by the last key, quits the program.
+// While a quit key is armed, cmd is its expiry timer, so it isn't run.
+func (h *harness) quits(cmd tea.Cmd) bool {
+	if cmd == nil || h.m.quitKey != "" {
+		return false
+	}
+	_, ok := cmd().(tea.QuitMsg)
+	return ok
 }
 
 func TestPasteInsertsMultiline(t *testing.T) {
@@ -765,7 +846,7 @@ func TestConnectWhenAlreadyConnected(t *testing.T) {
 func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(root, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", root, "fm", "kit"), "kit")
 	for _, d := range []int{23, 24} {
 		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
 		for i := 0; i < 150; i++ {
@@ -933,5 +1014,38 @@ func TestRenderLineMatchScope(t *testing.T) {
 	got, attn := renderLine(cls, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
 	if want := style.SGR(blue) + "PAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !attn {
 		t.Errorf("renderLine = %q, %v; want %q, true", got, attn, want)
+	}
+}
+
+func TestTabJumpsToUnread(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.open("fm/rook", "sp/ash")
+	if got := strings.Join(h.m.order, " "); got != "fm/kit fm/rook sp/ash" {
+		t.Fatalf("order = %s", got)
+	}
+	h.m.switchTo("fm/kit")
+	h.m.chars["fm/rook"].unread, h.m.chars["sp/ash"].unread = 1, 3
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "fm/rook" || h.m.chars["fm/rook"].unread != 0 {
+		t.Fatalf("Tab: active %s, want fm/rook with its unread seen", h.m.active)
+	}
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" {
+		t.Fatalf("Tab: active %s, want sp/ash", h.m.active)
+	}
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" || !strings.Contains(h.screen(), "nothing unread") {
+		t.Errorf("Tab with nothing unread moved or said nothing: active %s\n%s", h.m.active, h.screen())
+	}
+	h.m.chars["fm/kit"].unread, h.m.chars["sp/ash"].unread = 2, 0
+	h.m.chars["fm/rook"].unread = 0
+	h.press(tea.KeyTab, 0) // wraps past the end
+	if h.m.active != "fm/kit" {
+		t.Errorf("Tab should wrap to fm/kit, active %s", h.m.active)
+	}
+	h.m.chars["sp/ash"].unread, h.m.chars["fm/rook"].unread = 1, 1
+	h.press(tea.KeyTab, tea.ModShift) // backwards, wrapping
+	if h.m.active != "sp/ash" {
+		t.Errorf("Shift+Tab should wrap back to sp/ash, active %s", h.m.active)
 	}
 }
