@@ -168,7 +168,7 @@ func tail(ch config.Character, dataDir, pwStore string) error {
 		case session.EventLine:
 			var res rules.Result
 			if ev.Entry.Dir == logstore.In {
-				plain := ansi.Strip(ev.Entry.Text)
+				plain := ansi.Strip(ansi.Sanitize(ev.Entry.Text)) // as render draws it
 				res = hl.Apply(plain, cls.Tags(plain))
 			}
 			fmt.Println(render(ev.Entry, res))
