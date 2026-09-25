@@ -102,14 +102,15 @@ func (m *Model) close(k string) {
 	}
 }
 
-// rowKind says what a sidebar row is. #41 adds rows for adding a
-// character or a world to the picker.
+// rowKind says what a sidebar row is.
 type rowKind int
 
 const (
-	rowWorld rowKind = iota // a world header
-	rowChar                 // a character
-	rowAdd                  // "+ Add connection"
+	rowWorld    rowKind = iota // a world header
+	rowChar                    // a character
+	rowAdd                     // "+ Add connection"
+	rowAddChar                 // the picker's "+ Character", ending a world
+	rowAddWorld                // the picker's "+ World", ending the list
 )
 
 type sidebarRow struct {
@@ -206,7 +207,9 @@ func (m *Model) sidebarView() sideView {
 	sv = fit(m.sideTop)
 	if focus != m.sideShown {
 		m.sideShown = focus
-		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool { return r.kind == rowChar && r.char == focus }); a >= 0 {
+		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool {
+			return r.kind == rowChar && r.char == focus || m.picker != nil && selKey(r) == focus
+		}); a >= 0 {
 			if a < sv.top {
 				sv = fit(a - 1) // show the row above too (often its world header)
 			}
