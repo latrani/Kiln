@@ -89,12 +89,45 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
 	}
-	if strings.Contains(s, "> ") && strings.Contains(s, "fm/Kit 🔒") {
-		t.Error("normal input/statusline still shown in browse mode")
+	if strings.Contains(s, "\n> ") || strings.Contains(s, "│> ") {
+		t.Error("normal input still shown in browse mode")
 	}
 	h.key("esc")
-	if h.br() != nil || !strings.Contains(h.screen(), "fm/Kit 🔒") {
+	if h.br() != nil || strings.Contains(h.screen(), "BROWSE") {
 		t.Errorf("esc did not close browse:\n%s", h.screen())
+	}
+}
+
+func TestBrowseKeepsStatusline(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+b")
+	rows := strings.Split(h.screen(), "\n")
+	if len(rows) != 24 {
+		t.Fatalf("screen has %d rows, want 24", len(rows))
+	}
+	last := func() string {
+		rows := strings.Split(h.screen(), "\n")
+		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
+	}
+	if got := last(); got != "BROWSE · 0 selected · fm/Kit 🔒 · disconnected · 21:14" {
+		t.Errorf("statusline = %q", got)
+	}
+	if !strings.Contains(rows[len(rows)-2], "m mark") {
+		t.Errorf("action bar should sit just above the statusline:\n%s", h.screen())
+	}
+	h.keys("m", "up", "m")
+	if got := last(); !strings.HasPrefix(got, "BROWSE · 2 selected · ") {
+		t.Errorf("statusline = %q", got)
+	}
+	h.m.setStatus(true, "Rook: log write failed: disk full") // e.g. another character's event
+	if got := last(); !strings.Contains(got, "log write failed") {
+		t.Errorf("status message hidden in browse: %q", got)
+	}
+	// The body still ends above the action bar: the newest line is visible.
+	h.key("end")
+	if !strings.Contains(h.screen(), "Rook yawns.") {
+		t.Errorf("newest line cut off:\n%s", h.screen())
 	}
 }
 

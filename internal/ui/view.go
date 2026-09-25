@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -89,6 +90,83 @@ func (m *Model) sidebarRows() []sidebarRow {
 	return rows
 }
 
+// sideView is the part of the sidebar that fits on screen. When the rows
+// overflow, a "▴ N more" row replaces the top row and a "▾ N more" row
+// the bottom one, counting the rows hidden past each edge.
+type sideView struct {
+	rows         []sidebarRow
+	top, avail   int // first row shown; rows shown between the hints
+	above, below bool
+}
+
+// at maps a screen row to a sidebar row, or to a hint: -1 above, 1 below.
+func (sv sideView) at(y int) (*sidebarRow, int) {
+	if sv.above {
+		if y == 0 {
+			return nil, -1
+		}
+		y--
+	}
+	if y < 0 || y >= sv.avail {
+		if sv.below && y == sv.avail {
+			return nil, 1
+		}
+		return nil, 0
+	}
+	if i := sv.top + y; i < len(sv.rows) {
+		return &sv.rows[i], 0
+	}
+	return nil, 0
+}
+
+// sidebarView lays the sidebar out for the screen height. It scrolls the
+// active character into view when it changes, and otherwise keeps the
+// position the mouse wheel left.
+func (m *Model) sidebarView() sideView {
+	sv := sideView{rows: m.sidebarRows()}
+	h := max(1, m.height)
+	total := len(sv.rows)
+	if total <= h {
+		m.sideTop = 0
+		sv.avail = total
+		return sv
+	}
+	fit := func(top int) sideView {
+		v := sv
+		v.top = min(max(0, top), total-h+1) // at the end only the top hint is shown
+		v.above = v.top > 0
+		v.avail = h
+		if v.above {
+			v.avail--
+		}
+		if v.top+v.avail < total {
+			v.below = true
+			v.avail--
+		}
+		return v
+	}
+	sv = fit(m.sideTop)
+	if m.active != m.sideShown {
+		m.sideShown = m.active
+		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool { return r.char == m.active }); a >= 0 {
+			if a < sv.top {
+				sv = fit(a - 1) // show the row above too (often its world header)
+			}
+			for a >= sv.top+sv.avail {
+				sv = fit(sv.top + 1)
+			}
+		}
+	}
+	m.sideTop = sv.top
+	return sv
+}
+
+// scrollSidebar moves the sidebar by delta rows.
+func (m *Model) scrollSidebar(delta int) {
+	m.sideTop += delta
+	m.sidebarView() // clamp
+}
+
 func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	if r.char == "" {
 		arrow := "▾ "
@@ -133,6 +211,7 @@ func fit(s string, w int) string {
 
 // statusLine shows the active character, its connection and the clock,
 // or, while there is a status message, just the character and the message.
+// In browse mode it starts with "BROWSE · N selected".
 func (m *Model) statusLine(w int) string {
 	cs := m.cur()
 	name := ""
@@ -140,6 +219,9 @@ func (m *Model) statusLine(w int) string {
 		name = cs.ch.World + "/" + cs.ch.Name
 		if cs.ch.TLS {
 			name += " 🔒"
+		}
+		if cs.browse != nil {
+			name = fmt.Sprintf("%sBROWSE%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
 		}
 	}
 	if m.status != "" {
@@ -172,8 +254,8 @@ func (m *Model) View() tea.View {
 	cs := m.cur()
 	var cursor *tea.Cursor
 	if cs != nil && cs.browse != nil {
-		rows, x, y, show := cs.browse.view(l.rw, m.height)
-		right = rows
+		rows, x, y, show := cs.browse.view(l.rw, m.height-1)
+		right = append(rows, m.statusLine(l.rw))
 		if show {
 			cursor = tea.NewCursor(l.sw+1+x, y)
 		}
@@ -198,15 +280,20 @@ func (m *Model) View() tea.View {
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
 	}
 
-	side := m.sidebarRows()
+	sv := m.sidebarView()
 	var b strings.Builder
 	for y := 0; y < m.height; y++ {
 		if y > 0 {
 			b.WriteByte('\n')
 		}
-		if y < len(side) {
-			b.WriteString(m.sidebarLine(side[y], l.sw))
-		} else {
+		switch r, hint := sv.at(y); {
+		case hint < 0:
+			b.WriteString(style.Dim(fit(fmt.Sprintf("▴ %d more", sv.top), l.sw)))
+		case hint > 0:
+			b.WriteString(style.Dim(fit(fmt.Sprintf("▾ %d more", len(sv.rows)-sv.top-sv.avail), l.sw)))
+		case r != nil:
+			b.WriteString(m.sidebarLine(*r, l.sw))
+		default:
 			b.WriteString(strings.Repeat(" ", l.sw))
 		}
 		b.WriteString(style.Dim("│"))

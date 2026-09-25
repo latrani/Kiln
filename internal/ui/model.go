@@ -62,7 +62,9 @@ type Model struct {
 	pendingPW string    // entered password awaiting the save y/n answer
 	pendingCh [2]string // world and character id the pending password belongs to
 	exportDir string
-	confirm   bool // next Enter sends an over-limit line anyway
+	confirm   bool   // next Enter sends an over-limit line anyway
+	sideTop   int    // first sidebar row shown when it overflows
+	sideShown string // active character last scrolled into view
 }
 
 type charState struct {
@@ -679,8 +681,9 @@ func (m *Model) openBrowse(cs *charState) {
 	m.status = ""
 }
 
-// browseBodyH is the number of line rows in browse mode.
-func (m *Model) browseBodyH() int { return max(1, m.height-5) }
+// browseBodyH is the number of line rows in browse mode: the pane less
+// two header rows, two rules, the action bar and the statusline.
+func (m *Model) browseBodyH() int { return max(1, m.height-6) }
 
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
 	l := m.layout()
@@ -691,6 +694,15 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) {
 			cs.browse.moveCursor(-3)
 		case tea.MouseWheelDown:
 			cs.browse.moveCursor(3)
+		}
+		return
+	}
+	if msg.X < l.sw {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.scrollSidebar(-3)
+		case tea.MouseWheelDown:
+			m.scrollSidebar(3)
 		}
 		return
 	}
@@ -711,14 +723,16 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
-		rows := m.sidebarRows()
-		if msg.Y < len(rows) {
-			r := rows[msg.Y]
-			if r.char == "" {
-				m.collapsed[r.world] = !m.collapsed[r.world]
-			} else {
-				m.switchTo(r.char)
-			}
+		sv := m.sidebarView()
+		switch r, hint := sv.at(msg.Y); {
+		case hint != 0:
+			m.scrollSidebar(hint * max(1, sv.avail-1))
+		case r == nil:
+		case r.char == "":
+			m.collapsed[r.world] = !m.collapsed[r.world]
+		default:
+			m.switchTo(r.char)
+			m.sideShown = r.char // clicked, so already in view
 		}
 		return
 	}
