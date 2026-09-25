@@ -16,6 +16,7 @@ import (
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
@@ -270,31 +271,72 @@ func (cs *charState) compile() error {
 	return nil
 }
 
-// preload fills the scrollback with the tail of the most recent log days.
+// preload fills the scrollback with the tail of the most recent log days
+// and hands everything older to the scrollback to page in on demand, so
+// scrollback is unlimited.
 func (m *Model) preload(cs *charState) {
 	if m.d.LogRoot == "" {
 		return
 	}
-	days, err := logstore.Days(m.d.LogRoot, cs.ch.World, cs.ch.ID)
-	if err != nil || len(days) == 0 {
+	hist, err := history.NewReader(m.d.LogRoot, cs.ch.World, cs.ch.ID)
+	if err != nil {
 		return
 	}
 	var entries []logstore.Entry
-	for i := len(days) - 1; i >= 0 && len(entries) < HistoryLines; i-- {
-		es, err := logstore.ReadDay(m.d.LogRoot, cs.ch.World, cs.ch.ID, days[i])
-		if err != nil {
-			continue
+	for len(entries) < HistoryLines {
+		es, _, ok, err := hist.LoadOlder()
+		if !ok || err != nil {
+			break
 		}
 		entries = append(es, entries...)
 	}
+	if len(entries) == 0 {
+		return
+	}
+	// entries holds whole days. Keep the newest HistoryLines on screen; the
+	// rest (the start of the oldest day, plus any fuller days before it)
+	// is the first batch paged in when scrolling up.
+	var leftover []logstore.Entry
 	if len(entries) > HistoryLines {
+		leftover = entries[:len(entries)-HistoryLines]
 		entries = entries[len(entries)-HistoryLines:]
 	}
-	for _, e := range entries {
-		text, _ := cs.render(e)
+	// The preload starts a day only if nothing of that day was left over.
+	startsDay := len(leftover) == 0 || leftover[len(leftover)-1].Time.Local().Format("2006-01-02") != entries[0].Time.Local().Format("2006-01-02")
+	for _, text := range cs.renderDays(entries, startsDay) {
 		cs.sb.Append(text)
 	}
 	cs.sb.Append(style.Dim("─── history ends " + entries[len(entries)-1].Time.Format("Mon Jan 2 15:04") + " ───"))
+	cs.sb.SetOlder(func() ([]string, bool) {
+		if leftover != nil {
+			batch := leftover
+			leftover = nil
+			return cs.renderDays(batch, true), !hist.Exhausted()
+		}
+		es, _, ok, err := hist.LoadOlder()
+		if !ok || err != nil {
+			return nil, false
+		}
+		return cs.renderDays(es, true), !hist.Exhausted()
+	})
+}
+
+// renderDays renders log entries with a dim divider before the first line
+// of each day. The very first entry gets one only if startsDay, i.e. it
+// really is the first line of its day.
+func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []string {
+	out := make([]string, 0, len(entries)+2)
+	prev := ""
+	for i, e := range entries {
+		day := e.Time.Local().Format("2006-01-02")
+		if day != prev && (i > 0 || startsDay) {
+			out = append(out, style.Dim("── "+dayLabel(day)+" ──"))
+		}
+		prev = day
+		text, _ := cs.render(e)
+		out = append(out, text)
+	}
+	return out
 }
 
 // render turns a log entry into a drawable line; the bool reports whether
