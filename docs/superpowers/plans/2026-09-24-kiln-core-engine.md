@@ -1,5 +1,7 @@
 # Kiln Core Engine Implementation Plan (Plan 1 of 3)
 
+> **Superseded detail:** the final review of this plan changed `Session.Send(line) error` to `Send(line) (logstore.Entry, error)`. It never emits events, and it returns the logged entry for the caller to echo. Plan 2 (`2026-09-25-kiln-tui.md`) builds on the new signature. The code blocks below show the original.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build Kiln's headless engine (config, logs, telnet/TLS connections, sessions, classification, highlighting) plus a `kiln tail` command that makes it a working, if plain, MUCK client.
