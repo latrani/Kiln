@@ -22,7 +22,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 - **Everything is logged** to plain, greppable text, one file per character per day.
 - **Browse mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
 - **Safe input.** The input box shows exactly where the server would cut an over-long line, so you can break it before sending.
-- **Secure by default.** Passwords live in your OS keychain, never in config. TLS certificates are pinned on first use, so self-signed MUCK certificates just work.
+- **Secure by default.** Passwords live in your OS keychain, never in config (or, if you opt in, a file only you can read). TLS certificates are pinned on first use, so self-signed MUCK certificates just work.
 
 Kiln deliberately doesn't do combat-MUD features like GMCP or MSDP.
 
@@ -48,7 +48,7 @@ Each is a single self-contained binary, with nothing else to install. `checksums
 xattr -d com.apple.quarantine /path/to/kiln
 ```
 
-**Linux:** saving passwords needs a Secret Service keyring (GNOME Keyring or KWallet), which most desktop sessions already run. Without one, Kiln still works: it just asks for the password each time you connect.
+**Linux:** saving passwords to the keychain needs a Secret Service keyring (GNOME Keyring or KWallet), which most desktop sessions already run. Without one, set `password_store = "file"` in `config.toml` to save them in a file only you can read, or `"none"` to just be asked each time you connect.
 
 ### Build from source
 
@@ -77,9 +77,9 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
    autoconnect = true
    ```
 
-3. **Save the password** (optional). Run `kiln passwd furrymuck kit`. If you skip this, Kiln asks for the password when it connects (with masked input) and offers to save it.
+3. **Save the password** (optional). Run `kiln passwd furrymuck kit`. If you skip this, Kiln asks for the password when it connects and offers to save it.
 
-4. **Run `kiln`.** Characters with `autoconnect = true` connect and log in. Use `/connect` for the rest.
+4. **Run `kiln`.** Characters with `autoconnect = true` connect and log in. For the rest, press `Enter` on an empty input or double-click them in the sidebar.
 
 Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps the last working config and shows the error in the statusline.
 
@@ -89,7 +89,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 
 | Key | Does |
 |---|---|
-| `Enter` | Send |
+| `Enter` | Send (on an empty input, connect a disconnected character) |
 | `Shift+Enter` (or `Alt+Enter`) | New line in the input box |
 | `↑` / `↓` | Move between rows, or recall input history from the top or bottom row |
 | `Ctrl+←` / `Ctrl+→` (or `Alt`/`Option`) | Move by word |
@@ -102,9 +102,9 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Esc` | Skip the login prompt |
 | `Ctrl+C` | Clear the input, or quit if it's empty |
 
-Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`.
+Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
-Click a character in the sidebar to switch to it, or a world header to collapse it. `●` means something needs your attention (a page or whisper, by default), `○` means connected, and `✕` means disconnected. The number is unread lines.
+Click a character in the sidebar to switch to it (double-click to also connect), or a world header to collapse it. `●` means something needs your attention (a page or whisper, by default), `○` means connected, and `✕` means disconnected. The number is unread lines.
 
 ### Commands
 
@@ -150,6 +150,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | Setting | Where | Meaning |
 |---|---|---|
 | `export_dir` | config.toml | Where browse exports are saved |
+| `password_store` | config.toml | `"keychain"` (default), `"file"` (`~/.local/share/kiln/passwords.json`, readable only by you) or `"none"` (never save) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
 | `login` | world, character | Login template; `{name}` and `{password}` are filled in |
@@ -206,7 +207,7 @@ Kiln uses `~/.config/kiln` and `~/.local/share/kiln` on every system, including 
 ```
 kiln                               the full-screen client
 kiln tail <world> <char>           connect, print output, send lines typed on stdin
-kiln passwd <world> <char>         save a character's password in the keychain
+kiln passwd <world> <char>         save a character's password (see password_store)
 kiln trust <world> <fingerprint>   accept a changed server certificate
 ```
 

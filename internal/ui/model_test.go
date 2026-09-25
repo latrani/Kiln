@@ -124,7 +124,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			return c, nil
 		},
 		NewLog: func(world, char string) session.Appender { return memLog{} },
-		Password: func(world, char string) (string, error) {
+		Password: func(store, world, char string) (string, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
 			if p, ok := h.pw[key(world, char)]; ok {
@@ -132,7 +132,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			}
 			return "", errors.New("not found")
 		},
-		SavePassword: func(world, char, pw string) error {
+		SavePassword: func(store, world, char, pw string) error {
 			h.mu.Lock()
 			defer h.mu.Unlock()
 			h.saved[key(world, char)] = pw
@@ -216,7 +216,7 @@ func (h *harness) init() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"▾ fm", "✕ Kit", "✕ Rook", "fm/Kit 🔒 · disconnected · 21:14", "> "} {
+	for _, want := range []string{"▾ fm", "✕ Kit", "✕ Rook", "fm/Kit 🔒 · disconnected · 21:14", "  Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -394,7 +394,7 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
 	s := h.screen()
-	if !strings.Contains(s, "> ••••••") || strings.Contains(s, "s3cret") {
+	if !strings.Contains(s, "  Password for Kit: ••••••   Enter to log in") || strings.Contains(s, "s3cret") || strings.Contains(s, "> ") {
 		t.Errorf("password not masked:\n%s", s)
 	}
 	h.enter()
@@ -789,5 +789,107 @@ func TestClickPlacesInputCursor(t *testing.T) {
 	h.typeText("^")
 	if got := h.m.cur().in.Value(); got != "he^llo" {
 		t.Errorf("input = %q, want the cursor where clicked", got)
+	}
+}
+
+func TestSavePasswordPromptDefaultsToYes(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	delete(h.pw, "fm/kit")
+	h.init()
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.typeText("s3cret")
+	h.enter()
+	if s := h.screen(); !strings.Contains(s, "  Save password for Kit in the keychain? [Y/n]") {
+		t.Errorf("no save prompt:\n%s", s)
+	}
+	h.typeText("q") // not an answer; the question stays
+	if h.m.mode != modeSavePassword {
+		t.Fatal("stray key answered the question")
+	}
+	h.enter()
+	if h.saved["fm/kit"] != "s3cret" || h.m.mode != modeNormal {
+		t.Errorf("saved = %q, mode = %v", h.saved, h.m.mode)
+	}
+}
+
+func TestPasswordStoreNoneNeverOffers(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("password_store = \"none\"\n"), 0o600)
+	cfg, err := config.Load(h.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.m.applyConfig(cfg)
+	delete(h.pw, "fm/kit")
+	h.init()
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.typeText("s3cret")
+	h.enter()
+	if h.m.mode != modeNormal || strings.Contains(h.screen(), "Save password") {
+		t.Errorf("offered to save:\n%s", h.screen())
+	}
+}
+
+func TestEnterOnEmptyInputConnects(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.enter()
+	if h.m.chars["fm/kit"].sess == nil {
+		t.Fatal("Enter did not connect")
+	}
+	h.settle("fm/kit", h.connected("fm/kit"))
+	if s := h.screen(); strings.Contains(s, "Enter to connect") || !strings.Contains(s, "│> ") {
+		t.Errorf("connected input should be a plain > line:\n%s", s)
+	}
+}
+
+func TestTypingReplacesConnectHint(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("/help")
+	if s := h.screen(); strings.Contains(s, "Enter to connect") || !strings.Contains(s, "> /help") {
+		t.Errorf("screen:\n%s", s)
+	}
+}
+
+func TestDoubleClickSidebarConnects(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	now := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	h.m.d.Now = func() time.Time { return now }
+	click := func() tea.Cmd {
+		_, cmd := h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // Rook
+		return cmd
+	}
+	click()
+	now = now.Add(time.Second)
+	if click() != nil || h.m.chars["fm/rook"].sess != nil {
+		t.Fatal("two slow clicks connected")
+	}
+	now = now.Add(200 * time.Millisecond)
+	if click() == nil || h.m.chars["fm/rook"].sess == nil {
+		t.Error("double-click did not connect")
+	}
+	if h.m.active != "fm/rook" {
+		t.Errorf("active = %q", h.m.active)
+	}
+}
+
+func TestConnectHintFollowsState(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	cs := h.m.chars["fm/kit"]
+	for _, c := range []struct {
+		state session.State
+		want  string
+	}{
+		{session.Connecting, "  Connecting…"},
+		{session.Failed, "  Connection failed · Enter to retry"},
+	} {
+		cs.state = c.state
+		if s := h.screen(); !strings.Contains(s, c.want) {
+			t.Errorf("state %v: screen missing %q:\n%s", c.state, c.want, s)
+		}
+	}
+	cs.state = session.Connecting
+	h.enter() // nothing to do while connecting
+	if cs.sess != nil {
+		t.Error("Enter while connecting started a session")
 	}
 }

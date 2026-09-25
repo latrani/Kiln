@@ -2,7 +2,7 @@
 //
 //	kiln                              the full-screen client
 //	kiln tail <world> <char>          connect, print output, send stdin lines
-//	kiln passwd <world> <char>        save a character's password in the keychain
+//	kiln passwd <world> <char>        save a character's password (see password_store)
 //	kiln trust <world> <fingerprint>  accept a changed server certificate
 package main
 
@@ -73,10 +73,13 @@ func run(args []string) error {
 		if !ok {
 			return fmt.Errorf("no character %s/%s (define it in %s)", args[1], args[2], filepath.Join(cfgDir, "worlds", args[1]+".toml"))
 		}
-		return tail(ch, dataDir)
+		return tail(ch, dataDir, cfg.PasswordStore)
 	case "passwd":
 		if _, ok := cfg.Find(args[1], args[2]); !ok {
 			return fmt.Errorf("no character %s/%s", args[1], args[2])
+		}
+		if cfg.PasswordStore == "none" {
+			return errors.New(`password_store is "none" in config.toml; set it to "keychain" or "file" to save passwords`)
 		}
 		fmt.Fprintf(os.Stderr, "password for %s/%s: ", args[1], args[2])
 		pw, err := term.ReadPassword(int(os.Stdin.Fd()))
@@ -84,7 +87,7 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		return secrets.Set(args[1], args[2], string(pw))
+		return secrets.Open(cfg.PasswordStore, dataDir).Set(args[1], args[2], string(pw))
 	case "trust":
 		w := findWorld(cfg, args[1])
 		if w == nil {
@@ -113,7 +116,7 @@ func knownHosts(dataDir string) conn.KnownHosts {
 	return conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")}
 }
 
-func tail(ch config.Character, dataDir string) error {
+func tail(ch config.Character, dataDir, pwStore string) error {
 	cls, err := classify.New(ch.Rules.Classify, ch.Name, ch.Aliases)
 	if err != nil {
 		return err
@@ -138,7 +141,7 @@ func tail(ch config.Character, dataDir string) error {
 				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
 			})
 		},
-		Password: func() (string, error) { return secrets.Get(ch.World, ch.ID) },
+		Password: func() (string, error) { return secrets.Open(pwStore, dataDir).Get(ch.World, ch.ID) },
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -223,9 +226,13 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 			}
 			return writers[k]
 		},
-		Password:     secrets.Get,
-		SavePassword: secrets.Set,
-		Changes:      watcher.Changes(),
+		Password: func(store, world, char string) (string, error) {
+			return secrets.Open(store, dataDir).Get(world, char)
+		},
+		SavePassword: func(store, world, char, password string) error {
+			return secrets.Open(store, dataDir).Set(world, char, password)
+		},
+		Changes: watcher.Changes(),
 	}, cfg)
 	_, err = tea.NewProgram(m).Run()
 	return err

@@ -80,8 +80,9 @@ type World struct {
 
 // Config is the resolved configuration.
 type Config struct {
-	Worlds    []World // sorted by ID
-	ExportDir string  // where browse-mode exports go; "~" already expanded
+	Worlds        []World // sorted by ID
+	ExportDir     string  // where browse-mode exports go; "~" already expanded
+	PasswordStore string  // "keychain", "file" or "none"
 }
 
 // Find returns the resolved character, or false.
@@ -124,8 +125,9 @@ func (s *settings) overlay(o settings) {
 }
 
 type globalFile struct {
-	ExportDir string   `toml:"export_dir"`
-	Defaults  settings `toml:"defaults"`
+	ExportDir     string   `toml:"export_dir"`
+	PasswordStore string   `toml:"password_store"`
+	Defaults      settings `toml:"defaults"`
 }
 
 type charFile struct {
@@ -150,6 +152,8 @@ type worldFile struct {
 const (
 	DefaultMaxLineBytes = 2047 // Fuzzball MAX_COMMAND_LEN (2048) minus the NUL
 	DefaultNewlineMode  = "batch"
+	// DefaultPasswordStore is used when config.toml sets no password_store.
+	DefaultPasswordStore = "keychain"
 )
 
 var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -175,7 +179,14 @@ func Load(dir string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg := &Config{ExportDir: exportDir}
+	store := g.PasswordStore
+	if store == "" {
+		store = DefaultPasswordStore
+	}
+	if store != "keychain" && store != "file" && store != "none" {
+		return nil, errors.New(`config.toml: password_store must be "keychain", "file" or "none"`)
+	}
+	cfg := &Config{ExportDir: exportDir, PasswordStore: store}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, packs)
 		if err != nil {
