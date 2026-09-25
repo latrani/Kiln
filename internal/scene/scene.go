@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 )
 
@@ -147,8 +148,14 @@ func Render(format string, entries []logstore.Entry, title string) string {
 	}
 }
 
-// FileName is the default export path:
-// "<dir>/YYYY-MM-DD HHMM <world> <name>.<ext>", timed by the scene's first line.
-func FileName(dir string, t time.Time, world, name, format string) string {
-	return filepath.Join(dir, fmt.Sprintf("%s %s %s.%s", t.Format("2006-01-02 1504"), world, name, Ext(format)))
+// FileName is the default export path: dir, then the export_name template
+// (see config.ExportNameVars; "" for config.DefaultExportName) filled in
+// for a scene whose first line is at t, then the format's extension.
+func FileName(dir, template string, t time.Time, world, name, format string) string {
+	if template == "" {
+		template = config.DefaultExportName
+	}
+	base := strings.NewReplacer("{date}", t.Format("2006-01-02"), "{time}", t.Format("1504"),
+		"{world}", world, "{name}", name).Replace(template)
+	return filepath.Join(dir, base+"."+Ext(format))
 }

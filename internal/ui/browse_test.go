@@ -21,7 +21,7 @@ var day24 = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
 // writeLog puts entries in fm/kit's log, one minute apart from start.
 func (h *harness) writeLog(start time.Time, lines ...string) {
 	h.t.Helper()
-	w := logstore.NewWriter(h.m.d.LogRoot, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", h.m.d.LogRoot, "fm", "kit"), "kit")
 	defer w.Close()
 	for i, l := range lines {
 		dir := logstore.In
@@ -147,7 +147,7 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	exportDir := t.TempDir()
-	h.m.exportDir = exportDir
+	h.m.cfg.ExportDir = exportDir
 	h.key("ctrl+b")
 	// Cursor starts on the last line (Rook yawns). Mark 21:01..21:05.
 	h.keys("up", "m")                   // Rook says lighthouse = end
@@ -600,7 +600,7 @@ func TestHighlightFindSurvivesCaseFolding(t *testing.T) {
 func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	base := day24.Add(123456789 * time.Nanosecond) // not a whole millisecond
-	w := logstore.NewWriter(h.m.d.LogRoot, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", h.m.d.LogRoot, "fm", "kit"), "kit")
 	var sent []logstore.Entry
 	for i, text := range []string{"one", "two", "three"} {
 		e := logstore.Entry{Time: base.Add(time.Duration(i) * time.Second), Dir: logstore.In, Text: text}
@@ -682,7 +682,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 	t.Setenv("HOME", home)
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.m.exportDir = filepath.Join(home, "scenes")
+	h.m.cfg.ExportDir = filepath.Join(home, "scenes")
 	h.key("ctrl+b")
 	h.keys("m", "up", "m")
 	b := h.br()
@@ -704,7 +704,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.m.exportDir = ""
+	h.m.cfg.ExportDir = ""
 	h.key("ctrl+b")
 	h.keys("m", "up", "m")
 	b := h.br()
@@ -727,5 +727,39 @@ func TestReloadUpdatesOpenBrowseExportDir(t *testing.T) {
 	h.m.Update(reloadMsg{})
 	if h.br().exportDir != dir {
 		t.Errorf("open browse exportDir = %q, want %q", h.br().exportDir, dir)
+	}
+}
+
+func TestExportNameAndFormatSettings(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\nexport_name = \"{world}/{name} {date}\"\nexport_format = \"html\"\n"), 0o600)
+	h.m.Update(reloadMsg{})
+	h.key("ctrl+b")
+	h.keys("m", "up", "m", "e")
+	if !strings.Contains(h.screen(), "enter html") {
+		t.Errorf("preselected format not offered:\n%s", h.screen())
+	}
+	h.keys("enter", "enter")
+	if _, err := os.Stat(filepath.Join(dir, "fm", "Kit 2026-09-24.html")); err != nil {
+		t.Errorf("export not at the templated name: %v\n%s", err, h.screen())
+	}
+}
+
+func TestLogDirSetting(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	logs := filepath.Join(t.TempDir(), "Mucks")
+	w := logstore.NewWriter(filepath.Join(logs, "fm"), "kit")
+	w.Append(logstore.Entry{Time: day24, Dir: logstore.In, Text: "from my own log folder"})
+	w.Close()
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("log_dir = \""+logs+"/{world}\"\n"), 0o600)
+	h.m.Update(reloadMsg{})
+	if got := h.m.logDir(h.m.chars["fm/kit"].ch); got != filepath.Join(logs, "fm") {
+		t.Fatalf("logDir = %q", got)
+	}
+	h.key("ctrl+b")
+	if !strings.Contains(h.screen(), "from my own log folder") {
+		t.Errorf("browse didn't read log_dir:\n%s", h.screen())
 	}
 }

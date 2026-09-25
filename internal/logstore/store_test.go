@@ -4,121 +4,161 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
-func TestWriterCreatesFileWithHeader(t *testing.T) {
-	root := t.TempDir()
-	w := NewWriter(root, "furrymuck", "kit")
-	pdt := time.FixedZone("PDT", -7*3600)
-	if err := w.Append(Entry{time.Date(2026, 9, 24, 21, 0, 0, 0, pdt), In, "hello"}); err != nil {
+var pdt = time.FixedZone("PDT", -7*3600)
+
+// names is the base names of paths.
+func names(paths []string) []string {
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		out[i] = filepath.Base(p)
+	}
+	return out
+}
+
+func TestCharDir(t *testing.T) {
+	for _, c := range []struct{ template, want string }{
+		{"", "/data/logs/fm/kit"},
+		{"/x/Mucks/{world}", "/x/Mucks/fm"},
+		{"/x/{char}@{world}", "/x/kit@fm"},
+		{"mine/{world}", "/data/logs/mine/fm"},
+	} {
+		if got := CharDir(c.template, "/data/logs", "fm", "kit"); got != c.want {
+			t.Errorf("CharDir(%q) = %q, want %q", c.template, got, c.want)
+		}
+	}
+}
+
+func TestWriterCreatesSessionFileWithHeader(t *testing.T) {
+	dir := t.TempDir()
+	w := NewWriter(dir, "Kit")
+	if err := w.Append(Entry{time.Date(2026, 9, 24, 21, 0, 5, 0, pdt), In, "hello"}); err != nil {
 		t.Fatal(err)
 	}
 	w.Close()
-	b, err := os.ReadFile(filepath.Join(root, "furrymuck", "kit", "2026-09-24.log"))
+	b, err := os.ReadFile(filepath.Join(dir, "2026-09-24 210005 Kit.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Header + "\n2026-09-24T21:00:00.000-07:00 <\thello\n"
+	want := Header + "\n2026-09-24T21:00:05.000-07:00 <\thello\n"
 	if string(b) != want {
 		t.Errorf("file = %q, want %q", b, want)
 	}
 }
 
-func TestWriterAppendsWithoutSecondHeader(t *testing.T) {
-	root := t.TempDir()
-	ts := time.Date(2026, 9, 24, 21, 0, 0, 0, time.UTC)
-	for i := 0; i < 2; i++ { // two separate writers = two app runs
-		w := NewWriter(root, "w", "c")
-		if err := w.Append(Entry{ts, In, "line"}); err != nil {
-			t.Fatal(err)
-		}
-		w.Close()
-	}
-	b, _ := os.ReadFile(filepath.Join(root, "w", "c", "2026-09-24.log"))
-	if n := strings.Count(string(b), Header); n != 1 {
-		t.Errorf("header count = %d, want 1\n%s", n, b)
-	}
-}
-
-func TestWriterRollsOverAtMidnight(t *testing.T) {
-	root := t.TempDir()
-	w := NewWriter(root, "w", "c")
+func TestWriterOneFilePerSession(t *testing.T) {
+	dir := t.TempDir()
+	w := NewWriter(dir, "Kit")
 	defer w.Close()
-	pdt := time.FixedZone("PDT", -7*3600)
-	w.Append(Entry{time.Date(2026, 9, 24, 23, 59, 59, 0, pdt), In, "before"})
-	w.Append(Entry{time.Date(2026, 9, 25, 0, 0, 1, 0, pdt), In, "after"})
-	days, err := Days(root, "w", "c")
+	ts := time.Date(2026, 9, 24, 23, 59, 0, 0, pdt)
+	w.Append(Entry{ts, In, "one"})
+	w.Append(Entry{ts.Add(2 * time.Minute), In, "still one, past midnight"})
+	w.NewSession()
+	w.Append(Entry{ts.Add(time.Hour), In, "two"})
+	w.NewSession()
+	w.Append(Entry{ts.Add(time.Hour), In, "three, the same second"})
+	files, err := Files(dir, "Kit")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"2026-09-24", "2026-09-25"}; !reflect.DeepEqual(days, want) {
-		t.Fatalf("Days = %v, want %v", days, want)
+	want := []string{"2026-09-24 235900 Kit.log", "2026-09-25 005900 Kit.log", "2026-09-25 005900 Kit (2).log"}
+	if !reflect.DeepEqual(names(files), want) {
+		t.Fatalf("Files = %q, want %q", names(files), want)
 	}
-	got, _ := ReadDay(root, "w", "c", "2026-09-25")
-	if len(got) != 1 || got[0].Text != "after" {
-		t.Errorf("2026-09-25 entries = %+v", got)
+	es, _ := ReadFile(files[0])
+	if len(es) != 2 {
+		t.Errorf("first session has %d entries, want 2", len(es))
 	}
 }
 
-func TestWriterConcurrentAppendAcrossMidnight(t *testing.T) {
-	root := t.TempDir()
-	w := NewWriter(root, "w", "c")
+func TestWriterNeverWritesForeignFiles(t *testing.T) {
+	dir := t.TempDir()
+	foreign := filepath.Join(dir, "2026-09-24 210005 Kit.log")
+	os.WriteFile(foreign, []byte("some other client's log\n"), 0o600)
+	w := NewWriter(dir, "Kit")
+	w.Append(Entry{time.Date(2026, 9, 24, 21, 0, 5, 0, pdt), In, "hello"})
+	w.Close()
+	if b, _ := os.ReadFile(foreign); string(b) != "some other client's log\n" {
+		t.Errorf("foreign file changed: %q", b)
+	}
+	files, _ := Files(dir, "Kit")
+	if want := []string{"2026-09-24 210005 Kit (2).log"}; !reflect.DeepEqual(names(files), want) {
+		t.Errorf("Files = %q, want %q (the foreign file skipped)", names(files), want)
+	}
+}
+
+func TestFilesSortsAndFilters(t *testing.T) {
+	dir := t.TempDir()
+	put := func(name, content string) { os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600) }
+	ours := Header + "\n"
+	put("2026-09-24.log", ours)                 // an older Kiln's day file
+	put("2026-09-24 210000 Kit.log", ours)      // later that day
+	put("2026-09-23 120000 Kit.log", ours)      // earlier
+	put("2026-09-23 120000 Kit (10).log", ours) // numbered, sorted numerically
+	put("2026-09-23 120000 Kit (2).log", ours)  //
+	put("2026-09-23 120000 Rook.log", ours)     // another character sharing the folder
+	put("2026-09-22 120000 Kit.log", "foreign") // right name, wrong format
+	put("2026-09-22.log", "#kiln-log v10\n")    // not quite our header
+	put("notes.txt", ours)                      // not a log name
+	os.Mkdir(filepath.Join(dir, "2026-09-21.log"), 0o700)
+	files, err := Files(dir, "Kit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"2026-09-23 120000 Kit.log", "2026-09-23 120000 Kit (2).log", "2026-09-23 120000 Kit (10).log",
+		"2026-09-24.log", "2026-09-24 210000 Kit.log"}
+	if !reflect.DeepEqual(names(files), want) {
+		t.Errorf("Files = %q\nwant    %q", names(files), want)
+	}
+}
+
+func TestWriterConcurrentAppend(t *testing.T) {
+	dir := t.TempDir()
+	w := NewWriter(dir, "c")
 	defer w.Close()
-	pdt := time.FixedZone("PDT", -7*3600)
-	before := time.Date(2026, 9, 24, 23, 59, 59, 0, pdt)
-	after := before.Add(2 * time.Second)
+	ts := time.Date(2026, 9, 24, 23, 59, 59, 0, pdt)
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
-		go func(i int) {
+		go func() {
 			defer wg.Done()
 			for j := 0; j < 50; j++ {
-				ts := before
-				if (i+j)%2 == 0 {
-					ts = after
-				}
 				if err := w.Append(Entry{ts, In, "x"}); err != nil {
 					t.Error(err)
 					return
 				}
 			}
-		}(i)
+		}()
 	}
 	wg.Wait()
-	total := 0
-	for _, d := range []string{"2026-09-24", "2026-09-25"} {
-		es, err := ReadDay(root, "w", "c", d)
-		if err != nil {
-			t.Fatal(err)
-		}
-		total += len(es)
+	files, _ := Files(dir, "c")
+	if len(files) != 1 {
+		t.Fatalf("%d files, want 1", len(files))
 	}
-	if total != 400 {
-		t.Errorf("read back %d entries, want 400", total)
+	if es, _ := ReadFile(files[0]); len(es) != 400 {
+		t.Errorf("read back %d entries, want 400", len(es))
 	}
 }
 
-func TestDaysMissingDirIsEmpty(t *testing.T) {
-	days, err := Days(t.TempDir(), "nope", "nobody")
-	if err != nil || len(days) != 0 {
-		t.Errorf("Days = %v, %v; want empty, nil", days, err)
+func TestFilesMissingDirIsEmpty(t *testing.T) {
+	files, err := Files(filepath.Join(t.TempDir(), "nope"), "nobody")
+	if err != nil || len(files) != 0 {
+		t.Errorf("Files = %v, %v; want empty, nil", files, err)
 	}
 }
 
-func TestReadDaySkipsCorruptLines(t *testing.T) {
-	root := t.TempDir()
-	dir := filepath.Join(root, "w", "c")
-	os.MkdirAll(dir, 0o700)
+func TestReadFileSkipsCorruptLines(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "2026-09-24.log")
 	content := Header + "\n" +
 		"2026-09-24T21:00:00.000-07:00 <\tgood one\n" +
 		"2026-09-24T21:0\n" + // crash-truncated
 		"2026-09-24T21:00:02.000-07:00 >\tgood two\n"
-	os.WriteFile(filepath.Join(dir, "2026-09-24.log"), []byte(content), 0o600)
-	got, err := ReadDay(root, "w", "c", "2026-09-24")
+	os.WriteFile(path, []byte(content), 0o600)
+	got, err := ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
