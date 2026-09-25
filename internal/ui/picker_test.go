@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -160,5 +162,54 @@ func TestSwitchingIntoBrowseClosesPicker(t *testing.T) {
 	h.press(tea.KeyDown, tea.ModCtrl) // to rook, who is browsing
 	if h.m.active != "fm/rook" || h.m.picker != nil {
 		t.Errorf("active = %q, picker open = %v; browse would hide the filter", h.m.active, h.m.picker != nil)
+	}
+}
+
+func TestPickerPageStepsByRows(t *testing.T) {
+	worlds := map[string]string{}
+	for i := range 20 { // 40 rows: taller than the screen
+		worlds[fmt.Sprintf("w%02d", i)] = fmt.Sprintf("host = \"w.test\"\nport = 1\n\n[[characters]]\nid = \"c%02d\"\nname = \"C%02d\"\n", i, i)
+	}
+	h := newHarness(t, worlds)
+	h.press('o', tea.ModCtrl)
+	rowOf := func() int {
+		return slices.IndexFunc(h.m.pickerRows(), func(r sidebarRow) bool { return r.char == h.m.picker.sel })
+	}
+	start, page := rowOf(), max(1, h.m.sidebarView().avail-1)
+	h.press(tea.KeyPgDown, 0)
+	if got := rowOf(); got <= start || got > start+page {
+		t.Errorf("PgDn: row %d → %d, want within one page (%d rows)", start, got, page)
+	}
+	if name := "C" + h.m.picker.sel[len(h.m.picker.sel)-2:]; !slices.Contains(sideRows(h), name) {
+		t.Errorf("highlight %q scrolled out of view:\n%s", h.m.picker.sel, h.screen())
+	}
+	mid, page := rowOf(), max(1, h.m.sidebarView().avail-1) // the ▲ hint takes a row now
+	h.press(tea.KeyPgUp, 0)
+	if got := rowOf(); got >= mid || got < mid-page {
+		t.Errorf("PgUp: row %d → %d, want within one page (%d rows)", mid, got, page)
+	}
+}
+
+func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	delete(h.pw, "fm/kit")
+	h.init()
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.typeText("s3cret")
+	h.enter()
+	if h.m.mode != modeSavePassword {
+		t.Fatal("no save-password question")
+	}
+	h.press('o', tea.ModCtrl)
+	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
+		t.Errorf("Ctrl+O: picker opened or no status:\n%s", h.screen())
+	}
+	h.m.status = ""
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft}) // rows: fm, Kit, + Add connection
+	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
+		t.Errorf("click: picker opened or no status:\n%s", h.screen())
+	}
+	if h.m.mode != modeSavePassword || len(h.saved) != 0 {
+		t.Error("the question should still be waiting")
 	}
 }

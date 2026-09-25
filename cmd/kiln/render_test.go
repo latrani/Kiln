@@ -24,11 +24,16 @@ func TestRender(t *testing.T) {
 			"\x1b[1;38;2;255;159;67m» Mira pages: hi\x1b[0m"},
 		{"style survives server reset", in("\x1b[1mMira\x1b[0m pages"),
 			rules.Result{Style: config.Style{Italic: true}, Styled: true},
-			"\x1b[3m\x1b[1mMira\x1b[0m\x1b[3m pages\x1b[0m"},
+			"\x1b[1m\x1b[3mMira\x1b[0m\x1b[3m pages\x1b[0m"},
 		{"partial", in("PAGE: hi"),
 			rules.Result{Styled: true, Attention: true, Runs: []rules.Run{
 				{Start: 0, End: 5, Style: config.Style{Bold: true}, Styled: true}, {Start: 5, End: 8}}},
 			"» \x1b[1mPAGE:\x1b[0m hi\x1b[0m"},
+		{"sanitized", in("\x1b]52;c;cHduZWQ=\x07\x1b]0;title\x07hi\x1b[2J"), rules.Result{}, "hi\x1b[0m"},
+		{"spans align after sanitizing", in("\x1b]0;t\x07\tPAGE: hi"),
+			rules.Result{Styled: true, Runs: []rules.Run{
+				{Start: 0, End: 4}, {Start: 4, End: 9, Style: config.Style{Bold: true}, Styled: true}, {Start: 9, End: 12}}},
+			"    \x1b[1mPAGE:\x1b[0m hi\x1b[0m"},
 		{"bad color ignored", in("x"), rules.Result{Style: config.Style{FG: "orange"}, Styled: true}, "x\x1b[0m"},
 	}
 	for _, c := range cases {

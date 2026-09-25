@@ -557,6 +557,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 		case "n", "N", "esc", "ctrl+c":
 			m.setStatus(false, "password not saved")
+		case openPickerKey:
+			m.openPicker() // says why not
+			return nil
 		default:
 			return nil
 		}
