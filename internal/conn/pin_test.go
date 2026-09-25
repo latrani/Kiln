@@ -2,6 +2,7 @@ package conn
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -19,6 +20,26 @@ func TestKnownHosts(t *testing.T) {
 		got, ok, err := k.Lookup(host)
 		if !ok || err != nil || got != want {
 			t.Errorf("Lookup(%s) = %q, %v, %v; want %q", host, got, ok, err, want)
+		}
+	}
+}
+
+func TestValidateFingerprint(t *testing.T) {
+	good := "sha256:" + strings.Repeat("0a", 32)
+	if err := ValidateFingerprint(good); err != nil {
+		t.Errorf("%q: %v", good, err)
+	}
+	for _, bad := range []string{
+		"",
+		strings.Repeat("0a", 32),             // no prefix
+		"sha1:" + strings.Repeat("0a", 32),   // wrong algorithm
+		"sha256:" + strings.Repeat("0a", 31), // short
+		"sha256:" + strings.Repeat("0a", 32) + "0", // long
+		"sha256:" + strings.Repeat("0A", 32),       // uppercase
+		"sha256:" + strings.Repeat("0g", 32),       // not hex
+	} {
+		if ValidateFingerprint(bad) == nil {
+			t.Errorf("%q accepted", bad)
 		}
 	}
 }

@@ -20,6 +20,18 @@ func Fingerprint(cert *x509.Certificate) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// ValidateFingerprint checks that fp has the form Fingerprint produces,
+// "sha256:" and 64 lowercase hex digits, so a typo is never pinned.
+func ValidateFingerprint(fp string) error {
+	hexPart, ok := strings.CutPrefix(fp, "sha256:")
+	if ok && len(hexPart) == 2*sha256.Size && strings.ToLower(hexPart) == hexPart {
+		if _, err := hex.DecodeString(hexPart); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("malformed fingerprint %q: want sha256: followed by 64 lowercase hex digits", fp)
+}
+
 // PinMismatchError means a server presented a different certificate than
 // the one pinned on first use.
 type PinMismatchError struct {
