@@ -16,6 +16,10 @@ import (
 	"github.com/latrani/Kiln/internal/telnet"
 )
 
+// PromptDelay is how long an unterminated line must sit idle before it is
+// reported on Prompts().
+const PromptDelay = 250 * time.Millisecond
+
 // Options configures Dial.
 type Options struct {
 	Host       string
@@ -29,11 +33,14 @@ type Options struct {
 
 // Conn is an open connection. Received lines arrive on Lines().
 type Conn struct {
-	nc     net.Conn
-	lines  chan string
-	mu     sync.Mutex // guards writes and parser
-	parser *telnet.Parser
-	err    error // set before lines is closed
+	nc      net.Conn
+	chunks  chan []byte
+	lines   chan string
+	prompts chan string
+	mu      sync.Mutex // guards writes and parser
+	parser  *telnet.Parser
+	readErr error // written by readLoop before chunks is closed
+	err     error // set before lines is closed
 }
 
 // Dial connects and starts reading. The context bounds only the dial.
@@ -55,8 +62,15 @@ func Dial(ctx context.Context, o Options) (*Conn, error) {
 		}
 		return nil, err
 	}
-	c := &Conn{nc: nc, lines: make(chan string, 64), parser: telnet.NewParser(o.Width, o.Height)}
+	c := &Conn{
+		nc:      nc,
+		chunks:  make(chan []byte, 16),
+		lines:   make(chan string, 64),
+		prompts: make(chan string, 1),
+		parser:  telnet.NewParser(o.Width, o.Height),
+	}
 	go c.readLoop()
+	go c.processLoop()
 	return c, nil
 }
 
@@ -88,31 +102,68 @@ func tlsConfig(o Options, hostport string) *tls.Config {
 	return cfg
 }
 
+// readLoop only reads; processLoop does everything else so it can also
+// wake up on a timer to report prompts.
 func (c *Conn) readLoop() {
-	var s splitter
 	buf := make([]byte, 16*1024)
 	for {
 		n, err := c.nc.Read(buf)
 		if n > 0 {
+			c.chunks <- append([]byte(nil), buf[:n]...)
+		}
+		if err != nil {
+			c.readErr = err
+			close(c.chunks)
+			return
+		}
+	}
+}
+
+func (c *Conn) processLoop() {
+	var s splitter
+	timer := time.NewTimer(PromptDelay)
+	timer.Stop()
+	lastPrompt := ""
+	for {
+		select {
+		case chunk, ok := <-c.chunks:
+			if !ok {
+				for _, line := range s.flush() {
+					c.lines <- line
+				}
+				if !errors.Is(c.readErr, io.EOF) {
+					c.err = c.readErr
+				}
+				close(c.lines)
+				return
+			}
 			c.mu.Lock()
-			data, reply := c.parser.Feed(buf[:n])
+			data, reply := c.parser.Feed(chunk)
 			if len(reply) > 0 {
 				c.nc.Write(reply)
 			}
 			c.mu.Unlock()
-			for _, line := range s.push(data) {
+			lines := s.push(data)
+			for _, line := range lines {
 				c.lines <- line
 			}
-		}
-		if err != nil {
-			for _, line := range s.flush() {
-				c.lines <- line
+			if len(lines) > 0 {
+				lastPrompt = ""
 			}
-			if !errors.Is(err, io.EOF) {
-				c.err = err
+			if s.partial() != "" {
+				timer.Reset(PromptDelay)
+			} else {
+				timer.Stop()
 			}
-			close(c.lines)
-			return
+		case <-timer.C:
+			if p := s.partial(); p != "" && p != lastPrompt {
+				lastPrompt = p
+				select { // keep only the newest prompt
+				case <-c.prompts:
+				default:
+				}
+				c.prompts <- p
+			}
 		}
 	}
 }
@@ -120,6 +171,11 @@ func (c *Conn) readLoop() {
 // Lines delivers received lines. It is closed when the connection ends;
 // Err then reports why (nil for a clean close by the server).
 func (c *Conn) Lines() <-chan string { return c.lines }
+
+// Prompts delivers unterminated lines (e.g. "Password: ") that have sat
+// idle for PromptDelay. They are not lines: when the rest arrives, the
+// complete line still comes through Lines(). Never closed.
+func (c *Conn) Prompts() <-chan string { return c.prompts }
 
 // Err is valid after Lines() is closed.
 func (c *Conn) Err() error { return c.err }
