@@ -216,7 +216,7 @@ func (h *harness) init() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"▾ fm", "✕ Kit", "✕ Rook", "fm/Kit 🔒 · disconnected · 21:14", "  Disconnected · Enter to connect"} {
+	for _, want := range []string{"▾ fm", "✕ Kit", "✕ Rook", "fm/Kit 🔒 · disconnected · 21:14", "│Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -394,7 +394,7 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
 	s := h.screen()
-	if !strings.Contains(s, "  Password for Kit: ••••••   Enter to log in") || strings.Contains(s, "s3cret") || strings.Contains(s, "> ") {
+	if !strings.Contains(s, "│Password for Kit: ••••••   Enter to log in") || strings.Contains(s, "s3cret") || strings.Contains(s, "> ") {
 		t.Errorf("password not masked:\n%s", s)
 	}
 	h.enter()
@@ -799,7 +799,7 @@ func TestSavePasswordPromptDefaultsToYes(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
 	h.enter()
-	if s := h.screen(); !strings.Contains(s, "  Save password for Kit in the keychain? [Y/n]") {
+	if s := h.screen(); !strings.Contains(s, "│Save password for Kit in the keychain? [Y/n]") {
 		t.Errorf("no save prompt:\n%s", s)
 	}
 	h.typeText("q") // not an answer; the question stays
@@ -879,8 +879,8 @@ func TestConnectHintFollowsState(t *testing.T) {
 		state session.State
 		want  string
 	}{
-		{session.Connecting, "  Connecting…"},
-		{session.Failed, "  Connection failed · Enter to retry"},
+		{session.Connecting, "│Connecting…"},
+		{session.Failed, "│Connection failed · Enter to retry"},
 	} {
 		cs.state = c.state
 		if s := h.screen(); !strings.Contains(s, c.want) {
