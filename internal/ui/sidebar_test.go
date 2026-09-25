@@ -170,3 +170,44 @@ func TestOpeningShowsConnectingNotX(t *testing.T) {
 		t.Errorf("row = %q right after connecting", got)
 	}
 }
+
+func TestEmptyState(t *testing.T) {
+	h := newHarness(t, map[string]string{"sp": spWorld}) // nothing autoconnects
+	if s := h.screen(); !strings.Contains(s, "│"+emptyHint) {
+		t.Fatalf("no empty-state prompt:\n%s", s)
+	}
+	for _, k := range []rune{tea.KeyUp, tea.KeyDown, tea.KeyPgUp, tea.KeyPgDown, tea.KeyEscape} {
+		h.press(k, 0) // must not panic with nothing open
+	}
+	h.typeText("hello")
+	h.enter()
+	if !strings.Contains(h.screen(), "nothing open to send to") {
+		t.Errorf("screen:\n%s", h.screen())
+	}
+	h.press('c', tea.ModCtrl) // clear "hello"
+	h.typeText("/browse")
+	h.enter()
+	if !strings.Contains(h.screen(), "/browse needs an open character") {
+		t.Errorf("screen:\n%s", h.screen())
+	}
+	h.enter() // empty input: open the picker
+	if h.m.picker == nil {
+		t.Fatal("Enter on the empty state should open the picker")
+	}
+	h.press(tea.KeyEscape, 0)
+	h.typeText("/quit")
+	if cmd := h.enter(); cmd == nil {
+		t.Fatal("/quit returned no command")
+	} else if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Error("/quit didn't quit")
+	}
+}
+
+func TestClosingLastCharacterShowsEmptyState(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("/close")
+	h.enter()
+	if s := h.screen(); !strings.Contains(s, "│"+emptyHint) || strings.Contains(s, "Kit") {
+		t.Errorf("screen:\n%s", s)
+	}
+}
