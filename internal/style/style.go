@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/rules"
 )
 
 // Reset clears all SGR attributes.
@@ -62,4 +64,64 @@ func hexRGB(h string) (r, g, b uint8, ok bool) {
 		return 0, 0, 0, false
 	}
 	return uint8(v >> 16), uint8(v >> 8), uint8(v), true
+}
+
+// Highlight draws res over server text: the whole line in res.Style, or
+// each styled run in its style. Where a run ends mid-line, the server's
+// own SGR state is restored; a server reset inside a run re-applies the
+// run's style. text's ANSI-stripped form must be the plain text res was
+// computed on. The result ends with Reset.
+func Highlight(text string, res rules.Result) string {
+	if !res.Styled {
+		return text + Reset
+	}
+	if res.Runs == nil {
+		return Apply(text, res.Style)
+	}
+	var b, server strings.Builder // server: its SGR since its last reset
+	runs, ri, pos := res.Runs, 0, 0
+	ours := "" // our SGR, while inside a styled run
+	for i := 0; i < len(text); {
+		if text[i] == 0x1b {
+			j := ansi.EscapeEnd(text, i)
+			seq := text[i:j]
+			b.WriteString(seq)
+			if params, ok := sgrParams(seq); ok {
+				if first, _, _ := strings.Cut(params, ";"); first == "" || first == "0" {
+					server.Reset()
+					if params != "" && params != "0" {
+						server.WriteString(seq) // e.g. ESC[0;31m: reset, then red
+					}
+					b.WriteString(ours)
+				} else {
+					server.WriteString(seq)
+				}
+			}
+			i = j
+			continue
+		}
+		for ri < len(runs) && pos >= runs[ri].End {
+			if ours != "" {
+				b.WriteString(Reset + server.String())
+				ours = ""
+			}
+			ri++
+		}
+		if ours == "" && ri < len(runs) && runs[ri].Styled {
+			ours = SGR(runs[ri].Style)
+			b.WriteString(ours)
+		}
+		b.WriteByte(text[i])
+		i++
+		pos++
+	}
+	return b.String() + Reset
+}
+
+// sgrParams returns the parameters of an SGR sequence (ESC [ … m).
+func sgrParams(seq string) (string, bool) {
+	if len(seq) < 3 || seq[1] != '[' || seq[len(seq)-1] != 'm' {
+		return "", false
+	}
+	return seq[2 : len(seq)-1], true
 }

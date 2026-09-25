@@ -352,10 +352,7 @@ func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entr
 	}
 	plain := ansi.Strip(text)
 	res := hl.Apply(plain, cls.Tags(plain))
-	if !res.Styled {
-		return text + style.Reset, res.Attention
-	}
-	return style.Apply(text, res.Style), res.Attention
+	return style.Highlight(text, res), res.Attention
 }
 
 // connect starts (or restarts) a character's session.

@@ -20,6 +20,9 @@ func render(e logstore.Entry, res rules.Result) string {
 	if res.Attention {
 		marker = "» "
 	}
+	if res.Runs != nil {
+		return marker + style.Highlight(e.Text, res) // spans index e.Text, not the marker
+	}
 	if !res.Styled {
 		return marker + e.Text + style.Reset
 	}

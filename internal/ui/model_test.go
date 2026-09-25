@@ -15,10 +15,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/style"
 )
 
 // testConn is a scripted server connection.
@@ -920,5 +923,15 @@ func TestConnectHintFollowsState(t *testing.T) {
 	h.enter() // nothing to do while connecting
 	if cs.sess != nil {
 		t.Error("Enter while connecting started a session")
+	}
+}
+
+func TestRenderLineMatchScope(t *testing.T) {
+	cls, _ := classify.New([]config.ClassifyRule{{Tag: "page", Pattern: `^PAGE:`}}, "Kit", nil)
+	blue := config.Style{FG: "#2053ff", Bold: true}
+	hl, _ := rules.New([]config.HighlightRule{{Match: config.Match{Tags: []string{"page"}}, Style: blue, Scope: "match", Attention: true}})
+	got, attn := renderLine(cls, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
+	if want := style.SGR(blue) + "PAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !attn {
+		t.Errorf("renderLine = %q, %v; want %q, true", got, attn, want)
 	}
 }
