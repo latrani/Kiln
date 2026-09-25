@@ -27,6 +27,7 @@ type testConn struct {
 	prompts   chan string
 	mu        sync.Mutex
 	sent      []string
+	sizes     [][2]int
 	closeOnce sync.Once
 }
 
@@ -42,6 +43,17 @@ func (c *testConn) Send(l string) error {
 	defer c.mu.Unlock()
 	c.sent = append(c.sent, l)
 	return nil
+}
+func (c *testConn) Resize(w, h int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sizes = append(c.sizes, [2]int{w, h})
+	return nil
+}
+func (c *testConn) Sizes() [][2]int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([][2]int(nil), c.sizes...)
 }
 func (c *testConn) Sent() []string {
 	c.mu.Lock()
@@ -556,6 +568,29 @@ func TestSidebarNoHintsWhenItFits(t *testing.T) {
 	h := newHarness(t, map[string]string{"big": manyChars(23)}) // 24 rows, 24 high
 	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C22") {
 		t.Errorf("screen:\n%s", s)
+	}
+}
+
+func TestResizeIsDebouncedAndReported(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // 80×24: right pane 63 wide
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	c := h.conn("fm/kit")
+	if got := c.Sizes(); len(got) != 1 || got[0] != [2]int{63, 24} {
+		t.Fatalf("sizes at connect = %v, want [[63 24]]", got)
+	}
+	// A drag: three sizes in quick succession. Every tick fires, but only
+	// the last one reports.
+	var cmds []tea.Cmd
+	for _, w := range []int{100, 110, 120} {
+		_, cmd := h.m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
+		cmds = append(cmds, cmd)
+	}
+	for _, cmd := range cmds {
+		h.m.Update(cmd())
+	}
+	if got := c.Sizes(); len(got) != 2 || got[1] != [2]int{120 - 22 - 1, 40} {
+		t.Errorf("sizes = %v, want one more report of [97 40]", got)
 	}
 }
 
