@@ -1,0 +1,46 @@
+# GoReleaser config: builds static Kiln binaries and publishes them as a
+# draft GitHub Release. Run by .github/workflows/release.yml when a v* tag
+# is pushed. Try it locally with: goreleaser release --snapshot --clean
+version: 2
+
+project_name: kiln
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - main: ./cmd/kiln
+    binary: kiln
+    env:
+      - CGO_ENABLED=0 # static binaries; the keychain library needs no cgo
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags: [-s -w]
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [README.md, LICENSE]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs"
+      - "^test"
+      - "^style"
+
+release:
+  # Releases start as drafts: review the notes and files on GitHub, then
+  # press "Publish release".
+  draft: true
