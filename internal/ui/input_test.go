@@ -56,6 +56,55 @@ func TestInputMultiline(t *testing.T) {
 	}
 }
 
+func TestInputGraphemeClusters(t *testing.T) {
+	const (
+		family = "👩\u200d👩\u200d👧" // ZWJ sequence: 5 runes, 2 cells
+		wave   = "👋🏽"              // skin tone: 2 runes, 2 cells
+		flag   = "🇳🇿"              // regional indicators: 2 runes, 2 cells
+		accent = "e\u0301"         // combining mark: 2 runes, 1 cell
+	)
+	in := typed("a" + family + wave + flag + accent)
+	rows, _, c := in.Render(40, 0, false, false)
+	if want := 2 + 1 + 2 + 2 + 2 + 1; c != want {
+		t.Errorf("cursor col = %d, want %d (row %q)", c, want, ansi.Strip(rows[0]))
+	}
+	in.Backspace()
+	if in.Value() != "a"+family+wave+flag {
+		t.Errorf("backspace removed part of a cluster: %q", in.Value())
+	}
+	in.Left()
+	in.Left()
+	if _, _, c := in.Render(40, 0, false, false); c != 2+1+2 {
+		t.Errorf("after two Lefts cursor col = %d, want 5", c)
+	}
+	in.Delete()
+	if in.Value() != "a"+family+flag {
+		t.Errorf("delete = %q", in.Value())
+	}
+	in.Home()
+	in.Right()
+	in.Right()
+	in.InsertText("!")
+	if in.Value() != "a"+family+"!"+flag {
+		t.Errorf("Right should skip the whole family: %q", in.Value())
+	}
+	rows, _, _ = typed(family+wave).Render(20, 0, false, true)
+	if got := ansi.Strip(rows[0]); got != "> ••" {
+		t.Errorf("masked = %q, want one bullet per cluster", got)
+	}
+}
+
+func TestInputUpDownSnapsToCluster(t *testing.T) {
+	in := typed("👋🏽x\nabc") // line 0: wave is runes 0-1, x is 2
+	in.Home()
+	in.Right() // col 1 on "abc"
+	in.Up()    // rune 1 is mid-cluster on line 0; snap to 0
+	in.InsertText("[")
+	if in.Value() != "[👋🏽x\nabc" {
+		t.Errorf("Value = %q", in.Value())
+	}
+}
+
 func TestInputHistory(t *testing.T) {
 	in := NewInput()
 	in.InsertText("first")
