@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -54,9 +55,16 @@ func (f *fakeConn) Sent() []string {
 }
 
 type memLog struct {
-	mu      sync.Mutex
-	entries []logstore.Entry
-	fail    error
+	mu       sync.Mutex
+	entries  []logstore.Entry
+	fail     error
+	sessions []int // len(entries) at each NewSession
+}
+
+func (m *memLog) NewSession() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sessions = append(m.sessions, len(m.entries))
 }
 
 func (m *memLog) Append(e logstore.Entry) error {
@@ -286,6 +294,19 @@ func TestReconnectsWithBackoffAfterDrop(t *testing.T) {
 	waitFor(t, s, func(e Event) bool { return e.Kind == EventLine && e.Entry.Text == "two" })
 	if !containsPrefix(log.Texts(), "* disconnected (connection reset); retrying in") {
 		t.Errorf("log = %q", log.Texts())
+	}
+	// Each connection starts a new log session, just before "connected".
+	texts := log.Texts()
+	log.mu.Lock()
+	sessions := slices.Clone(log.sessions)
+	log.mu.Unlock()
+	if len(sessions) != 2 {
+		t.Fatalf("NewSession at %v, want once per connection", sessions)
+	}
+	for _, i := range sessions {
+		if !strings.HasPrefix(texts[i], "* connected to") {
+			t.Errorf("session starts at %q, want the connected line", texts[i])
+		}
 	}
 	mu.Lock()
 	defer mu.Unlock()

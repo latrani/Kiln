@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -31,11 +32,11 @@ const HistoryLines = 200
 // fakes; cmd/kiln wires the real ones.
 type Deps struct {
 	ConfigDir  string
-	LogRoot    string
+	LogRoot    string // where log_dir is relative to; "" (and no absolute log_dir): no history
 	KnownHosts conn.KnownHosts
 	Load       func(dir string) (*config.Config, error)
 	Dial       func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog     func(world, char string) session.Appender
+	NewLog     func(dir, char string) session.Appender // dir from logDir
 	// Password and SavePassword use the password_store setting in store.
 	Password     func(store, world, char string) (string, error)
 	SavePassword func(store, world, char, password string) error // nil: never offer
@@ -64,9 +65,8 @@ type Model struct {
 	status    string
 	statusErr bool
 	mode      mode
-	pendingPW string    // entered password awaiting the save y/n answer
-	pendingCh [2]string // world and character id the pending password belongs to
-	exportDir string
+	pendingPW string                 // entered password awaiting the save y/n answer
+	pendingCh [2]string              // world and character id the pending password belongs to
 	confirm   bool                   // next Enter sends an over-limit line anyway
 	resizeGen int                    // bumped per WindowSizeMsg; see resizeMsg
 	sideTop   int                    // first sidebar row shown when it overflows
@@ -217,13 +217,12 @@ func (m *Model) reloadNow() bool {
 // closes.
 func (m *Model) applyConfig(cfg *config.Config) {
 	m.cfg = cfg
-	m.exportDir = cfg.ExportDir
 	store := cfg.PasswordStore
 	m.pwStore.Store(&store)
 	for _, k := range slices.Clone(m.order) {
 		cs := m.chars[k]
 		if cs.browse != nil {
-			cs.browse.exportDir = cfg.ExportDir
+			cs.browse.setExport(cfg)
 		}
 		ch, ok := m.find(k)
 		if !ok {
@@ -261,14 +260,23 @@ func (cs *charState) compile() error {
 	return nil
 }
 
+// logDir is where ch's logs go (see logstore.CharDir), or "" for none.
+func (m *Model) logDir(ch config.Character) string {
+	if m.d.LogRoot == "" && !filepath.IsAbs(m.cfg.LogDir) {
+		return ""
+	}
+	return logstore.CharDir(m.cfg.LogDir, m.d.LogRoot, ch.World, ch.ID)
+}
+
 // preload fills the scrollback with the tail of the most recent log days
 // and hands everything older to the scrollback to page in on demand, so
 // scrollback is unlimited.
 func (m *Model) preload(cs *charState) {
-	if m.d.LogRoot == "" {
+	dir := m.logDir(cs.ch)
+	if dir == "" {
 		return
 	}
-	hist, err := history.NewReader(m.d.LogRoot, cs.ch.World, cs.ch.ID)
+	hist, err := history.NewReader(dir, cs.ch.ID)
 	if err != nil {
 		return
 	}
@@ -389,7 +397,7 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 	var s *session.Session
 	s = session.New(session.Options{
 		Char: cs.ch,
-		Log:  m.d.NewLog(cs.ch.World, cs.ch.ID),
+		Log:  m.d.NewLog(m.logDir(cs.ch), cs.ch.ID),
 		Dial: func(ctx context.Context) (session.LineConn, error) { return m.d.Dial(ctx, s.Char()) },
 		Password: func() (string, error) {
 			ch := s.Char()
@@ -898,8 +906,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
-	cs.browse = newBrowse(cs, m.d.LogRoot)
-	cs.browse.exportDir = m.exportDir
+	cs.browse = newBrowse(cs, m.logDir(cs.ch))
+	cs.browse.setExport(m.cfg)
 	m.status = ""
 }
 

@@ -128,7 +128,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			h.conns[k] = c
 			return c, nil
 		},
-		NewLog: func(world, char string) session.Appender { return memLog{} },
+		NewLog: func(dir, char string) session.Appender { return memLog{} },
 		Password: func(store, world, char string) (string, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
@@ -507,7 +507,7 @@ func TestPromptShown(t *testing.T) {
 func TestPreloadsHistory(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(root, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", root, "fm", "kit"), "kit")
 	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
 	w.Append(logstore.Entry{Time: ts, Dir: logstore.In, Text: "yesterday's news"})
 	w.Close()
@@ -846,7 +846,7 @@ func TestConnectWhenAlreadyConnected(t *testing.T) {
 func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(root, "fm", "kit")
+	w := logstore.NewWriter(logstore.CharDir("", root, "fm", "kit"), "kit")
 	for _, d := range []int{23, 24} {
 		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
 		for i := 0; i < 150; i++ {
