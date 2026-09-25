@@ -197,3 +197,22 @@ func TestAutoconnectInherits(t *testing.T) {
 		}
 	}
 }
+
+func TestExportDir(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	for _, c := range []struct{ toml, want string }{
+		{"", filepath.Join(home, "Documents", "Kiln Scenes")},
+		{"export_dir = \"~/scenes\"\n", filepath.Join(home, "scenes")},
+		{"export_dir = \"/tmp/x\"\n", "/tmp/x"},
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"config.toml": c.toml})
+		cfg, err := Load(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.ExportDir != c.want {
+			t.Errorf("export_dir %q → %q, want %q", c.toml, cfg.ExportDir, c.want)
+		}
+	}
+}

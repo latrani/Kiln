@@ -80,7 +80,8 @@ type World struct {
 
 // Config is the resolved configuration.
 type Config struct {
-	Worlds []World // sorted by ID
+	Worlds    []World // sorted by ID
+	ExportDir string  // where browse-mode exports go; "~" already expanded
 }
 
 // Find returns the resolved character, or false.
@@ -123,7 +124,8 @@ func (s *settings) overlay(o settings) {
 }
 
 type globalFile struct {
-	Defaults settings `toml:"defaults"`
+	ExportDir string   `toml:"export_dir"`
+	Defaults  settings `toml:"defaults"`
 }
 
 type charFile struct {
@@ -169,7 +171,11 @@ func Load(dir string) (*Config, error) {
 	sort.Strings(worldPaths)
 
 	packs := map[string]Rules{}
-	cfg := &Config{}
+	exportDir, err := expandHome(g.ExportDir)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &Config{ExportDir: exportDir}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, packs)
 		if err != nil {
@@ -309,6 +315,24 @@ func decodeFile(path string, v any, optional bool) error {
 		return fmt.Errorf("%s: unknown key %q", filepath.Base(path), und[0].String())
 	}
 	return nil
+}
+
+// DefaultExportDir is used when config.toml sets no export_dir.
+const DefaultExportDir = "~/Documents/Kiln Scenes"
+
+// expandHome expands a leading "~/" (and defaults an empty path).
+func expandHome(p string) (string, error) {
+	if p == "" {
+		p = DefaultExportDir
+	}
+	if p != "~" && !strings.HasPrefix(p, "~/") {
+		return p, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, strings.TrimPrefix(p, "~")), nil
 }
 
 func appendRules(a, b Rules) Rules {
