@@ -44,7 +44,7 @@ func (m *Model) layout() layout {
 	} else {
 		l.masked = cs.needPW
 		l.inputLimit = cs.ch.MaxLineBytes
-		rows, r, c := cs.in.Render(l.rw, l.inputLimit, l.masked)
+		rows, r, c := cs.in.Render(l.rw, l.inputLimit, cs.ch.NewlineMode == "flatten", l.masked)
 		maxIn := max(1, m.height/3)
 		top := 0
 		if len(rows) > maxIn {

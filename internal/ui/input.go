@@ -190,13 +190,26 @@ func (in *Input) Down() {
 }
 
 // Render lays the text out for width w (including a 2-cell "> " gutter),
-// highlighting bytes past limit on each line in red, and returns the rows
-// plus the cursor's row and column. Masked text shows as bullets.
-func (in *Input) Render(w, limit int, masked bool) (rows []string, curRow, curCol int) {
+// highlighting bytes past limit in red, and returns the rows plus the
+// cursor's row and column. The limit applies to each line, or with joined
+// to the lines joined by spaces (newline_mode = "flatten"). Masked text
+// shows as bullets.
+func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRow, curCol int) {
 	aw := max(1, w-2)
+	total := 0 // bytes before this line when joined
 	for li, line := range in.lines {
 		var b strings.Builder
 		col, bytes, red := 0, 0, false
+		if joined {
+			if li > 0 {
+				total++ // the joining space
+			}
+			bytes = total
+			if limit > 0 && bytes > limit {
+				red = true
+				b.WriteString(overLimit)
+			}
+		}
 		flush := func() {
 			if red {
 				b.WriteString("\x1b[0m")
@@ -239,14 +252,22 @@ func (in *Input) Render(w, limit int, masked bool) (rows []string, curRow, curCo
 			curRow, curCol = len(rows), col
 		}
 		flush()
+		total = bytes
 	}
 	return rows, curRow, curCol + 2
 }
 
-// OverLimit reports whether any line is longer than limit bytes.
-func (in *Input) OverLimit(limit int) bool {
+// OverLimit reports whether any line is longer than limit bytes, or with
+// joined whether the lines joined by spaces are.
+func (in *Input) OverLimit(limit int, joined bool) bool {
+	if limit <= 0 {
+		return false
+	}
+	if joined {
+		return len(strings.Join(strings.Split(in.Value(), "\n"), " ")) > limit
+	}
 	for _, l := range in.lines {
-		if limit > 0 && len(string(l)) > limit {
+		if len(string(l)) > limit {
 			return true
 		}
 	}
