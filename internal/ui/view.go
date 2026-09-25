@@ -170,7 +170,14 @@ func (m *Model) View() tea.View {
 	l := m.layout()
 	right := make([]string, 0, m.height)
 	cs := m.cur()
-	if cs == nil {
+	var cursor *tea.Cursor
+	if cs != nil && cs.browse != nil {
+		rows, x, y, show := cs.browse.view(l.rw, m.height)
+		right = rows
+		if show {
+			cursor = tea.NewCursor(l.sw+1+x, y)
+		}
+	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
 		right[0] = style.Dim("No characters yet: add one in " + m.d.ConfigDir + "/worlds/")
 	} else {
@@ -183,10 +190,13 @@ func (m *Model) View() tea.View {
 		}
 		right = append(right, rows...)
 	}
-	rule := style.Dim(strings.Repeat("─", l.rw))
-	right = append(right, rule)
-	right = append(right, l.inRows...)
-	right = append(right, rule, m.statusLine(l.rw))
+	if cs == nil || cs.browse == nil {
+		rule := style.Dim(strings.Repeat("─", l.rw))
+		right = append(right, rule)
+		right = append(right, l.inRows...)
+		right = append(right, rule, m.statusLine(l.rw))
+		cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
+	}
 
 	side := m.sidebarRows()
 	var b strings.Builder
@@ -205,6 +215,6 @@ func (m *Model) View() tea.View {
 		}
 	}
 	v.Content = b.String()
-	v.Cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
+	v.Cursor = cursor
 	return v
 }
