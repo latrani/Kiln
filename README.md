@@ -133,8 +133,9 @@ To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
 | `g` | Go to a date (`2026-09-24`) |
 | `/`, then `n` / `N` | Find, then next or previous match |
 | `1`–`9`, or click a tag | Cycle a tag filter: neutral → `+tag` (only these) → `−tag` (hide these) |
-| `m` | Mark the start of a range, then its end (shift-click works too) |
+| `m` | Mark the start of a range, then its end |
 | `Space` | Leave the current line out of the range |
+| Click, shift-click | Select a line; shift-click outside the range to extend it, or inside it to leave a line out (or bring it back) |
 | `e` | Export the range as plain text, ANSI or HTML |
 | `c` | Copy the range as plain text |
 
