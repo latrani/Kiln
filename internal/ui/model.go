@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -79,6 +80,7 @@ type charState struct {
 	pin       *conn.PinMismatchError
 	needPW    bool
 	pwDraft   string  // input stashed while the password prompt is up
+	orphan    bool    // removed from the config; dropped when it disconnects
 	browse    *browse // non-nil while browse mode is open
 }
 
@@ -170,8 +172,8 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 }
 
 // applyConfig adds, updates and removes characters to match cfg.
-// Connected characters that vanished from the config stay until they
-// disconnect.
+// Connected characters that vanished from the config become orphans: they
+// stay, grouped under their world, until they next disconnect.
 func (m *Model) applyConfig(cfg *config.Config) {
 	m.exportDir = cfg.ExportDir
 	for _, cs := range m.chars {
@@ -191,7 +193,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 				cs = &charState{key: k, in: NewInput()}
 				m.chars[k] = cs
 			}
-			cs.ch = ch
+			cs.ch, cs.orphan = ch, false
 			if err := cs.compile(); err != nil {
 				m.setStatus(true, "%s: %v", k, err)
 			}
@@ -206,7 +208,8 @@ func (m *Model) applyConfig(cfg *config.Config) {
 		}
 		cs := m.chars[k]
 		if cs.sess != nil && cs.state != session.Disconnected && cs.state != session.Failed {
-			order = append(order, k) // keep until it disconnects
+			cs.orphan = true
+			order = insertInWorld(order, m.chars, k)
 			continue
 		}
 		if cs.cancel != nil {
@@ -215,10 +218,38 @@ func (m *Model) applyConfig(cfg *config.Config) {
 		delete(m.chars, k)
 	}
 	m.order = order
+	m.fixActive()
+}
+
+// insertInWorld adds k to order after the last character of its world, so
+// the sidebar shows it under that world's existing header.
+func insertInWorld(order []string, chars map[string]*charState, k string) []string {
+	world := chars[k].ch.World
+	at := len(order)
+	for i, o := range order {
+		if chars[o].ch.World == world {
+			at = i + 1
+		}
+	}
+	return slices.Insert(order, at, k)
+}
+
+// drop stops an orphaned character's session and removes it.
+func (m *Model) drop(k string) {
+	if cs := m.chars[k]; cs != nil && cs.cancel != nil {
+		cs.cancel()
+	}
+	delete(m.chars, k)
+	m.order = slices.DeleteFunc(m.order, func(o string) bool { return o == k })
+	m.fixActive()
+}
+
+// fixActive picks the first character if the active one is gone.
+func (m *Model) fixActive() {
 	if _, ok := m.chars[m.active]; !ok {
 		m.active = ""
-		if len(order) > 0 {
-			m.active = order[0]
+		if len(m.order) > 0 {
+			m.active = m.order[0]
 		}
 	}
 }
@@ -368,6 +399,10 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		cs.sb.SetPrompt(ansi.Sanitize(ev.Entry.Text))
 	case session.EventState:
 		cs.state = ev.State
+		if cs.orphan && (ev.State == session.Disconnected || ev.State == session.Failed) {
+			m.drop(msg.key) // don't reconnect (and log in) a deleted character
+			return nil
+		}
 		var pin *conn.PinMismatchError
 		if ev.State == session.Failed && errors.As(ev.Err, &pin) {
 			cs.pin = pin
