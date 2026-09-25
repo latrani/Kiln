@@ -78,7 +78,28 @@ type charState struct {
 	attention bool
 	pin       *conn.PinMismatchError
 	needPW    bool
+	pwDraft   string  // input stashed while the password prompt is up
 	browse    *browse // non-nil while browse mode is open
+}
+
+// startPassword shows the masked password prompt, stashing any draft so
+// it neither becomes part of the password nor is lost.
+func (cs *charState) startPassword() {
+	if cs.needPW {
+		return
+	}
+	cs.needPW = true
+	cs.pwDraft = cs.in.Value()
+	cs.in.Reset()
+}
+
+// endPassword leaves the password prompt (submitted, skipped, or the
+// connection dropped), clearing anything typed and restoring the draft.
+func (cs *charState) endPassword() {
+	cs.needPW = false
+	cs.in.Reset()
+	cs.in.SetValue(cs.pwDraft)
+	cs.pwDraft = ""
 }
 
 func key(world, char string) string { return world + "/" + char }
@@ -355,13 +376,13 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		if ev.State == session.Connected {
 			cs.pin = nil
 		}
-		if ev.State != session.Connected {
-			cs.needPW = false
+		if ev.State != session.Connected && cs.needPW {
+			cs.endPassword()
 		}
 	case session.EventLogError:
 		m.setStatus(true, "%s: log write failed: %v", cs.ch.Name, ev.Err)
 	case session.EventNeedPassword:
-		cs.needPW = true
+		cs.startPassword()
 		if msg.key == m.active {
 			m.setStatus(false, "enter password for %s (Esc to skip)", cs.ch.Name)
 		}
@@ -424,8 +445,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		m.confirm = false
 		if cs != nil && cs.needPW {
-			cs.needPW = false
-			cs.in.Reset()
+			cs.endPassword()
 			m.setStatus(false, "skipped login")
 		}
 	case "enter":
@@ -514,7 +534,7 @@ func (m *Model) submit() tea.Cmd {
 			m.setStatus(true, "login not sent: %v", err)
 			return nil
 		}
-		cs.needPW = false
+		cs.endPassword()
 		cs.sb.Append(style.Dim("> " + e.Text))
 		if m.d.SavePassword != nil && pw != "" {
 			m.mode, m.pendingPW = modeSavePassword, pw
