@@ -101,6 +101,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Ctrl+W` (or `Alt+Backspace`) / `Alt+Delete` | Delete the word before or after the cursor |
 | `Ctrl+U` / `Ctrl+K` | Delete to the start or end of the line |
 | `Ctrl+↑` / `Ctrl+↓` | Switch between open characters |
+| `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines |
 | `Ctrl+O` | Add a connection: type to filter, `Enter` to connect, `Esc` to close |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
 | `Ctrl+B` | Open browse mode |
