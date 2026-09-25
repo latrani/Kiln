@@ -26,12 +26,29 @@ func TestSGR(t *testing.T) {
 	}
 }
 
+func TestAfterReset(t *testing.T) {
+	cases := []struct {
+		params, tail string
+		reset        bool
+	}{
+		{"", "", true}, {"0", "", true}, {"00", "", true}, {"1;0", "", true},
+		{"0;31", "31", true}, {"1;;4", "4", true}, {"1;0;31;0;4", "4", true},
+		{"31", "", false}, {"38;5;0", "", false}, {"48;2;0;0;0;1", "", false},
+		{"38;5;0;0", "", true},
+	}
+	for _, c := range cases {
+		if tail, reset := afterReset(c.params); tail != c.tail || reset != c.reset {
+			t.Errorf("afterReset(%q) = %q, %v; want %q, %v", c.params, tail, reset, c.tail, c.reset)
+		}
+	}
+}
+
 func TestApply(t *testing.T) {
 	if got := Apply("x", config.Style{}); got != "x\x1b[0m" {
 		t.Errorf("unstyled = %q", got)
 	}
 	got := Apply("\x1b[1mMira\x1b[0m pages", config.Style{Italic: true})
-	want := "\x1b[3m\x1b[1mMira\x1b[0m\x1b[3m pages\x1b[0m"
+	want := "\x1b[1m\x1b[3mMira\x1b[0m\x1b[3m pages\x1b[0m"
 	if got != want {
 		t.Errorf("Apply = %q, want %q", got, want)
 	}
@@ -68,6 +85,18 @@ func TestHighlight(t *testing.T) {
 		{"span to the end, then a trailing reset", "PAGE:\x1b[0m",
 			runs(styled(0, 5, blue)),
 			b + "PAGE:\x1b[0m" + b + Reset},
+		{"uncommon resets are resets", "\x1b[1mPA\x1b[00mGE\x1b[1;0m: hi",
+			runs(styled(0, 5, blue), plain(5, 9)),
+			"\x1b[1m" + b + "PA\x1b[00m" + b + "GE\x1b[1;0m" + b + ":" + Reset + " hi" + Reset},
+		{"server state resumes from after the last reset", "PA\x1b[1;0;31mGE: hi",
+			runs(styled(0, 5, blue), plain(5, 9)),
+			b + "PA\x1b[1;0;31m" + b + "GE:" + Reset + "\x1b[31m hi" + Reset},
+		{"a server color inside a span doesn't override it", "PA\x1b[31mGE: hi",
+			runs(styled(0, 5, blue), plain(5, 9)),
+			b + "PA\x1b[31m" + b + "GE:" + Reset + "\x1b[31m hi" + Reset},
+		{"a 0 inside a color isn't a reset", "\x1b[1mPA\x1b[38;5;0;48;2;0;0;0mGE: hi",
+			runs(styled(0, 5, blue), plain(5, 9)),
+			"\x1b[1m" + b + "PA\x1b[38;5;0;48;2;0;0;0m" + b + "GE:" + Reset + "\x1b[1m\x1b[38;5;0;48;2;0;0;0m hi" + Reset},
 		{"unstyled", "\x1b[31mhi", rules.Result{}, "\x1b[31mhi" + Reset},
 		{"whole line", "hi", rules.Result{Styled: true, Style: config.Style{Italic: true}}, "\x1b[3mhi" + Reset},
 	}
