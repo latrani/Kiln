@@ -33,7 +33,7 @@ func worldSel(world string) string { return "=" + world }
 // browseBlocksPicker is the status when the picker can't open because
 // browse mode has the pane. Short, so it fits after browse mode's
 // status-line prefix on an 80-column screen.
-const browseBlocksPicker = "Esc out of browse mode first"
+const browseBlocksPicker = "Esc out of log mode first"
 
 // questionBlocksPicker is the status when the picker can't open because
 // the save-password question owns the input area.

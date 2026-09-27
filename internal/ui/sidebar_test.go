@@ -185,9 +185,9 @@ func TestEmptyState(t *testing.T) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	h.press('c', tea.ModCtrl) // clear "hello"
-	h.typeText("/browse")
+	h.typeText("/log")
 	h.enter()
-	if !strings.Contains(h.screen(), "/browse needs an open character") {
+	if !strings.Contains(h.screen(), "/log needs an open character") {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	h.enter() // empty input: open the picker
