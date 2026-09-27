@@ -1018,9 +1018,9 @@ func TestRenderLineMatchScope(t *testing.T) {
 	cls, _ := classify.New([]config.ClassifyRule{{Tag: "page", Pattern: `^PAGE:`}}, "Kit", nil)
 	blue := config.Style{FG: "#2053ff", Bold: true}
 	hl, _ := rules.New([]config.HighlightRule{{Match: config.Match{Tags: []string{"page"}}, Style: blue, Scope: "match", Attention: true}})
-	got, attn := renderLine(cls, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
-	if want := style.SGR(blue) + "PAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !attn {
-		t.Errorf("renderLine = %q, %v; want %q, true", got, attn, want)
+	got, res := renderLine(cls, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
+	if want := style.SGR(blue) + "PAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Attention {
+		t.Errorf("renderLine = %q, %v; want %q, true", got, res.Attention, want)
 	}
 }
 
@@ -1091,5 +1091,27 @@ func TestTabWithOneCharacterStays(t *testing.T) {
 	h.press(tea.KeyTab, 0)
 	if h.m.active != "fm/rook" {
 		t.Errorf("active %s, want fm/rook", h.m.active)
+	}
+}
+
+func TestQuietLinesDontCountAsUnread(t *testing.T) {
+	world := fmWorld + "\n[[highlight]]\nmatch = { pattern = '^\\[Wiki\\]' }\nquiet = true\n"
+	h := newHarness(t, map[string]string{"fm": world})
+	h.open("fm/rook")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.m.switchTo("fm/rook")
+	kit := h.m.chars["fm/kit"]
+	h.conn("fm/kit").lines <- "[Wiki] Kit edited Tapestries"     // quiet, though it names Kit (self wants attention)
+	h.conn("fm/kit").lines <- "Mira pages: [Wiki] is down again" // not quiet: only lines starting [Wiki] are
+	kit.sb.SetWidth(80)
+	h.settle("fm/kit", func() bool { // both lines are in once the page, sent second, is
+		return strings.Contains(strings.Join(kit.sb.View(20), "\n"), "is down again")
+	})
+	if kit.unread != 1 || !kit.attention {
+		t.Errorf("unread %d, attention %v; want only the page counted", kit.unread, kit.attention)
+	}
+	if !strings.Contains(strings.Join(kit.sb.View(20), "\n"), "[Wiki] Kit edited") {
+		t.Error("quiet lines should still be shown")
 	}
 }

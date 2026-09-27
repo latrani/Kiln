@@ -113,3 +113,20 @@ func TestApplyMatchScope(t *testing.T) {
 		}
 	})
 }
+
+func TestQuietWinsOverAttention(t *testing.T) {
+	h, err := New([]config.HighlightRule{
+		{Match: config.Match{Tags: []string{"self"}}, Style: config.Style{Bold: true}, Attention: true},
+		{Match: config.Match{Pattern: `^\[Wiki\]`}, Quiet: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	self := []classify.Tag{{Name: "self"}}
+	if res := h.Apply("[Wiki] Kit edited a page", self); !res.Quiet || res.Attention || !res.Styled {
+		t.Errorf("quiet line: %+v; want quiet, no attention, still styled", res)
+	}
+	if res := h.Apply("Rook waves to Kit", self); res.Quiet || !res.Attention {
+		t.Errorf("ordinary line: %+v", res)
+	}
+}

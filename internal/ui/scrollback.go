@@ -91,11 +91,21 @@ func (s *Scrollback) rebase(from, to int) int {
 // Append adds a line. A pending prompt is cleared: the server has moved on.
 // While scrolled up, the view stays put and the line counts as unseen.
 func (s *Scrollback) Append(text string) {
+	s.append(text)
+	if s.offset > 0 {
+		s.unseen++
+	}
+}
+
+// AppendQuiet is Append for a line a quiet rule matched: it never counts
+// as unseen.
+func (s *Scrollback) AppendQuiet(text string) { s.append(text) }
+
+func (s *Scrollback) append(text string) {
 	s.lines = append(s.lines, sbLine{text: text})
 	s.prompt = ""
 	if s.offset > 0 {
 		s.offset += len(s.lines[len(s.lines)-1].wrap(s.w()))
-		s.unseen++
 	}
 }
 

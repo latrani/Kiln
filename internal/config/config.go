@@ -61,12 +61,15 @@ type Match struct {
 }
 
 // HighlightRule styles matching lines and optionally flags them for
-// attention. Scope "match" styles only the matched text (see
-// rules.Apply); "" or "line" styles the whole line.
+// attention, or the opposite, quiet: they don't count as unread and never
+// ask for attention, even when another rule does. Scope "match" styles
+// only the matched text (see rules.Apply); "" or "line" styles the whole
+// line.
 type HighlightRule struct {
 	Match     Match  `toml:"match"`
 	Style     Style  `toml:"style"`
 	Attention bool   `toml:"attention"`
+	Quiet     bool   `toml:"quiet"`
 	Scope     string `toml:"scope"`
 }
 
