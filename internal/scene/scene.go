@@ -13,6 +13,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/pathfmt"
 )
 
 // Chip is a tag filter's state.
@@ -155,7 +156,8 @@ func FileName(dir, template string, t time.Time, world, name, format string) str
 	if template == "" {
 		template = config.DefaultExportName
 	}
-	base := strings.NewReplacer("{date}", t.Format("2006-01-02"), "{time}", t.Format("1504"),
-		"{world}", world, "{name}", name).Replace(template)
+	base := pathfmt.Expand(template, map[string]string{
+		"date": t.Format("2006-01-02"), "time": t.Format("1504"), "world": world, "name": name,
+	}, t)
 	return filepath.Join(dir, base+"."+Ext(format))
 }

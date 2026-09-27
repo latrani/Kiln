@@ -357,6 +357,18 @@ name = "Kit"
 	}
 }
 
+func TestLogNameAndStrftime(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"config.toml": "log_dir = \"/logs/{world}/{name}/%Y/%m\"\nlog_name = \"%Y-%m-%d.%H.%M.%S\"\nexport_name = \"%Y-%m-%d {name}\"\n"})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LogDir != "/logs/{world}/{name}/%Y/%m" || cfg.LogName != "%Y-%m-%d.%H.%M.%S" || cfg.ExportName != "%Y-%m-%d {name}" {
+		t.Errorf("LogDir %q, LogName %q, ExportName %q", cfg.LogDir, cfg.LogName, cfg.ExportName)
+	}
+}
+
 func TestLogAndExportSettings(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	dir := t.TempDir()
@@ -385,6 +397,9 @@ func TestLogAndExportSettings(t *testing.T) {
 		"log_dir = \"/logs/{wrld}\"\n",
 		"export_name = \"{date} {character}\"\n",
 		"export_format = \"pdf\"\n",
+		"log_name = \"{world}/%Y\"\n",
+		"log_name = \"%Q\"\n",
+		"log_dir = \"/logs/%Y/%\"\n",
 	} {
 		dir := t.TempDir()
 		write(t, dir, map[string]string{"config.toml": bad})
