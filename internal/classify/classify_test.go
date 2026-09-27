@@ -39,6 +39,26 @@ func TestClassify(t *testing.T) {
 	}
 }
 
+func TestRuleWithSeveralTags(t *testing.T) {
+	c, err := New([]config.ClassifyRule{
+		{Tags: []string{"page", "page/in"}, Pattern: `^\S+ pages: `},
+		{Tag: "page", Tags: []string{"page", "page/out"}, Pattern: `^You page, `}, // duplicates collapse
+	}, "Kit", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.Classify("Mira pages: hi"); !reflect.DeepEqual(got, []string{"page", "page/in"}) {
+		t.Errorf("incoming = %v", got)
+	}
+	if got := c.Classify(`You page, "hi" to Mira.`); !reflect.DeepEqual(got, []string{"page", "page/out"}) {
+		t.Errorf("outgoing = %v", got)
+	}
+	tags := c.Tags("Mira pages: hi")
+	if len(tags) != 2 || !reflect.DeepEqual(tags[0].Spans, tags[1].Spans) || len(tags[1].Spans) != 1 {
+		t.Errorf("each tag should get the rule's spans: %+v", tags)
+	}
+}
+
 func TestSelfNamesAreLiteralAndUnicode(t *testing.T) {
 	c, err := New(nil, "K.i.t", []string{"Zoë", "(Ash)"})
 	if err != nil {

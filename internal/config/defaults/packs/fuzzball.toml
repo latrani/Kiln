@@ -6,33 +6,45 @@
 tag = "say"
 pattern = '^(You say|\S+ says), "'
 
+# Whispers, like pages below: "whisper/in" to you, "whisper/out" your own.
 [[classify]]
-tag = "whisper"
+tags = ["whisper", "whisper/in"]
 pattern = '^\S+ whispers,? "'
 
 [[classify]]
-tag = "page"
+tags = ["whisper", "whisper/out"]
+pattern = '^You whisper, '
+
+# Pages carry "page" plus "page/in" (to you) or "page/out" (your own,
+# as the server echoes them), so a "page" filter shows both sides of a
+# conversation while the highlight below colors only what you receive.
+[[classify]]
+tags = ["page", "page/in"]
 pattern = '^\S+ pages( from [^:]+)?: '
 
 [[classify]]
-tag = "page"
+tags = ["page", "page/in"]
 pattern = '^\S+ pages, ".*" to '
 
 [[classify]]
-tag = "page"
+tags = ["page", "page/in"]
 pattern = '^In a page-pose to '
 
 [[classify]]
-tag = "page"
+tags = ["page", "page/in"]
 pattern = '^You sense that \S+ is paging you'
 
+[[classify]]
+tags = ["page", "page/out"]
+pattern = '^You page(-pose)?, '
+
 [[highlight]]
-match = { tags = ["page"] }
+match = { tags = ["page/in"] }
 style = { fg = "#ff9f43", bold = true }
 attention = true
 
 [[highlight]]
-match = { tags = ["whisper"] }
+match = { tags = ["whisper/in"] }
 style = { fg = "#c39bd3", italic = true }
 attention = true
 
