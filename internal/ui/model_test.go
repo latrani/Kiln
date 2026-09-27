@@ -1041,8 +1041,12 @@ func TestTabJumpsToUnread(t *testing.T) {
 		t.Fatalf("Tab: active %s, want sp/ash", h.m.active)
 	}
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "sp/ash" || !strings.Contains(h.screen(), "nothing unread") {
-		t.Errorf("Tab with nothing unread moved or said nothing: active %s\n%s", h.m.active, h.screen())
+	if h.m.active != "fm/rook" {
+		t.Errorf("Tab with nothing unread should go back to fm/rook, the last one viewed; active %s", h.m.active)
+	}
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" {
+		t.Errorf("and again flips back to sp/ash; active %s", h.m.active)
 	}
 	h.m.chars["fm/kit"].unread, h.m.chars["sp/ash"].unread = 2, 0
 	h.m.chars["fm/rook"].unread = 0
@@ -1054,5 +1058,38 @@ func TestTabJumpsToUnread(t *testing.T) {
 	h.press(tea.KeyTab, tea.ModShift) // backwards, wrapping
 	if h.m.active != "sp/ash" {
 		t.Errorf("Shift+Tab should wrap back to sp/ash, active %s", h.m.active)
+	}
+}
+
+func TestTabWithNothingUnreadGoesToLastViewed(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.open("fm/rook", "sp/ash")
+	h.m.switchTo("fm/kit")
+	h.m.switchTo("sp/ash")
+	h.m.switchTo("fm/rook") // viewed: kit, ash, rook
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" {
+		t.Fatalf("active %s, want sp/ash, viewed just before", h.m.active)
+	}
+	h.m.close("fm/rook") // the one Tab would flip back to
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "fm/kit" {
+		t.Errorf("active %s, want fm/kit once rook is closed", h.m.active)
+	}
+	if strings.Contains(h.screen(), "nothing unread") {
+		t.Error("Tab shouldn't say nothing unread anymore")
+	}
+}
+
+func TestTabWithOneCharacterStays(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "fm/kit" || h.m.status != "" {
+		t.Errorf("active %s, status %q", h.m.active, h.m.status)
+	}
+	h.open("fm/rook") // open but never viewed: Tab still has somewhere to go
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "fm/rook" {
+		t.Errorf("active %s, want fm/rook", h.m.active)
 	}
 }
