@@ -149,6 +149,26 @@ To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
 
 Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
 
+## Where Kiln keeps things
+
+Kiln splits its files in two: settings you edit, and data it writes.
+
+```
+~/.config/kiln/          # settings (see Configuration)
+  config.toml
+  worlds/<id>.toml
+  packs/<id>.toml
+
+~/.local/share/kiln/     # data
+  logs/<world>/<char>/   # logs, unless log_dir moves them (see Logs)
+  passwords.json         # saved passwords, only with password_store = "file"
+  known_hosts            # pinned server certificates (see Certificates)
+```
+
+With the default `password_store = "keychain"`, passwords are in your OS keychain instead, under the service name `kiln` and the account `<world>/<char>`.
+
+Those paths are the same on every system, macOS and Windows included. On macOS, `~/.local` is hidden in Finder: press `Cmd+Shift+G` and paste the path, or `Cmd+Shift+.` to show hidden files. To move either folder, set `XDG_CONFIG_HOME` or `XDG_DATA_HOME` (Kiln then uses `kiln/` inside it), but other programs that follow the same convention will move too.
+
 ## Configuration
 
 ```
@@ -243,8 +263,6 @@ Every file looks like this:
 ```
 
 `<` marks received lines, `>` sent lines, and `*` Kiln's own notes. Colors are kept, so `less -R` shows them. `grep` works directly, and `cut -f2-` gives a bare transcript. Passwords are never logged.
-
-Kiln uses `~/.config/kiln` and `~/.local/share/kiln` on every system, including macOS and Windows. Set `XDG_CONFIG_HOME` or `XDG_DATA_HOME` to move them.
 
 ## Other commands
 
