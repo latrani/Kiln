@@ -2,6 +2,7 @@ package ansi
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -84,5 +85,31 @@ func TestWrapLongWordHardBreaks(t *testing.T) {
 func TestWrapEmpty(t *testing.T) {
 	if got := Wrap("", 10); len(got) != 1 || got[0] != "" {
 		t.Errorf("Wrap(\"\") = %q", got)
+	}
+}
+
+func TestWrapIndent(t *testing.T) {
+	cases := []struct {
+		in   string
+		w    int
+		want []string
+	}{
+		{"hello world", 20, []string{"hello world"}},
+		{"0123456789", 10, []string{"0123456789"}}, // exactly fits: no early wrap
+		{"one two three four", 9, []string{"one two", " three", " four"}},
+		{"abcdefghijklmn", 6, []string{"abcdef", " ghijk", " lmn"}},
+		{"\x1b[31mred text here\x1b[0m ok", 9,
+			[]string{"\x1b[31mred text", " \x1b[31mhere\x1b[0m ok"}},
+	}
+	for _, c := range cases {
+		got := WrapIndent(c.in, c.w, 1)
+		if strings.Join(got, "|") != strings.Join(c.want, "|") {
+			t.Errorf("WrapIndent(%q, %d) = %q, want %q", c.in, c.w, got, c.want)
+		}
+		for i, r := range got {
+			if Width(r) > c.w {
+				t.Errorf("%q row %d is %d wide", c.in, i, Width(r))
+			}
+		}
 	}
 }
