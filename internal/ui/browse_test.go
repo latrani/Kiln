@@ -51,8 +51,8 @@ func (h *harness) key(s string) tea.Cmd {
 		k = tea.KeyPressMsg{Code: tea.KeyEnd}
 	case "space":
 		k = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
-	case "ctrl+b":
-		k = tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}
+	case "ctrl+l":
+		k = tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl}
 	default:
 		r := []rune(s)[0]
 		k = tea.KeyPressMsg{Code: r, Text: s}
@@ -94,9 +94,9 @@ var scene1 = []string{
 func TestBrowseOpensAndCloses(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	s := h.screen()
-	for _, want := range []string{"BROWSE Kit · Thu Sep 24 → today", "── Thu Sep 24 ──", "21:00", "Rook says", "21:06", "m mark"} {
+	for _, want := range []string{"LOG Kit · Thu Sep 24 → today", "── Thu Sep 24 ──", "21:00", "Rook says", "21:06", "m mark"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -105,7 +105,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 		t.Error("normal input still shown in browse mode")
 	}
 	h.key("esc")
-	if h.br() != nil || strings.Contains(h.screen(), "BROWSE") {
+	if h.br() != nil || strings.Contains(h.screen(), "LOG") {
 		t.Errorf("esc did not close browse:\n%s", h.screen())
 	}
 }
@@ -113,7 +113,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 func TestBrowseKeepsStatusline(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	rows := strings.Split(h.screen(), "\n")
 	if len(rows) != 24 {
 		t.Fatalf("screen has %d rows, want 24", len(rows))
@@ -122,14 +122,14 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 		rows := strings.Split(h.screen(), "\n")
 		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); got != "BROWSE · 0 selected · fm/Kit · disconnected · 21:14" {
+	if got := last(); got != "LOG · 0 selected · fm/Kit · disconnected · 21:14" {
 		t.Errorf("statusline = %q", got)
 	}
 	if !strings.Contains(rows[len(rows)-2], "m mark") {
 		t.Errorf("action bar should sit just above the statusline:\n%s", h.screen())
 	}
 	h.keys("m", "up", "m")
-	if got := last(); !strings.HasPrefix(got, "BROWSE · 2 selected · ") {
+	if got := last(); !strings.HasPrefix(got, "LOG · 2 selected · ") {
 		t.Errorf("statusline = %q", got)
 	}
 	h.m.setStatus(true, "Rook: log write failed: disk full") // e.g. another character's event
@@ -148,7 +148,7 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	exportDir := t.TempDir()
 	h.m.cfg.ExportDir = exportDir
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	// Cursor starts on the last line (Rook yawns). Mark 21:01..21:05.
 	h.keys("up", "m")                   // Rook says lighthouse = end
 	h.keys("up", "up", "up", "up", "m") // Sable = start (marks may go either way)
@@ -189,7 +189,7 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 func TestBrowseExportNeedsRange(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.key("e")
 	if !strings.Contains(h.screen(), "mark a range with m") {
 		t.Errorf("screen:\n%s", h.screen())
@@ -202,7 +202,7 @@ func TestBrowseExportNeedsRange(t *testing.T) {
 func TestBrowseCopy(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("m", "up", "m")
 	if cmd := h.key("c"); cmd == nil {
 		t.Fatal("copy returned no command")
@@ -215,7 +215,7 @@ func TestBrowseCopy(t *testing.T) {
 func TestBrowseChips(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	s := h.screen()
 	if !strings.Contains(s, "tags: 1[page] 2[page/in] 3[say] 4[self]") {
 		t.Fatalf("chips:\n%s", s)
@@ -239,7 +239,7 @@ func TestBrowseChips(t *testing.T) {
 func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("home", "down", "down") // Mira pages
 	b := h.br()
 	if b.cursor.e.Text != "Mira pages: you around?" {
@@ -266,7 +266,7 @@ func TestBrowseChipNumbersStayStable(t *testing.T) {
 	h.writeLog(day24, "Rook says, \"Hi, Kit.\"")
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	if s := h.screen(); !strings.Contains(s, "tags: 1[say] 2[self]") {
 		t.Fatalf("chips:\n%s", s)
 	}
@@ -284,7 +284,7 @@ func TestBrowseChipNumbersStayStable(t *testing.T) {
 func TestBrowseFind(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("home") // cursor to the oldest line
 	h.key("/")
 	h.typeText("rook")
@@ -318,7 +318,7 @@ func TestBrowseLoadsOlderDaysOffTheUIGoroutine(t *testing.T) {
 		}
 		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
 	}
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	b := h.br()
 	_, cmd := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
 	if cmd == nil || !b.loading {
@@ -352,13 +352,13 @@ func TestBrowseDropsLoadForClosedBrowse(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24.AddDate(0, 0, -1), "old line")
 	h.writeLog(day24, make([]string, 250)...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	_, cmd := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
 	if cmd == nil {
 		t.Fatal("no load started")
 	}
 	h.key("esc")
-	h.key("ctrl+b") // a new browse
+	h.key("ctrl+l") // a new browse
 	fresh := h.br()
 	n := len(fresh.lines)
 	h.m.Update(cmd()) // the old browse's day arrives late
@@ -376,7 +376,7 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 		}
 		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
 	}
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	b := h.br()
 	if len(b.lines) != 300 {
 		t.Errorf("initially loaded %d lines, want 300 (two days)", len(b.lines))
@@ -405,7 +405,7 @@ func TestBrowseMarksSurvivePaging(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(time.Date(2026, 9, 23, 8, 0, 0, 0, time.Local), make([]string, 250)...)
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	b := h.br()
 	h.keys("m", "up", "m")
 	start, end := b.start, b.end
@@ -419,7 +419,7 @@ func TestBrowseLiveLinesArrive(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.conn("fm/kit").lines <- "Brand new line"
 	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Brand new line") })
 	if h.br().cursor.e.Text != "Brand new line" {
@@ -430,7 +430,7 @@ func TestBrowseLiveLinesArrive(t *testing.T) {
 func TestBrowseMouse(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.screen()
 	b := h.br()
 	l := h.m.layout()
@@ -466,7 +466,7 @@ func TestBrowseMouse(t *testing.T) {
 func TestBrowseMouseSelectsLikeFinder(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.screen()
 	b := h.br()
 	x := h.m.layout().sw + 1 + 10
@@ -541,17 +541,17 @@ func TestHighlightCommand(t *testing.T) {
 func TestBrowseCommandAndSwitching(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
-	h.typeText("/browse")
+	h.typeText("/log")
 	h.enter()
 	if h.br() == nil || !strings.Contains(h.screen(), "no logs yet") {
 		t.Fatalf("screen:\n%s", h.screen())
 	}
 	h.press(tea.KeyDown, tea.ModCtrl) // switch to Rook: normal view
-	if strings.Contains(h.screen(), "BROWSE") {
+	if strings.Contains(h.screen(), "LOG") {
 		t.Error("rook should not be in browse mode")
 	}
 	h.press(tea.KeyUp, tea.ModCtrl)
-	if !strings.Contains(h.screen(), "BROWSE Kit") {
+	if !strings.Contains(h.screen(), "LOG Kit") {
 		t.Error("kit's browse state was lost")
 	}
 	_ = session.Connected
@@ -608,7 +608,7 @@ func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
 		sent = append(sent, e)
 	}
 	w.Close()
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	b := h.br()
 	for _, e := range sent { // the same burst arrives as events after browse opened
 		b.appendLive(e)
@@ -626,7 +626,7 @@ func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
 func TestChipClickDuringFormatPromptDoesNotCrash(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("up", "m", "up", "up", "m") // Sable..Kit grins region
 	h.key("e")
 	h.screen()
@@ -644,7 +644,7 @@ func TestChipClickDuringFormatPromptDoesNotCrash(t *testing.T) {
 
 func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	b := h.br()
 	for i := 0; i < 50000; i++ {
 		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: fmt.Sprintf("the line %d", i)}, text: fmt.Sprintf("the line %d", i), day: "2026-09-24"})
@@ -664,7 +664,7 @@ func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
 func TestPasteInBrowse(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.m.Update(tea.PasteMsg{Content: "stray"})
 	if v := h.m.chars["fm/kit"].in.Value(); v != "" {
 		t.Errorf("paste leaked into the chat draft: %q", v)
@@ -683,7 +683,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.m.cfg.ExportDir = filepath.Join(home, "scenes")
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("m", "up", "m")
 	b := h.br()
 	b.format = "plain"
@@ -705,7 +705,7 @@ func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.m.cfg.ExportDir = ""
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("m", "up", "m")
 	b := h.br()
 	b.format = "plain"
@@ -721,7 +721,7 @@ func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
 
 func TestReloadUpdatesOpenBrowseExportDir(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
@@ -736,7 +736,7 @@ func TestExportNameAndFormatSettings(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\nexport_name = \"{world}/{name} {date}\"\nexport_format = \"html\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	h.keys("m", "up", "m", "e")
 	if !strings.Contains(h.screen(), "enter html") {
 		t.Errorf("preselected format not offered:\n%s", h.screen())
@@ -764,7 +764,7 @@ func TestLogDirAndNameSettings(t *testing.T) {
 	if _, err := os.Stat(want); err != nil {
 		t.Fatalf("log not at %s: %v", want, err)
 	}
-	h.key("ctrl+b")
+	h.key("ctrl+l")
 	if !strings.Contains(h.screen(), "from my own log folder") {
 		t.Errorf("browse didn't read it back:\n%s", h.screen())
 	}

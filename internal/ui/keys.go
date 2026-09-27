@@ -1,6 +1,6 @@
 package ui
 
-// Browse-mode key bindings and glyphs live here so they can be retuned in
+// Log-mode (browse, in the code) key bindings and glyphs live here so they can be retuned in
 // one place. Keys are tea.KeyPressMsg.String() values.
 
 type browseAction int
@@ -24,8 +24,8 @@ const (
 	actCopy
 )
 
-// openBrowseKey opens browse mode from the normal view.
-const openBrowseKey = "ctrl+b"
+// openBrowseKey opens log mode (browse, in the code) from the normal view.
+const openBrowseKey = "ctrl+l"
 
 // openPickerKey opens the add-connection picker.
 const openPickerKey = "ctrl+o"

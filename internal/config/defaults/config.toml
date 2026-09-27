@@ -10,7 +10,7 @@
 # log_dir = "~/.local/share/kiln/logs/{world}/{char}"
 # log_name = "%Y-%m-%d %H%M%S {char}"
 
-# Browse-mode exports: the folder, the file name ({date}, {time}, {world},
+# Log-mode exports: the folder, the file name ({date}, {time}, {world},
 # {name}, strftime codes) and the format Enter picks ("plain", "ansi" or
 # "html"; unset asks).
 # export_dir = "~/Documents/Kiln Scenes"

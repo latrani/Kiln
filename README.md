@@ -20,7 +20,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 - **Many worlds, many characters, all at once.** The sidebar shows the characters you have open, grouped under their worlds; everything else is a Ctrl+O away. Each one has its own scrollback, draft and history.
 - **Knows what a page is.** Lines are tagged (page, whisper, say, and `self` when they mention you) by rules you can edit. Tags drive colors and the attention badge.
 - **Everything is logged** to plain, greppable text, one file per session, in whatever folder you like.
-- **Browse mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
+- **Log mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
 - **Safe input.** The input box shows exactly where the server would cut an over-long line, so you can break it before sending.
 - **Secure by default.** Passwords live in your OS keychain, never in config (or, if you opt in, a file only you can read). TLS certificates are pinned on first use, so self-signed MUCK certificates just work.
 
@@ -107,7 +107,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Ctrl+O` | Add a connection: type to filter, `Enter` to connect, `Esc` to close |
 | `Ctrl+E` (in the `Ctrl+O` list) | Edit the highlighted world or character (`Enter` on a world does it too) |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
-| `Ctrl+B` | Open browse mode |
+| `Ctrl+L` | Open log mode |
 | `Esc` | Skip the login prompt |
 | `Ctrl+C` | Clear the input; on an empty input, press twice to quit |
 | `Ctrl+D` | Delete the character after the cursor; on an empty input, press twice to quit |
@@ -123,7 +123,7 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/connect`, `/reconnect` | Connect now (skips the reconnect wait) |
 | `/disconnect` | Disconnect and stay disconnected |
 | `/close` | Disconnect and remove the character from the sidebar |
-| `/browse` | Open browse mode |
+| `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
 | `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see below) |
@@ -131,9 +131,9 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 
 To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
 
-### Browse mode
+### Log mode
 
-`Ctrl+B` opens a browser over **all** of the active character's logs, with new lines still arriving at the bottom. `Esc` goes back.
+`Ctrl+L` opens a browser over **all** of the active character's logs, with new lines still arriving at the bottom. `Esc` goes back.
 
 | Key | Does |
 |---|---|
@@ -182,7 +182,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 
 | Setting | Where | Meaning |
 |---|---|---|
-| `export_dir` | config.toml | Where browse exports are saved |
+| `export_dir` | config.toml | Where log mode's exports are saved |
 | `export_name` | config.toml | Export file name, from `{date}`, `{time}`, `{world}`, `{name}` and [time codes](#name-templates) (default `"{date} {time} {world} {name}"`; may include `/` for subfolders) |
 | `export_format` | config.toml | `"plain"`, `"ansi"` or `"html"`: what `Enter` picks when exporting (default: always ask) |
 | `log_dir` | config.toml | Where logs go (default `~/.local/share/kiln/logs/{world}/{char}`), see [Logs](#logs) |
