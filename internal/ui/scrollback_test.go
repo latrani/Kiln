@@ -32,7 +32,7 @@ func TestScrollbackViewShowsNewest(t *testing.T) {
 
 func TestScrollbackWrapsLongLines(t *testing.T) {
 	got := sb(10, "short", "the quick brown fox").View(3)
-	want := []string{"short", "the quick", "brown fox"}
+	want := []string{"short", "the quick", " brown fox"} // wrapped rows are indented
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("View = %q, want %q", got, want)
 	}
@@ -108,7 +108,7 @@ func TestScrollbackRewrapsOnWidthChange(t *testing.T) {
 		t.Errorf("wide = %q", got)
 	}
 	s.SetWidth(10)
-	if got := s.View(2); !reflect.DeepEqual(got, []string{"the quick", "brown fox"}) {
+	if got := s.View(2); !reflect.DeepEqual(got, []string{"the quick", " brown fox"}) {
 		t.Errorf("narrow = %q", got)
 	}
 }
@@ -133,12 +133,12 @@ func TestScrollbackResizeKeepsPosition(t *testing.T) {
 		t.Errorf("after narrowing bottom = %q, want L17", got)
 	}
 	// Inside a wrapped line, the position scales with the row count.
-	s.ScrollUp(2) // bottom is L16's long line, 3rd row: "cccc"
-	if got := s.View(1); got[0] != "cccc" {
+	s.ScrollUp(2) // bottom is L16's long line, 3rd row: " cccc"
+	if got := s.View(1); got[0] != " cccc" {
 		t.Fatalf("bottom = %q", got)
 	}
 	s.SetWidth(10)
-	if got := s.View(1); got[0] != "cccc dddd" {
+	if got := s.View(1); got[0] != " cccc dddd" {
 		t.Errorf("after widening bottom = %q, want the same line's 2nd row", got)
 	}
 }

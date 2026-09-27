@@ -33,9 +33,10 @@ type selection struct {
 	moved        bool // the pointer has left the anchor; a click otherwise
 }
 
-// plainRows is the line's wrapped rows without escapes, and the byte
-// offset in its plain text where each starts. Wrapping only drops
-// whitespace where it breaks, so each row is found in order.
+// plainRows is the line's wrapped rows without escapes or their indent
+// (see rowIndent), and the byte offset in its plain text where each
+// starts. Wrapping only drops whitespace where it breaks, so each row is
+// found in order.
 func (l *sbLine) plainRows(w int) (plain string, rows []string, starts []int) {
 	styled := l.wrap(w)
 	if l.plainW != w || l.pRows == nil {
@@ -44,6 +45,7 @@ func (l *sbLine) plainRows(w int) (plain string, rows []string, starts []int) {
 		pos := 0
 		for i, r := range styled {
 			r = ansi.Strip(r)
+			r = r[min(rowIndent(i), len(r)):]
 			if j := strings.Index(l.plain[pos:], r); j >= 0 {
 				pos += j
 			}
@@ -80,7 +82,7 @@ func (s *Scrollback) At(y, x int) (p sbPos, ok bool) {
 	}
 	ref := s.shown[y]
 	_, rows, starts := s.lines[ref.line].plainRows(s.w())
-	return sbPos{ref.line, starts[ref.row] + colToByte(rows[ref.row], max(0, x))}, true
+	return sbPos{ref.line, starts[ref.row] + colToByte(rows[ref.row], max(0, x-rowIndent(ref.row)))}, true
 }
 
 // urlRE finds web links. Trailing punctuation is trimmed by trimURL.
@@ -157,7 +159,7 @@ func (s *Scrollback) linkRow(row string, ref sbRef) string {
 		if hoverOK && lk == hovered {
 			sgr = hoverSGR
 		}
-		c1, c2 := xansi.StringWidth(pr[:a]), xansi.StringWidth(pr[:z])
+		c1, c2 := rowIndent(ref.row)+xansi.StringWidth(pr[:a]), rowIndent(ref.row)+xansi.StringWidth(pr[:z])
 		row = xansi.Cut(row, 0, c1) + style.Reset + sgr + pr[a:z] + style.Reset + xansi.Cut(row, c2, 1<<30)
 	}
 	return row
@@ -259,6 +261,6 @@ func (s *Scrollback) highlightRow(row string, ref sbRef) string {
 	if a >= z {
 		return row
 	}
-	c1, c2 := xansi.StringWidth(pr[:a]), xansi.StringWidth(pr[:z])
+	c1, c2 := rowIndent(ref.row)+xansi.StringWidth(pr[:a]), rowIndent(ref.row)+xansi.StringWidth(pr[:z])
 	return xansi.Cut(row, 0, c1) + style.Reset + reverse + pr[a:z] + style.Reset + xansi.Cut(row, c2, 1<<30)
 }

@@ -37,20 +37,23 @@ func sbWith(w, h int, lines ...string) *Scrollback {
 }
 
 func TestScrollbackPositionsAcrossWraps(t *testing.T) {
-	// Wraps to "see the", "https://ex", "ample.com/", "x now" at width 10;
-	// the spaces at the breaks are dropped.
+	// Wraps to "see the", " https://e", " xample.co", " m/x now" at width
+	// 10: the spaces at the breaks are dropped, and wrapped rows indented.
 	s := sbWith(10, 4, "see the https://example.com/x now")
-	p, ok := s.At(1, 3) // the second "t" of https
+	p, ok := s.At(1, 4) // the second "t" of https, past the indent
 	if !ok || p.off != 11 {
-		t.Fatalf("At(1, 3) = %+v, %v; want offset 11", p, ok)
+		t.Fatalf("At(1, 4) = %+v, %v; want offset 11", p, ok)
+	}
+	if p, _ := s.At(1, 0); p.off != 8 {
+		t.Errorf("on the indent: offset %d, want the row's start", p.off)
 	}
 	if u := s.URLAt(p); u != "https://example.com/x" {
 		t.Errorf("URLAt = %q", u)
 	}
-	if p, _ := s.At(3, 0); s.URLAt(p) != "https://example.com/x" {
+	if p, _ := s.At(3, 1); s.URLAt(p) != "https://example.com/x" {
 		t.Error("the link's wrapped tail should be clickable too")
 	}
-	if p, _ := s.At(3, 3); s.URLAt(p) != "" {
+	if p, _ := s.At(3, 5); s.URLAt(p) != "" {
 		t.Error(`"now" isn't part of the link`)
 	}
 	if p, _ := s.At(0, 99); p.off != len("see the") {
@@ -59,8 +62,8 @@ func TestScrollbackPositionsAcrossWraps(t *testing.T) {
 }
 
 func TestScrollbackSelectionCopiesLogicalLines(t *testing.T) {
-	s := sbWith(10, 3, "one two three four", "\x1b[31mred\x1b[0m line")
-	// Rows: "one two", "three four", "red line".
+	s := sbWith(12, 3, "one two three four", "\x1b[31mred\x1b[0m line")
+	// Rows: "one two", " three four", "red line".
 	a, _ := s.At(0, 4)
 	s.StartSelect(a)
 	b, _ := s.At(2, 2)
@@ -175,23 +178,24 @@ func TestMouseSelectAndLinks(t *testing.T) {
 }
 
 func TestLinksUnderlinedAndLitOnHover(t *testing.T) {
-	// Red text with a link that wraps: "\x1b[31mgo", "https://ex", "ample.com", "now".
+	// Red text with a link that wraps: "go", " https://e", " xample.co", " m now".
 	s := sbWith(10, 4, "\x1b[31mgo https://example.com now\x1b[0m")
 	rows := s.View(4)
-	if !strings.Contains(rows[1], style.Reset+linkSGR+"https://ex"+style.Reset) ||
-		!strings.Contains(rows[2], style.Reset+linkSGR+"ample.com"+style.Reset) {
-		t.Fatalf("link not underlined on both rows (over the line's red): %q", rows)
+	if !strings.Contains(rows[1], style.Reset+linkSGR+"https://e"+style.Reset) ||
+		!strings.Contains(rows[2], style.Reset+linkSGR+"xample.co"+style.Reset) ||
+		!strings.Contains(rows[3], style.Reset+linkSGR+"m"+style.Reset) {
+		t.Fatalf("link not underlined on every row (over the line's red): %q", rows)
 	}
-	if strings.Contains(rows[0], linkSGR) || strings.Contains(rows[3], linkSGR) {
+	if strings.Contains(rows[0], linkSGR) || strings.Contains(rows[3], linkSGR+"m now") {
 		t.Errorf("text outside the link underlined: %q", rows)
 	}
 	p, _ := s.At(2, 2)
 	s.Hover(&p)
 	rows = s.View(4)
-	if !strings.Contains(rows[1], hoverSGR+"https://ex") || !strings.Contains(rows[2], hoverSGR+"ample.com") {
+	if !strings.Contains(rows[1], hoverSGR+"https://e") || !strings.Contains(rows[2], hoverSGR+"xample.co") {
 		t.Errorf("hovered link not blue on every row: %q", rows)
 	}
-	q, _ := s.At(3, 1)
+	q, _ := s.At(3, 3)
 	s.Hover(&q) // off the link
 	if rows = s.View(4); strings.Contains(strings.Join(rows, ""), hoverSGR) {
 		t.Errorf("link still lit after the pointer left: %q", rows)
