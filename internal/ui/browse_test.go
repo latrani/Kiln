@@ -21,7 +21,7 @@ var day24 = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
 // writeLog puts entries in fm/kit's log, one minute apart from start.
 func (h *harness) writeLog(start time.Time, lines ...string) {
 	h.t.Helper()
-	w := logstore.NewWriter(logstore.CharDir("", h.m.d.LogRoot, "fm", "kit"), "kit")
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	defer w.Close()
 	for i, l := range lines {
 		dir := logstore.In
@@ -600,7 +600,7 @@ func TestHighlightFindSurvivesCaseFolding(t *testing.T) {
 func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	base := day24.Add(123456789 * time.Nanosecond) // not a whole millisecond
-	w := logstore.NewWriter(logstore.CharDir("", h.m.d.LogRoot, "fm", "kit"), "kit")
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	var sent []logstore.Entry
 	for i, text := range []string{"one", "two", "three"} {
 		e := logstore.Entry{Time: base.Add(time.Duration(i) * time.Second), Dir: logstore.In, Text: text}
@@ -747,19 +747,25 @@ func TestExportNameAndFormatSettings(t *testing.T) {
 	}
 }
 
-func TestLogDirSetting(t *testing.T) {
+func TestLogDirAndNameSettings(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	logs := filepath.Join(t.TempDir(), "Mucks")
-	w := logstore.NewWriter(filepath.Join(logs, "fm"), "kit")
+	os.WriteFile(filepath.Join(h.dir, "config.toml"),
+		[]byte("log_dir = \""+logs+"/{world}/{name}/%Y/%m\"\nlog_name = \"%Y-%m-%d.%H.%M.%S\"\n"), 0o600)
+	h.m.Update(reloadMsg{})
+	l, ok := h.m.logLayout(h.m.chars["fm/kit"].ch)
+	if !ok {
+		t.Fatal("no log layout")
+	}
+	w := logstore.NewWriter(l)
 	w.Append(logstore.Entry{Time: day24, Dir: logstore.In, Text: "from my own log folder"})
 	w.Close()
-	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("log_dir = \""+logs+"/{world}\"\n"), 0o600)
-	h.m.Update(reloadMsg{})
-	if got := h.m.logDir(h.m.chars["fm/kit"].ch); got != filepath.Join(logs, "fm") {
-		t.Fatalf("logDir = %q", got)
+	want := filepath.Join(logs, "fm", "Kit", "2026", "09", "2026-09-24.21.00.00.log")
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("log not at %s: %v", want, err)
 	}
 	h.key("ctrl+b")
 	if !strings.Contains(h.screen(), "from my own log folder") {
-		t.Errorf("browse didn't read log_dir:\n%s", h.screen())
+		t.Errorf("browse didn't read it back:\n%s", h.screen())
 	}
 }

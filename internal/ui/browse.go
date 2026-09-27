@@ -92,11 +92,12 @@ type chipSpan struct {
 	from, to int // columns within the right pane
 }
 
-// newBrowse opens browse mode over the logs in logDir ("" for none).
-func newBrowse(cs *charState, logDir string) *browse {
+// newBrowse opens browse mode over the logs l describes (none unless
+// hasLogs).
+func newBrowse(cs *charState, l logstore.Layout, hasLogs bool) *browse {
 	b := &browse{cs: cs, excluded: map[*bline]bool{}, chips: map[string]scene.Chip{}, pin: NewInput()}
-	if logDir != "" {
-		if h, err := history.NewReader(logDir, cs.ch.ID); err == nil {
+	if hasLogs {
+		if h, err := history.NewReader(l); err == nil {
 			b.hist = h
 		}
 	}

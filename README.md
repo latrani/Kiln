@@ -183,9 +183,10 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | Setting | Where | Meaning |
 |---|---|---|
 | `export_dir` | config.toml | Where browse exports are saved |
-| `export_name` | config.toml | Export file name, from `{date}`, `{time}`, `{world}` and `{name}` (default `"{date} {time} {world} {name}"`; may include `/` for subfolders) |
+| `export_name` | config.toml | Export file name, from `{date}`, `{time}`, `{world}`, `{name}` and [time codes](#name-templates) (default `"{date} {time} {world} {name}"`; may include `/` for subfolders) |
 | `export_format` | config.toml | `"plain"`, `"ansi"` or `"html"`: what `Enter` picks when exporting (default: always ask) |
-| `log_dir` | config.toml | Where logs go, with `{world}` and `{char}` filled in (default `~/.local/share/kiln/logs/{world}/{char}`), see [Logs](#logs) |
+| `log_dir` | config.toml | Where logs go (default `~/.local/share/kiln/logs/{world}/{char}`), see [Logs](#logs) |
+| `log_name` | config.toml | Log file names, without `.log` (default `"%Y-%m-%d %H%M%S {char}"`), see [Logs](#logs) |
 | `password_store` | config.toml | `"keychain"` (default), `"file"` (`~/.local/share/kiln/passwords.json`, readable only by you) or `"none"` (never save) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
@@ -247,24 +248,48 @@ Use `tls_trust = "ca"` for servers with certificates from a real certificate aut
 
 ## Logs
 
-Kiln starts a new log file each time a character connects, named after that moment: `~/.local/share/kiln/logs/<world>/<character>/2026-09-24 211403 Kit.log`. To keep them with your other logs, set `log_dir` in `config.toml`:
+Kiln starts a new log file each time a character connects, named after that moment: `~/.local/share/kiln/logs/<world>/<character>/2026-09-24 211403 Kit.log`. To keep them with your other logs, or name and sort them your own way, set `log_dir` and `log_name` in `config.toml`:
 
 ```toml
-log_dir = "~/Documents/Logs/Mucks/{world}"   # {char} is the character's id
+log_dir  = "~/Documents/Logs/Mucks/{world}/{name}/%Y/%m"   # a folder per month
+log_name = "%Y-%m-%d.%H.%M.%S"                             # 2026-09-16.20.28.58.log
 ```
 
-Characters can share a folder: each file name ends with the character's id, and Kiln only reads back its own files. Files that aren't Kiln logs are left alone and skipped, even if their names look like Kiln's. Changing `log_dir` doesn't move old logs; move them yourself if you want Kiln to show them. Older versions of Kiln wrote one file per day (`YYYY-MM-DD.log`), and those are still read.
+Both are [name templates](#name-templates), filled in with the time the session started, so a session that runs past midnight at the end of a month stays in the month it began. Kiln adds `.log` to the name. If a name leaves out the time (`log_name = "%Y-%m-%d"`), sessions that start the same day share one file.
+
+Kiln finds its logs by what's in them, not their names: it searches `log_dir` and every folder under it for files that start with Kiln's header and name the character. So characters can share folders, other programs' files are left alone even if their names look like Kiln's, and a name Kiln would use that's taken by someone else's file gets ` (2)` added. Changing `log_dir` doesn't move old logs; move them yourself if you want Kiln to show them. Logs from older versions of Kiln (one file per day, `YYYY-MM-DD.log`, then one per session) are still read.
 
 Every file looks like this:
 
 ```
 #kiln-log v1
+#kiln-char tapestries/Indi
 2026-09-24T21:14:03.120-07:00 <	Rook says, "Evening!"
 2026-09-24T21:14:15.002-07:00 >	:grins.
 2026-09-24T21:20:00.000-07:00 *	disconnected (reset); retrying in 5s
 ```
 
 `<` marks received lines, `>` sent lines, and `*` Kiln's own notes. Colors are kept, so `less -R` shows them. `grep` works directly, and `cut -f2-` gives a bare transcript. Passwords are never logged.
+
+### Name templates
+
+`log_dir`, `log_name` and `export_name` are filled in from time codes (as in `strftime`) and names in braces:
+
+| Code | Gives | | Code | Gives |
+|---|---|---|---|---|
+| `%Y` | `2026` | | `%H` | `20` (hour, 00–23) |
+| `%y` | `26` | | `%I` `%p` | `08` `PM` (12-hour) |
+| `%m` | `09` (month) | | `%M` | `28` (minute) |
+| `%b` `%B` | `Sep` `September` | | `%S` | `58` (second) |
+| `%d` | `16` (day) | | `%a` `%A` | `Wed` `Wednesday` |
+| `%%` | `%` | | | |
+
+| Name | Gives |
+|---|---|
+| `{world}` | the world's id |
+| `{char}` | the character's id (logs) |
+| `{name}` | the character's name |
+| `{date}`, `{time}` | `2026-09-16`, `2028` (exports) |
 
 ## Other commands
 

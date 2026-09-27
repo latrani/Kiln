@@ -36,7 +36,7 @@ type Deps struct {
 	KnownHosts conn.KnownHosts
 	Load       func(dir string) (*config.Config, error)
 	Dial       func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog     func(dir, char string) session.Appender // dir from logDir
+	NewLog     func(l logstore.Layout) session.Appender // l from logLayout
 	// Password and SavePassword use the password_store setting in store.
 	Password       func(store, world, char string) (string, error)
 	SavePassword   func(store, world, char, password string) error // nil: never offer
@@ -263,23 +263,29 @@ func (cs *charState) compile() error {
 	return nil
 }
 
-// logDir is where ch's logs go (see logstore.CharDir), or "" for none.
-func (m *Model) logDir(ch config.Character) string {
-	if m.d.LogRoot == "" && !filepath.IsAbs(m.cfg.LogDir) {
-		return ""
-	}
-	return logstore.CharDir(m.cfg.LogDir, m.d.LogRoot, ch.World, ch.ID)
+// logLayout is where ch's logs go; ok is false when there's nowhere.
+func (m *Model) logLayout(ch config.Character) (l logstore.Layout, ok bool) {
+	l = logstore.Layout{Root: m.d.LogRoot, Dir: m.cfg.LogDir, Name: m.cfg.LogName,
+		World: ch.World, Char: ch.ID, CharName: ch.Name}
+	return l, m.d.LogRoot != "" || filepath.IsAbs(m.cfg.LogDir)
+}
+
+// mustLayout is logLayout for the log writer, which always has a place
+// to write in the real program (LogRoot is set).
+func (m *Model) mustLayout(ch config.Character) logstore.Layout {
+	l, _ := m.logLayout(ch)
+	return l
 }
 
 // preload fills the scrollback with the tail of the most recent log days
 // and hands everything older to the scrollback to page in on demand, so
 // scrollback is unlimited.
 func (m *Model) preload(cs *charState) {
-	dir := m.logDir(cs.ch)
-	if dir == "" {
+	l, ok := m.logLayout(cs.ch)
+	if !ok {
 		return
 	}
-	hist, err := history.NewReader(dir, cs.ch.ID)
+	hist, err := history.NewReader(l)
 	if err != nil {
 		return
 	}
@@ -400,7 +406,7 @@ func (m *Model) connect(cs *charState) tea.Cmd {
 	var s *session.Session
 	s = session.New(session.Options{
 		Char: cs.ch,
-		Log:  m.d.NewLog(m.logDir(cs.ch), cs.ch.ID),
+		Log:  m.d.NewLog(m.mustLayout(cs.ch)),
 		Dial: func(ctx context.Context) (session.LineConn, error) { return m.d.Dial(ctx, s.Char()) },
 		Password: func() (string, error) {
 			ch := s.Char()
@@ -928,7 +934,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
-	cs.browse = newBrowse(cs, m.logDir(cs.ch))
+	l, ok := m.logLayout(cs.ch)
+	cs.browse = newBrowse(cs, l, ok)
 	cs.browse.setExport(m.cfg)
 	m.status = ""
 }
