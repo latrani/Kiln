@@ -19,6 +19,7 @@ type compiled struct {
 	re        *regexp.Regexp // nil = no pattern constraint
 	style     config.Style
 	attention bool
+	quiet     bool
 	match     bool // scope = "match": style only the rule's spans
 }
 
@@ -33,15 +34,16 @@ type Run struct {
 type Result struct {
 	Style     config.Style // the whole line's style, when Runs is nil
 	Styled    bool         // some rule styled some of the line
-	Attention bool
-	Runs      []Run // with match-scope rules: the line, cut into styled runs
+	Attention bool         // never with Quiet
+	Quiet     bool         // a quiet rule applies: not unread, no attention
+	Runs      []Run        // with match-scope rules: the line, cut into styled runs
 }
 
 // New compiles rules.
 func New(rules []config.HighlightRule) (*Highlighter, error) {
 	h := &Highlighter{}
 	for _, r := range rules {
-		c := compiled{tags: r.Match.Tags, style: r.Style, attention: r.Attention, match: r.Scope == "match"}
+		c := compiled{tags: r.Match.Tags, style: r.Style, attention: r.Attention, quiet: r.Quiet, match: r.Scope == "match"}
 		if r.Match.Pattern != "" {
 			re, err := regexp.Compile(r.Match.Pattern)
 			if err != nil {
@@ -66,8 +68,16 @@ type hit struct {
 // in order: later non-empty colors override earlier ones, and
 // bold/italic/underline/attention accumulate. A whole-line rule covers
 // every character; a match-scope rule covers its pattern's matches, or
-// else its tags' spans.
+// else its tags' spans. Quiet wins over attention.
 func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
+	res := h.apply(plain, tags)
+	if res.Quiet {
+		res.Attention = false
+	}
+	return res
+}
+
+func (h *Highlighter) apply(plain string, tags []classify.Tag) Result {
 	var res Result
 	var hits []hit
 	partial := false
@@ -79,6 +89,7 @@ func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
 			continue
 		}
 		res.Attention = res.Attention || r.attention
+		res.Quiet = res.Quiet || r.quiet
 		if !r.match {
 			hits = append(hits, hit{style: r.style})
 			continue
