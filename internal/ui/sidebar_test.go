@@ -221,3 +221,22 @@ func TestClickingWorldHeaderDoesNothing(t *testing.T) {
 		t.Errorf("active = %q after clicking the world header", h.m.active)
 	}
 }
+
+func TestSidebarIndent(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook") // disconnected, so it has a ×
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.m.switchTo("fm/rook")
+	h.m.switchTo("fm/kit")
+	if got := sideRow(h, 1); !strings.HasPrefix(got, " Kit ") {
+		t.Errorf("connected row = %q, want the name one space in", got)
+	}
+	if got := sideRow(h, 2); !strings.HasPrefix(got, " × Rook ") {
+		t.Errorf("disconnected row = %q, want the × one space in, pushing the name over", got)
+	}
+	h.press('o', tea.ModCtrl)
+	if got := sideRow(h, 1); !strings.HasPrefix(got, " + Character") {
+		t.Errorf("picker row = %q, want one space in too", got)
+	}
+}
