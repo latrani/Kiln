@@ -376,25 +376,25 @@ func (cs *charState) echoes(e logstore.Entry) bool {
 	return e.Dir != logstore.Out || cs.ch.LocalEcho
 }
 
-// render turns a log entry into a drawable line; the bool reports whether
-// a highlight rule asked for attention.
-func (cs *charState) render(e logstore.Entry) (string, bool) {
+// render turns a log entry into a drawable line, with what the highlight
+// rules made of it (attention, quiet).
+func (cs *charState) render(e logstore.Entry) (string, rules.Result) {
 	return renderLine(cs.cls, cs.hl, e)
 }
 
 // renderLine styles e with the given rules. It only reads cls and hl
 // (compiled once, never mutated), so it is safe off the UI goroutine.
-func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry) (string, bool) {
+func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry) (string, rules.Result) {
 	text := ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
-		return style.Dim(gutterMark + text), false
+		return style.Dim(gutterMark + text), rules.Result{}
 	case logstore.Sys:
-		return style.Dim("* " + text), false
+		return style.Dim("* " + text), rules.Result{}
 	}
 	plain := ansi.Strip(text)
 	res := hl.Apply(plain, cls.Tags(plain))
-	return style.Highlight(text, res), res.Attention
+	return style.Highlight(text, res), res
 }
 
 // connect starts (or restarts) a character's session.
@@ -552,16 +552,20 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	ev := msg.ev
 	switch ev.Kind {
 	case session.EventLine:
-		text, attn := cs.render(ev.Entry)
-		if cs.echoes(ev.Entry) {
+		text, res := cs.render(ev.Entry)
+		switch {
+		case !cs.echoes(ev.Entry):
+		case res.Quiet:
+			cs.sb.AppendQuiet(text)
+		default:
 			cs.sb.Append(text)
 		}
 		if cs.browse != nil {
 			cs.browse.appendLive(ev.Entry)
 		}
-		if msg.key != m.active && ev.Entry.Dir == logstore.In {
+		if msg.key != m.active && ev.Entry.Dir == logstore.In && !res.Quiet {
 			cs.unread++
-			cs.attention = cs.attention || attn
+			cs.attention = cs.attention || res.Attention
 		}
 	case session.EventPrompt:
 		cs.sb.SetPrompt(ansi.Sanitize(ev.Entry.Text))
