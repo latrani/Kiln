@@ -213,6 +213,15 @@ style = { fg = "#ff9f43", bold = true }
 attention = true                     # light up the ● badge
 ```
 
+The opposite of `attention` is `quiet = true`: for server chatter you don't care about, matching lines are still shown but don't count as unread, don't bump the `▼ new` count, and never light the badge, even if another rule (like `self`) asks for attention.
+
+```toml
+[[highlight]]
+match = { pattern = '^\[Wiki\]' }
+style = { fg = "#808080" }
+quiet = true
+```
+
 A classify rule can give several tags at once with `tags = ["page", "page/in"]` (instead of, or as well as, `tag`). By convention a `/` nests a tag under a broader one: the starter pack tags pages you receive `page` and `page/in`, and the server's echo of your own (`You page, …`, `You page-pose, …`) `page` and `page/out`, so a `page` filter shows the whole conversation while the highlight is on `page/in` only. Whispers work the same way (`whisper/in`, and `whisper/out` for `You whisper, …`).
 
 Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` and `[[characters.highlight]]` right after its `[[characters]]` entry.
