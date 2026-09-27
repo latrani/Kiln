@@ -33,9 +33,21 @@ type sbLine struct {
 	links   [][2]int // byte ranges of the links in plain
 }
 
+// wrapIndent is how far rows after a line's first are indented, so a
+// wrapped line reads as one line, not several.
+const wrapIndent = 1
+
+// rowIndent is how far row i of a line is indented.
+func rowIndent(i int) int {
+	if i > 0 {
+		return wrapIndent
+	}
+	return 0
+}
+
 func (l *sbLine) wrap(w int) []string {
 	if l.wrapW != w || l.rows == nil {
-		l.rows, l.wrapW = ansi.Wrap(l.text, w), w
+		l.rows, l.wrapW = ansi.WrapIndent(l.text, w, wrapIndent), w
 	}
 	return l.rows
 }
@@ -113,7 +125,7 @@ func (s *Scrollback) hasRows(n int) bool {
 	w := s.w()
 	rows := 0
 	if s.prompt != "" && s.offset == 0 {
-		rows = len(ansi.Wrap(s.prompt, w))
+		rows = len(ansi.WrapIndent(s.prompt, w, wrapIndent))
 	}
 	for i := len(s.lines) - 1; i >= 0 && rows < n; i-- {
 		rows += len(s.lines[i].wrap(w))
@@ -181,7 +193,7 @@ func (s *Scrollback) View(h int) []string {
 	var tail []string // rows in reverse order, newest first
 	var refs []sbRef  // what each tail row shows
 	if s.prompt != "" && s.offset == 0 {
-		rows := ansi.Wrap(s.prompt, w)
+		rows := ansi.WrapIndent(s.prompt, w, wrapIndent)
 		for i := len(rows) - 1; i >= 0; i-- {
 			tail = append(tail, rows[i])
 			refs = append(refs, sbRef{line: -1})
