@@ -77,6 +77,43 @@ func Wrap(s string, width int) []string {
 	return rows
 }
 
+// WrapIndent is Wrap with every row after the first indented by indent
+// spaces, so wrapped rows stand out from new lines: the first row gets the
+// full width, and the rest width-indent. The indent is unstyled.
+func WrapIndent(s string, width, indent int) []string {
+	rows := Wrap(s, width)
+	if len(rows) < 2 || indent <= 0 || width-indent < 1 {
+		return rows
+	}
+	// Split s where the first row ends, past the spaces the wrap dropped,
+	// and carry over the SGR state in effect there.
+	off, plain := 0, len(Strip(rows[0]))
+	for off < len(s) && (plain > 0 || s[off] == ' ' || s[off] == 0x1b) {
+		if s[off] == 0x1b {
+			off = skipEscape(s, off)
+			continue
+		}
+		if plain > 0 {
+			plain--
+		}
+		off++
+	}
+	var active strings.Builder
+	for _, seq := range sgrSequences(s[:off]) {
+		if seq == "\x1b[0m" || seq == "\x1b[m" {
+			active.Reset()
+		} else {
+			active.WriteString(seq)
+		}
+	}
+	pad := strings.Repeat(" ", indent)
+	out := []string{rows[0]}
+	for _, r := range Wrap(active.String()+s[off:], width-indent) {
+		out = append(out, pad+r)
+	}
+	return out
+}
+
 // Width is the number of terminal cells s occupies, ignoring escapes.
 func Width(s string) int { return xansi.StringWidth(s) }
 
