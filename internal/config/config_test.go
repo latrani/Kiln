@@ -166,6 +166,24 @@ func TestEnsureDefaultsWritesStarterFilesOnce(t *testing.T) {
 	}
 }
 
+func TestClassifyRuleTags(t *testing.T) {
+	r := ClassifyRule{Tag: "page", Tags: []string{"page/in", "", "page"}}
+	if got := strings.Join(r.AllTags(), ","); got != "page,page/in" {
+		t.Errorf("AllTags = %q", got)
+	}
+	for body, ok := range map[string]bool{
+		"[[classify]]\ntags = [\"page\", \"page/in\"]\npattern = \"x\"\n": true,
+		"[[classify]]\npattern = \"x\"\n":                                 false,
+		"[[classify]]\ntags = []\npattern = \"x\"\n":                      false,
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"worlds/a.toml": "host = \"h\"\nport = 1\n" + body + "[[characters]]\nname = \"Kit\"\n"})
+		if _, err := Load(dir); (err == nil) != ok {
+			t.Errorf("%q: err = %v", body, err)
+		}
+	}
+}
+
 func TestStarterPackLoads(t *testing.T) {
 	dir := t.TempDir()
 	EnsureDefaults(dir)

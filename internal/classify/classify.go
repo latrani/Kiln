@@ -23,8 +23,8 @@ type Classifier struct {
 }
 
 type rule struct {
-	tag string
-	re  *regexp.Regexp
+	tags []string
+	re   *regexp.Regexp
 }
 
 // Span is a byte range [Start, End) of a line's plain text.
@@ -44,7 +44,7 @@ func New(rules []config.ClassifyRule, name string, aliases []string) (*Classifie
 		if err != nil {
 			return nil, err
 		}
-		c.rules = append(c.rules, rule{r.Tag, re})
+		c.rules = append(c.rules, rule{r.AllTags(), re})
 	}
 	for _, n := range append([]string{name}, aliases...) {
 		if n = strings.TrimSpace(n); n != "" {
@@ -73,15 +73,18 @@ func (c *Classifier) Tags(plain string) []Tag {
 		if !r.re.MatchString(plain) {
 			continue
 		}
-		i, ok := at[r.tag]
-		if !ok {
-			i = len(tags)
-			at[r.tag] = i
-			tags = append(tags, Tag{Name: r.tag})
-		}
-		for _, m := range r.re.FindAllStringIndex(plain, -1) {
-			if m[0] < m[1] {
-				tags[i].Spans = append(tags[i].Spans, Span{m[0], m[1]})
+		ms := r.re.FindAllStringIndex(plain, -1)
+		for _, name := range r.tags {
+			i, ok := at[name]
+			if !ok {
+				i = len(tags)
+				at[name] = i
+				tags = append(tags, Tag{Name: name})
+			}
+			for _, m := range ms {
+				if m[0] < m[1] {
+					tags[i].Spans = append(tags[i].Spans, Span{m[0], m[1]})
+				}
 			}
 		}
 	}
