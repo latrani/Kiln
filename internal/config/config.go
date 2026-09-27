@@ -30,10 +30,25 @@ type Style struct {
 	Underline bool   `toml:"underline"`
 }
 
-// ClassifyRule tags lines whose plain text matches Pattern.
+// ClassifyRule tags lines whose plain text matches Pattern with Tag and
+// every one of Tags. By convention a "/" nests a tag under another, as in
+// tags = ["page", "page/in"], so a line can be filtered broadly (page)
+// and styled narrowly (page/in).
 type ClassifyRule struct {
-	Tag     string `toml:"tag"`
-	Pattern string `toml:"pattern"`
+	Tag     string   `toml:"tag"`
+	Tags    []string `toml:"tags"`
+	Pattern string   `toml:"pattern"`
+}
+
+// AllTags is Tag and Tags together, without duplicates or blanks.
+func (r ClassifyRule) AllTags() []string {
+	var out []string
+	for _, t := range append([]string{r.Tag}, r.Tags...) {
+		if t != "" && !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // Match selects lines for a highlight rule. A line matches when it has at
@@ -354,11 +369,12 @@ func validate(ch Character) error {
 		return errors.New(`newline_mode must be "batch" or "flatten"`)
 	}
 	for i, r := range ch.Rules.Classify {
-		if r.Tag == "" {
-			return fmt.Errorf("classify rule %d: tag is required", i+1)
+		tags := r.AllTags()
+		if len(tags) == 0 {
+			return fmt.Errorf("classify rule %d: tag or tags is required", i+1)
 		}
 		if _, err := regexp.Compile(r.Pattern); err != nil {
-			return fmt.Errorf("classify rule %d (%s): %w", i+1, r.Tag, err)
+			return fmt.Errorf("classify rule %d (%s): %w", i+1, strings.Join(tags, ", "), err)
 		}
 	}
 	for i, r := range ch.Rules.Highlight {
