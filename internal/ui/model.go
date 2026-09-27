@@ -915,7 +915,7 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		m.close(cs.key)
 	case "/quit":
 		return m.quit()
-	case "/browse":
+	case "/log":
 		m.openBrowse(cs)
 	case "/edit":
 		m.editCommand(cs, strings.Join(args[1:], " "))

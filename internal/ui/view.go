@@ -150,14 +150,14 @@ func fit(s string, w int) string {
 
 // statusLine shows the active character, its connection and the clock,
 // or, while there is a status message, just the character and the message.
-// In browse mode it starts with "BROWSE · N selected".
+// In log mode it starts with "LOG · N selected".
 func (m *Model) statusLine(w int) string {
 	cs := m.cur()
 	name := ""
 	if cs != nil {
 		name = cs.ch.World + "/" + cs.ch.Name
 		if cs.browse != nil {
-			name = fmt.Sprintf("%sBROWSE%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
+			name = fmt.Sprintf("%sLOG%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
 		}
 	}
 	if m.status != "" {

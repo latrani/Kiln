@@ -765,7 +765,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			span = "…" + span
 		}
 	}
-	head := bold + "BROWSE " + b.cs.ch.Name + style.Reset + " · " + span
+	head := bold + "LOG " + b.cs.ch.Name + style.Reset + " · " + span
 	if b.find != "" {
 		i, n := b.matchPos()
 		head += fmt.Sprintf("   find: %s %d/%d", b.find, i, n)
