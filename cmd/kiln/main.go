@@ -75,7 +75,7 @@ func run(args []string) error {
 		if !ok {
 			return fmt.Errorf("no character %s/%s (define it in %s)", args[1], args[2], filepath.Join(cfgDir, "worlds", args[1]+".toml"))
 		}
-		return tail(ch, dataDir, cfg.PasswordStore, cfg.LogDir)
+		return tail(ch, dataDir, cfg)
 	case "passwd":
 		if _, ok := cfg.Find(args[1], args[2]); !ok {
 			return fmt.Errorf("no character %s/%s", args[1], args[2])
@@ -118,7 +118,7 @@ func knownHosts(dataDir string) conn.KnownHosts {
 	return conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")}
 }
 
-func tail(ch config.Character, dataDir, pwStore, logDir string) error {
+func tail(ch config.Character, dataDir string, cfg *config.Config) error {
 	cls, err := classify.New(ch.Rules.Classify, ch.Name, ch.Aliases)
 	if err != nil {
 		return err
@@ -131,7 +131,8 @@ func tail(ch config.Character, dataDir, pwStore, logDir string) error {
 	if err != nil {
 		w, h = 80, 24
 	}
-	logw := logstore.NewWriter(logstore.CharDir(logDir, filepath.Join(dataDir, "logs"), ch.World, ch.ID), ch.ID)
+	logw := logstore.NewWriter(logstore.Layout{Root: filepath.Join(dataDir, "logs"), Dir: cfg.LogDir, Name: cfg.LogName,
+		World: ch.World, Char: ch.ID, CharName: ch.Name})
 	defer logw.Close()
 
 	s := session.New(session.Options{
@@ -143,7 +144,7 @@ func tail(ch config.Character, dataDir, pwStore, logDir string) error {
 				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
 			})
 		},
-		Password: func() (string, error) { return secrets.Open(pwStore, dataDir).Get(ch.World, ch.ID) },
+		Password: func() (string, error) { return secrets.Open(cfg.PasswordStore, dataDir).Get(ch.World, ch.ID) },
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -219,12 +220,12 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
 			})
 		},
-		NewLog: func(dir, char string) session.Appender {
+		NewLog: func(l logstore.Layout) session.Appender {
 			mu.Lock()
 			defer mu.Unlock()
-			k := filepath.Join(dir, char)
+			k := fmt.Sprintf("%+v", l) // a changed log_dir or log_name gets a new writer
 			if writers[k] == nil {
-				writers[k] = logstore.NewWriter(dir, char)
+				writers[k] = logstore.NewWriter(l)
 			}
 			return writers[k]
 		},

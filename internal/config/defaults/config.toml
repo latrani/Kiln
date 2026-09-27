@@ -4,11 +4,15 @@
 # readable only by you; for systems without a keychain) or "none" (never save).
 # password_store = "keychain"
 
-# Where logs go; {world} and {char} (the character's id) are filled in.
+# Where logs go and what they're called (Kiln adds .log): strftime codes
+# (%Y %m %d %H %M %S …) for when the session started, and {world}, {char}
+# (the character's id) and {name}.
 # log_dir = "~/.local/share/kiln/logs/{world}/{char}"
+# log_name = "%Y-%m-%d %H%M%S {char}"
 
 # Browse-mode exports: the folder, the file name ({date}, {time}, {world},
-# {name}) and the format Enter picks ("plain", "ansi" or "html"; unset asks).
+# {name}, strftime codes) and the format Enter picks ("plain", "ansi" or
+# "html"; unset asks).
 # export_dir = "~/Documents/Kiln Scenes"
 # export_name = "{date} {time} {world} {name}"
 # export_format = "html"

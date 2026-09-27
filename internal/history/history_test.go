@@ -13,12 +13,14 @@ import (
 func at(day, hour int) time.Time { return time.Date(2026, 9, day, hour, 0, 0, 0, time.Local) }
 
 func TestLoadOlderReturnsWholeDays(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "kit") // older per-day logs sat in a folder named for the character
+	os.MkdirAll(dir, 0o700)
+	l := logstore.Layout{Dir: dir, World: "fm", Char: "kit"}
 	// A legacy day file, then session files: two on the 23rd, one running
 	// from the 23rd into the 24th, and one more on the 24th.
 	os.WriteFile(filepath.Join(dir, "2026-09-22.log"), []byte(logstore.Header+"\n"+
 		logstore.Format(logstore.Entry{Time: at(22, 12), Dir: logstore.In, Text: "22 legacy"})+"\n"), 0o600)
-	w := logstore.NewWriter(dir, "kit")
+	w := logstore.NewWriter(l)
 	for _, sess := range [][]logstore.Entry{
 		{{Time: at(23, 9), Dir: logstore.In, Text: "23 a"}},
 		{{Time: at(23, 12), Dir: logstore.In, Text: "23 b"}},
@@ -31,7 +33,7 @@ func TestLoadOlderReturnsWholeDays(t *testing.T) {
 		w.NewSession()
 	}
 	w.Close()
-	r, err := NewReader(dir, "kit")
+	r, err := NewReader(l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,12 +62,12 @@ func TestLoadOlderReturnsWholeDays(t *testing.T) {
 }
 
 func TestExhaustedOnlyWhenBufferEmpty(t *testing.T) {
-	dir := t.TempDir()
-	w := logstore.NewWriter(dir, "kit")
+	l := logstore.Layout{Dir: t.TempDir(), World: "fm", Char: "kit"}
+	w := logstore.NewWriter(l)
 	w.Append(logstore.Entry{Time: at(23, 22), Dir: logstore.In, Text: "23"})
 	w.Append(logstore.Entry{Time: at(24, 2), Dir: logstore.In, Text: "24"}) // same session, next day
 	w.Close()
-	r, _ := NewReader(dir, "kit")
+	r, _ := NewReader(l)
 	if _, day, _, _ := r.LoadOlder(); day != "2026-09-24" || r.Exhausted() {
 		t.Fatalf("day %s, exhausted %v; the 23rd is still to come", day, r.Exhausted())
 	}
@@ -75,7 +77,7 @@ func TestExhaustedOnlyWhenBufferEmpty(t *testing.T) {
 }
 
 func TestNoLogs(t *testing.T) {
-	r, err := NewReader(filepath.Join(t.TempDir(), "nobody"), "nobody")
+	r, err := NewReader(logstore.Layout{Dir: filepath.Join(t.TempDir(), "nobody"), World: "fm", Char: "nobody"})
 	if err != nil {
 		t.Fatal(err)
 	}
