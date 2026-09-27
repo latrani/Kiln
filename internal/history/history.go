@@ -17,10 +17,10 @@ type Reader struct {
 	buf   []logstore.Entry // read but not yet returned, oldest first
 }
 
-// NewReader lists char's log files in dir. A character with no logs
-// yields a Reader that is immediately exhausted.
-func NewReader(dir, char string) (*Reader, error) {
-	files, err := logstore.Files(dir, char)
+// NewReader lists the log files of the character l describes. A
+// character with no logs yields a Reader that is immediately exhausted.
+func NewReader(l logstore.Layout) (*Reader, error) {
+	files, err := logstore.Files(l)
 	if err != nil {
 		return nil, err
 	}

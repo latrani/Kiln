@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/latrani/Kiln/internal/pathfmt"
 )
 
 // Style is how a highlighted line is drawn. Empty colors mean "unchanged".
@@ -104,7 +106,8 @@ type Config struct {
 	ExportDir     string  // where browse-mode exports go; "~" already expanded
 	ExportName    string  // export file name template; see ExportNameVars
 	ExportFormat  string  // "plain", "ansi" or "html" preselected for exports; "" asks
-	LogDir        string  // log directory template ({world}, {char}); "~" expanded, "" for the default
+	LogDir        string  // log folder template (strftime, {world} {char} {name}); "~" expanded, "" for the default
+	LogName       string  // log file name template, without ".log"; "" for the default
 	PasswordStore string  // "keychain", "file" or "none"
 }
 
@@ -156,6 +159,7 @@ type globalFile struct {
 	ExportName    string   `toml:"export_name"`
 	ExportFormat  string   `toml:"export_format"`
 	LogDir        string   `toml:"log_dir"`
+	LogName       string   `toml:"log_name"`
 	PasswordStore string   `toml:"password_store"`
 	Defaults      settings `toml:"defaults"`
 }
@@ -233,10 +237,16 @@ func Load(dir string) (*Config, error) {
 			return nil, err
 		}
 	}
-	if err := checkVars("log_dir", logDir, []string{"world", "char"}); err != nil {
+	if err := checkVars("log_dir", logDir, LogVars); err != nil {
 		return nil, err
 	}
-	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, PasswordStore: store}
+	if err := checkVars("log_name", g.LogName, LogVars); err != nil {
+		return nil, err
+	}
+	if strings.ContainsAny(g.LogName, `/\`) {
+		return nil, errors.New("config.toml: log_name is a file name; put folders in log_dir")
+	}
+	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, packs)
 		if err != nil {
@@ -418,19 +428,21 @@ func decodeBytes(path string, b []byte, v any) error {
 // DefaultExportName is used when config.toml sets no export_name.
 const DefaultExportName = "{date} {time} {world} {name}"
 
-// ExportNameVars are the placeholders export_name may use: the date
-// (YYYY-MM-DD) and time (HHMM) of the scene's first line, the world id
-// and the character's name.
+// LogVars are the placeholders log_dir and log_name may use (with
+// strftime codes for the session's start): the world id, the character's
+// id and its name.
+var LogVars = []string{"world", "char", "name"}
+
+// ExportNameVars are the placeholders export_name may use (with strftime
+// codes for the scene's first line): its date (YYYY-MM-DD) and time
+// (HHMM), the world id and the character's name.
 var ExportNameVars = []string{"date", "time", "world", "name"}
 
-var varRE = regexp.MustCompile(`\{([^{}]*)\}`)
-
-// checkVars rejects placeholders in a template other than vars.
+// checkVars rejects {placeholders} in a template other than vars, and
+// unknown strftime codes.
 func checkVars(setting, template string, vars []string) error {
-	for _, m := range varRE.FindAllStringSubmatch(template, -1) {
-		if !slices.Contains(vars, m[1]) {
-			return fmt.Errorf("config.toml: %s: unknown placeholder {%s} (use {%s})", setting, m[1], strings.Join(vars, "}, {"))
-		}
+	if err := pathfmt.Check(template, vars); err != nil {
+		return fmt.Errorf("config.toml: %s: %w", setting, err)
 	}
 	return nil
 }
