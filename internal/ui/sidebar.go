@@ -125,7 +125,7 @@ const addLabel = "+ Add connection"
 
 // badgeX is the column of a character row's connection badge; clicking a
 // × there closes the character.
-const badgeX = 2
+const badgeX = 1
 
 // attentionMark prefixes the unread count when a line needed attention.
 var attentionMark = style.SGR(config.HighlightStyle) + "●" + style.Reset
@@ -245,12 +245,15 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 		return style.Dim(fitName(addLabel, w))
 	}
 	cs := m.chars[r.char]
-	badge := " "
+	// A connected character's name sits one space in, under its world; a
+	// badge (connecting, or disconnected with a × to close) goes there
+	// instead and pushes the name over.
+	lead := " "
 	switch {
 	case cs.state == session.Connecting:
-		badge = "…"
+		lead = " … "
 	case closable(cs):
-		badge = "×"
+		lead = " × "
 	}
 	activity, shown := "", ""
 	if cs.unread > 0 {
@@ -261,7 +264,7 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 			shown = " " + attentionMark + shown
 		}
 	}
-	line := fitName("  "+badge+" "+cs.ch.Name, w-xansi.StringWidth(activity)) + shown
+	line := fitName(lead+cs.ch.Name, w-xansi.StringWidth(activity)) + shown
 	if r.char == m.active {
 		return reverse + line + style.Reset
 	}

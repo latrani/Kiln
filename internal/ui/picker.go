@@ -279,12 +279,12 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 		}
 		return bold + fitName(r.world, w) + style.Reset
 	case rowAddChar:
-		line = fitName("  "+addCharLabel, w)
+		line = fitName(" "+addCharLabel, w)
 	case rowAddWorld:
 		line = fitName(addWorldLabel, w)
 	default:
 		ch, _ := m.find(r.char)
-		line = fitName("  "+ch.Name, w)
+		line = fitName(" "+ch.Name, w)
 	}
 	switch {
 	case selKey(r) == m.picker.sel:
