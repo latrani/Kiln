@@ -217,7 +217,7 @@ func TestBrowseChips(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+b")
 	s := h.screen()
-	if !strings.Contains(s, "tags: 1[page] 2[say] 3[self]") {
+	if !strings.Contains(s, "tags: 1[page] 2[page/in] 3[say] 4[self]") {
 		t.Fatalf("chips:\n%s", s)
 	}
 	h.key("1") // page → only
@@ -250,12 +250,12 @@ func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
 		t.Errorf("cursor moved to %q, want the next line", got)
 	}
 	h.keys("1", "home", "down", "down", "down", "down") // neutral; Kit grins. (self)
-	h.keys("3", "3")                                    // self → only → hide
+	h.keys("4", "4")                                    // self → only → hide
 	if got := b.cursor.e.Text; got != "Rook says, \"The lighthouse is dark.\"" {
 		t.Errorf("cursor moved to %q, want the next visible line", got)
 	}
 	// With nothing visible after it, fall back to the previous line.
-	h.keys("3", "end", "1") // self neutral; Rook yawns; page → only
+	h.keys("4", "end", "1") // self neutral; Rook yawns; page → only
 	if got := b.cursor.e.Text; got != "Mira pages: you around?" {
 		t.Errorf("cursor moved to %q, want the previous visible line", got)
 	}
