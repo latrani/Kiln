@@ -6,9 +6,14 @@
 tag = "say"
 pattern = '^(You say|\S+ says), "'
 
+# Whispers, like pages below: "whisper/in" to you, "whisper/out" your own.
 [[classify]]
-tag = "whisper"
+tags = ["whisper", "whisper/in"]
 pattern = '^\S+ whispers,? "'
+
+[[classify]]
+tags = ["whisper", "whisper/out"]
+pattern = '^You whisper, '
 
 # Pages carry "page" plus "page/in" (to you) or "page/out" (your own,
 # as the server echoes them), so a "page" filter shows both sides of a
@@ -39,7 +44,7 @@ style = { fg = "#ff9f43", bold = true }
 attention = true
 
 [[highlight]]
-match = { tags = ["whisper"] }
+match = { tags = ["whisper/in"] }
 style = { fg = "#c39bd3", italic = true }
 attention = true
 
