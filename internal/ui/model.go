@@ -74,6 +74,7 @@ type Model struct {
 	sideTop   int                    // first sidebar row shown when it overflows
 	sideShown string                 // active character last scrolled into view
 	pwStore   atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
+	recent    []string               // open characters by when last active, most recent first; not the active one
 	quitKey   string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
 	quitGen   int                    // bumped per arming; see quitExpiredMsg
 	lastClick struct {               // for spotting a double-click in the sidebar
@@ -747,7 +748,9 @@ func (m *Model) switchBy(delta int) {
 }
 
 // switchToUnread moves to the next character (dir 1) or previous one
-// (dir -1) in sidebar order that has unseen lines, wrapping around.
+// (dir -1) in sidebar order that has unseen lines, wrapping around. With
+// nothing unread it goes back to the character active before this one,
+// so Tab flips between the last two, like switching apps.
 func (m *Model) switchToUnread(dir int) {
 	n := len(m.order)
 	i := slices.Index(m.order, m.active) // -1 when nothing is open
@@ -758,13 +761,21 @@ func (m *Model) switchToUnread(dir int) {
 			return
 		}
 	}
-	m.setStatus(false, "nothing unread")
+	if len(m.recent) > 0 {
+		m.switchTo(m.recent[0])
+	} else if n > 1 { // others are open but none has been active yet
+		m.switchTo(m.order[((i+dir)%n+n)%n])
+	}
 }
 
 func (m *Model) switchTo(k string) {
 	cs, ok := m.chars[k]
 	if !ok {
 		return
+	}
+	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
+	if m.active != "" && m.active != k {
+		m.recent = append([]string{m.active}, m.recent...)
 	}
 	m.active, m.confirm = k, false
 	if cs.browse != nil && m.picker != nil {
