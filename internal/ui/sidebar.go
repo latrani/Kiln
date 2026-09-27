@@ -93,6 +93,7 @@ func (m *Model) close(k string) {
 	}
 	delete(m.chars, k)
 	m.order = slices.Delete(m.order, i, i+1)
+	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
 	if m.active != k {
 		return
 	}
