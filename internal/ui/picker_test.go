@@ -150,7 +150,7 @@ func TestPickerEscAndReload(t *testing.T) {
 
 func TestPickerBlockedInBrowse(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.typeText("/browse")
+	h.typeText("/log")
 	h.enter()
 	h.press('o', tea.ModCtrl)
 	if h.m.picker != nil {
@@ -172,7 +172,7 @@ func TestSwitchingIntoBrowseClosesPicker(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
 	h.m.switchTo("fm/rook")
-	h.typeText("/browse")
+	h.typeText("/log")
 	h.enter()
 	h.m.switchTo("fm/kit")
 	h.press('o', tea.ModCtrl)
