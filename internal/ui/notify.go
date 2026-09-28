@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -72,4 +73,29 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 		method = m.cfg.NotifyMethod
 	}
 	return m.d.Raw(notify.Encode(notify.Message(m.notifyName(cs), e.Text), method, m.d.Tmux))
+}
+
+// notifyCommand is /notify: show the level, set an override until Kiln
+// quits, or drop it with "default".
+func (m *Model) notifyCommand(cs *charState, args []string) {
+	if len(args) == 0 {
+		shown := string(cs.notifyLevel())
+		if cs.notifyOverride != "" {
+			shown = fmt.Sprintf("%s (override; config says %s)", cs.notifyOverride, cs.ch.Notify)
+		}
+		m.setStatus(false, "%s notify: %s", cs.ch.Name, shown)
+		return
+	}
+	if args[0] == "default" {
+		cs.notifyOverride = ""
+		m.setStatus(false, "%s notify: %s", cs.ch.Name, cs.ch.Notify)
+		return
+	}
+	l, err := notify.ParseLevel(args[0])
+	if err != nil {
+		m.setStatus(true, "%v", err)
+		return
+	}
+	cs.notifyOverride = l
+	m.setStatus(false, "%s notify: %s until Kiln quits", cs.ch.Name, l)
 }

@@ -953,6 +953,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 			return nil
 		}
 		m.setStatus(false, "added highlight for %q", text)
+	case "/notify":
+		m.notifyCommand(cs, args[1:])
 	default:
 		m.setStatus(true, "unknown command %s", args[0])
 	}

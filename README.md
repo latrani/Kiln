@@ -125,6 +125,7 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/close` | Disconnect and remove the character from the sidebar |
 | `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
+| `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |
 | `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see below) |
 | `/quit` | Quit Kiln |
@@ -148,6 +149,17 @@ To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
 | `c` | Copy the range as plain text |
 
 Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
+
+### Notifications
+
+When you're away from Kiln, activity shows up as a desktop notification like `Kit: Rook pages: you around?` (`Kit@fm:` when two worlds have a Kit). You're away when you switch to another window or tab, or after `notify_idle` (default 5 minutes) without typing or clicking. The `notify` setting picks what notifies: `first` (the default) sends the first line since you left and then only lines that need attention (pages and whispers), `all` sends every line, `attention` only those, and `none` nothing. Lines hidden by a `quiet` rule never notify. `/notify` changes it for one character until Kiln quits.
+
+Notifications work in iTerm2, kitty, Ghostty, WezTerm, foot and Blink, locally or over ssh. Inside tmux, add this to `~/.tmux.conf`:
+
+    set -g allow-passthrough on
+    set -g focus-events on
+
+Mosh drops notifications, but it passes on the bell: set `notify_method = "both"` and turn on Blink's "Notification on background shell" to get an alert (without the line).
 
 ## Where Kiln keeps things
 

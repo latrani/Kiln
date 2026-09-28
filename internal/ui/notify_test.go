@@ -199,3 +199,50 @@ func TestViewReportsFocus(t *testing.T) {
 		t.Error("focus reporting is off")
 	}
 }
+
+func TestNotifyCommand(t *testing.T) {
+	h := notifyHarness(t, "first", nil)
+	h.typeText("/notify")
+	h.enter()
+	if !strings.Contains(h.screen(), "Kit notify: first") {
+		t.Errorf("status:\n%s", h.screen())
+	}
+	h.typeText("/notify none")
+	h.enter()
+	if lvl := h.m.chars["fm/kit"].notifyLevel(); lvl != "none" {
+		t.Errorf("level = %q", lvl)
+	}
+	h.typeText("/notify")
+	h.enter()
+	if !strings.Contains(h.screen(), "Kit notify: none (override; config says first)") {
+		t.Errorf("status:\n%s", h.screen())
+	}
+	h.m.Update(tea.BlurMsg{})
+	h.line("Mira pages: you around?")
+	if got := h.notified(); len(got) != 0 {
+		t.Errorf("override ignored: %q", got)
+	}
+	h.m.Update(tea.FocusMsg{})
+	h.typeText("/notify default")
+	h.enter()
+	if lvl := h.m.chars["fm/kit"].notifyLevel(); lvl != "first" {
+		t.Errorf("after default, level = %q", lvl)
+	}
+	h.typeText("/notify loud")
+	h.enter()
+	if !strings.Contains(h.screen(), `notify must be "all", "first", "attention" or "none"`) {
+		t.Errorf("status:\n%s", h.screen())
+	}
+}
+
+func TestNotifyOverrideSurvivesReload(t *testing.T) {
+	h := notifyHarness(t, "first", nil)
+	h.typeText("/notify all")
+	h.enter()
+	if !h.m.reloadNow() {
+		t.Fatal("reload failed")
+	}
+	if lvl := h.m.chars["fm/kit"].notifyLevel(); lvl != "all" {
+		t.Errorf("after reload, level = %q", lvl)
+	}
+}
