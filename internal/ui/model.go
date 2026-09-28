@@ -111,6 +111,7 @@ type charState struct {
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
 	sentGen     int              // hereGen when the last notification went out; -1: none yet
 	connectedAt time.Time        // when the current connection came up
+	lastSent    time.Time        // when the last notification went out
 }
 
 // sbOlderMsg carries older scrollback lines, read and rendered off the UI

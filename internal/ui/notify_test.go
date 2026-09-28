@@ -48,6 +48,7 @@ func TestNotifyAllWhileBlurred(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
 	h.m.Update(tea.BlurMsg{})
 	h.line("Rook says, \"hi\"")
+	h.advance(time.Second) // past the burst gap
 	h.line("Rook says, \"again\"")
 	want := []string{osc("Kit: Rook says, \"hi\""), osc("Kit: Rook says, \"again\"")}
 	if got := h.notified(); !slices.Equal(got, want) {
@@ -288,6 +289,7 @@ func TestComingBackRearmsAtTheSameInstant(t *testing.T) {
 	h.line("Rook says, \"one\"")
 	h.m.Update(tea.FocusMsg{}) // same clock reading as the notification
 	h.m.Update(tea.BlurMsg{})
+	h.advance(burstGap) // so the next line isn't part of a burst
 	h.line("Rook says, \"two\"")
 	if got := h.notified(); len(got) != 2 {
 		t.Errorf("got %q, want two notifications", got)
@@ -305,6 +307,21 @@ func TestLoginBannerDoesntNotify(t *testing.T) {
 	h.advance(connectGrace)
 	h.line("Rook says, \"hi\"")
 	want := []string{osc("Kit: Mira pages: welcome back"), osc("Kit: Rook says, \"hi\"")}
+	if got := h.notified(); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestBurstNotifiesOnce(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.m.Update(tea.BlurMsg{})
+	h.line("Rook's Den")
+	h.advance(10 * time.Millisecond)
+	h.line("A cozy room full of cushions.")
+	h.line("Mira pages: nice den") // attention gets through a burst
+	h.advance(burstGap)
+	h.line("Rook says, \"hi\"")
+	want := []string{osc("Kit: Rook's Den"), osc("Kit: Mira pages: nice den"), osc("Kit: Rook says, \"hi\"")}
 	if got := h.notified(); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}

@@ -49,6 +49,10 @@ For `connectGrace` (5 seconds) after a connection comes up, only attention
 lines notify, so the login banner and MOTD don't use up `first` or flood
 `all`.
 
+Likewise, for `burstGap` (250ms) after a character's last notification,
+only attention lines notify: a multi-line description arrives as one
+burst, and only its first line notifies.
+
 Quiet lines never notify, at any level, even `all`. (Quiet already beats
 attention in the rules engine, so a quiet line is never an attention line
 either.)
@@ -119,7 +123,7 @@ System lines (connect, disconnect) never notify.
     `tea.Raw`), so tests can see what's written.
   - Model fields `focused`, `lastHere`, and `notifyOverrides` (by
     character key, so `/close` and reopening keep it); `charState` fields
-    `sentGen`, `connectedAt`. Key, paste and click also set `focused`, since only a
+    `sentGen`, `connectedAt`, `lastSent`. Key, paste and click also set `focused`, since only a
     focused window gets input (a lost focus-in mustn't leave Kiln "away").
   - The view sets `ReportFocus`. Update handles `FocusMsg`/`BlurMsg`, and
     key, paste, click and wheel messages stamp `lastHere` from `Deps.Now`.

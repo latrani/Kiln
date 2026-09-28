@@ -17,6 +17,10 @@ import (
 // notify, so the login banner doesn't.
 const connectGrace = 5 * time.Second
 
+// burstGap is how soon after a notification another line counts as part
+// of the same burst (a multi-line description) and doesn't notify.
+const burstGap = 250 * time.Millisecond
+
 // notifyLevel is the /notify override, or the configured level.
 func (m *Model) notifyLevel(cs *charState) notify.Level {
 	if l := m.notifyOverrides[cs.key]; l != "" {
@@ -62,7 +66,8 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 	if e.Dir != logstore.In || res.Quiet || !m.away() {
 		return nil
 	}
-	if !res.Attention && m.d.Now().Sub(cs.connectedAt) < connectGrace {
+	now := m.d.Now()
+	if !res.Attention && (now.Sub(cs.connectedAt) < connectGrace || now.Sub(cs.lastSent) < burstGap) {
 		return nil
 	}
 	switch m.notifyLevel(cs) {
@@ -78,7 +83,7 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 	default:
 		return nil
 	}
-	cs.sentGen = m.hereGen
+	cs.sentGen, cs.lastSent = m.hereGen, now
 	method := notify.OSC
 	if m.cfg != nil {
 		method = m.cfg.NotifyMethod
