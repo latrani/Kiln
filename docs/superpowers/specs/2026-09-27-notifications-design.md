@@ -19,10 +19,11 @@ pops up; the sidebar already shows unread and attention.
   swiping the app away).
 - At startup Kiln assumes focus. A terminal without focus reporting just
   relies on the idle fallback.
-- Away is worked out when a line arrives: `!focused || now − lastInput >
+- `lastHere` is the time of the latest focus-in, key press, paste, click
+  or wheel (not mouse motion: some terminals report hover over an
+  unfocused window). It starts at launch time.
+- Away is worked out when a line arrives: `!focused || now − lastHere >
   idle` (idle 0 disables the fallback). There's no ticker.
-- `lastHere` is the time of the latest focus-in, key or mouse input. It's
-  what "first line since you left" is measured against (below).
 
 ## What notifies
 
@@ -108,11 +109,12 @@ System lines (connect, disconnect) never notify.
   `WorldSettings` and `CharacterSettings` plumbing.
 - **`internal/ui`**:
   - `Deps.Tmux bool` (main sets it from `$TMUX`), so tests don't depend on
-    the environment.
-  - Model fields `focused`, `lastInput`, `lastHere`; `charState` fields
-    `firstSent`, `notifyOverride`.
+    the environment, and `Deps.Raw func(string) tea.Cmd` (default
+    `tea.Raw`), so tests can see what's written.
+  - Model fields `focused`, `lastHere`; `charState` fields `firstSent`,
+    `notifyOverride`.
   - The view sets `ReportFocus`. Update handles `FocusMsg`/`BlurMsg`, and
-    key and mouse messages stamp `lastInput`/`lastHere` from `Deps.Now`.
+    key, paste, click and wheel messages stamp `lastHere` from `Deps.Now`.
   - `handleEvent` decides next to the unread/attention logic and batches
     the raw write.
   - `/notify` in the command switch.
