@@ -42,6 +42,10 @@ overridden by `/notify` for the life of the app. While away, an incoming
 back (focus, key or mouse) therefore re-arms every character without any
 transition bookkeeping.
 
+Quiet lines never notify, at any level, even `all`. (Quiet already beats
+attention in the rules engine, so a quiet line is never an attention line
+either.)
+
 Away covers every character, including the active one.
 
 System lines (connect, disconnect) never notify.
