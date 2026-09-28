@@ -46,6 +46,7 @@ type Deps struct {
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
 	Tmux           bool                                            // inside tmux: wrap notifications for passthrough
 	Raw            func(seq string) tea.Cmd                        // writes straight to the terminal; default tea.Raw
+	Version        string                                          // shown at the right of the statusline; "" hides it
 	Now            func() time.Time
 }
 

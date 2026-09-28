@@ -234,7 +234,7 @@ func TestNotifyCommand(t *testing.T) {
 	}
 	h.typeText("/notify loud")
 	h.enter()
-	if !strings.Contains(h.screen(), `notify must be "all", "first", "attention" or "none"`) {
+	if !strings.Contains(h.screen(), `notify must be "all", "first"`) {
 		t.Errorf("status:\n%s", h.screen())
 	}
 }

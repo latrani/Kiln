@@ -148,9 +148,10 @@ func fit(s string, w int) string {
 	return s
 }
 
-// statusLine shows the active character, its connection and the clock,
-// or, while there is a status message, just the character and the message.
-// In log mode it starts with "LOG · N selected".
+// statusLine shows the active character and its connection, or, while
+// there is a status message, the character and the message. In log mode
+// it starts with "LOG · N selected". The version and clock are pinned to
+// the right; when space runs out, the left side is cut first.
 func (m *Model) statusLine(w int) string {
 	cs := m.cur()
 	name := ""
@@ -160,22 +161,28 @@ func (m *Model) statusLine(w int) string {
 			name = fmt.Sprintf("%sLOG%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
 		}
 	}
+	var parts []string
+	if name != "" {
+		parts = append(parts, name)
+	}
 	if m.status != "" {
 		msg := m.status
 		if m.statusErr {
 			msg = red + msg + style.Reset
 		}
-		if name == "" {
-			return fit(msg, w)
-		}
-		return fit(name+" · "+msg, w)
+		parts = append(parts, msg)
+	} else if cs != nil {
+		parts = append(parts, cs.state.String())
 	}
-	parts := []string{}
-	if cs != nil {
-		parts = append(parts, name, cs.state.String())
+	right := m.d.Now().Format("15:04")
+	if m.d.Version != "" {
+		right = m.d.Version + " · " + right
 	}
-	parts = append(parts, m.d.Now().Format("15:04"))
-	return fit(strings.Join(parts, " · "), w)
+	rw := xansi.StringWidth(right)
+	if w <= rw {
+		return fit(right, w)
+	}
+	return fitName(strings.Join(parts, " · "), w-rw-1) + " " + right
 }
 
 // View draws the whole screen.

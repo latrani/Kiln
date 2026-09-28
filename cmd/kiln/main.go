@@ -32,6 +32,7 @@ import (
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/ui"
+	"github.com/latrani/Kiln/internal/version"
 )
 
 const usage = `usage:
@@ -204,6 +205,7 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 	}()
 	m := ui.New(ui.Deps{
 		Tmux:       os.Getenv("TMUX") != "",
+		Version:    version.String(),
 		ConfigDir:  cfgDir,
 		LogRoot:    logRoot,
 		KnownHosts: knownHosts(dataDir),
