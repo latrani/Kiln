@@ -39,7 +39,7 @@ const browseBlocksPicker = "Esc out of log mode first"
 // the save-password question owns the input area.
 const questionBlocksPicker = "Answer the question first"
 
-// picker is the add-connection list shown in the sidebar: every
+// picker is the open-connection list shown in the sidebar: every
 // configured character that isn't open, narrowed by a one-field form,
 // with rows for adding characters and worlds.
 type picker struct {

@@ -61,7 +61,7 @@ const (
 type Model struct {
 	d         Deps
 	cfg       *config.Config // the loaded config; the picker lists from it
-	picker    *picker        // non-nil while the add-connection picker is open
+	picker    *picker        // non-nil while the open-connection picker is open
 	idle      *Input         // the input box while nothing is open
 	chars     map[string]*charState
 	order     []string // sidebar order of character keys
@@ -931,7 +931,7 @@ func isLogErr(err error) bool {
 // that take free text (/highlight) can keep its spacing.
 func (m *Model) command(cs *charState, text string) tea.Cmd {
 	args := strings.Fields(text)
-	if cs == nil && args[0] != "/quit" {
+	if cs == nil && args[0] != "/quit" && args[0] != "/open" {
 		m.setStatus(true, "%s needs an open character", args[0])
 		return nil
 	}
@@ -964,6 +964,8 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		m.close(cs.key)
 	case "/quit":
 		return m.quit()
+	case "/open":
+		m.openPicker() // says why not
 	case "/log":
 		m.openBrowse(cs)
 	case "/edit":

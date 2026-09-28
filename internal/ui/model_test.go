@@ -274,7 +274,7 @@ func (h *harness) openAll() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"× Kit", "+ Add connection", "│fm/Kit · disconnected ", "21:14", "│Disconnected · Enter to connect"} {
+	for _, want := range []string{"× Kit", "+ Open connection", "│fm/Kit · disconnected ", "21:14", "│Disconnected · Enter to connect"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -650,7 +650,7 @@ func TestSidebarScrolls(t *testing.T) {
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(22) != "× C29" || side(23) != "+ Add connection" || side(0) != "▲ 9 more" {
+	if side(22) != "× C29" || side(23) != "+ Open connection" || side(0) != "▲ 9 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -680,12 +680,12 @@ func TestSidebarNoHintsWhenItFits(t *testing.T) {
 }
 
 func TestResizeIsDebouncedAndReported(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld}) // 80×24: right pane 63 wide
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // 80×24: right pane 62 wide
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	c := h.conn("fm/kit")
-	if got := c.Sizes(); len(got) != 1 || got[0] != [2]int{63, 24} {
-		t.Fatalf("sizes at connect = %v, want [[63 24]]", got)
+	if got := c.Sizes(); len(got) != 1 || got[0] != [2]int{62, 24} {
+		t.Fatalf("sizes at connect = %v, want [[62 24]]", got)
 	}
 	// A drag: three sizes in quick succession. Every tick fires, but only
 	// the last one reports.

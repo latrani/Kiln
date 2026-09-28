@@ -83,7 +83,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 3. **Save the password** (optional). Run `kiln passwd furrymuck Kit`. If you skip this, Kiln asks for the password when it connects and offers to save it.
 
-4. **Run `kiln`.** Characters with `autoconnect = true` open and log in. Press `Ctrl+O` (or click `+ Add connection`) to open another.
+4. **Run `kiln`.** Characters with `autoconnect = true` open and log in. Press `Ctrl+O` (or click `+ Open connection`, or type `/open`) to open another.
 
 You can also edit worlds and characters from inside Kiln (`Ctrl+E` in the `Ctrl+O` list, or `/edit`): a world's server and settings, a character's aliases and settings, and forgetting a saved password or deleting a character (logs are kept) or an empty world. Kiln changes only the lines it has to, so your comments and layout stay put.
 
@@ -104,7 +104,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Ctrl+U` / `Ctrl+K` | Delete to the start or end of the line |
 | `Ctrl+↑` / `Ctrl+↓` | Switch between open characters |
 | `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before |
-| `Ctrl+O` | Add a connection: type to filter, `Enter` to connect, `Esc` to close |
+| `Ctrl+O` | Open a connection (same as `/open`): type to filter, `Enter` to connect, `Esc` to close |
 | `Ctrl+E` (in the `Ctrl+O` list) | Edit the highlighted world or character (`Enter` on a world does it too) |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
 | `Ctrl+L` | Open log mode |
@@ -123,6 +123,7 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/connect`, `/reconnect` | Connect now (skips the reconnect wait) |
 | `/disconnect` | Disconnect and stay disconnected |
 | `/close` | Disconnect and remove the character from the sidebar |
+| `/open` | Open a connection (same as `Ctrl+O`) |
 | `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
 | `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |

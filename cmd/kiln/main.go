@@ -217,7 +217,7 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 			}
 			// Roughly the right pane's size, where text is shown; the UI
 			// reports the exact size (and later resizes) via Session.Resize.
-			w -= min(22, max(12, w/5)) + 1
+			w -= ui.SidebarWidth(w) + 1
 			return conn.Dial(ctx, conn.Options{
 				Host: ch.Host, Port: ch.Port, TLS: ch.TLS, TLSTrust: ch.TLSTrust,
 				KnownHosts: knownHosts(dataDir), Width: w, Height: h,

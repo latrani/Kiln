@@ -27,7 +27,7 @@ const (
 // openBrowseKey opens log mode (browse, in the code) from the normal view.
 const openBrowseKey = "ctrl+l"
 
-// openPickerKey opens the add-connection picker.
+// openPickerKey opens the open-connection picker (like /open).
 const openPickerKey = "ctrl+o"
 
 // editKey opens the editor for the world or character highlighted in the

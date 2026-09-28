@@ -12,7 +12,7 @@ import (
 )
 
 // emptyHint is the input area's prompt while nothing is open.
-const emptyHint = "Nothing open · Enter or Ctrl+O to add a connection"
+const emptyHint = "Nothing open · Enter or Ctrl+O to open a connection"
 
 // noCharacters fills the pane when nothing is configured.
 const noCharacters = "No characters yet · Ctrl+O to add one"
@@ -40,8 +40,12 @@ type layout struct {
 	pillW  int
 }
 
+// SidebarWidth is the sidebar's width on a screen w columns wide: a
+// fifth of it, at least wide enough for "+ Open connection", at most 22.
+func SidebarWidth(w int) int { return min(22, max(xansi.StringWidth(addLabel), w/5)) }
+
 func (m *Model) layout() layout {
-	l := layout{sw: min(22, max(12, m.width/5))}
+	l := layout{sw: SidebarWidth(m.width)}
 	l.rw = max(1, m.width-l.sw-1)
 	cs := m.cur()
 	if rows, row, col, ok := m.prompt(cs); ok {

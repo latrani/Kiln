@@ -93,7 +93,7 @@ func TestSidebarBadgesAndActivity(t *testing.T) {
 	if got := strings.TrimSpace(sideRow(h, 2)); got != "× Rook" {
 		t.Errorf("disconnected row = %q", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != "+ Add connection" {
+	if got := strings.TrimSpace(sideRow(h, 3)); got != "+ Open connection" {
 		t.Errorf("last row = %q", got)
 	}
 	h.m.chars["fm/rook"].state = session.Connecting

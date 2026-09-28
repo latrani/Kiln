@@ -110,7 +110,7 @@ func TestPickerClicks(t *testing.T) {
 		_, cmd := h.m.Update(tea.MouseClickMsg{X: 4, Y: y, Button: tea.MouseLeft})
 		return cmd
 	}
-	click(2) // rows: fm, Kit, + Add connection
+	click(2) // rows: fm, Kit, + Open connection
 	if h.m.picker == nil {
 		t.Fatalf("clicking %s didn't open the picker:\n%s", addLabel, h.screen())
 	}
@@ -157,7 +157,7 @@ func TestPickerBlockedInBrowse(t *testing.T) {
 		t.Fatal("picker opened over browse mode")
 	}
 	// Shown in full on an 80-column screen, for Ctrl+O and for a click on
-	// + Add connection alike.
+	// + Open connection alike.
 	if s := h.screen(); !strings.Contains(s, browseBlocksPicker) {
 		t.Errorf("Ctrl+O: status not shown in full:\n%s", s)
 	}
@@ -222,7 +222,7 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 		t.Errorf("Ctrl+O: picker opened or no status:\n%s", h.screen())
 	}
 	h.m.status = ""
-	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft}) // rows: fm, Kit, + Add connection
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft}) // rows: fm, Kit, + Open connection
 	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
 		t.Errorf("click: picker opened or no status:\n%s", h.screen())
 	}
@@ -401,5 +401,29 @@ func TestPickerPageFromAddRow(t *testing.T) {
 	h.press(tea.KeyPgDown, 0)
 	if h.m.picker.sel == "w00/c00" {
 		t.Error("PgDn didn't move")
+	}
+}
+
+func TestOpenCommand(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("/open")
+	h.enter()
+	if h.m.picker == nil {
+		t.Fatalf("/open with a character open didn't open the picker:\n%s", h.screen())
+	}
+	h.press(tea.KeyEscape, 0)
+
+	empty := newHarness(t, nil)
+	empty.typeText("/open")
+	empty.enter()
+	if empty.m.picker == nil {
+		t.Fatalf("/open with nothing open didn't open the picker:\n%s", empty.screen())
+	}
+}
+
+func TestOpenConnectionLabel(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	if s := h.screen(); !strings.Contains(s, "+ Open connection") || strings.Contains(s, "Add connection") {
+		t.Errorf("sidebar CTA:\n%s", s)
 	}
 }

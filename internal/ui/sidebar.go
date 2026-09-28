@@ -109,7 +109,7 @@ type rowKind int
 const (
 	rowWorld    rowKind = iota // a world header
 	rowChar                    // a character
-	rowAdd                     // "+ Add connection"
+	rowAdd                     // "+ Open connection"
 	rowAddChar                 // the picker's "+ Character", ending a world
 	rowAddWorld                // the picker's "+ World", ending the list
 )
@@ -121,7 +121,7 @@ type sidebarRow struct {
 }
 
 // addLabel is the sidebar's last row.
-const addLabel = "+ Add connection"
+const addLabel = "+ Open connection"
 
 // badgeX is the column of a character row's connection badge; clicking a
 // × there closes the character.
@@ -131,7 +131,7 @@ const badgeX = 1
 var attentionMark = style.SGR(config.HighlightStyle) + "●" + style.Reset
 
 // sidebarRows lists the open characters under their worlds, then the
-// add-connection row.
+// open-connection row.
 func (m *Model) sidebarRows() []sidebarRow {
 	var rows []sidebarRow
 	lastWorld := ""
