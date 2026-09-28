@@ -159,6 +159,8 @@ Notifications work in iTerm2, kitty, Ghostty, WezTerm, foot and Blink, locally o
     set -g allow-passthrough on
     set -g focus-events on
 
+Then run `tmux source-file ~/.tmux.conf` and detach and reattach: tmux asks your terminal for focus events only when you attach.
+
 Mosh drops notifications, but it passes on the bell: set `notify_method = "both"` and turn on Blink's "Notification on background shell" to get an alert (without the line).
 
 ## Where Kiln keeps things
