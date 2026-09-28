@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/latrani/Kiln/internal/notify"
 )
 
 // write creates files under dir from a map of relative path → content.
@@ -427,5 +430,80 @@ func TestLogAndExportSettings(t *testing.T) {
 		if _, err := Load(dir); err == nil {
 			t.Errorf("%q: no error", bad)
 		}
+	}
+}
+
+func TestNotifyInheritsAndDefaults(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{
+		"config.toml":   "[defaults]\nnotify = \"attention\"\n",
+		"worlds/a.toml": "host = \"h\"\nport = 1\nnotify = \"all\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n[[characters]]\nid = \"rook\"\nname = \"Rook\"\nnotify = \"none\"\n",
+		"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n",
+	})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		world, char string
+		want        notify.Level
+	}{{"a", "kit", notify.All}, {"a", "rook", notify.None}, {"b", "ash", notify.Attention}} {
+		ch, _ := cfg.Find(c.world, c.char)
+		if ch.Notify != c.want {
+			t.Errorf("%s/%s Notify = %q, want %q", c.world, c.char, ch.Notify, c.want)
+		}
+	}
+}
+
+func TestNotifyGlobalDefaults(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n"})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ash, _ := cfg.Find("b", "ash")
+	if ash.Notify != notify.First || cfg.NotifyIdle != 5*time.Minute || cfg.NotifyMethod != notify.OSC {
+		t.Errorf("notify %q, idle %v, method %q", ash.Notify, cfg.NotifyIdle, cfg.NotifyMethod)
+	}
+}
+
+func TestNotifyGlobalKeys(t *testing.T) {
+	for _, c := range []struct {
+		toml   string
+		idle   time.Duration
+		method notify.Method
+		bad    bool
+	}{
+		{"notify_idle = \"90s\"\nnotify_method = \"both\"\n", 90 * time.Second, notify.Both, false},
+		{"notify_idle = \"0\"\n", 0, notify.OSC, false},
+		{"notify_idle = \"-1m\"\n", 0, "", true},
+		{"notify_idle = \"soon\"\n", 0, "", true},
+		{"notify_method = \"smoke\"\n", 0, "", true},
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"config.toml": c.toml})
+		cfg, err := Load(dir)
+		if c.bad {
+			if err == nil {
+				t.Errorf("%q: loaded", c.toml)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("%q: %v", c.toml, err)
+			continue
+		}
+		if cfg.NotifyIdle != c.idle || cfg.NotifyMethod != c.method {
+			t.Errorf("%q: idle %v, method %q", c.toml, cfg.NotifyIdle, cfg.NotifyMethod)
+		}
+	}
+}
+
+func TestNotifyLevelValidated(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"worlds/a.toml": "host = \"h\"\nport = 1\nnotify = \"loud\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n"})
+	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), "notify must be") {
+		t.Errorf("err = %v", err)
 	}
 }

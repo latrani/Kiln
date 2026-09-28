@@ -17,9 +17,11 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/pathfmt"
 )
 
@@ -91,10 +93,11 @@ type Character struct {
 	TLSTrust     string // "pin" or "ca"
 	Login        string // template with {name} and {password}; "" = no auto-login
 	MaxLineBytes int
-	NewlineMode  string // "batch" or "flatten"
-	Autoconnect  bool   // connect when Kiln starts
-	Reconnect    bool   // retry after a drop or failed connect
-	LocalEcho    bool   // show sent lines in the scrollback
+	NewlineMode  string       // "batch" or "flatten"
+	Autoconnect  bool         // connect when Kiln starts
+	Reconnect    bool         // retry after a drop or failed connect
+	Notify       notify.Level // what notifies while you're away
+	LocalEcho    bool         // show sent lines in the scrollback
 	Rules        Rules
 }
 
@@ -106,13 +109,15 @@ type World struct {
 
 // Config is the resolved configuration.
 type Config struct {
-	Worlds        []World // sorted by ID
-	ExportDir     string  // where browse-mode exports go; "~" already expanded
-	ExportName    string  // export file name template; see ExportNameVars
-	ExportFormat  string  // "plain", "ansi" or "html" preselected for exports; "" asks
-	LogDir        string  // log folder template (strftime, {world} {char} {name}); "~" expanded, "" for the default
-	LogName       string  // log file name template, without ".log"; "" for the default
-	PasswordStore string  // "keychain", "file" or "none"
+	Worlds        []World       // sorted by ID
+	ExportDir     string        // where browse-mode exports go; "~" already expanded
+	ExportName    string        // export file name template; see ExportNameVars
+	ExportFormat  string        // "plain", "ansi" or "html" preselected for exports; "" asks
+	LogDir        string        // log folder template (strftime, {world} {char} {name}); "~" expanded, "" for the default
+	LogName       string        // log file name template, without ".log"; "" for the default
+	PasswordStore string        // "keychain", "file" or "none"
+	NotifyIdle    time.Duration // no input for this long counts as away; 0: only blur does
+	NotifyMethod  notify.Method
 }
 
 // Find returns the resolved character, or false.
@@ -138,6 +143,7 @@ type settings struct {
 	Login        *string `toml:"login"`
 	Autoconnect  *bool   `toml:"autoconnect"`
 	Reconnect    *bool   `toml:"reconnect"`
+	Notify       *string `toml:"notify"`
 	LocalEcho    *bool   `toml:"local_echo"`
 }
 
@@ -157,6 +163,9 @@ func (s *settings) overlay(o settings) {
 	if o.Reconnect != nil {
 		s.Reconnect = o.Reconnect
 	}
+	if o.Notify != nil {
+		s.Notify = o.Notify
+	}
 	if o.LocalEcho != nil {
 		s.LocalEcho = o.LocalEcho
 	}
@@ -169,6 +178,8 @@ type globalFile struct {
 	LogDir        string   `toml:"log_dir"`
 	LogName       string   `toml:"log_name"`
 	PasswordStore string   `toml:"password_store"`
+	NotifyIdle    string   `toml:"notify_idle"`
+	NotifyMethod  string   `toml:"notify_method"`
 	Defaults      settings `toml:"defaults"`
 }
 
@@ -197,6 +208,8 @@ const (
 	DefaultNewlineMode  = "batch"
 	// DefaultPasswordStore is used when config.toml sets no password_store.
 	DefaultPasswordStore = "keychain"
+	// DefaultNotifyIdle is used when config.toml sets no notify_idle.
+	DefaultNotifyIdle = 5 * time.Minute
 )
 
 var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -239,6 +252,18 @@ func Load(dir string) (*Config, error) {
 	default:
 		return nil, errors.New(`config.toml: export_format must be "plain", "ansi" or "html"`)
 	}
+	idle := DefaultNotifyIdle
+	if g.NotifyIdle != "" {
+		if idle, err = time.ParseDuration(g.NotifyIdle); err != nil || idle < 0 {
+			return nil, errors.New(`config.toml: notify_idle must be a duration like "5m" ("0" turns it off)`)
+		}
+	}
+	method := notify.OSC
+	if g.NotifyMethod != "" {
+		if method, err = notify.ParseMethod(g.NotifyMethod); err != nil {
+			return nil, fmt.Errorf("config.toml: %w", err)
+		}
+	}
 	logDir := g.LogDir
 	if logDir != "" {
 		if logDir, err = ExpandHome(logDir); err != nil {
@@ -254,7 +279,8 @@ func Load(dir string) (*Config, error) {
 	if strings.ContainsAny(g.LogName, `/\`) {
 		return nil, errors.New("config.toml: log_name is a file name; put folders in log_dir")
 	}
-	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store}
+	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store,
+		NotifyIdle: idle, NotifyMethod: method}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, packs)
 		if err != nil {
@@ -272,7 +298,7 @@ func loadGlobal(dir string) (globalFile, settings, error) {
 	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
 		return g, settings{}, err
 	}
-	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false), Reconnect: ptr(true), LocalEcho: ptr(false)}
+	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false), Reconnect: ptr(true), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
 	base.overlay(g.Defaults)
 	return g, base, nil
 }
@@ -349,7 +375,7 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 			World: id, ID: cid, Name: cf.Name, Aliases: cf.Aliases,
 			Host: wf.Host, Port: wf.Port, TLS: wf.TLS, TLSTrust: wf.TLSTrust,
 			Login: *cs.Login, MaxLineBytes: *cs.MaxLineBytes, NewlineMode: *cs.NewlineMode, Autoconnect: *cs.Autoconnect,
-			Reconnect: *cs.Reconnect, LocalEcho: *cs.LocalEcho,
+			Reconnect: *cs.Reconnect, Notify: notify.Level(*cs.Notify), LocalEcho: *cs.LocalEcho,
 			Rules: appendRules(worldRules, cf.Rules),
 		}
 		if err := validate(ch); err != nil {
@@ -385,6 +411,9 @@ func validate(ch Character) error {
 	}
 	if ch.NewlineMode != "batch" && ch.NewlineMode != "flatten" {
 		return errors.New(`newline_mode must be "batch" or "flatten"`)
+	}
+	if _, err := notify.ParseLevel(string(ch.Notify)); err != nil {
+		return err
 	}
 	for i, r := range ch.Rules.Classify {
 		tags := r.AllTags()

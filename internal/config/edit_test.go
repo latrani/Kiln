@@ -186,3 +186,35 @@ func TestDeleteWorld(t *testing.T) {
 		t.Error("world file still there")
 	}
 }
+
+func TestNotifyRoundTrips(t *testing.T) {
+	dir := editDir(t, uglyWorld)
+	s, inh, err := ReadWorld(dir, "fm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Notify != nil || inh.Notify != "first" {
+		t.Fatalf("world notify %v, inherited %q", s.Notify, inh.Notify)
+	}
+	all := "all"
+	s.Notify = &all
+	if err := WriteWorld(dir, "fm", s); err != nil {
+		t.Fatal(err)
+	}
+	c, inh, err := ReadCharacter(dir, "fm", "Kit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inh.Notify != "all" {
+		t.Errorf("character inherits %q, want all", inh.Notify)
+	}
+	none := "none"
+	c.Notify = &none
+	if err := WriteCharacter(dir, "fm", "Kit", c); err != nil {
+		t.Fatal(err)
+	}
+	got := readWorld(t, dir)
+	if !strings.Contains(got, "notify = \"all\"") || !strings.Contains(got, "notify = \"none\"") {
+		t.Errorf("file:\n%s", got)
+	}
+}

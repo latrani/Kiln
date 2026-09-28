@@ -188,6 +188,8 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `log_dir` | config.toml | Where logs go (default `~/.local/share/kiln/logs/{world}/{char}`), see [Logs](#logs) |
 | `log_name` | config.toml | Log file names, without `.log` (default `"%Y-%m-%d %H%M%S {char}"`), see [Logs](#logs) |
 | `password_store` | config.toml | `"keychain"` (default), `"file"` (`~/.local/share/kiln/passwords.json`, readable only by you) or `"none"` (never save) |
+| `notify_idle` | config.toml | No input for this long counts as away (default `"5m"`; `"0"`: only switching away counts), see [Notifications](#notifications) |
+| `notify_method` | config.toml | `"osc"` (default): a notification with the line; `"bell"`: a bell (works over mosh); `"both"` |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
 | `login` | world, character | Login template; `{name}` and `{password}` are filled in |
@@ -196,6 +198,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `newline_mode` | any level | `"batch"`: each line is its own command; `"flatten"`: lines are joined with spaces |
 | `autoconnect` | any level | Connect when Kiln starts |
 | `reconnect` | any level | Retry with backoff after a drop or failed connect (default `true`); `false` stays disconnected until `/connect` |
+| `notify` | any level | What notifies while you're away: `"all"`, `"first"` (default: the first line, then attention lines), `"attention"` or `"none"` |
 | `local_echo` | any level | Show what you send in the scrollback (default `false`; the server usually echoes poses, and sent lines are always logged) |
 | `name`, `aliases` | character | Your in-game name and the others that count as you |
 

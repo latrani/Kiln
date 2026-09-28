@@ -17,8 +17,16 @@
 # export_name = "{date} {time} {world} {name}"
 # export_format = "html"
 
+# Notifications while you're away (see README): no input for notify_idle
+# also counts as away ("0": only switching away does), and notify_method
+# is "osc" (a notification with the line), "bell" (works over mosh) or
+# "both".
+# notify_idle = "5m"
+# notify_method = "osc"
+
 [defaults]
 max_line_bytes = 2047   # Fuzzball's limit; override per world if yours differs
 newline_mode = "batch"  # "batch": each line is its own command; "flatten": join with spaces
 reconnect = true        # false: stay disconnected after a drop until /connect
+notify = "first"        # "all", "first" (first line while away, then pages), "attention" or "none"
 local_echo = false      # true: show what you send in the scrollback (it is always logged)
