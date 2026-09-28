@@ -31,22 +31,56 @@ func (m *Model) notifyLevel(cs *charState) notify.Level {
 
 // here records that you're at the terminal: a focus-in, key, paste,
 // click or wheel. It re-arms "first" for every character.
+// You've seen anything held, so it's dropped.
 func (m *Model) here() {
 	m.lastHere = m.d.Now()
 	m.hereGen++
+	for _, cs := range m.chars {
+		cs.held, cs.heldMore = "", 0
+	}
+}
+
+// notifyIdle is the notify_idle setting.
+func (m *Model) notifyIdle() time.Duration {
+	if m.cfg != nil {
+		return m.cfg.NotifyIdle
+	}
+	return config.DefaultNotifyIdle
 }
 
 // away reports whether you've switched away, or been idle past
 // notify_idle.
 func (m *Model) away() bool {
-	if !m.focused {
-		return true
-	}
-	idle := config.DefaultNotifyIdle
+	idle := m.notifyIdle()
+	return !m.focused || idle > 0 && m.d.Now().Sub(m.lastHere) > idle
+}
+
+// encode turns a message into the bytes to write.
+func (m *Model) encode(msg string) tea.Cmd {
+	method := notify.OSC
 	if m.cfg != nil {
-		idle = m.cfg.NotifyIdle
+		method = m.cfg.NotifyMethod
 	}
-	return idle > 0 && m.d.Now().Sub(m.lastHere) > idle
+	return m.d.Raw(notify.Encode(msg, method, m.d.Tmux))
+}
+
+// flushHeld sends what's been held since you were last here: per
+// character, the first line and how many more there were.
+func (m *Model) flushHeld() tea.Cmd {
+	var cmds []tea.Cmd
+	for _, k := range m.order {
+		cs := m.chars[k]
+		if cs.held == "" {
+			continue
+		}
+		msg := cs.held
+		if cs.heldMore > 0 {
+			msg += fmt.Sprintf(" (+%d more)", cs.heldMore)
+		}
+		cmds = append(cmds, m.encode(msg))
+		cs.held, cs.heldMore = "", 0
+	}
+	return tea.Batch(cmds...)
 }
 
 // notifyName is the character's name, with its world when another
@@ -61,9 +95,12 @@ func (m *Model) notifyName(cs *charState) string {
 }
 
 // notifyCmd writes a notification for an incoming line if you're away
-// and cs's level wants one; otherwise it returns nil.
+// and cs's level wants one. If you still count as here, it holds the
+// line instead, to send once notify_idle passes without you coming back
+// (so nothing that arrives just after you look away is missed).
 func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea.Cmd {
-	if e.Dir != logstore.In || res.Quiet || !m.away() {
+	away := m.away()
+	if e.Dir != logstore.In || res.Quiet || !away && m.notifyIdle() == 0 {
 		return nil
 	}
 	now := m.d.Now()
@@ -84,11 +121,17 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 		return nil
 	}
 	cs.sentGen, cs.lastSent = m.hereGen, now
-	method := notify.OSC
-	if m.cfg != nil {
-		method = m.cfg.NotifyMethod
+	msg := notify.Message(m.notifyName(cs), e.Text)
+	if away {
+		return m.encode(msg)
 	}
-	return m.d.Raw(notify.Encode(notify.Message(m.notifyName(cs), e.Text), method, m.d.Tmux))
+	if cs.held != "" {
+		cs.heldMore++
+		return nil
+	}
+	cs.held = msg
+	gen := m.hereGen
+	return tea.Tick(m.lastHere.Add(m.notifyIdle()).Sub(now), func(time.Time) tea.Msg { return notifyDueMsg(gen) })
 }
 
 // notifyCommand is /notify: show the level, set an override until Kiln

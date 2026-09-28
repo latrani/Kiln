@@ -7,6 +7,9 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 )
 
 // notifyHarness has Kit connected with the given notify level (and
@@ -324,5 +327,100 @@ func TestBurstNotifiesOnce(t *testing.T) {
 	want := []string{osc("Kit: Rook's Den"), osc("Kit: Mira pages: nice den"), osc("Kit: Rook says, \"hi\"")}
 	if got := h.notified(); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestHeldLineSentAfterIdle(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.line("Rook says, \"you there?\"") // you just looked away, but still count as here
+	if got := h.notified(); len(got) != 0 {
+		t.Fatalf("sent before idle: %q", got)
+	}
+	h.advance(5 * time.Minute)
+	h.m.Update(notifyDueMsg(h.m.hereGen))
+	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Rook says, \"you there?\"")}) {
+		t.Errorf("got %q", got)
+	}
+	h.m.Update(notifyDueMsg(h.m.hereGen)) // a second timer finds nothing held
+	if got := h.notified(); len(got) != 0 {
+		t.Errorf("sent twice: %q", got)
+	}
+}
+
+func TestHeldLinesCountMore(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.line("Rook says, \"one\"")
+	h.advance(time.Second)
+	h.line("Rook says, \"two\"")
+	h.advance(time.Second)
+	h.line("Rook says, \"three\"")
+	h.m.Update(notifyDueMsg(h.m.hereGen))
+	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Rook says, \"one\" (+2 more)")}) {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestComingBackDropsHeld(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.line("Rook says, \"hi\"")
+	gen := h.m.hereGen
+	h.typeText("x") // you saw it
+	h.m.Update(notifyDueMsg(gen))
+	h.m.Update(notifyDueMsg(h.m.hereGen))
+	if got := h.notified(); len(got) != 0 {
+		t.Errorf("sent after you came back: %q", got)
+	}
+}
+
+func TestBlurDoesntFlushHeld(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.line("Rook says, \"hi\"")
+	h.m.Update(tea.BlurMsg{})
+	if got := h.notified(); len(got) != 0 {
+		t.Errorf("blur flushed a line you'd just seen: %q", got)
+	}
+	h.m.Update(notifyDueMsg(h.m.hereGen))
+	if got := h.notified(); len(got) != 1 {
+		t.Errorf("held line lost after blur: %q", got)
+	}
+}
+
+func TestNoHoldingWithIdleOff(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.m.cfg.NotifyIdle = 0
+	h.line("Rook says, \"hi\"")
+	h.m.Update(notifyDueMsg(h.m.hereGen))
+	if got := h.notified(); len(got) != 0 {
+		t.Errorf("held with notify_idle off: %q", got)
+	}
+}
+
+func TestHeldRespectsLevel(t *testing.T) {
+	h := notifyHarness(t, "attention", nil)
+	h.line("Rook says, \"hi\"")
+	h.advance(time.Second)
+	h.line("Mira pages: you around?")
+	h.m.Update(notifyDueMsg(h.m.hereGen))
+	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Mira pages: you around?")}) {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestHoldingSchedulesTheDeadline(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.m.cfg.NotifyIdle = 20 * time.Millisecond
+	h.m.here()
+	cs := h.m.chars["fm/kit"]
+	cmd := h.m.notifyCmd(cs, logstore.Entry{Dir: logstore.In, Text: "Rook says, \"hi\""}, rules.Result{})
+	if cmd == nil {
+		t.Fatal("nothing scheduled")
+	}
+	start := time.Now()
+	msg, ok := cmd().(notifyDueMsg)
+	if !ok || int(msg) != h.m.hereGen {
+		t.Fatalf("got %#v, want notifyDueMsg(%d)", msg, h.m.hereGen)
+	}
+	if waited := time.Since(start); waited < 15*time.Millisecond {
+		t.Errorf("fired after %v, before notify_idle", waited)
 	}
 }
