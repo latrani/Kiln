@@ -243,6 +243,27 @@ func TestLocalEchoInherits(t *testing.T) {
 	}
 }
 
+func TestReconnectDefaultsOnAndInherits(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{
+		"worlds/a.toml": "host = \"h\"\nport = 1\nreconnect = false\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n[[characters]]\nid = \"rook\"\nname = \"Rook\"\nreconnect = true\n",
+		"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n",
+	})
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		world, char string
+		want        bool
+	}{{"a", "kit", false}, {"a", "rook", true}, {"b", "ash", true}} {
+		ch, _ := cfg.Find(c.world, c.char)
+		if ch.Reconnect != c.want {
+			t.Errorf("%s/%s Reconnect = %v, want %v", c.world, c.char, ch.Reconnect, c.want)
+		}
+	}
+}
+
 func TestExportDir(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	for _, c := range []struct{ toml, want string }{

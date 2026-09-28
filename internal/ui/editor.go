@@ -130,6 +130,7 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 		asExtra(maxBytes),
 		asExtra(inheritChoice("Newlines", inh.NewlineMode, "batch", "flatten")),
 		asExtra(inheritChoice("Autoconnect", onOff(inh.Autoconnect), "on", "off")),
+		asExtra(inheritChoice("Reconnect", onOff(inh.Reconnect), "on", "off")),
 		asExtra(inheritChoice("Local echo", onOff(inh.LocalEcho), "on", "off")),
 		buttonField(saveLabel))
 	if !add {
@@ -153,6 +154,7 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 		f.choose(f.field("Newlines"), *s.NewlineMode)
 	}
 	f.setBool("Autoconnect", s.Autoconnect)
+	f.setBool("Reconnect", s.Reconnect)
 	f.setBool("Local echo", s.LocalEcho)
 	return f
 }
@@ -166,7 +168,8 @@ func worldSettings(f *form) (config.WorldSettings, error) {
 	s := config.WorldSettings{
 		Host: f.value(f.field("Host")), Port: port, TLS: f.on(f.field("TLS")),
 		TLSTrust: f.chosen(f.field("Cert trust")), Use: list(f.value(f.field("Packs"))),
-		Autoconnect: f.optBool("Autoconnect"), LocalEcho: f.optBool("Local echo"),
+		Autoconnect: f.optBool("Autoconnect"), Reconnect: f.optBool("Reconnect"),
+		LocalEcho: f.optBool("Local echo"),
 	}
 	if v := f.value(f.field("Login")); v != "" {
 		s.Login = &v
@@ -195,11 +198,13 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 	f := newForm(editorHint, sectionField(extraLabel),
 		asExtra(aliases),
 		asExtra(inheritChoice("Autoconnect", onOff(inh.Autoconnect), "on", "off")),
+		asExtra(inheritChoice("Reconnect", onOff(inh.Reconnect), "on", "off")),
 		asExtra(inheritChoice("Local echo", onOff(inh.LocalEcho), "on", "off")),
 		buttonField(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
 	f.title = "Editing " + name
 	f.fields[f.field("Aliases")].in.SetValue(strings.Join(s.Aliases, ", "))
 	f.setBool("Autoconnect", s.Autoconnect)
+	f.setBool("Reconnect", s.Reconnect)
 	f.setBool("Local echo", s.LocalEcho)
 	return f
 }
@@ -377,7 +382,8 @@ func (m *Model) saveCharSettings() {
 	e := m.picker.edit
 	f := e.form
 	s := config.CharacterSettings{Aliases: list(f.value(f.field("Aliases"))),
-		Autoconnect: f.optBool("Autoconnect"), LocalEcho: f.optBool("Local echo")}
+		Autoconnect: f.optBool("Autoconnect"), Reconnect: f.optBool("Reconnect"),
+		LocalEcho: f.optBool("Local echo")}
 	if err := config.WriteCharacter(m.d.ConfigDir, e.world, e.char, s); err != nil {
 		f.reject = err.Error()
 		return
