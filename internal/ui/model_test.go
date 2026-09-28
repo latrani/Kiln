@@ -77,6 +77,8 @@ type harness struct {
 	dialErr map[string]error
 	saved   map[string]string
 	pw      map[string]string
+	now     time.Time // what Deps.Now returns; tests may move it
+	raw     []string  // sequences written with Deps.Raw
 }
 
 const fmWorld = `host = "muck.test"
@@ -111,6 +113,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 	}
 	h := &harness{t: t, dir: dir, conns: map[string]*testConn{}, dialErr: map[string]error{},
 		saved: map[string]string{}, pw: map[string]string{"fm/kit": "hunter2", "fm/rook": "pw"}}
+	h.now = time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local)
 	d := Deps{
 		ConfigDir:  dir,
 		LogRoot:    filepath.Join(dir, "logs"),
@@ -150,11 +153,37 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			delete(h.pw, key(world, char))
 			return nil
 		},
-		Now: func() time.Time { return time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local) },
+		Now: func() time.Time {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			return h.now
+		},
+		Raw: func(seq string) tea.Cmd {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			h.raw = append(h.raw, seq)
+			return nil
+		},
 	}
 	h.m = New(d, cfg)
 	h.m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	return h
+}
+
+// advance moves the clock forward.
+func (h *harness) advance(d time.Duration) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.now = h.now.Add(d)
+}
+
+// notified returns and clears what has been written with Deps.Raw.
+func (h *harness) notified() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	r := h.raw
+	h.raw = nil
+	return r
 }
 
 func (h *harness) conn(k string) *testConn {

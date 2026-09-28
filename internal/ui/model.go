@@ -20,6 +20,7 @@ import (
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/style"
@@ -43,6 +44,8 @@ type Deps struct {
 	DeletePassword func(store, world, char string) error           // nil: passwords can't be forgotten
 	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
+	Tmux           bool                                            // inside tmux: wrap notifications for passthrough
+	Raw            func(seq string) tea.Cmd                        // writes straight to the terminal; default tea.Raw
 	Now            func() time.Time
 }
 
@@ -81,27 +84,31 @@ type Model struct {
 		char string
 		at   time.Time
 	}
+	focused  bool      // the terminal has focus, as far as we know
+	lastHere time.Time // latest focus-in or input; see here
 }
 
 type charState struct {
-	key       string
-	ch        config.Character
-	sess      *session.Session
-	cancel    context.CancelFunc
-	state     session.State
-	cls       *classify.Classifier
-	hl        *rules.Highlighter
-	sb        Scrollback
-	in        *Input
-	unread    int
-	attention bool
-	pin       *conn.PinMismatchError
-	needPW    bool
-	pwDraft   string           // input stashed while the password prompt is up
-	orphan    bool             // removed from the config; dropped when it disconnects
-	browse    *browse          // non-nil while browse mode is open
-	hist      *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
-	leftover  []logstore.Entry // the preload's unshown start of its oldest day
+	key            string
+	ch             config.Character
+	sess           *session.Session
+	cancel         context.CancelFunc
+	state          session.State
+	cls            *classify.Classifier
+	hl             *rules.Highlighter
+	sb             Scrollback
+	in             *Input
+	unread         int
+	attention      bool
+	pin            *conn.PinMismatchError
+	needPW         bool
+	pwDraft        string           // input stashed while the password prompt is up
+	orphan         bool             // removed from the config; dropped when it disconnects
+	browse         *browse          // non-nil while browse mode is open
+	hist           *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
+	leftover       []logstore.Entry // the preload's unshown start of its oldest day
+	firstSent      time.Time        // when the last notification went out
+	notifyOverride notify.Level     // from /notify until Kiln quits; "" if none
 }
 
 // sbOlderMsg carries older scrollback lines, read and rendered off the UI
@@ -157,7 +164,11 @@ func New(d Deps, cfg *config.Config) *Model {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
+	if d.Raw == nil {
+		d.Raw = func(seq string) tea.Cmd { return tea.Raw(seq) }
+	}
 	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
+	m.focused, m.lastHere = true, d.Now()
 	m.applyConfig(cfg)
 	for _, ch := range m.allChars() {
 		if ch.Autoconnect {
@@ -485,6 +496,11 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.watch()
 	case eventMsg:
 		return m, m.handleEvent(msg)
+	case tea.FocusMsg:
+		m.focused = true
+		m.here()
+	case tea.BlurMsg:
+		m.focused = false
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
 			cs.sb.Prepend(msg.lines, msg.more)
@@ -494,6 +510,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cs.browse.receive(msg)
 		}
 	case tea.PasteMsg:
+		m.here()
 		if m.picker != nil && m.picker.edit != nil {
 			m.picker.edit.form.paste(msg.Content)
 		} else if m.picker != nil {
@@ -509,10 +526,13 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.confirm = false
 		}
 	case tea.KeyPressMsg:
+		m.here()
 		return m, m.handleKey(msg)
 	case tea.MouseWheelMsg:
+		m.here()
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
+		m.here()
 		return m, m.handleClick(msg)
 	case tea.MouseMotionMsg:
 		m.handleDrag(msg.Mouse())
@@ -566,6 +586,9 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		if msg.key != m.active && ev.Entry.Dir == logstore.In && !res.Quiet {
 			cs.unread++
 			cs.attention = cs.attention || res.Attention
+		}
+		if n := m.notifyCmd(cs, ev.Entry, res); n != nil {
+			return tea.Batch(n, waitEvent(msg.key, msg.sess))
 		}
 	case session.EventPrompt:
 		cs.sb.SetPrompt(ansi.Sanitize(ev.Entry.Text))
