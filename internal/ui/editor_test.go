@@ -221,3 +221,24 @@ func TestTallFormScrolls(t *testing.T) {
 		t.Errorf("and back up:\n%s", s)
 	}
 }
+
+func TestEditCharacterNotify(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.typeText("/edit")
+	h.enter()
+	h.focusOn(extraLabel)
+	h.enter()
+	h.focusOn("Notify")
+	if !strings.Contains(h.screen(), "default (first)") {
+		t.Errorf("Notify should show what it inherits:\n%s", h.screen())
+	}
+	h.press(tea.KeyLeft, 0) // default → none, backwards
+	h.focusOn(saveLabel)
+	h.enter()
+	if got := h.worldFile("fm"); !strings.Contains(got, "name = \"Kit\"\nautoconnect = true\nnotify = \"none\"\n") {
+		t.Errorf("file:\n%s", got)
+	}
+	if kit := h.m.chars["fm/kit"]; kit.ch.Notify != "none" {
+		t.Errorf("Notify = %q", kit.ch.Notify)
+	}
+}

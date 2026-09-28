@@ -131,6 +131,7 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 		asExtra(inheritChoice("Newlines", inh.NewlineMode, "batch", "flatten")),
 		asExtra(inheritChoice("Autoconnect", onOff(inh.Autoconnect), "on", "off")),
 		asExtra(inheritChoice("Reconnect", onOff(inh.Reconnect), "on", "off")),
+		asExtra(inheritChoice("Notify", inh.Notify, "all", "first", "attention", "none")),
 		asExtra(inheritChoice("Local echo", onOff(inh.LocalEcho), "on", "off")),
 		buttonField(saveLabel))
 	if !add {
@@ -155,6 +156,9 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 	}
 	f.setBool("Autoconnect", s.Autoconnect)
 	f.setBool("Reconnect", s.Reconnect)
+	if s.Notify != nil {
+		f.choose(f.field("Notify"), *s.Notify)
+	}
 	f.setBool("Local echo", s.LocalEcho)
 	return f
 }
@@ -181,6 +185,9 @@ func worldSettings(f *form) (config.WorldSettings, error) {
 	if v := f.chosen(f.field("Newlines")); v != "" {
 		s.NewlineMode = &v
 	}
+	if v := f.chosen(f.field("Notify")); v != "" {
+		s.Notify = &v
+	}
 	return s, nil
 }
 
@@ -199,12 +206,16 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 		asExtra(aliases),
 		asExtra(inheritChoice("Autoconnect", onOff(inh.Autoconnect), "on", "off")),
 		asExtra(inheritChoice("Reconnect", onOff(inh.Reconnect), "on", "off")),
+		asExtra(inheritChoice("Notify", inh.Notify, "all", "first", "attention", "none")),
 		asExtra(inheritChoice("Local echo", onOff(inh.LocalEcho), "on", "off")),
 		buttonField(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
 	f.title = "Editing " + name
 	f.fields[f.field("Aliases")].in.SetValue(strings.Join(s.Aliases, ", "))
 	f.setBool("Autoconnect", s.Autoconnect)
 	f.setBool("Reconnect", s.Reconnect)
+	if s.Notify != nil {
+		f.choose(f.field("Notify"), *s.Notify)
+	}
 	f.setBool("Local echo", s.LocalEcho)
 	return f
 }
@@ -384,6 +395,9 @@ func (m *Model) saveCharSettings() {
 	s := config.CharacterSettings{Aliases: list(f.value(f.field("Aliases"))),
 		Autoconnect: f.optBool("Autoconnect"), Reconnect: f.optBool("Reconnect"),
 		LocalEcho: f.optBool("Local echo")}
+	if v := f.chosen(f.field("Notify")); v != "" {
+		s.Notify = &v
+	}
 	if err := config.WriteCharacter(m.d.ConfigDir, e.world, e.char, s); err != nil {
 		f.reject = err.Error()
 		return
