@@ -209,7 +209,7 @@ func TestNotifyCommand(t *testing.T) {
 	}
 	h.typeText("/notify none")
 	h.enter()
-	if lvl := h.m.chars["fm/kit"].notifyLevel(); lvl != "none" {
+	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "none" {
 		t.Errorf("level = %q", lvl)
 	}
 	h.typeText("/notify")
@@ -225,7 +225,7 @@ func TestNotifyCommand(t *testing.T) {
 	h.m.Update(tea.FocusMsg{})
 	h.typeText("/notify default")
 	h.enter()
-	if lvl := h.m.chars["fm/kit"].notifyLevel(); lvl != "first" {
+	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "first" {
 		t.Errorf("after default, level = %q", lvl)
 	}
 	h.typeText("/notify loud")
@@ -242,7 +242,30 @@ func TestNotifyOverrideSurvivesReload(t *testing.T) {
 	if !h.m.reloadNow() {
 		t.Fatal("reload failed")
 	}
-	if lvl := h.m.chars["fm/kit"].notifyLevel(); lvl != "all" {
+	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "all" {
 		t.Errorf("after reload, level = %q", lvl)
+	}
+}
+
+func TestInputMeansFocused(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.m.Update(tea.BlurMsg{}) // and the focus-in never arrives (mosh, tmux reattach)
+	h.advance(time.Second)
+	h.typeText("x")
+	h.line("Rook says, \"hi\"")
+	if got := h.notified(); len(got) != 0 {
+		t.Errorf("notified while typing: %q", got)
+	}
+}
+
+func TestNotifyOverrideSurvivesClose(t *testing.T) {
+	h := notifyHarness(t, "first", nil)
+	h.typeText("/notify none")
+	h.enter()
+	h.typeText("/close")
+	h.enter()
+	h.open("fm/kit")
+	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "none" {
+		t.Errorf("after close and reopen, level = %q", lvl)
 	}
 }

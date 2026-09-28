@@ -84,31 +84,31 @@ type Model struct {
 		char string
 		at   time.Time
 	}
-	focused  bool      // the terminal has focus, as far as we know
-	lastHere time.Time // latest focus-in or input; see here
+	focused         bool                    // the terminal has focus, as far as we know
+	lastHere        time.Time               // latest focus-in or input; see here
+	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
 
 type charState struct {
-	key            string
-	ch             config.Character
-	sess           *session.Session
-	cancel         context.CancelFunc
-	state          session.State
-	cls            *classify.Classifier
-	hl             *rules.Highlighter
-	sb             Scrollback
-	in             *Input
-	unread         int
-	attention      bool
-	pin            *conn.PinMismatchError
-	needPW         bool
-	pwDraft        string           // input stashed while the password prompt is up
-	orphan         bool             // removed from the config; dropped when it disconnects
-	browse         *browse          // non-nil while browse mode is open
-	hist           *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
-	leftover       []logstore.Entry // the preload's unshown start of its oldest day
-	firstSent      time.Time        // when the last notification went out
-	notifyOverride notify.Level     // from /notify until Kiln quits; "" if none
+	key       string
+	ch        config.Character
+	sess      *session.Session
+	cancel    context.CancelFunc
+	state     session.State
+	cls       *classify.Classifier
+	hl        *rules.Highlighter
+	sb        Scrollback
+	in        *Input
+	unread    int
+	attention bool
+	pin       *conn.PinMismatchError
+	needPW    bool
+	pwDraft   string           // input stashed while the password prompt is up
+	orphan    bool             // removed from the config; dropped when it disconnects
+	browse    *browse          // non-nil while browse mode is open
+	hist      *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
+	leftover  []logstore.Entry // the preload's unshown start of its oldest day
+	firstSent time.Time        // when the last notification went out
 }
 
 // sbOlderMsg carries older scrollback lines, read and rendered off the UI
@@ -169,6 +169,7 @@ func New(d Deps, cfg *config.Config) *Model {
 	}
 	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
 	m.focused, m.lastHere = true, d.Now()
+	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
 	for _, ch := range m.allChars() {
 		if ch.Autoconnect {
@@ -510,6 +511,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cs.browse.receive(msg)
 		}
 	case tea.PasteMsg:
+		m.focused = true // only a focused window gets input, even if its focus-in was lost
 		m.here()
 		if m.picker != nil && m.picker.edit != nil {
 			m.picker.edit.form.paste(msg.Content)
@@ -526,12 +528,14 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.confirm = false
 		}
 	case tea.KeyPressMsg:
+		m.focused = true
 		m.here()
 		return m, m.handleKey(msg)
 	case tea.MouseWheelMsg:
 		m.here()
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
+		m.focused = true
 		m.here()
 		return m, m.handleClick(msg)
 	case tea.MouseMotionMsg:

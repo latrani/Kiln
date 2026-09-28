@@ -111,8 +111,10 @@ System lines (connect, disconnect) never notify.
   - `Deps.Tmux bool` (main sets it from `$TMUX`), so tests don't depend on
     the environment, and `Deps.Raw func(string) tea.Cmd` (default
     `tea.Raw`), so tests can see what's written.
-  - Model fields `focused`, `lastHere`; `charState` fields `firstSent`,
-    `notifyOverride`.
+  - Model fields `focused`, `lastHere`, and `notifyOverrides` (by
+    character key, so `/close` and reopening keep it); `charState` field
+    `firstSent`. Key, paste and click also set `focused`, since only a
+    focused window gets input (a lost focus-in mustn't leave Kiln "away").
   - The view sets `ReportFocus`. Update handles `FocusMsg`/`BlurMsg`, and
     key, paste, click and wheel messages stamp `lastHere` from `Deps.Now`.
   - `handleEvent` decides next to the unread/attention logic and batches

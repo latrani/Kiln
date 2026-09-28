@@ -13,9 +13,9 @@ import (
 )
 
 // notifyLevel is the /notify override, or the configured level.
-func (cs *charState) notifyLevel() notify.Level {
-	if cs.notifyOverride != "" {
-		return cs.notifyOverride
+func (m *Model) notifyLevel(cs *charState) notify.Level {
+	if l := m.notifyOverrides[cs.key]; l != "" {
+		return l
 	}
 	return cs.ch.Notify
 }
@@ -54,7 +54,7 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 	if e.Dir != logstore.In || res.Quiet || !m.away() {
 		return nil
 	}
-	switch cs.notifyLevel() {
+	switch m.notifyLevel(cs) {
 	case notify.All:
 	case notify.First:
 		if !res.Attention && !cs.firstSent.Before(m.lastHere) {
@@ -79,15 +79,15 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 // quits, or drop it with "default".
 func (m *Model) notifyCommand(cs *charState, args []string) {
 	if len(args) == 0 {
-		shown := string(cs.notifyLevel())
-		if cs.notifyOverride != "" {
-			shown = fmt.Sprintf("%s (override; config says %s)", cs.notifyOverride, cs.ch.Notify)
+		shown := string(m.notifyLevel(cs))
+		if l := m.notifyOverrides[cs.key]; l != "" {
+			shown = fmt.Sprintf("%s (override; config says %s)", l, cs.ch.Notify)
 		}
 		m.setStatus(false, "%s notify: %s", cs.ch.Name, shown)
 		return
 	}
 	if args[0] == "default" {
-		cs.notifyOverride = ""
+		delete(m.notifyOverrides, cs.key)
 		m.setStatus(false, "%s notify: %s", cs.ch.Name, cs.ch.Notify)
 		return
 	}
@@ -96,6 +96,6 @@ func (m *Model) notifyCommand(cs *charState, args []string) {
 		m.setStatus(true, "%v", err)
 		return
 	}
-	cs.notifyOverride = l
+	m.notifyOverrides[cs.key] = l
 	m.setStatus(false, "%s notify: %s until Kiln quits", cs.ch.Name, l)
 }
