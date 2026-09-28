@@ -83,7 +83,7 @@ func (m *memLog) Texts() []string {
 	return out
 }
 
-var kit = config.Character{World: "fm", ID: "kit", Name: "Kit", Host: "h", Port: 1, Login: "connect {name} {password}"}
+var kit = config.Character{World: "fm", ID: "kit", Name: "Kit", Host: "h", Port: 1, Login: "connect {name} {password}", Reconnect: true}
 
 // waitFor reads events until pred is true or times out.
 func waitFor(t *testing.T, s *Session, pred func(Event) bool) Event {
@@ -348,6 +348,89 @@ func TestDialFailuresBackOffIncreasingly(t *testing.T) {
 	if len(attempts) != 3 || attempts[0] != 0 || attempts[2] != 2 {
 		t.Errorf("attempts = %v, want [0 1 2]", attempts)
 	}
+}
+
+func TestReconnectOffStaysDownAfterDrop(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	first := newFakeConn()
+	first.err = errors.New("connection reset")
+	ch := kit
+	ch.Login = ""
+	ch.Reconnect = false
+	log := &memLog{}
+	s := New(Options{
+		Char: ch,
+		Log:  log,
+		Dial: func(context.Context) (LineConn, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			calls++
+			if calls == 1 {
+				return first, nil
+			}
+			return newFakeConn(), nil
+		},
+		Backoff: func(int) time.Duration { t.Error("reconnect off must not use backoff"); return 0 },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	first.Close() // server hangs up
+	ev := waitFor(t, s, isState(Disconnected))
+	if ev.Err == nil {
+		t.Error("Disconnected without the connection error")
+	}
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	if calls != 1 {
+		t.Errorf("redialed %d times with reconnect off", calls-1)
+	}
+	mu.Unlock()
+	if !contains(log.Texts(), "* disconnected (connection reset)") {
+		t.Errorf("log = %q", log.Texts())
+	}
+	s.Reconnect()
+	waitFor(t, s, isState(Connected))
+}
+
+func TestReconnectOffStaysDownAfterDialFailure(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	ch := kit
+	ch.Reconnect = false
+	log := &memLog{}
+	s := New(Options{
+		Char: ch,
+		Log:  log,
+		Dial: func(context.Context) (LineConn, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			calls++
+			if calls == 1 {
+				return nil, errors.New("refused")
+			}
+			return newFakeConn(), nil
+		},
+		Backoff:  func(int) time.Duration { t.Error("reconnect off must not use backoff"); return 0 },
+		Password: func() (string, error) { return "pw", nil },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Disconnected))
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	if calls != 1 {
+		t.Errorf("redialed %d times with reconnect off", calls-1)
+	}
+	mu.Unlock()
+	if !contains(log.Texts(), "* connect failed: refused") {
+		t.Errorf("log = %q", log.Texts())
+	}
+	s.Reconnect()
+	waitFor(t, s, isState(Connected))
 }
 
 func TestQuitDoesNotReconnect(t *testing.T) {

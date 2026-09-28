@@ -50,7 +50,7 @@ func TestEditWorldFromPicker(t *testing.T) {
 	}
 	h.focusOn(extraLabel)
 	h.enter() // unfold
-	if s := h.screen(); !strings.Contains(s, "▼ "+extraLabel) || !strings.Contains(s, "Local echo") {
+	if s := h.screen(); !strings.Contains(s, "▼ "+extraLabel) || !strings.Contains(s, "Reconnect") {
 		t.Fatalf("extras didn't unfold:\n%s", s)
 	}
 	h.focusOn("Max bytes")
