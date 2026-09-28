@@ -178,7 +178,7 @@ type globalFile struct {
 	LogDir        string   `toml:"log_dir"`
 	LogName       string   `toml:"log_name"`
 	PasswordStore string   `toml:"password_store"`
-	NotifyIdle    string   `toml:"notify_idle"`
+	NotifyIdle    any      `toml:"notify_idle"` // a duration string; any so a bare number gets a friendly error
 	NotifyMethod  string   `toml:"notify_method"`
 	Defaults      settings `toml:"defaults"`
 }
@@ -253,8 +253,12 @@ func Load(dir string) (*Config, error) {
 		return nil, errors.New(`config.toml: export_format must be "plain", "ansi" or "html"`)
 	}
 	idle := DefaultNotifyIdle
-	if g.NotifyIdle != "" {
-		if idle, err = time.ParseDuration(g.NotifyIdle); err != nil || idle < 0 {
+	if g.NotifyIdle != nil {
+		v, ok := g.NotifyIdle.(string)
+		if ok {
+			idle, err = time.ParseDuration(v)
+		}
+		if !ok || err != nil || idle < 0 {
 			return nil, errors.New(`config.toml: notify_idle must be a duration like "5m" ("0" turns it off)`)
 		}
 	}

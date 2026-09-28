@@ -19,9 +19,10 @@ pops up; the sidebar already shows unread and attention.
   swiping the app away).
 - At startup Kiln assumes focus. A terminal without focus reporting just
   relies on the idle fallback.
-- `lastHere` is the time of the latest focus-in, key press, paste, click
-  or wheel (not mouse motion: some terminals report hover over an
-  unfocused window). It starts at launch time.
+- `lastHere` is the time of the latest focus-in, key press, paste, click,
+  or wheel while focused (not mouse motion, and not wheel while blurred:
+  terminals report hover, and macOS scrolls, over unfocused windows). It
+  starts at launch time. Each of these also bumps `hereGen`.
 - Away is worked out when a line arrives: `!focused || now − lastHere >
   idle` (idle 0 disables the fallback). There's no ticker.
 
@@ -38,10 +39,15 @@ overridden by `/notify` for the life of the app. While away, an incoming
 | `attention` | only lines an attention rule matched |
 | `none` | never |
 
-`first` keeps a per-character `firstSent` time. A line counts as first when
-`firstSent` is before `lastHere`; sending sets `firstSent = now`. Coming
-back (focus, key or mouse) therefore re-arms every character without any
-transition bookkeeping.
+`first` keeps a per-character `sentGen`: the `hereGen` when its last
+notification went out (-1 before any). A line counts as first when
+`sentGen != hereGen`; sending sets `sentGen = hereGen`. Coming back
+therefore re-arms every character without any transition bookkeeping, and
+without comparing clock readings.
+
+For `connectGrace` (5 seconds) after a connection comes up, only attention
+lines notify, so the login banner and MOTD don't use up `first` or flood
+`all`.
 
 Quiet lines never notify, at any level, even `all`. (Quiet already beats
 attention in the rules engine, so a quiet line is never an attention line
@@ -112,8 +118,8 @@ System lines (connect, disconnect) never notify.
     the environment, and `Deps.Raw func(string) tea.Cmd` (default
     `tea.Raw`), so tests can see what's written.
   - Model fields `focused`, `lastHere`, and `notifyOverrides` (by
-    character key, so `/close` and reopening keep it); `charState` field
-    `firstSent`. Key, paste and click also set `focused`, since only a
+    character key, so `/close` and reopening keep it); `charState` fields
+    `sentGen`, `connectedAt`. Key, paste and click also set `focused`, since only a
     focused window gets input (a lost focus-in mustn't leave Kiln "away").
   - The view sets `ReportFocus`. Update handles `FocusMsg`/`BlurMsg`, and
     key, paste, click and wheel messages stamp `lastHere` from `Deps.Now`.

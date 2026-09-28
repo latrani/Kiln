@@ -507,3 +507,11 @@ func TestNotifyLevelValidated(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestNotifyIdleNumberIsFriendly(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"config.toml": "notify_idle = 300\n"})
+	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), `notify_idle must be a duration like "5m"`) {
+		t.Errorf("err = %v", err)
+	}
+}

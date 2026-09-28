@@ -86,29 +86,31 @@ type Model struct {
 	}
 	focused         bool                    // the terminal has focus, as far as we know
 	lastHere        time.Time               // latest focus-in or input; see here
+	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
 
 type charState struct {
-	key       string
-	ch        config.Character
-	sess      *session.Session
-	cancel    context.CancelFunc
-	state     session.State
-	cls       *classify.Classifier
-	hl        *rules.Highlighter
-	sb        Scrollback
-	in        *Input
-	unread    int
-	attention bool
-	pin       *conn.PinMismatchError
-	needPW    bool
-	pwDraft   string           // input stashed while the password prompt is up
-	orphan    bool             // removed from the config; dropped when it disconnects
-	browse    *browse          // non-nil while browse mode is open
-	hist      *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
-	leftover  []logstore.Entry // the preload's unshown start of its oldest day
-	firstSent time.Time        // when the last notification went out
+	key         string
+	ch          config.Character
+	sess        *session.Session
+	cancel      context.CancelFunc
+	state       session.State
+	cls         *classify.Classifier
+	hl          *rules.Highlighter
+	sb          Scrollback
+	in          *Input
+	unread      int
+	attention   bool
+	pin         *conn.PinMismatchError
+	needPW      bool
+	pwDraft     string           // input stashed while the password prompt is up
+	orphan      bool             // removed from the config; dropped when it disconnects
+	browse      *browse          // non-nil while browse mode is open
+	hist        *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
+	leftover    []logstore.Entry // the preload's unshown start of its oldest day
+	sentGen     int              // hereGen when the last notification went out; -1: none yet
+	connectedAt time.Time        // when the current connection came up
 }
 
 // sbOlderMsg carries older scrollback lines, read and rendered off the UI
@@ -532,7 +534,9 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.here()
 		return m, m.handleKey(msg)
 	case tea.MouseWheelMsg:
-		m.here()
+		if m.focused { // macOS scrolls windows in the background
+			m.here()
+		}
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
 		m.focused = true
@@ -598,6 +602,9 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		cs.sb.SetPrompt(ansi.Sanitize(ev.Entry.Text))
 	case session.EventState:
 		cs.state = ev.State
+		if ev.State == session.Connected {
+			cs.connectedAt = m.d.Now()
+		}
 		if cs.orphan && (ev.State == session.Disconnected || ev.State == session.Failed) {
 			m.close(msg.key) // don't reconnect (and log in) a deleted character
 			return nil

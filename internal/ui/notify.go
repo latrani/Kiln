@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -11,6 +12,10 @@ import (
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
 )
+
+// connectGrace is how long after connecting only attention lines
+// notify, so the login banner doesn't.
+const connectGrace = 5 * time.Second
 
 // notifyLevel is the /notify override, or the configured level.
 func (m *Model) notifyLevel(cs *charState) notify.Level {
@@ -22,7 +27,10 @@ func (m *Model) notifyLevel(cs *charState) notify.Level {
 
 // here records that you're at the terminal: a focus-in, key, paste,
 // click or wheel. It re-arms "first" for every character.
-func (m *Model) here() { m.lastHere = m.d.Now() }
+func (m *Model) here() {
+	m.lastHere = m.d.Now()
+	m.hereGen++
+}
 
 // away reports whether you've switched away, or been idle past
 // notify_idle.
@@ -54,10 +62,13 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 	if e.Dir != logstore.In || res.Quiet || !m.away() {
 		return nil
 	}
+	if !res.Attention && m.d.Now().Sub(cs.connectedAt) < connectGrace {
+		return nil
+	}
 	switch m.notifyLevel(cs) {
 	case notify.All:
 	case notify.First:
-		if !res.Attention && !cs.firstSent.Before(m.lastHere) {
+		if !res.Attention && cs.sentGen == m.hereGen {
 			return nil
 		}
 	case notify.Attention:
@@ -67,7 +78,7 @@ func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea
 	default:
 		return nil
 	}
-	cs.firstSent = m.d.Now()
+	cs.sentGen = m.hereGen
 	method := notify.OSC
 	if m.cfg != nil {
 		method = m.cfg.NotifyMethod

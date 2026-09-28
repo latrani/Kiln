@@ -66,7 +66,7 @@ func (m *Model) open(k string) *charState {
 	if !ok {
 		return nil
 	}
-	cs := &charState{key: k, ch: ch, in: NewInput()}
+	cs := &charState{key: k, ch: ch, in: NewInput(), sentGen: -1}
 	if err := cs.compile(); err != nil {
 		m.setStatus(true, "%s: %v", k, err)
 	}

@@ -22,6 +22,7 @@ func notifyHarness(t *testing.T, level string, extra map[string]string) *harness
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.notified()
+	h.advance(connectGrace) // past the login banner
 	return h
 }
 
@@ -88,7 +89,6 @@ func TestNotifyFirstRearmsOnKey(t *testing.T) {
 	h := notifyHarness(t, "first", nil)
 	h.advance(10 * time.Minute) // idle: away without a blur
 	h.line("Rook says, \"one\"")
-	h.advance(time.Second) // come back strictly after the notification
 	h.typeText("x")
 	h.advance(10 * time.Minute)
 	h.line("Rook says, \"two\"")
@@ -267,5 +267,45 @@ func TestNotifyOverrideSurvivesClose(t *testing.T) {
 	h.open("fm/kit")
 	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "none" {
 		t.Errorf("after close and reopen, level = %q", lvl)
+	}
+}
+
+func TestWheelWhileBlurredIsNotPresence(t *testing.T) {
+	h := notifyHarness(t, "first", nil)
+	h.m.Update(tea.BlurMsg{})
+	h.line("Rook says, \"one\"")
+	h.advance(time.Second)
+	h.m.Update(tea.MouseWheelMsg{X: 40, Y: 5, Button: tea.MouseWheelUp}) // macOS scrolls background windows
+	h.line("Rook says, \"two\"")
+	if got := h.notified(); len(got) != 1 {
+		t.Errorf("scrolling an unfocused window re-armed first: %q", got)
+	}
+}
+
+func TestComingBackRearmsAtTheSameInstant(t *testing.T) {
+	h := notifyHarness(t, "first", nil)
+	h.m.Update(tea.BlurMsg{})
+	h.line("Rook says, \"one\"")
+	h.m.Update(tea.FocusMsg{}) // same clock reading as the notification
+	h.m.Update(tea.BlurMsg{})
+	h.line("Rook says, \"two\"")
+	if got := h.notified(); len(got) != 2 {
+		t.Errorf("got %q, want two notifications", got)
+	}
+}
+
+func TestLoginBannerDoesntNotify(t *testing.T) {
+	w := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnotify = \"all\"", 1)
+	h := newHarness(t, map[string]string{"fm": w})
+	h.m.Update(tea.BlurMsg{})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.line("Welcome to FurryMUCK!")
+	h.line("Mira pages: welcome back")
+	h.advance(connectGrace)
+	h.line("Rook says, \"hi\"")
+	want := []string{osc("Kit: Mira pages: welcome back"), osc("Kit: Rook says, \"hi\"")}
+	if got := h.notified(); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
