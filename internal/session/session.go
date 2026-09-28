@@ -349,6 +349,14 @@ func (s *Session) Run(ctx context.Context) {
 				}
 				continue
 			}
+			if !s.Char().Reconnect {
+				s.sys("connect failed: " + err.Error())
+				s.state(Disconnected, err)
+				if !s.stayDown(ctx) {
+					return
+				}
+				continue
+			}
 			delay := s.o.Backoff(attempt)
 			attempt++
 			s.sys(fmt.Sprintf("connect failed: %v; retrying in %s", err, delay))
@@ -401,6 +409,14 @@ func (s *Session) Run(ctx context.Context) {
 		reason := "closed by server"
 		if err := c.Err(); err != nil {
 			reason = err.Error()
+		}
+		if !s.Char().Reconnect {
+			s.sys(fmt.Sprintf("disconnected (%s)", reason))
+			s.state(Disconnected, c.Err())
+			if !s.stayDown(ctx) {
+				return
+			}
+			continue
 		}
 		delay := s.o.Backoff(attempt)
 		attempt++

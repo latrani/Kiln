@@ -234,6 +234,7 @@ type WorldSettings struct {
 	MaxLineBytes *int
 	NewlineMode  *string
 	Autoconnect  *bool
+	Reconnect    *bool
 	LocalEcho    *bool
 }
 
@@ -242,6 +243,7 @@ type WorldSettings struct {
 type CharacterSettings struct {
 	Aliases     []string
 	Autoconnect *bool
+	Reconnect   *bool
 	LocalEcho   *bool
 }
 
@@ -252,12 +254,13 @@ type Inherited struct {
 	MaxLineBytes int
 	NewlineMode  string
 	Autoconnect  bool
+	Reconnect    bool
 	LocalEcho    bool
 }
 
 func inherited(s settings) Inherited {
 	return Inherited{Login: *s.Login, MaxLineBytes: *s.MaxLineBytes, NewlineMode: *s.NewlineMode,
-		Autoconnect: *s.Autoconnect, LocalEcho: *s.LocalEcho}
+		Autoconnect: *s.Autoconnect, Reconnect: *s.Reconnect, LocalEcho: *s.LocalEcho}
 }
 
 // Defaults is what a world gets for settings it leaves unset.
@@ -294,7 +297,7 @@ func ReadWorld(dir, world string) (WorldSettings, Inherited, error) {
 	return WorldSettings{
 		Host: wf.Host, Port: wf.Port, TLS: wf.TLS, TLSTrust: wf.TLSTrust, Use: wf.Use,
 		Login: wf.Login, MaxLineBytes: wf.MaxLineBytes, NewlineMode: wf.NewlineMode,
-		Autoconnect: wf.Autoconnect, LocalEcho: wf.LocalEcho,
+		Autoconnect: wf.Autoconnect, Reconnect: wf.Reconnect, LocalEcho: wf.LocalEcho,
 	}, inherited(base), nil
 }
 
@@ -330,6 +333,7 @@ func WriteWorld(dir, world string, s WorldSettings) error {
 	change("max_line_bytes", tomlOptInt(old.MaxLineBytes), tomlOptInt(s.MaxLineBytes))
 	change("newline_mode", tomlOptString(old.NewlineMode), tomlOptString(s.NewlineMode))
 	change("autoconnect", tomlOptBool(old.Autoconnect), tomlOptBool(s.Autoconnect))
+	change("reconnect", tomlOptBool(old.Reconnect), tomlOptBool(s.Reconnect))
 	change("local_echo", tomlOptBool(old.LocalEcho), tomlOptBool(s.LocalEcho))
 	if len(set) == 0 {
 		return nil
@@ -373,7 +377,7 @@ func ReadCharacter(dir, world, id string) (CharacterSettings, Inherited, error) 
 	}
 	base.overlay(wf.settings)
 	cf := wf.Characters[i]
-	return CharacterSettings{Aliases: cf.Aliases, Autoconnect: cf.Autoconnect, LocalEcho: cf.LocalEcho}, inherited(base), nil
+	return CharacterSettings{Aliases: cf.Aliases, Autoconnect: cf.Autoconnect, Reconnect: cf.Reconnect, LocalEcho: cf.LocalEcho}, inherited(base), nil
 }
 
 // WriteCharacter saves s to character id's entry, changing only the
@@ -395,6 +399,7 @@ func WriteCharacter(dir, world, id string, s CharacterSettings) error {
 	}
 	change("aliases", tomlStrings(old.Aliases), tomlStrings(s.Aliases))
 	change("autoconnect", tomlOptBool(old.Autoconnect), tomlOptBool(s.Autoconnect))
+	change("reconnect", tomlOptBool(old.Reconnect), tomlOptBool(s.Reconnect))
 	change("local_echo", tomlOptBool(old.LocalEcho), tomlOptBool(s.LocalEcho))
 	if len(set) == 0 {
 		return nil

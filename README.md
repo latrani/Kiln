@@ -195,6 +195,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `max_line_bytes` | any level | Longest line the server accepts (Fuzzball: 2047) |
 | `newline_mode` | any level | `"batch"`: each line is its own command; `"flatten"`: lines are joined with spaces |
 | `autoconnect` | any level | Connect when Kiln starts |
+| `reconnect` | any level | Retry with backoff after a drop or failed connect (default `true`); `false` stays disconnected until `/connect` |
 | `local_echo` | any level | Show what you send in the scrollback (default `false`; the server usually echoes poses, and sent lines are always logged) |
 | `name`, `aliases` | character | Your in-game name and the others that count as you |
 
