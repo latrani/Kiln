@@ -342,3 +342,7 @@ func resolve(s string, palette map[string]color) (color, bool) {
 	c, ok := palette[s]
 	return c, ok
 }
+
+// Equal reports whether t and o draw every role the same way. (A role's
+// SGR pins its colors exactly, so the CSS matches too.)
+func (t *Theme) Equal(o *Theme) bool { return maps.Equal(t.sgr, o.sgr) }

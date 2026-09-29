@@ -191,14 +191,21 @@ func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
 // byte positions may no longer fit.
 func (s *Scrollback) Rerender(render func(logstore.Entry) string) {
 	for i, l := range s.lines {
-		switch {
-		case l.entry != nil:
-			s.lines[i] = sbLine{text: render(*l.entry), entry: l.entry}
-		case l.role != "":
-			s.lines[i] = chromeLine(l.role, l.raw)
-		}
+		s.lines[i] = l.restyled(render)
 	}
 	s.sel, s.hover = nil, nil
+}
+
+// restyled is l drawn afresh: from its entry with render, or in its role.
+// A line with neither is returned as is.
+func (l sbLine) restyled(render func(logstore.Entry) string) sbLine {
+	switch {
+	case l.entry != nil:
+		return sbLine{text: render(*l.entry), entry: l.entry}
+	case l.role != "":
+		return chromeLine(l.role, l.raw)
+	}
+	return l
 }
 
 // SetPrompt shows an unterminated prompt below the last line.

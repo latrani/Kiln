@@ -130,3 +130,12 @@ func TestDottedAndNestedRoleMerge(t *testing.T) {
 		}
 	}
 }
+
+func TestEqual(t *testing.T) {
+	a := mustBuild(t, "[ui]\n\"status.error\" = { fg = \"red\" }\n")
+	b := mustBuild(t, "[palette]\nx = \"#000000\"\n[ui]\n\"status.error\" = { fg = \"red\" }\n")
+	c := mustBuild(t, "[ui]\n\"status.error\" = { fg = \"green\" }\n")
+	if !a.Equal(b) || a.Equal(c) {
+		t.Errorf("Equal: same looks %v, different looks %v", a.Equal(b), a.Equal(c))
+	}
+}

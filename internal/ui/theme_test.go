@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -341,4 +342,68 @@ sidebar = { fg = "#6b6f7a", bg = "#1f2029" }
 		}
 	}
 	t.Fatalf("no Rook row:\n%s", h.screen())
+}
+
+// Reloading a config that leaves the theme as it was doesn't restyle, so
+// a live selection survives.
+func TestUnchangedThemeReloadKeepsSelection(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("line")
+	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.sys\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	sb := &h.m.chars["fm/kit"].sb
+	sb.StartSelect(sbPos{line: 0})
+	h.m.Update(reloadMsg{})
+	if sb.sel == nil {
+		t.Error("a reload with the same theme dropped the selection")
+	}
+}
+
+// History read under one theme and arriving after a change is restyled.
+func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	dir := t.TempDir()
+	root := filepath.Join(dir, "logs")
+	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	for _, d := range []int{22, 23, 24} {
+		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
+		for i := 0; i < 150; i++ {
+			w.Append(logstore.Entry{Time: start.Add(time.Duration(i) * time.Minute), Dir: logstore.In, Text: fmt.Sprintf("d%d-%03d", d, i)})
+		}
+	}
+	w.Close()
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.LogRoot = root
+	cs := h.m.chars["fm/kit"]
+	cs.sb = Scrollback{}
+	h.m.preload(cs)
+	var msg sbOlderMsg
+	for i := 0; i < 100 && msg.lines == nil; i++ {
+		if cmd := h.press(tea.KeyPgUp, 0); cmd != nil {
+			msg = cmd().(sbOlderMsg) // read under the old theme...
+		}
+		h.screen()
+	}
+	if msg.lines == nil {
+		t.Fatal("no older batch was read")
+	}
+	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{}) // ...the theme changes...
+	h.m.Update(msg)         // ...then the batch arrives
+	day := theme.Active().SGR(theme.ScrollbackDay)
+	n := 0
+	for _, l := range cs.sb.lines {
+		if l.role == theme.ScrollbackDay {
+			n++
+			if !strings.HasPrefix(l.text, day) {
+				t.Errorf("divider %q kept the old style", l.text)
+			}
+		}
+	}
+	if n < 2 {
+		t.Errorf("dividers = %d, want the preload's and the batch's", n)
+	}
 }

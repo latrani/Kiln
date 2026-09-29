@@ -131,6 +131,7 @@ type charState struct {
 type sbOlderMsg struct {
 	key   string
 	hist  *history.Reader // the reader that was asked; stale if it has changed
+	theme *theme.Theme    // the theme active when the read started
 	lines []sbLine
 	more  bool
 }
@@ -266,8 +267,8 @@ func (m *Model) loadTheme() {
 		return // keep the theme we have
 	}
 	m.themed = true
-	if th == theme.Active() {
-		return
+	if th == theme.Active() || th.Equal(theme.Active()) {
+		return // restyling would drop a selection for nothing
 	}
 	theme.SetActive(th)
 	for _, cs := range m.chars {
@@ -407,8 +408,9 @@ func (m *Model) pageOlder() tea.Cmd {
 	}
 	key, h, cls, hl, echo, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.ch.LocalEcho, cs.leftover
 	cs.leftover = nil
+	th := theme.Active()
 	return func() tea.Msg {
-		msg := sbOlderMsg{key: key, hist: h}
+		msg := sbOlderMsg{key: key, hist: h, theme: th}
 		if leftover != nil {
 			msg.lines, msg.more = renderDays(cls, hl, echo, leftover, true), !h.Exhausted()
 			return msg
@@ -587,6 +589,12 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
+			if msg.theme != theme.Active() { // rendered in a theme since replaced
+				render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
+				for i, l := range msg.lines {
+					msg.lines[i] = l.restyled(render)
+				}
+			}
 			cs.sb.PrependLines(msg.lines, msg.more)
 		}
 	case olderMsg:
