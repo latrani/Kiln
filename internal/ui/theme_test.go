@@ -192,3 +192,24 @@ func TestLogModeUsesTheme(t *testing.T) {
 		}
 	}
 }
+
+func TestBackdropBehindModals(t *testing.T) {
+	th := withTheme(t, "[ui]\n\"scrollback.inactive\" = { fg = \"#0a0b0c\" }\n")
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("Rook pages: see https://kiln.test/map")
+	inactive := th.SGR(theme.ScrollbackInactive)
+	if strings.Contains(h.drawn(), inactive) {
+		t.Fatal("backdrop drawn with no modal open")
+	}
+	h.press('o', tea.ModCtrl)
+	s := h.drawn()
+	if !strings.Contains(s, inactive) || strings.Contains(s, th.SGR(theme.Link)) {
+		t.Errorf("behind the picker, the scrollback should be one plain inactive color:\n%q", s)
+	}
+	h.press(tea.KeyEscape, 0)
+	if strings.Contains(h.drawn(), inactive) {
+		t.Error("backdrop outlived the picker")
+	}
+}

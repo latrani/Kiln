@@ -32,12 +32,12 @@ fm              │
   @16-16 faint
                 │                                                               
   @16-16 faint
-                │                                                               
-  @16-16 faint
-                │                                                               
-  @16-16 faint
                 │* connected to muck.test:8888                                  
   @16-45 faint
+                │›connect Kit ***                                               
+  @16-32 faint
+                │Rook says, "Evening, Kit."                                     
+  @16-42 faint
                 │───────────────────────────────────────────────────────────────
   @16-79 faint
                 │Filter:   · Enter to connect · Esc to close                    

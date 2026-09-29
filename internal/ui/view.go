@@ -6,6 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
@@ -182,6 +183,10 @@ func (m *Model) statusLine(w int) string {
 	return fitName(strings.Join(parts, sep), w-rw-1) + " " + right
 }
 
+// modal reports whether the picker or an editor owns the input area; the
+// scrollback is then a backdrop.
+func (m *Model) modal() bool { return m.picker != nil }
+
 // View draws the whole screen.
 func (m *Model) View() tea.View {
 	v := tea.View{AltScreen: true, MouseMode: tea.MouseModeAllMotion, ReportFocus: true} // all motion: links light up on hover; focus: notifications
@@ -207,6 +212,11 @@ func (m *Model) View() tea.View {
 	} else {
 		cs.sb.SetWidth(l.rw)
 		rows := cs.sb.View(l.sbH)
+		if m.modal() {
+			for i, r := range rows {
+				rows[i] = theme.Paint(theme.ScrollbackInactive, ansi.Strip(r))
+			}
+		}
 		if cs.sb.Scrolled() {
 			pill := pillText(cs)
 			last := len(rows) - 1

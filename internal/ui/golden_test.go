@@ -212,6 +212,7 @@ func TestGoldenMain(t *testing.T) {
 
 func TestGoldenPicker(t *testing.T) {
 	h := goldenHarness(t)
+	h.show("Rook says, \"Evening, Kit.\"") // bold (self), so the backdrop shows
 	h.press('o', tea.ModCtrl)
 	assertGolden(t, "picker", h.drawn())
 }
