@@ -271,17 +271,15 @@ the modal.
 
 ## Migration
 
-- Old `[[highlight]]` rules keep working. At load time each becomes its
-  parts: a classify rule with a generated tag, a `[tags]` entry in its
-  world or character, and attention or quiet for that tag. Nobody's
-  config breaks.
+- `[[highlight]]` goes away, with no shim: Kiln has one user so far, and
+  their config is rewritten by hand to the new form. A file that still has
+  `[[highlight]]` fails to load with the usual unknown-key error.
 - The fuzzball pack moves to the new form: classify tags plus
   `attention = ["page/in", "whisper/in", "self"]`. Its colors move to the
   default theme's `[tags]`.
 - `/highlight <text>` adds a classify rule with tag `highlight` to the
   world. The theme styles `highlight` once, so every highlight follows the
-  theme. (The sidebar's attention dot borrows that color today; it gets a
-  role of its own.)
+  theme. (The sidebar's attention dot has its own role, `sidebar.attention`.)
 - `config.HighlightStyle` goes away.
 
 ## Phases (child issues)
@@ -293,7 +291,7 @@ the modal.
 2. **The new default look.** Indi's redesign, on top of phase 1.
 3. **Tags, behavior and migration.** `[tags]`, world and character theme
    tables, `scope`,
-   the attention/quiet lists, the `[[highlight]]` shim, the fuzzball pack,
+   the attention/quiet lists, dropping `[[highlight]]`, the fuzzball pack,
    and `/highlight`.
 4. **Choosing themes.** The inheritable `theme` setting, light and dark
    (`appearance`, palettes per appearance), and restyling on change.
