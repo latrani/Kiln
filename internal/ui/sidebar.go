@@ -11,7 +11,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
-	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // compareChars orders characters alphabetically, ignoring case: by world
@@ -130,7 +130,7 @@ var addLabel = str.SidebarOpenConnection()
 const badgeX = 1
 
 // attentionMark prefixes the unread count when a line needed attention.
-var attentionMark = style.SGR(config.HighlightStyle) + "●" + style.Reset
+func attentionMark() string { return theme.Paint(theme.SidebarAttention, "●") }
 
 // sidebarRows lists the open characters under their worlds, then the
 // open-connection row.
@@ -242,33 +242,33 @@ func closable(cs *charState) bool {
 func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	switch r.kind {
 	case rowWorld:
-		return bold + fitName(r.world, w) + style.Reset
+		return theme.Paint(theme.SidebarWorld, fitName(r.world, w))
 	case rowAdd:
-		return style.Dim(fitName(addLabel, w))
+		return theme.Paint(theme.SidebarAdd, fitName(addLabel, w))
 	}
 	cs := m.chars[r.char]
 	// A connected character's name sits one space in, under its world; a
 	// badge (connecting, or disconnected with a × to close) goes there
 	// instead and pushes the name over.
-	lead := " "
+	lead, leadRole := " ", theme.SidebarChar
 	switch {
 	case cs.state == session.Connecting:
-		lead = " … "
+		lead, leadRole = " … ", theme.SidebarConnecting
 	case closable(cs):
-		lead = " × "
+		lead, leadRole = " × ", theme.SidebarDisconnected
 	}
 	activity, shown := "", ""
 	if cs.unread > 0 {
 		activity = fmt.Sprintf(" %d", cs.unread)
-		shown = activity
+		shown = theme.Paint(theme.SidebarUnread, activity)
 		if cs.attention {
 			activity = " ●" + activity
-			shown = " " + attentionMark + shown
+			shown = " " + attentionMark() + shown
 		}
 	}
-	line := fitName(lead+cs.ch.Name, w-xansi.StringWidth(activity)) + shown
+	line := theme.Paint(leadRole, fitName(lead+cs.ch.Name, w-xansi.StringWidth(activity))) + shown
 	if r.char == m.active {
-		return reverse + line + style.Reset
+		return theme.Paint(theme.SidebarActive, line)
 	}
 	return line
 }

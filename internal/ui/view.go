@@ -9,6 +9,7 @@ import (
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // Minimum usable terminal size.
@@ -232,17 +233,17 @@ func (m *Model) View() tea.View {
 		}
 		switch r, hint := sv.at(y); {
 		case hint < 0:
-			b.WriteString(style.Dim(fit(str.ViewMoreAbove(sv.top), l.sw)))
+			b.WriteString(theme.Fill(theme.Sidebar, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
 		case hint > 0:
-			b.WriteString(style.Dim(fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)))
+			b.WriteString(theme.Fill(theme.Sidebar, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)), l.sw))
 		case r != nil && m.picker != nil:
-			b.WriteString(m.pickerLine(*r, l.sw))
+			b.WriteString(theme.Fill(theme.Sidebar, m.pickerLine(*r, l.sw), l.sw))
 		case r != nil:
-			b.WriteString(m.sidebarLine(*r, l.sw))
+			b.WriteString(theme.Fill(theme.Sidebar, m.sidebarLine(*r, l.sw), l.sw))
 		default:
-			b.WriteString(strings.Repeat(" ", l.sw))
+			b.WriteString(theme.Fill(theme.Sidebar, "", l.sw))
 		}
-		b.WriteString(style.Dim("│"))
+		b.WriteString(theme.Paint(theme.Divider, "│"))
 		if y < len(right) {
 			b.WriteString(fit(right[y], l.rw) + style.Reset)
 		}

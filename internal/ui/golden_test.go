@@ -234,7 +234,7 @@ func TestGoldenLog(t *testing.T) {
 	h.key("1")             // a chip on
 	h.key("/")
 	h.typeText("Mira") // the page the chip shows
-	h.key("enter") // find
+	h.key("enter")     // find
 	assertGolden(t, "log", h.drawn())
 }
 

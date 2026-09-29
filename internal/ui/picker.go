@@ -8,7 +8,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/str"
-	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // pickerHint follows the filter in the input area.
@@ -277,9 +277,9 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 	switch r.kind {
 	case rowWorld:
 		if selKey(r) == m.picker.sel {
-			return reverse + bold + fitName(r.world, w) + style.Reset
+			return theme.Paint(theme.PickerWorldSelected, fitName(r.world, w))
 		}
-		return bold + fitName(r.world, w) + style.Reset
+		return theme.Paint(theme.PickerWorld, fitName(r.world, w))
 	case rowAddChar:
 		line = fitName(" "+addCharLabel, w)
 	case rowAddWorld:
@@ -290,9 +290,9 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 	}
 	switch {
 	case selKey(r) == m.picker.sel:
-		return reverse + line + style.Reset
+		return theme.Paint(theme.PickerSelected, line)
 	case r.kind != rowChar:
-		return style.Dim(line)
+		return theme.Paint(theme.PickerAdd, line)
 	}
 	return line
 }

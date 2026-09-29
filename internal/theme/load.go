@@ -97,3 +97,14 @@ func Paint(r Role, text string) string { return Active().Paint(r, text) }
 
 // SGR is Active().SGR.
 func SGR(r Role) string { return Active().SGR(r) }
+
+// FromTOML builds a theme from src on top of the built-in, for tests and
+// tools.
+func FromTOML(src string) (*Theme, error) {
+	base, _ := parse("default.toml", builtinSrc)
+	f, err := parse("test.toml", []byte(src))
+	if err != nil {
+		return nil, err
+	}
+	return build([]file{base, f})
+}
