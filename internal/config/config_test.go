@@ -583,3 +583,19 @@ func TestLooksOnlyInWorlds(t *testing.T) {
 		}
 	}
 }
+
+func TestThemeAndAppearance(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := Load(dir)
+	if err != nil || cfg.Theme != "default" || cfg.Appearance != "auto" {
+		t.Fatalf("defaults: %v", err)
+	}
+	write(t, dir, map[string]string{"config.toml": "theme = \"ember\"\nappearance = \"light\"\n"})
+	if cfg, err = Load(dir); err != nil || cfg.Theme != "ember" || cfg.Appearance != "light" {
+		t.Errorf("set: %+v %v", cfg, err)
+	}
+	write(t, dir, map[string]string{"config.toml": "appearance = \"dusk\"\n"})
+	if _, err := Load(dir); err == nil || err.Error() != str.ConfigBadAppearance() {
+		t.Errorf("bad appearance: %v", err)
+	}
+}

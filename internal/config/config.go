@@ -95,6 +95,8 @@ type Config struct {
 	PasswordStore string        // "keychain", "file" or "none"
 	NotifyIdle    time.Duration // no input for this long counts as away; 0: only blur does
 	NotifyMethod  notify.Method
+	Theme         string // themes/<name>.toml; "default" is the built-in without one
+	Appearance    string // "auto", "dark" or "light"
 }
 
 // Find returns the resolved character, or false.
@@ -157,6 +159,8 @@ type globalFile struct {
 	PasswordStore string       `toml:"password_store"`
 	NotifyIdle    any          `toml:"notify_idle"` // a duration string; any so a bare number gets a friendly error
 	NotifyMethod  string       `toml:"notify_method"`
+	Theme         string       `toml:"theme"`
+	Appearance    string       `toml:"appearance"`
 	Defaults      defaultsFile `toml:"defaults"`
 }
 
@@ -241,6 +245,18 @@ func Load(dir string) (*Config, error) {
 	default:
 		return nil, errors.New(str.ConfigBadExportFormat())
 	}
+	themeName := g.Theme
+	if themeName == "" {
+		themeName = "default"
+	}
+	appearance := g.Appearance
+	switch appearance {
+	case "":
+		appearance = "auto"
+	case "auto", "dark", "light":
+	default:
+		return nil, errors.New(str.ConfigBadAppearance())
+	}
 	idle := DefaultNotifyIdle
 	if g.NotifyIdle != nil {
 		v, ok := g.NotifyIdle.(string)
@@ -273,7 +289,7 @@ func Load(dir string) (*Config, error) {
 		return nil, errors.New(str.ConfigLogNameHasFolders())
 	}
 	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store,
-		NotifyIdle: idle, NotifyMethod: method}
+		NotifyIdle: idle, NotifyMethod: method, Theme: themeName, Appearance: appearance}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, baseRules, packs)
 		if err != nil {

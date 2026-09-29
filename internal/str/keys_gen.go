@@ -145,6 +145,9 @@ func ConfigAddedByHighlight() string { return get("config.added_by_highlight", n
 // ConfigAddedByKiln is config.added_by_kiln: "added by Kiln"
 func ConfigAddedByKiln() string { return get("config.added_by_kiln", nil) }
 
+// ConfigBadAppearance is config.bad_appearance: "config.toml: appearance must be \"auto\", \"dark\" or \"light\""
+func ConfigBadAppearance() string { return get("config.bad_appearance", nil) }
+
 // ConfigBadCharacterId is config.bad_character_id: "{where}: id may only use letters, digits, _ and -"
 func ConfigBadCharacterId(where any) string {
 	return get("config.bad_character_id", map[string]any{"where": where})

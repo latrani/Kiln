@@ -66,6 +66,7 @@ log_write_failed = "log write failed: {err}"
 trust_hint = "if you expected this, run: kiln trust {world} {fingerprint}"
 
 [config]
+bad_appearance = 'config.toml: appearance must be "auto", "dark" or "light"'
 bad_password_store = 'config.toml: password_store must be "keychain", "file" or "none"'
 bad_export_format = 'config.toml: export_format must be "plain", "ansi" or "html"'
 bad_notify_idle = 'config.toml: notify_idle must be a duration like "5m" ("0" turns it off)'
