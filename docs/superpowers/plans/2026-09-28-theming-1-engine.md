@@ -2323,7 +2323,7 @@ func TestThemeReloadErrorKeepsTheme(t *testing.T) {
 	if theme.Active() != good {
 		t.Error("a broken theme replaced a working one")
 	}
-	if !strings.Contains(h.screen(), upTo(str.StatusThemeNotLoaded(mark))) {
+	if !strings.Contains(h.screen(), upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
 		t.Errorf("no word about the broken theme:\n%s", h.screen())
 	}
 }
@@ -2335,7 +2335,7 @@ func TestBrokenThemeAtStartUsesBuiltin(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("[ui\n"), 0o644)
 	cfg, _ := config.Load(dir)
 	m := New(Deps{ConfigDir: dir, Load: config.Load, Now: func() time.Time { return time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local) }}, cfg)
-	if theme.Active().SGR(theme.StatusError) != theme.Builtin().SGR(theme.StatusError) || !strings.Contains(m.status, upTo(str.StatusThemeNotLoaded(mark))) {
+	if theme.Active().SGR(theme.StatusError) != theme.Builtin().SGR(theme.StatusError) || !strings.Contains(m.status, upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
 		t.Errorf("want the built-in theme and a status, got %q", m.status)
 	}
 }

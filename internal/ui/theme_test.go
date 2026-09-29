@@ -1,12 +1,18 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -134,12 +140,12 @@ rule = { fg = "#101112" }`)
 }
 
 func TestScrollbackUsesTheme(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": goldenWorld}) // before the theme: New loads the built-in
 	th := withTheme(t, `[ui]
 "scrollback.sys" = { fg = "#0a0b0c" }
 "scrollback.echo" = { fg = "#0d0e0f" }
 "scrollback.pill" = { fg = "#101112" }
 link = { fg = "#131415" }`)
-	h := newHarness(t, map[string]string{"fm": goldenWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.show("see https://kiln.test/map")
@@ -194,8 +200,8 @@ func TestLogModeUsesTheme(t *testing.T) {
 }
 
 func TestBackdropBehindModals(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // before the theme: New loads the built-in
 	th := withTheme(t, "[ui]\n\"scrollback.inactive\" = { fg = \"#0a0b0c\" }\n")
-	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.show("Rook pages: see https://kiln.test/map")
@@ -212,4 +218,78 @@ func TestBackdropBehindModals(t *testing.T) {
 	if strings.Contains(h.drawn(), inactive) {
 		t.Error("backdrop outlived the picker")
 	}
+}
+
+func writeUserTheme(t *testing.T, h *harness, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(h.dir, "themes", "default.toml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestThemeReloads(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": goldenWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText(":waves.")
+	h.enter()
+	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.echo\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	want := theme.Active().SGR(theme.ScrollbackEcho)
+	if want != "\x1b[2;38;2;10;11;12m" {
+		t.Fatalf("theme not reloaded: %q", want)
+	}
+	if !strings.Contains(h.drawn(), want) {
+		t.Error("an echo line already on screen wasn't restyled")
+	}
+}
+
+func TestThemeReloadErrorKeepsTheme(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	good := theme.Active()
+	writeUserTheme(t, h, "[ui]\n\"status.eror\" = { fg = \"red\" }\n")
+	h.m.Update(reloadMsg{})
+	if theme.Active() != good {
+		t.Error("a broken theme replaced a working one")
+	}
+	if !strings.Contains(h.screen(), upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
+		t.Errorf("no word about the broken theme:\n%s", h.screen())
+	}
+}
+
+func TestBrokenThemeAtStartUsesBuiltin(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	dir := t.TempDir()
+	config.EnsureDefaults(dir)
+	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("[ui\n"), 0o644)
+	cfg, _ := config.Load(dir)
+	m := New(Deps{ConfigDir: dir, Load: config.Load, Now: func() time.Time { return time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local) }}, cfg)
+	if theme.Active().SGR(theme.StatusError) != theme.Builtin().SGR(theme.StatusError) || !strings.Contains(m.status, upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
+		t.Errorf("want the built-in theme and a status, got %q", m.status)
+	}
+}
+
+func TestThemeReloadKeepsScroll(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	for i := 0; i < 40; i++ {
+		h.advance(2 * pageGap)
+		h.show(fmt.Sprintf("line %d", i))
+	}
+	h.press(tea.KeyPgUp, 0)
+	sb := &h.m.chars["fm/kit"].sb
+	offset := sb.offset
+	sb.StartSelect(sbPos{line: 5})
+	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.sys\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	if !sb.Scrolled() || sb.offset != offset {
+		t.Errorf("reload moved the view: offset %d, was %d", sb.offset, offset)
+	}
+	h.screen() // must not panic with the selection dropped
 }

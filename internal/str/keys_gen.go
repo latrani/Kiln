@@ -710,6 +710,11 @@ func StatusQuitHint(key any) string { return get("status.quit_hint", map[string]
 // StatusSkippedLogin is status.skipped_login: "skipped login"
 func StatusSkippedLogin() string { return get("status.skipped_login", nil) }
 
+// StatusThemeNotLoaded is status.theme_not_loaded: "theme not loaded: {err}"
+func StatusThemeNotLoaded(err error) string {
+	return get("status.theme_not_loaded", map[string]any{"err": err})
+}
+
 // StatusTrustFailed is status.trust_failed: "trust: {err}"
 func StatusTrustFailed(err error) string {
 	return get("status.trust_failed", map[string]any{"err": err})

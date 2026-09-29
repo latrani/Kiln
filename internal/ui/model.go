@@ -92,6 +92,7 @@ type Model struct {
 	focused         bool                    // the terminal has focus, as far as we know
 	lastHere        time.Time               // latest focus-in or input; see here
 	awayNow         bool                    // set by /away until the next input; see away
+	themed          bool                    // a theme has been loaded; see loadTheme
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
@@ -190,6 +191,7 @@ func New(d Deps, cfg *config.Config) *Model {
 	m.focused, m.lastHere = true, d.Now()
 	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
+	m.loadTheme() // at start a broken theme falls back to the built-in, and says so
 	for _, ch := range m.allChars() {
 		if ch.Autoconnect {
 			m.open(key(ch.World, ch.ID))
@@ -234,7 +236,8 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 	}
 }
 
-// reloadNow loads the config and applies it, reporting whether it could.
+// reloadNow loads the config and theme and applies them, reporting whether
+// it could.
 func (m *Model) reloadNow() bool {
 	cfg, err := m.d.Load(m.d.ConfigDir)
 	if err != nil {
@@ -242,7 +245,34 @@ func (m *Model) reloadNow() bool {
 		return false
 	}
 	m.applyConfig(cfg)
-	return true
+	return m.loadTheme() // a broken theme keeps its message up
+}
+
+// loadTheme reads the theme from the config folder and draws with it,
+// restyling what's on screen, and reports whether it could. A broken
+// theme is reported and changes nothing, except at start, when the
+// built-in theme stands in.
+func (m *Model) loadTheme() bool {
+	th, err := theme.Load(m.d.ConfigDir)
+	if err != nil {
+		m.setStatus(true, str.StatusThemeNotLoaded(err))
+		if m.themed {
+			return false // keep the theme we have
+		}
+	}
+	m.themed = true
+	if th == theme.Active() {
+		return err == nil
+	}
+	theme.SetActive(th)
+	for _, cs := range m.chars {
+		render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
+		cs.sb.Rerender(render)
+		if cs.browse != nil {
+			cs.browse.restyle(render)
+		}
+	}
+	return err == nil
 }
 
 // applyConfig keeps cfg for the picker and updates open characters to

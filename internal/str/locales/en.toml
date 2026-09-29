@@ -211,6 +211,7 @@ link_failed = "can't open link: {err}"
 link_opened = "opened {url}"
 copied = "copied to clipboard"
 away = "away until your next key or click"
+theme_not_loaded = "theme not loaded: {err}"
 
 [scrollback]
 history_ends = "─── history ends {when} ───"

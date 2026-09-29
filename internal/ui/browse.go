@@ -863,6 +863,13 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	return rows, curX, curY, showCur
 }
 
+// restyle redraws every line's text with render, after a theme change.
+func (b *browse) restyle(render func(logstore.Entry) string) {
+	for _, l := range b.lines {
+		l.text = render(l.e)
+	}
+}
+
 // dayLabel formats "2026-09-24" as "Thu Sep 24".
 func dayLabel(day string) string {
 	t, err := time.Parse("2006-01-02", day)

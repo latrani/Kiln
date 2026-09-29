@@ -32,6 +32,7 @@ import (
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 	"github.com/latrani/Kiln/internal/ui"
 	"github.com/latrani/Kiln/internal/version"
 )
@@ -71,7 +72,7 @@ func run(args []string) error {
 		if !ok {
 			return errors.New(str.CliNoCharacterDefine(args[1], args[2]))
 		}
-		return tail(ch, dataDir, cfg)
+		return tail(ch, cfgDir, dataDir, cfg)
 	case "passwd":
 		if _, ok := cfg.Find(args[1], args[2]); !ok {
 			return errors.New(str.CliNoCharacter(args[1], args[2]))
@@ -114,7 +115,12 @@ func knownHosts(dataDir string) conn.KnownHosts {
 	return conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")}
 }
 
-func tail(ch config.Character, dataDir string, cfg *config.Config) error {
+func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error {
+	if th, err := theme.Load(cfgDir); err != nil {
+		fmt.Fprintln(os.Stderr, "*", str.StatusThemeNotLoaded(err))
+	} else {
+		theme.SetActive(th)
+	}
 	cls, err := classify.New(ch.Rules.Classify, ch.Name, ch.Aliases)
 	if err != nil {
 		return err
