@@ -151,3 +151,26 @@ func TestBuiltinForLight(t *testing.T) {
 		t.Error("the light built-in should be its own theme")
 	}
 }
+func TestBuiltinLightLook(t *testing.T) {
+	b := BuiltinFor(Light)
+	for _, c := range []struct {
+		role Role
+		want string
+	}{
+		{Sidebar, "\x1b[38;2;29;114;111m"},
+		{SidebarAdd, "\x1b[1;38;2;18;84;82;48;2;188;230;228m"},
+		{RuleInput, "\x1b[38;2;180;162;116m"},
+		{InputOverLimit, "\x1b[38;2;165;29;29;48;2;249;220;220m"},
+		{SidebarAttention, "\x1b[1;38;2;164;116;4m"},
+	} {
+		if got := b.SGR(c.role); got != c.want {
+			t.Errorf("light %s = %q, want %q", c.role, got, c.want)
+		}
+	}
+	if _, ts, _ := b.Tag("page/in"); ts.Style.SGR() != "\x1b[1;38;2;194;90;10m" {
+		t.Errorf("light page/in = %q", ts.Style.SGR())
+	}
+	if Builtin().SGR(InputOverLimit) != "\x1b[38;2;217;38;38;48;2;42;9;9m" {
+		t.Error("the dark over-limit changed")
+	}
+}

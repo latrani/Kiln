@@ -2,6 +2,8 @@
 # Kiln's config folder with extends = "default", and set only the roles
 # you want different. Colors are "#rrggbb", a [palette] name, a terminal
 # color (red, bright-blue, ...), or "default" for the terminal's own.
+# [palette.light] (and [palette.dark]) replace [palette] entries on a
+# light (or dark) terminal.
 # Styles take fg, bg, bold, faint, italic, underline and reverse. A role
 # inherits from the role before its last dot: link.hover starts from link.
 #
@@ -36,6 +38,41 @@ ember    = "#ff9f43"
 lavender = "#c39bd3"
 beacon   = "#ffd166"
 
+alarm      = "#d92626"
+alarm-deep = "#2a0909"
+
+# The same glazes for a light terminal: dark inks for text and lines,
+# pale tints under chips, and tag colors dark enough for paper.
+[palette.light]
+celadon-deep   = "#bce6e4"
+celadon-mid    = "#629391"
+celadon-line   = "#74b4b2"
+celadon-ink    = "#1d726f"
+celadon-bright = "#125452"
+
+cobalt-deep   = "#bccae6"
+cobalt-mid    = "#627293"
+cobalt-line   = "#7489b4"
+cobalt-ink    = "#1d3972"
+cobalt-bright = "#122854"
+
+gold-mid  = "#938562"
+gold-line = "#b4a274"
+gold-ink  = "#725a1d"
+
+kaki-deep   = "#e6cebc"
+kaki-mid    = "#937762"
+kaki-line   = "#b49074"
+kaki-ink    = "#72421d"
+kaki-bright = "#542f12"
+
+ember    = "#c25a0a"
+lavender = "#814096"
+beacon   = "#a47404"
+
+alarm      = "#a51d1d"
+alarm-deep = "#f9dcdc"
+
 [ui]
 "sidebar"           = { fg = "celadon-ink" }
 "sidebar.world"     = { bold = true }
@@ -69,7 +106,7 @@ beacon   = "#ffd166"
 
 "input"            = { fg = "gold-ink" }
 "input.hint"       = { fg = "gold-mid" }
-"input.over_limit" = { fg = "#d92626", bg = "#2a0909" }
+"input.over_limit" = { fg = "alarm", bg = "alarm-deep" }
 "input.selection"  = { reverse = true }
 
 "status"       = { fg = "cobalt-ink" }
