@@ -264,3 +264,18 @@ name = "Name"
 
 [form]
 next_field = "Use enter or arrows to move between fields · {hint}"
+
+[theme]
+parse = "themes/{file}: {err}"
+unknown_key = "themes/{file}: unknown key {key:%q} (a theme has extends, palette and ui)"
+unknown_role = "themes/{file}: unknown role {role:%q}"
+unknown_field = "themes/{file}: {role}: unknown setting {field:%q}"
+bad_field = "themes/{file}: {role}: {field} must be {want}"
+bad_color = "themes/{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, or a terminal color like bright-blue)"
+palette_name_taken = "themes/{file}: palette name {name:%q} is a terminal color"
+no_theme = "no theme {name:%q} (no themes/{name}.toml)"
+extends_loop = "themes/{file}: extends loops back to {name:%q}"
+palette_entry = "palette {name}"
+want_color = "a color"
+want_bool = "true or false"
+want_theme = "a theme name"

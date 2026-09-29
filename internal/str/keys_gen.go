@@ -723,6 +723,63 @@ func StatusUnknownCommand(command any) string {
 	return get("status.unknown_command", map[string]any{"command": command})
 }
 
+// ThemeBadColor is theme.bad_color: "themes/{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, or a terminal color like bright-blue)"
+func ThemeBadColor(file, where, color any) string {
+	return get("theme.bad_color", map[string]any{"file": file, "where": where, "color": color})
+}
+
+// ThemeBadField is theme.bad_field: "themes/{file}: {role}: {field} must be {want}"
+func ThemeBadField(file, role, field, want any) string {
+	return get("theme.bad_field", map[string]any{"file": file, "role": role, "field": field, "want": want})
+}
+
+// ThemeExtendsLoop is theme.extends_loop: "themes/{file}: extends loops back to {name:%q}"
+func ThemeExtendsLoop(file, name any) string {
+	return get("theme.extends_loop", map[string]any{"file": file, "name": name})
+}
+
+// ThemeNoTheme is theme.no_theme: "no theme {name:%q} (no themes/{name}.toml)"
+func ThemeNoTheme(name any) string { return get("theme.no_theme", map[string]any{"name": name}) }
+
+// ThemePaletteEntry is theme.palette_entry: "palette {name}"
+func ThemePaletteEntry(name any) string {
+	return get("theme.palette_entry", map[string]any{"name": name})
+}
+
+// ThemePaletteNameTaken is theme.palette_name_taken: "themes/{file}: palette name {name:%q} is a terminal color"
+func ThemePaletteNameTaken(file, name any) string {
+	return get("theme.palette_name_taken", map[string]any{"file": file, "name": name})
+}
+
+// ThemeParse is theme.parse: "themes/{file}: {err}"
+func ThemeParse(file any, err error) string {
+	return get("theme.parse", map[string]any{"file": file, "err": err})
+}
+
+// ThemeUnknownField is theme.unknown_field: "themes/{file}: {role}: unknown setting {field:%q}"
+func ThemeUnknownField(file, role, field any) string {
+	return get("theme.unknown_field", map[string]any{"file": file, "role": role, "field": field})
+}
+
+// ThemeUnknownKey is theme.unknown_key: "themes/{file}: unknown key {key:%q} (a theme has extends, palette and ui)"
+func ThemeUnknownKey(file, key any) string {
+	return get("theme.unknown_key", map[string]any{"file": file, "key": key})
+}
+
+// ThemeUnknownRole is theme.unknown_role: "themes/{file}: unknown role {role:%q}"
+func ThemeUnknownRole(file, role any) string {
+	return get("theme.unknown_role", map[string]any{"file": file, "role": role})
+}
+
+// ThemeWantBool is theme.want_bool: "true or false"
+func ThemeWantBool() string { return get("theme.want_bool", nil) }
+
+// ThemeWantColor is theme.want_color: "a color"
+func ThemeWantColor() string { return get("theme.want_color", nil) }
+
+// ThemeWantTheme is theme.want_theme: "a theme name"
+func ThemeWantTheme() string { return get("theme.want_theme", nil) }
+
 // ViewCertChanged is view.cert_changed: "Certificate changed · /trust to accept it"
 func ViewCertChanged() string { return get("view.cert_changed", nil) }
 
