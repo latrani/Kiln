@@ -18,7 +18,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 ```
 
 - **Many worlds, many characters, all at once.** The sidebar shows the characters you have open, grouped under their worlds; everything else is a Ctrl+O away. Each one has its own scrollback, draft and history.
-- **Knows what a page is.** Lines are tagged (page, whisper, say, and `self` when they mention you) by rules you can edit. Tags drive colors and the attention badge.
+- **Knows what a page is.** Lines are tagged (page, whisper, and `self` when they mention you) by rules you can edit. The theme colors tags, and tags drive the attention badge.
 - **Everything is logged** to plain, greppable text, one file per session, in whatever folder you like.
 - **Log mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
 - **Safe input.** The input box shows exactly where the server would cut an over-long line, so you can break it before sending.
@@ -125,7 +125,7 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/close` | Disconnect and remove the character from the sidebar |
 | `/open` | Open a connection (same as `Ctrl+O`) |
 | `/log` | Open log mode |
-| `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
+| `/highlight <text>` | Highlight lines containing this text (saved to the world's file as a `highlight` tag) |
 | `/away` | Count as away right now: output is held and notifications go out, until your next key or click |
 | `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |
 | `/edit`, `/edit world` | Edit the active character, or its world |
@@ -171,13 +171,17 @@ Kiln's colors come from a theme. To change them, make `themes/default.toml` in K
     "status"         = { bg = "panel" }
     "status.error"   = { fg = "#ff6b6b", bold = true }
 
-A style sets any of `fg`, `bg`, `bold`, `faint`, `italic`, `underline` and `reverse`. A color is `#rrggbb`, a name from `[palette]`, one of the terminal's own sixteen (`red`, `bright-blue`, and so on), or `default` for the terminal's own color, which clears one a role would inherit. A role inherits from the one before its last dot (`link.hover` starts from `link`). Text from the server always sits on your terminal's background; the sidebar (the picker while it's open), input box (a form while one is up), statusline and log mode's header and action bar can have their own. If a theme has a mistake, Kiln says so in the statusline and keeps the colors it had.
+    [tags]
+    "page/in"   = { fg = "#ff9f43", bold = true }
+    "highlight" = { fg = "#ffd166", scope = "match" }
+
+`[ui]` styles Kiln's own parts of the screen, by role; `[tags]` styles lines from the server, by their [tags](#rules). A style sets any of `fg`, `bg`, `bold`, `faint`, `italic`, `underline` and `reverse`. A color is `#rrggbb`, a name from `[palette]`, one of the terminal's own sixteen (`red`, `bright-blue`, and so on), or `default` for the terminal's own color, which clears one a role would inherit. A tag style can also say `scope = "match"` (see [Rules](#rules)). A role inherits from the one before its last dot (`link.hover` starts from `link`). Text from the server always sits on your terminal's background; the sidebar (the picker while it's open), input box (a form while one is up), statusline and log mode's header and action bar can have their own. If a theme has a mistake, Kiln says so in the statusline and keeps the colors it had.
 
 The roles are: `sidebar` (`.world`, `.char`, `.active`, `.unread`, `.attention`, `.connecting`, `.disconnected`, `.add`, `.more`), `picker` (`.world`, `.world.selected`, `.selected`, `.add`), `divider`, `rule` (`.input`, `.form`, `.status`: each rule above its area), `scrollback` (`.day`, `.history_end`, `.loading`, `.echo`, `.sys`, `.pill`, `.selection`, `.inactive`, `.empty`), `link` (`.hover`), `input` (`.hint`, `.over_limit`, `.selection`), `status` (`.log`, `.error`, `.clock`), `form` (`.label`, `.hint`, `.error`, `.focus`, `.title`, `.button`, `.button.secondary`), `log` (`.header`, `.header.title`, `.header.chip`, `.header.chip.on`, `.time`, `.cursor`, `.selected`, `.excluded`, `.find`, `.day`, `.loading`, `.bar`, `.bar.hints`, `.bar.error`), and `export` (the HTML export's page).
 
 ### Notifications
 
-When you're away from Kiln, activity shows up as a desktop notification like `Kit: Rook pages: you around?` (`Kit@fm:` when two worlds have a Kit). You're away when you switch to another window or tab, after `notify_idle` (default 5 minutes) without typing or clicking, or from `/away` until your next key or click. Something that arrives while you still count as here is held, and sent (with how many more followed) if `notify_idle` passes without you coming back. The `notify` setting picks what notifies: `first` (the default) sends the first line since you left and then only lines that need attention (pages and whispers), `all` sends every line, `attention` only those, and `none` nothing. Lines hidden by a `quiet` rule never notify, and for a few seconds after connecting only attention lines do, so the login banner stays quiet. A burst of lines (like a room description) notifies only its first line. `/notify` changes it for one character until Kiln quits.
+When you're away from Kiln, activity shows up as a desktop notification like `Kit: Rook pages: you around?` (`Kit@fm:` when two worlds have a Kit). You're away when you switch to another window or tab, after `notify_idle` (default 5 minutes) without typing or clicking, or from `/away` until your next key or click. Something that arrives while you still count as here is held, and sent (with how many more followed) if `notify_idle` passes without you coming back. The `notify` setting picks what notifies: `first` (the default) sends the first line since you left and then only lines that need attention (pages and whispers), `all` sends every line, `attention` only those, and `none` nothing. Quiet lines never notify, and for a few seconds after connecting only attention lines do, so the login banner stays quiet. A burst of lines (like a room description) notifies only its first line. `/notify` changes it for one character until Kiln quits.
 
 Notifications work in iTerm2, kitty, Ghostty, WezTerm, foot and Blink, locally or over ssh. Inside tmux, add this to `~/.tmux.conf`:
 
@@ -214,7 +218,7 @@ Those paths are the same on every system, macOS and Windows included. On macOS, 
 ~/.config/kiln/
   config.toml          # global settings and defaults
   worlds/<id>.toml     # one world and its characters
-  packs/<id>.toml      # shareable rule sets, e.g. the starter fuzzball.toml
+  packs/<id>.toml      # shareable rules and tag lists, e.g. the starter fuzzball.toml
 ```
 
 Settings are inherited in this order: **defaults → packs (in `use` order) → world → character**. Rule lists add up along the way, and single settings are replaced by the most specific level.
@@ -243,50 +247,58 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 
 ### Rules
 
-Classify rules tag lines, and highlight rules style them:
+Three things decide what happens to a line from the server: **classify rules** say what it is (they give it tags), the **theme** says how each tag looks, and the **`attention` and `quiet` lists** say how it behaves.
 
 ```toml
+attention = ["page/in", "whisper/in", "self"]   # light up the ● badge
+quiet = ["wiki"]                                 # never unread, never notifies
+
 [[classify]]
 tag = "ooc"
 pattern = '^\[OOC\]'
 
-[[highlight]]
-match = { tags = ["page"] }          # match by tag, by pattern = '…', or both
-style = { fg = "#ff9f43", bold = true }
-attention = true                     # light up the ● badge
-```
-
-The opposite of `attention` is `quiet = true`: for server chatter you don't care about, matching lines are still shown but don't count as unread, don't bump the `▼ new` count, and never light the badge, even if another rule (like `self`) asks for attention.
-
-```toml
-[[highlight]]
-match = { pattern = '^\[Wiki\]' }
-style = { fg = "#808080" }
-quiet = true
-```
-
-A classify rule can give several tags at once with `tags = ["page", "page/in"]` (instead of, or as well as, `tag`). By convention a `/` nests a tag under a broader one: the starter pack tags pages you receive `page` and `page/in`, and the server's echo of your own (`You page, …`, `You page-pose, …`) `page` and `page/out`, so a `page` filter shows the whole conversation while the highlight is on `page/in` only. Whispers work the same way (`whisper/in`, and `whisper/out` for `You whisper, …`).
-
-Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` and `[[characters.highlight]]` right after its `[[characters]]` entry.
-
-By default a highlight styles the whole line. With `scope = "match"` it styles only the part that matched: its own `pattern`'s matches, or else the text its tags' classify rules matched. So a server that prefixes pages with `PAGE:` can color just the prefix, and `self` can bold just your name:
-
-```toml
 [[classify]]
-tag = "page"
-pattern = '^PAGE:'
-
-[[highlight]]
-match = { tags = ["page"] }
-style = { fg = "#2053ff", bold = true }
-scope = "match"                      # just "PAGE:"; attention still marks the line
-attention = true
-
-[[highlight]]
-match = { tags = ["self"] }
-style = { bold = true }
-scope = "match"                      # just your name, wherever it appears
+tag = "wiki"
+pattern = '^\[Wiki\]'
 ```
+
+A classify rule can give several tags at once with `tags = ["page", "page/in"]` (instead of, or as well as, `tag`). By convention a `/` nests a tag under a broader one: the starter pack tags pages you receive `page` and `page/in`, and the server's echo of your own (`You page, …`, `You page-pose, …`) `page` and `page/out`, so a `page` filter shows the whole conversation while only `page/in` asks for attention. Whispers work the same way (`whisper/in`, and `whisper/out` for `You whisper, …`). Kiln itself tags lines that mention your character's name or aliases `self`.
+
+`attention` and `quiet` add up along the chain (defaults, packs, world, character), and an entry covers the tags under it: `attention = ["page"]` covers `page/in` too (but not `pages`). Quiet lines are still shown, but don't count as unread, don't bump the `▼ new` count, never light the badge and never notify, even if another tag (like `self`) asks for attention.
+
+Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` right after its `[[characters]]` entry, and `attention` and `quiet` lists inside it.
+
+How tags look lives in the theme's `[tags]` (see [Themes](#themes)). A world or character can add to it with its own `[palette]` and `[tags]`, over the theme it uses:
+
+```toml
+# worlds/fm.toml
+[palette]
+beacon = "#ffd166"          # a color only this world uses
+
+[tags]
+"highlight" = { fg = "beacon", bold = true, scope = "match" }
+"ooc"       = { fg = "#808080" }
+```
+
+A tag style takes the same settings as a theme role, plus `scope`. By default it styles the whole line; with `scope = "match"` it styles only the text the tag's classify rules matched, so a server that prefixes pages with `PAGE:` can color just the prefix. A tag with no style uses the one up its slashes (`page/in` falls back to `page`). When a line has several tags, whole-line styles go first and match styles on top; later colors win and attributes add up.
+
+`/highlight <text>` adds a classify rule to the world tagging lines that contain the text `highlight`, and the theme styles `highlight` (by default, just the matching text in bold yellow).
+
+#### Core tags
+
+Themes can count on these tags; packs emit them where their server makes that possible, and are free to add their own.
+
+| Tag | Lines |
+|---|---|
+| `page`, `page/in`, `page/out` | pages to you, and your own |
+| `whisper`, `whisper/in`, `whisper/out` | whispers to you, and your own |
+| `watchfor`, `watchfor/connect`, `watchfor/disconnect` | watchfor notices of people connecting and disconnecting |
+| `ooc` | out-of-character talk |
+| `system` | messages from the MUCK itself (not Kiln's own `*` lines) |
+| `self` | lines that mention you (Kiln adds these) |
+| `highlight` | lines matching a `/highlight` |
+
+`say` and `pose` aren't core: on a MUCK they're the bulk of ordinary scene text, not something to set apart.
 
 ### Certificates
 

@@ -501,6 +501,7 @@ func TestSecondaryButtons(t *testing.T) {
 		}
 	}
 }
+
 // Editing the theme's [tags] restyles lines already on screen.
 func TestThemeTagChangeRestyles(t *testing.T) {
 	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })

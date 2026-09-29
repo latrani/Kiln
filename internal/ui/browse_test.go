@@ -13,9 +13,11 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -533,8 +535,9 @@ func TestHighlightCommand(t *testing.T) {
 	h.m.Update(reloadMsg{})
 	cs := h.m.chars["fm/kit"]
 	text, _ := cs.render(logstore.Entry{Dir: logstore.In, Text: "Rook: The Lighthouse is dark."})
-	if !strings.Contains(text, "\x1b[1;38;2;255;209;102m") {
-		t.Errorf("new rule not applied: %q", text)
+	_, ts, _ := theme.Active().Tag(config.HighlightTag)
+	if !strings.Contains(text, ts.Style.SGR()+"The Lighthouse"+style.Reset+" is dark.") {
+		t.Errorf("new highlight not drawn on just the match: %q", text)
 	}
 	h.typeText("/highlight")
 	h.enter()
