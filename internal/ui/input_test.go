@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 func typed(s string) *Input {
@@ -179,14 +180,14 @@ func TestRenderWideRunes(t *testing.T) {
 func TestRenderOverLimitStartsAtCutByte(t *testing.T) {
 	in := typed("abcdé") // é is 2 bytes: bytes 5-6
 	rows, _, _ := in.Render(40, 5, false, false)
-	if !strings.Contains(rows[0], "abcd"+overLimit+"é") {
+	if !strings.Contains(rows[0], "abcd"+theme.SGR(theme.InputOverLimit)+"é") {
 		t.Errorf("row = %q, want red from é", rows[0])
 	}
 	if !in.OverLimit(5, false) || in.OverLimit(6, false) {
 		t.Error("OverLimit wrong")
 	}
 	rows, _, _ = typed("abc").Render(40, 5, false, false)
-	if strings.Contains(rows[0], overLimit) {
+	if strings.Contains(rows[0], theme.SGR(theme.InputOverLimit)) {
 		t.Errorf("under-limit row highlighted: %q", rows[0])
 	}
 }
@@ -194,7 +195,7 @@ func TestRenderOverLimitStartsAtCutByte(t *testing.T) {
 func TestRenderOverLimitIsPerLine(t *testing.T) {
 	in := typed("abcdef\nxy")
 	rows, _, _ := in.Render(40, 4, false, false)
-	if !strings.Contains(rows[0], overLimit) || strings.Contains(rows[1], overLimit) {
+	if !strings.Contains(rows[0], theme.SGR(theme.InputOverLimit)) || strings.Contains(rows[1], theme.SGR(theme.InputOverLimit)) {
 		t.Errorf("rows = %q", rows)
 	}
 }
@@ -205,12 +206,12 @@ func TestRenderOverLimitJoined(t *testing.T) {
 		t.Error("OverLimit wrong")
 	}
 	rows, _, _ := in.Render(40, 7, true, false)
-	if strings.Contains(rows[0], overLimit) || strings.Contains(rows[1], overLimit) ||
-		!strings.Contains(rows[2], overLimit+"fg") {
+	if strings.Contains(rows[0], theme.SGR(theme.InputOverLimit)) || strings.Contains(rows[1], theme.SGR(theme.InputOverLimit)) ||
+		!strings.Contains(rows[2], theme.SGR(theme.InputOverLimit)+"fg") {
 		t.Errorf("rows = %q, want red from f", rows)
 	}
 	rows, _, _ = in.Render(40, 6, true, false) // the joining space is byte 7
-	if !strings.HasPrefix(rows[2], " "+overLimit+"fg") {
+	if !strings.HasPrefix(rows[2], " "+theme.SGR(theme.InputOverLimit)+"fg") {
 		t.Errorf("rows = %q, want the whole last line red", rows)
 	}
 }

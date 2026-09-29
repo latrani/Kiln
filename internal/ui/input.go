@@ -9,10 +9,8 @@ import (
 	"github.com/rivo/uniseg"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/theme"
 )
-
-// overLimit is the style for bytes past a line's max_line_bytes.
-const overLimit = "\x1b[97;41m"
 
 // Input gutter, that we show at the beginning of the line we send to the server
 // (and the aligner that goes below it for continuation rows)
@@ -493,25 +491,29 @@ func (in *Input) Render(w, limit int, joined, masked bool) (rows []string, curRo
 			b.WriteString(gutterBlank)
 		}
 		if red {
-			b.WriteString(overLimit)
+			b.WriteString(theme.SGR(theme.InputOverLimit))
 		}
 		for _, c := range vr.cells {
 			bytes += len(c.text)
 			if !red && limit > 0 && bytes > limit {
 				red = true
-				b.WriteString(overLimit)
+				b.WriteString(theme.SGR(theme.InputOverLimit))
 			}
 			switch {
 			case masked:
 				b.WriteString("•")
 			case in.selected(vr.line, c.col):
-				b.WriteString(reverse + c.text + "\x1b[27m")
+				// The selection's style, then back to what the row was in.
+				b.WriteString(theme.SGR(theme.InputSelection) + c.text + theme.Reset)
+				if red {
+					b.WriteString(theme.SGR(theme.InputOverLimit))
+				}
 			default:
 				b.WriteString(c.text)
 			}
 		}
 		if red {
-			b.WriteString("\x1b[0m")
+			b.WriteString(theme.Reset)
 		}
 		rows = append(rows, b.String())
 	}

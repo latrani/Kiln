@@ -82,7 +82,9 @@ func (m *Model) layout() layout {
 // It returns the rows (one, except for a form with several fields) and
 // the cursor's row and column.
 func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
-	hint := func(s string) ([]string, int, int, bool) { return []string{style.Dim(s)}, 0, 0, true }
+	hint := func(s string) ([]string, int, int, bool) {
+		return []string{theme.Paint(theme.InputHint, s)}, 0, 0, true
+	}
 	switch {
 	case m.mode == modeSavePassword:
 		name := m.pendingCh[1]
@@ -105,7 +107,7 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		// Bullets for what's typed, between a label and the keys to press.
 		rows, _, c := cs.in.Render(1<<20, 0, false, true)
 		label := str.ViewPasswordLabel(cs.ch.Name)
-		text := style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim(str.ViewPasswordKeys())
+		text := theme.Paint(theme.InputHint, label) + strings.TrimPrefix(rows[0], gutterMark) + theme.Paint(theme.InputHint, str.ViewPasswordKeys())
 		return []string{text}, 0, c - gutterWidth + xansi.StringWidth(label), true
 	case !cs.in.Empty() || cs.state == session.Connected:
 		return nil, 0, 0, false
@@ -220,7 +222,9 @@ func (m *Model) View() tea.View {
 	if cs == nil || cs.browse == nil {
 		rule := style.Dim(strings.Repeat("─", l.rw))
 		right = append(right, rule)
-		right = append(right, l.inRows...)
+		for _, r := range l.inRows {
+			right = append(right, theme.Fill(theme.Input, r, l.rw))
+		}
 		right = append(right, rule, m.statusLine(l.rw))
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
 	}

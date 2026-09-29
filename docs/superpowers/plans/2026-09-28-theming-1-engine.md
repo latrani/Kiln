@@ -1733,6 +1733,7 @@ func TestFormUsesTheme(t *testing.T) {
 "form.error" = { fg = "#131415" }`)
 	h.typeText("/edit world")
 	h.enter()
+	h.focusOn(saveLabel) // a button draws focus; a text field shows a cursor
 	s := h.drawn()
 	for _, role := range []theme.Role{theme.FormLabel, theme.FormFocus, theme.FormTitle} {
 		if !strings.Contains(s, th.SGR(role)) {

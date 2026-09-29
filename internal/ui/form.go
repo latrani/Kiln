@@ -7,7 +7,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/str"
-	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // editKey applies a line-editing key to in: cursor movement, deletion
@@ -261,16 +261,16 @@ func (f *form) edit(do func(*Input) bool) bool {
 // and column. One field goes on one row, followed by the hint; more are
 // stacked with their labels lined up, and the hint follows the last.
 func (f *form) rows() (rows []string, curRow, curCol int) {
-	note := style.Dim(f.hint)
+	note := theme.Paint(theme.FormHint, f.hint)
 	if f.reject != "" {
-		note = red + f.reject + style.Reset
+		note = theme.Paint(theme.FormError, f.reject)
 	}
 	if len(f.fields) == 1 {
 		text, col := f.fieldRow(0, len(f.fields[0].label))
-		return []string{text + style.Dim(" "+str.Separator()) + note}, 0, col
+		return []string{text + theme.Paint(theme.FormHint, " "+str.Separator()) + note}, 0, col
 	}
 	if f.title != "" {
-		rows = append(rows, bold+f.title+style.Reset)
+		rows = append(rows, theme.Paint(theme.FormTitle, f.title))
 	}
 	w := 0
 	for i, fl := range f.fields {
@@ -289,9 +289,9 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 		rows = append(rows, text)
 	}
 	if f.reject == "" {
-		note = style.Dim(str.FormNextField(f.hint))
+		note = theme.Paint(theme.FormHint, str.FormNextField(f.hint))
 	}
-	rows[len(rows)-1] += style.Dim(" "+str.Separator()) + note
+	rows[len(rows)-1] += theme.Paint(theme.FormHint, " "+str.Separator()) + note
 	return rows, curRow, curCol
 }
 
@@ -306,14 +306,14 @@ func (f *form) fieldRow(i, w int) (text string, col int) {
 		}
 		t := mark + fl.label
 		if i == f.focus {
-			t = reverse + t + style.Reset
+			t = theme.Paint(theme.FormFocus, t)
 		}
 		return t, 0
 	}
 	if fl.button {
 		b := "[ " + fl.label + " ]"
 		if i == f.focus {
-			b = reverse + b + style.Reset
+			b = theme.Paint(theme.FormFocus, b)
 		}
 		return b, 2
 	}
@@ -325,19 +325,19 @@ func (f *form) fieldRow(i, w int) (text string, col int) {
 		} else {
 			v = "  " + v
 		}
-		return style.Dim(label) + v, xansi.StringWidth(label)
+		return theme.Paint(theme.FormLabel, label) + v, xansi.StringWidth(label)
 	}
 	if fl.in == nil {
 		box := "[ ]"
 		if fl.on {
 			box = "[x]"
 		}
-		return style.Dim(label) + box, xansi.StringWidth(label) + 1
+		return theme.Paint(theme.FormLabel, label) + box, xansi.StringWidth(label) + 1
 	}
 	rows, _, c := fl.in.Render(1<<20, 0, false, false)
 	text = strings.TrimPrefix(rows[0], gutterMark)
 	if fl.in.Empty() && fl.hint != "" {
-		text = style.Dim(fl.hint)
+		text = theme.Paint(theme.FormHint, fl.hint)
 	}
-	return style.Dim(label) + text, c - gutterWidth + xansi.StringWidth(label)
+	return theme.Paint(theme.FormLabel, label) + text, c - gutterWidth + xansi.StringWidth(label)
 }
