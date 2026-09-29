@@ -158,7 +158,7 @@ Exports contain only received lines: no timestamps, your own commands (the serve
 
 ### Themes
 
-Kiln's colors come from a theme. To change them, make `themes/default.toml` in Kiln's config folder, start it with `extends = "default"`, and set only what you want different. Kiln picks up changes as you save.
+Kiln's colors come from a theme. To change them, make `themes/default.toml` in Kiln's config folder, start it with `extends = "default"`, and set only what you want different. Kiln picks up changes as you save. To keep several themes, give each its own file in `themes/` and pick one with `theme = "name"` in `config.toml`.
 
     extends = "default"
 
@@ -176,6 +176,16 @@ Kiln's colors come from a theme. To change them, make `themes/default.toml` in K
     "highlight" = { fg = "#ffd166", scope = "match" }
 
 `[ui]` styles Kiln's own parts of the screen, by role; `[tags]` styles lines from the server, by their [tags](#rules). A style sets any of `fg`, `bg`, `bold`, `faint`, `italic`, `underline` and `reverse`. A color is `#rrggbb`, a name from `[palette]`, one of the terminal's own sixteen (`red`, `bright-blue`, and so on), or `default` for the terminal's own color, which clears one a role would inherit. A tag style can also say `scope = "match"` (see [Rules](#rules)). A role inherits from the one before its last dot (`link.hover` starts from `link`). Text from the server always sits on your terminal's background; the sidebar (the picker while it's open), input box (a form while one is up), statusline and log mode's header and action bar can have their own. If a theme has a mistake, Kiln says so in the statusline and keeps the colors it had.
+
+A theme can give different colors for light and dark terminals: `[palette.light]` and `[palette.dark]` replace entries of `[palette]`, and everything that names them follows along.
+
+    [palette]
+    ember = "#ff9f43"
+
+    [palette.light]
+    ember = "#b35900"        # darker, to read on a light background
+
+With `appearance = "auto"` (the default), Kiln asks the terminal what its background is when it starts and whenever its window comes back into focus, and assumes dark until it hears back. The built-in theme has a light palette of its own. Over mosh the terminal can't be asked (eternal terminal and tmux pass the question on), so on a light terminal set `appearance = "light"`.
 
 The roles are: `sidebar` (`.world`, `.char`, `.active`, `.unread`, `.attention`, `.connecting`, `.disconnected`, `.add`, `.more`), `picker` (`.world`, `.world.selected`, `.selected`, `.add`), `divider`, `rule` (`.input`, `.form`, `.status`: each rule above its area), `scrollback` (`.day`, `.history_end`, `.loading`, `.echo`, `.sys`, `.pill`, `.selection`, `.inactive`, `.empty`), `link` (`.hover`), `input` (`.hint`, `.over_limit`, `.selection`), `status` (`.log`, `.error`, `.clock`), `form` (`.label`, `.hint`, `.error`, `.focus`, `.title`, `.button`, `.button.secondary`), `log` (`.header`, `.header.title`, `.header.chip`, `.header.chip.on`, `.time`, `.cursor`, `.selected`, `.excluded`, `.find`, `.day`, `.loading`, `.bar`, `.bar.hints`, `.bar.error`), and `export` (the HTML export's page).
 
@@ -233,6 +243,8 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `password_store` | config.toml | `"keychain"` (default), `"file"` (`~/.local/share/kiln/passwords.json`, readable only by you) or `"none"` (never save) |
 | `notify_idle` | config.toml | No input for this long counts as away (default `"5m"`; `"0"`: only switching away counts), see [Notifications](#notifications) |
 | `notify_method` | config.toml | `"osc"` (default): a notification with the line; `"bell"`: a bell (works over mosh); `"both"` |
+| `theme` | config.toml | Which `themes/<name>.toml` to draw with (default `"default"`: yours if you made one, else the built-in), see [Themes](#themes) |
+| `appearance` | config.toml | `"auto"` (default: ask the terminal), `"dark"` or `"light"`: which palette themes use, see [Themes](#themes) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
 | `login` | world, character | Login template; `{name}` and `{password}` are filled in |
@@ -268,7 +280,7 @@ A classify rule can give several tags at once with `tags = ["page", "page/in"]` 
 
 Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` right after its `[[characters]]` entry, and `attention` and `quiet` lists inside it.
 
-How tags look lives in the theme's `[tags]` (see [Themes](#themes)). A world or character can add to it with its own `[palette]` and `[tags]`, over the theme it uses:
+How tags look lives in the theme's `[tags]` (see [Themes](#themes)). A world or character can add to it with its own `[palette]` (with `[palette.light]` and `[palette.dark]` too) and `[tags]`, over the theme it uses:
 
 ```toml
 # worlds/fm.toml
