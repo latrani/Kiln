@@ -23,6 +23,7 @@ import (
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // testConn is a scripted server connection.
@@ -1083,10 +1084,13 @@ func TestConnectHintFollowsState(t *testing.T) {
 
 func TestRenderLineMatchScope(t *testing.T) {
 	cls, _ := classify.New([]config.ClassifyRule{{Tag: "page", Pattern: `^PAGE:`}}, "Kit", nil)
-	blue := config.Style{FG: "#2053ff", Bold: true}
-	hl, _ := rules.New([]config.HighlightRule{{Match: config.Match{Tags: []string{"page"}}, Style: blue, Scope: "match", Attention: true}})
+	th, err := theme.FromTOML("[tags]\npage = { fg = \"#2053ff\", bold = true, scope = \"match\" }\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hl := rules.New(th, []string{"page"}, nil)
 	got, res := renderLine(cls, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
-	if want := style.SGR(blue) + "PAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Attention {
+	if want := "\x1b[1;38;2;32;83;255mPAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Attention {
 		t.Errorf("renderLine = %q, %v; want %q, true", got, res.Attention, want)
 	}
 }

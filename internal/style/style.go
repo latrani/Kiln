@@ -1,78 +1,45 @@
-// Package style turns config.Style values into ANSI SGR sequences.
+// Package style draws styled runs over server text, keeping the server's
+// own SGR.
 package style
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/latrani/Kiln/internal/ansi"
-	"github.com/latrani/Kiln/internal/config"
-	"github.com/latrani/Kiln/internal/rules"
 )
 
 // Reset clears all SGR attributes.
 const Reset = "\x1b[0m"
 
-// SGR returns the escape sequence for s, or "" if s sets nothing.
-// Colors must be "#rrggbb"; anything else is ignored.
-func SGR(s config.Style) string {
-	var codes []string
-	if s.Bold {
-		codes = append(codes, "1")
-	}
-	if s.Italic {
-		codes = append(codes, "3")
-	}
-	if s.Underline {
-		codes = append(codes, "4")
-	}
-	if r, g, b, ok := hexRGB(s.FG); ok {
-		codes = append(codes, fmt.Sprintf("38;2;%d;%d;%d", r, g, b))
-	}
-	if r, g, b, ok := hexRGB(s.BG); ok {
-		codes = append(codes, fmt.Sprintf("48;2;%d;%d;%d", r, g, b))
-	}
-	if len(codes) == 0 {
-		return ""
-	}
-	return "\x1b[" + strings.Join(codes, ";") + "m"
+// Run is a stretch [Start, End) of a line's plain text, drawn in SGR, or
+// as the server sent it when SGR is "".
+type Run struct {
+	Start, End int
+	SGR        string
 }
 
 // Apply wraps text (which may contain the server's own SGR sequences) in
-// s, re-applying s after every server SGR inside text, and ends with Reset.
-func Apply(text string, s config.Style) string {
-	return Highlight(text, rules.Result{Styled: true, Runs: []rules.Run{
-		{Start: 0, End: len(text), Style: s, Styled: true}}})
-}
-
-// hexRGB parses "#rrggbb".
-func hexRGB(h string) (r, g, b uint8, ok bool) {
-	if len(h) != 7 || h[0] != '#' {
-		return 0, 0, 0, false
-	}
-	v, err := strconv.ParseUint(h[1:], 16, 32)
-	if err != nil {
-		return 0, 0, 0, false
-	}
-	return uint8(v >> 16), uint8(v >> 8), uint8(v), true
-}
-
-// Highlight draws res over server text: the whole line in res.Style, or
-// each styled run in its style. Where a run ends mid-line, the server's
-// own SGR state is restored; any server SGR inside a run (a reset, or a
-// color of its own) is followed by the run's style again, so ours wins. text's ANSI-stripped form must be the plain text res was
-// computed on. The result ends with Reset.
-func Highlight(text string, res rules.Result) string {
-	if !res.Styled {
+// sgr, re-applying it after every server SGR inside text, and ends with
+// Reset.
+func Apply(text, sgr string) string {
+	if sgr == "" {
 		return text + Reset
 	}
-	if res.Runs == nil {
-		return Apply(text, res.Style)
+	return Highlight(text, []Run{{Start: 0, End: len(text), SGR: sgr}})
+}
+
+// Highlight draws runs over server text. Where a run ends mid-line, the
+// server's own SGR state is restored; any server SGR inside a run (a
+// reset, or a color of its own) is followed by the run's style again, so
+// ours wins. text's ANSI-stripped form must be the plain text the runs
+// index. The result ends with Reset.
+func Highlight(text string, runs []Run) string {
+	if len(runs) == 0 {
+		return text + Reset
 	}
 	var b strings.Builder
 	server := "" // the server's SGR since its last reset
-	runs, ri, pos := res.Runs, 0, 0
+	ri, pos := 0, 0
 	ours := "" // our SGR, while inside a styled run
 	for i := 0; i < len(text); {
 		if text[i] == 0x1b {
@@ -97,8 +64,8 @@ func Highlight(text string, res rules.Result) string {
 			}
 			ri++
 		}
-		if ours == "" && ri < len(runs) && runs[ri].Styled {
-			ours = SGR(runs[ri].Style)
+		if ours == "" && ri < len(runs) && runs[ri].SGR != "" {
+			ours = runs[ri].SGR
 			b.WriteString(ours)
 		}
 		b.WriteByte(text[i])

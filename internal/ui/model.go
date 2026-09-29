@@ -334,11 +334,7 @@ func (cs *charState) compile() error {
 	if err != nil {
 		return err
 	}
-	hl, err := rules.New(cs.ch.Rules.Highlight)
-	if err != nil {
-		return err
-	}
-	cs.cls, cs.hl = cls, hl
+	cs.cls, cs.hl = cls, rules.New(theme.Active(), nil, nil)
 	return nil
 }
 
@@ -474,7 +470,7 @@ func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entr
 	}
 	plain := ansi.Strip(text)
 	res := hl.Apply(plain, cls.Tags(plain))
-	return style.Highlight(text, res), res
+	return style.Highlight(text, res.Runs), res
 }
 
 // connect starts (or restarts) a character's session.

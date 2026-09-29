@@ -2,29 +2,7 @@ package style
 
 import (
 	"testing"
-
-	"github.com/latrani/Kiln/internal/config"
-	"github.com/latrani/Kiln/internal/rules"
 )
-
-func TestSGR(t *testing.T) {
-	cases := []struct {
-		in   config.Style
-		want string
-	}{
-		{config.Style{}, ""},
-		{config.Style{Bold: true}, "\x1b[1m"},
-		{config.Style{FG: "#ff9f43", Bold: true}, "\x1b[1;38;2;255;159;67m"},
-		{config.Style{BG: "#330000", Italic: true, Underline: true}, "\x1b[3;4;48;2;51;0;0m"},
-		{config.Style{FG: "orange"}, ""},
-		{config.Style{FG: "#zzzzzz"}, ""},
-	}
-	for _, c := range cases {
-		if got := SGR(c.in); got != c.want {
-			t.Errorf("SGR(%+v) = %q, want %q", c.in, got, c.want)
-		}
-	}
-}
 
 func TestAfterReset(t *testing.T) {
 	cases := []struct {
@@ -44,10 +22,10 @@ func TestAfterReset(t *testing.T) {
 }
 
 func TestApply(t *testing.T) {
-	if got := Apply("x", config.Style{}); got != "x\x1b[0m" {
+	if got := Apply("x", ""); got != "x\x1b[0m" {
 		t.Errorf("unstyled = %q", got)
 	}
-	got := Apply("\x1b[1mMira\x1b[0m pages", config.Style{Italic: true})
+	got := Apply("\x1b[1mMira\x1b[0m pages", "\x1b[3m")
 	want := "\x1b[1m\x1b[3mMira\x1b[0m\x1b[3m pages\x1b[0m"
 	if got != want {
 		t.Errorf("Apply = %q, want %q", got, want)
@@ -55,54 +33,52 @@ func TestApply(t *testing.T) {
 }
 
 func TestHighlight(t *testing.T) {
-	blue := config.Style{FG: "#2053ff"}
-	b := SGR(blue)
-	styled := func(start, end int, s config.Style) rules.Run {
-		return rules.Run{Start: start, End: end, Style: s, Styled: true}
-	}
-	plain := func(start, end int) rules.Run { return rules.Run{Start: start, End: end} }
-	runs := func(rs ...rules.Run) rules.Result { return rules.Result{Styled: true, Runs: rs} }
+	b := "\x1b[38;2;32;83;255m"
+	under := "\x1b[4m"
+	styled := func(start, end int, sgr string) Run { return Run{Start: start, End: end, SGR: sgr} }
+	plain := func(start, end int) Run { return Run{Start: start, End: end} }
+	runs := func(rs ...Run) []Run { return rs }
 	cases := []struct {
 		name, text string
-		res        rules.Result
+		runs       []Run
 		want       string
 	}{
 		{"prefix, then the server's color comes back", "\x1b[32mPAGE: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			"\x1b[32m" + b + "PAGE:" + Reset + "\x1b[32m hi" + Reset},
 		{"a server reset inside a span doesn't end it", "\x1b[1mPA\x1b[0mGE: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			"\x1b[1m" + b + "PA\x1b[0m" + b + "GE:" + Reset + " hi" + Reset},
 		{"a span in the middle", "hi Kit!",
-			runs(plain(0, 3), styled(3, 6, config.Style{Underline: true}), plain(6, 7)),
+			runs(plain(0, 3), styled(3, 6, under), plain(6, 7)),
 			"hi \x1b[4mKit" + Reset + "!" + Reset},
 		{"multi-byte", "hi Zoë!",
-			runs(plain(0, 3), styled(3, 7, config.Style{Underline: true}), plain(7, 8)),
+			runs(plain(0, 3), styled(3, 7, under), plain(7, 8)),
 			"hi \x1b[4mZoë" + Reset + "!" + Reset},
 		{"non-SGR escapes don't shift spans", "\x1b]0;title\x07PAGE: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			"\x1b]0;title\x07" + b + "PAGE:" + Reset + " hi" + Reset},
 		{"span to the end, then a trailing reset", "PAGE:\x1b[0m",
-			runs(styled(0, 5, blue)),
+			runs(styled(0, 5, b)),
 			b + "PAGE:\x1b[0m" + b + Reset},
 		{"uncommon resets are resets", "\x1b[1mPA\x1b[00mGE\x1b[1;0m: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			"\x1b[1m" + b + "PA\x1b[00m" + b + "GE\x1b[1;0m" + b + ":" + Reset + " hi" + Reset},
 		{"server state resumes from after the last reset", "PA\x1b[1;0;31mGE: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			b + "PA\x1b[1;0;31m" + b + "GE:" + Reset + "\x1b[31m hi" + Reset},
 		{"a server color inside a span doesn't override it", "PA\x1b[31mGE: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			b + "PA\x1b[31m" + b + "GE:" + Reset + "\x1b[31m hi" + Reset},
 		{"a 0 inside a color isn't a reset", "\x1b[1mPA\x1b[38;5;0;48;2;0;0;0mGE: hi",
-			runs(styled(0, 5, blue), plain(5, 9)),
+			runs(styled(0, 5, b), plain(5, 9)),
 			"\x1b[1m" + b + "PA\x1b[38;5;0;48;2;0;0;0m" + b + "GE:" + Reset + "\x1b[1m\x1b[38;5;0;48;2;0;0;0m hi" + Reset},
-		{"unstyled", "\x1b[31mhi", rules.Result{}, "\x1b[31mhi" + Reset},
-		{"whole line", "hi", rules.Result{Styled: true, Style: config.Style{Italic: true}}, "\x1b[3mhi" + Reset},
+		{"unstyled", "\x1b[31mhi", nil, "\x1b[31mhi" + Reset},
+		{"whole line", "hi", runs(styled(0, 2, "\x1b[3m")), "\x1b[3mhi" + Reset},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := Highlight(c.text, c.res); got != c.want {
+			if got := Highlight(c.text, c.runs); got != c.want {
 				t.Errorf("Highlight = %q\nwant        %q", got, c.want)
 			}
 		})

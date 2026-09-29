@@ -1,174 +1,119 @@
-// Package rules applies highlight rules to classified lines.
+// Package rules works out how a classified line looks and behaves: its
+// tags' styles from the theme, and attention and quiet from tag lists.
 package rules
 
 import (
-	"regexp"
+	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/latrani/Kiln/internal/classify"
-	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
-// Highlighter holds one character's compiled highlight rules.
+// Highlighter is one character's look and behavior for its lines.
 type Highlighter struct {
-	rules []compiled
+	th               *theme.Theme
+	attention, quiet []string
 }
 
-type compiled struct {
-	tags      []string
-	re        *regexp.Regexp // nil = no pattern constraint
-	style     config.Style
-	attention bool
-	quiet     bool
-	match     bool // scope = "match": style only the rule's spans
-}
-
-// Run is a stretch of a line's plain text and the style it gets.
-type Run struct {
-	Start, End int
-	Style      config.Style
-	Styled     bool // false: left as the server sent it
-}
-
-// Result is the combined effect of every rule that applies to a line.
+// Result is how a line is drawn and what it asks for.
 type Result struct {
-	Style     config.Style // the whole line's style, when Runs is nil
-	Styled    bool         // some rule styled some of the line
-	Attention bool         // never with Quiet
-	Quiet     bool         // a quiet rule applies: not unread, no attention
-	Runs      []Run        // with match-scope rules: the line, cut into styled runs
+	Runs      []style.Run // nil: the line as the server sent it
+	Attention bool        // never with Quiet
+	Quiet     bool        // not unread, no attention, no notification
 }
 
-// New compiles rules.
-func New(rules []config.HighlightRule) (*Highlighter, error) {
-	h := &Highlighter{}
-	for _, r := range rules {
-		c := compiled{tags: r.Match.Tags, style: r.Style, attention: r.Attention, quiet: r.Quiet, match: r.Scope == "match"}
-		if r.Match.Pattern != "" {
-			re, err := regexp.Compile(r.Match.Pattern)
-			if err != nil {
-				return nil, err
-			}
-			c.re = re
-		}
-		h.rules = append(h.rules, c)
-	}
-	return h, nil
+// New makes a Highlighter drawing tags in th's styles. A line asks for
+// attention (or is quiet) when one of its tags is in the list, or is
+// under one: "page" covers "page/in".
+func New(th *theme.Theme, attention, quiet []string) *Highlighter {
+	return &Highlighter{th: th, attention: attention, quiet: quiet}
 }
 
-// hit is a rule that applies to a line, with its spans (nil: the whole line).
+// in reports whether tag is in list or under one of its entries.
+func in(list []string, tag string) bool {
+	return slices.ContainsFunc(list, func(x string) bool { return tag == x || strings.HasPrefix(tag, x+"/") })
+}
+
+// hit is one styled tag name on a line, with the spans of the line's
+// tags that fall back to it.
 type hit struct {
-	style config.Style
+	ts    theme.TagStyle
 	spans []classify.Span
 }
 
-// Apply evaluates every rule against a line's plain text and tags. A rule
-// applies when the line has one of its tags (if any) and matches its
-// pattern (if any). Each character's style folds the rules that cover it,
-// in order: later non-empty colors override earlier ones, and
-// bold/italic/underline/attention accumulate. A whole-line rule covers
-// every character; a match-scope rule covers its pattern's matches, or
-// else its tags' spans. Quiet wins over attention.
+// Apply works out plain's runs and behavior from its tags. Each tag
+// takes the style of the most specific styled name up its slashes; tags
+// that land on the same name count once. Whole-line styles fold first,
+// in tag order, then match-scope ones on top of the text they matched.
+// Later colors win and attributes add up. Quiet wins over attention.
 func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
-	res := h.apply(plain, tags)
+	var res Result
+	var hits []hit
+	at := map[string]int{}
+	for _, t := range tags {
+		res.Attention = res.Attention || in(h.attention, t.Name)
+		res.Quiet = res.Quiet || in(h.quiet, t.Name)
+		name, ts, ok := h.th.Tag(t.Name)
+		if !ok {
+			continue
+		}
+		if i, ok := at[name]; ok {
+			hits[i].spans = append(hits[i].spans, t.Spans...)
+			continue
+		}
+		at[name] = len(hits)
+		hits = append(hits, hit{ts: ts, spans: slices.Clone(t.Spans)})
+	}
 	if res.Quiet {
 		res.Attention = false
 	}
-	return res
-}
-
-func (h *Highlighter) apply(plain string, tags []classify.Tag) Result {
-	var res Result
-	var hits []hit
-	partial := false
-	for _, r := range h.rules {
-		if len(r.tags) > 0 && !slices.ContainsFunc(tags, func(t classify.Tag) bool { return slices.Contains(r.tags, t.Name) }) {
-			continue
-		}
-		if r.re != nil && !r.re.MatchString(plain) {
-			continue
-		}
-		res.Attention = res.Attention || r.attention
-		res.Quiet = res.Quiet || r.quiet
-		if !r.match {
-			hits = append(hits, hit{style: r.style})
-			continue
-		}
-		if spans := r.spans(plain, tags); len(spans) > 0 {
-			hits = append(hits, hit{style: r.style, spans: spans})
-			partial = true
-		}
-	}
+	hits = slices.DeleteFunc(hits, func(h hit) bool { return h.ts.Match && len(h.spans) == 0 })
 	if len(hits) == 0 {
 		return res
 	}
-	res.Styled = true
-	if !partial {
-		for _, h := range hits {
-			res.Style = fold(res.Style, h.style)
-		}
-		return res
-	}
+	slices.SortStableFunc(hits, func(a, b hit) int { return cmp.Compare(b2i(a.ts.Match), b2i(b.ts.Match)) })
 	cuts := []int{0, len(plain)}
 	for _, h := range hits {
-		for _, s := range h.spans {
-			cuts = append(cuts, s.Start, s.End)
+		if h.ts.Match {
+			for _, s := range h.spans {
+				cuts = append(cuts, s.Start, s.End)
+			}
 		}
 	}
 	slices.Sort(cuts)
 	cuts = slices.Compact(cuts)
 	for i := 0; i+1 < len(cuts); i++ {
-		run := Run{Start: cuts[i], End: cuts[i+1]}
+		var st theme.Style
 		for _, h := range hits {
-			if h.spans == nil || covers(h.spans, run.Start, run.End) {
-				run.Style, run.Styled = fold(run.Style, h.style), true
+			if !h.ts.Match || covers(h.spans, cuts[i], cuts[i+1]) {
+				st = st.Over(h.ts.Style)
 			}
 		}
-		if n := len(res.Runs); n > 0 && res.Runs[n-1].Style == run.Style && res.Runs[n-1].Styled == run.Styled {
+		run := style.Run{Start: cuts[i], End: cuts[i+1], SGR: st.SGR()}
+		if n := len(res.Runs); n > 0 && res.Runs[n-1].SGR == run.SGR {
 			res.Runs[n-1].End = run.End
 			continue
 		}
 		res.Runs = append(res.Runs, run)
 	}
+	if len(res.Runs) == 1 && res.Runs[0].SGR == "" {
+		res.Runs = nil // styles that set nothing
+	}
 	return res
 }
 
-// spans is where a match-scope rule styles: its pattern's non-empty
-// matches, or else the spans of its tags on the line.
-func (r compiled) spans(plain string, tags []classify.Tag) []classify.Span {
-	var out []classify.Span
-	if r.re != nil {
-		for _, m := range r.re.FindAllStringIndex(plain, -1) {
-			if m[0] < m[1] {
-				out = append(out, classify.Span{Start: m[0], End: m[1]})
-			}
-		}
-		return out
+func b2i(b bool) int {
+	if b {
+		return 1
 	}
-	for _, t := range tags {
-		if slices.Contains(r.tags, t.Name) {
-			out = append(out, t.Spans...)
-		}
-	}
-	return out
+	return 0
 }
 
 // covers reports whether [start, end) lies inside one of spans. Runs are
 // cut at every span edge, so a run is wholly inside a span or outside it.
 func covers(spans []classify.Span, start, end int) bool {
 	return slices.ContainsFunc(spans, func(s classify.Span) bool { return s.Start <= start && end <= s.End })
-}
-
-// fold layers b over a: b's non-empty colors win, attributes accumulate.
-func fold(a, b config.Style) config.Style {
-	if b.FG != "" {
-		a.FG = b.FG
-	}
-	if b.BG != "" {
-		a.BG = b.BG
-	}
-	a.Bold = a.Bold || b.Bold
-	a.Italic = a.Italic || b.Italic
-	a.Underline = a.Underline || b.Underline
-	return a
 }

@@ -1,132 +1,95 @@
 package rules
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/latrani/Kiln/internal/classify"
-	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
-// line is a whole-line Result.
-func line(s config.Style, styled, attention bool) Result {
-	return Result{Style: s, Styled: styled, Attention: attention}
-}
-
-// tagged makes span-less tags from names.
-func tagged(names ...string) []classify.Tag {
-	var tags []classify.Tag
-	for _, n := range names {
-		tags = append(tags, classify.Tag{Name: n})
-	}
-	return tags
-}
-
-func TestApply(t *testing.T) {
-	h, err := New([]config.HighlightRule{
-		{Match: config.Match{Tags: []string{"page"}}, Style: config.Style{FG: "#ff9f43", Bold: true}, Attention: true},
-		{Match: config.Match{Pattern: `lighthouse`}, Style: config.Style{FG: "#00ffff", Underline: true}},
-		{Match: config.Match{Tags: []string{"whisper", "self"}}, Style: config.Style{Italic: true}},
-		{Match: config.Match{Tags: []string{"page"}, Pattern: `urgent`}, Style: config.Style{BG: "#330000"}},
-	})
+func mustTheme(t *testing.T, tags string) *theme.Theme {
+	t.Helper()
+	th, err := theme.FromTOML("[tags]\n" + tags)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases := []struct {
-		name  string
-		plain string
-		tags  []classify.Tag
-		want  Result
-	}{
-		{"no match", "Rook waves.", nil, Result{}},
-		{"tag match", "Mira pages: hi", tagged("page"), line(config.Style{FG: "#ff9f43", Bold: true}, true, true)},
-		{"pattern match", "the lighthouse glows", nil, line(config.Style{FG: "#00ffff", Underline: true}, true, false)},
-		{"any-of tags", "Rook waves to Kit.", tagged("self"), line(config.Style{Italic: true}, true, false)},
-		{"later color overrides, flags accumulate", "Mira pages: the lighthouse", tagged("page"),
-			line(config.Style{FG: "#00ffff", Bold: true, Underline: true}, true, true)},
-		{"tags AND pattern: pattern missing", "Mira pages: hi", tagged("page"), line(config.Style{FG: "#ff9f43", Bold: true}, true, true)},
-		{"tags AND pattern: both", "Mira pages: urgent", tagged("page"), line(config.Style{FG: "#ff9f43", BG: "#330000", Bold: true}, true, true)},
-		{"tags AND pattern: tag missing", "urgent news", nil, Result{}},
+	return th
+}
+
+// tag is a tag with spans.
+func tag(name string, spans ...classify.Span) classify.Tag {
+	return classify.Tag{Name: name, Spans: spans}
+}
+
+func sgr(t *testing.T, th *theme.Theme, names ...string) string {
+	t.Helper()
+	var s theme.Style
+	for _, n := range names {
+		_, ts, ok := th.Tag(n)
+		if !ok {
+			t.Fatalf("no style for %s", n)
+		}
+		s = s.Over(ts.Style)
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := h.Apply(c.plain, c.tags); !reflect.DeepEqual(got, c.want) {
-				t.Errorf("Apply = %+v, want %+v", got, c.want)
-			}
-		})
+	return s.SGR()
+}
+
+func TestWholeLineTags(t *testing.T) {
+	th := mustTheme(t, `"page/in" = { fg = "#ff9f43", bold = true }
+self = { italic = true }`)
+	h := New(th, nil, nil)
+	plain := "Mira pages: hi Kit"
+	if got := h.Apply("Rook waves.", nil); got.Runs != nil {
+		t.Errorf("untagged line styled: %+v", got)
+	}
+	got := h.Apply(plain, []classify.Tag{tag("page"), tag("page/in"), tag("self", classify.Span{Start: 15, End: 18})})
+	want := []style.Run{{Start: 0, End: len(plain), SGR: sgr(t, th, "page/in", "self")}}
+	if len(got.Runs) != 1 || got.Runs[0] != want[0] {
+		t.Errorf("Runs = %+v, want %+v", got.Runs, want)
 	}
 }
 
-func TestApplyMatchScope(t *testing.T) {
-	blue := config.Style{FG: "#2053ff", Bold: true}
-	pageSpans := []classify.Tag{{Name: "page", Spans: []classify.Span{{Start: 0, End: 5}}}}
-	const plain = "PAGE: hi Kit" // PAGE: 0-5, Kit 9-12
+func TestMatchScopeOnTopOfLine(t *testing.T) {
+	th := mustTheme(t, `highlight = { fg = "#ffd166", scope = "match" }
+page = { italic = true }`)
+	h := New(th, nil, nil)
+	// The match-scope tag comes first on the line but still draws on top.
+	got := h.Apply("Mira pages: the lighthouse", []classify.Tag{tag("highlight", classify.Span{Start: 16, End: 26}), tag("page", classify.Span{Start: 0, End: 11})})
+	want := []style.Run{
+		{Start: 0, End: 16, SGR: sgr(t, th, "page")},
+		{Start: 16, End: 26, SGR: sgr(t, th, "page", "highlight")},
+	}
+	if len(got.Runs) != 2 || got.Runs[0] != want[0] || got.Runs[1] != want[1] {
+		t.Errorf("Runs = %+v, want %+v", got.Runs, want)
+	}
+}
 
-	t.Run("match and line rules fold per character", func(t *testing.T) {
-		h, _ := New([]config.HighlightRule{
-			{Match: config.Match{Tags: []string{"page"}}, Style: blue, Scope: "match", Attention: true},
-			{Match: config.Match{Pattern: `Kit`}, Style: config.Style{Underline: true}, Scope: "match"},
-			{Match: config.Match{Tags: []string{"page"}}, Style: config.Style{Italic: true}}, // whole line
-		})
-		want := Result{Styled: true, Attention: true, Runs: []Run{
-			{Start: 0, End: 5, Style: config.Style{FG: "#2053ff", Bold: true, Italic: true}, Styled: true},
-			{Start: 5, End: 9, Style: config.Style{Italic: true}, Styled: true},
-			{Start: 9, End: 12, Style: config.Style{Italic: true, Underline: true}, Styled: true},
-		}}
-		if got := h.Apply(plain, pageSpans); !reflect.DeepEqual(got, want) {
-			t.Errorf("Apply = %+v\nwant    %+v", got, want)
-		}
-	})
+func TestMatchScopeWithoutSpans(t *testing.T) {
+	th := mustTheme(t, `highlight = { fg = "#ffd166", scope = "match" }`)
+	if got := New(th, nil, nil).Apply("x", []classify.Tag{tag("highlight")}); got.Runs != nil {
+		t.Errorf("a match-scope tag with no spans styled the line: %+v", got.Runs)
+	}
+}
 
-	t.Run("unstyled gaps", func(t *testing.T) {
-		h, _ := New([]config.HighlightRule{{Match: config.Match{Tags: []string{"page"}}, Style: blue, Scope: "match"}})
-		want := Result{Styled: true, Runs: []Run{
-			{Start: 0, End: 5, Style: blue, Styled: true},
-			{Start: 5, End: 12},
-		}}
-		if got := h.Apply(plain, pageSpans); !reflect.DeepEqual(got, want) {
-			t.Errorf("Apply = %+v", got)
+func TestListsMatchTagAndChildren(t *testing.T) {
+	h := New(mustTheme(t, ""), []string{"page"}, nil)
+	for _, c := range []struct {
+		tag  string
+		want bool
+	}{{"page", true}, {"page/in", true}, {"page/in/x", true}, {"pages", false}, {"whisper", false}} {
+		if got := h.Apply("x", []classify.Tag{tag(c.tag)}).Attention; got != c.want {
+			t.Errorf("attention for %q = %v, want %v", c.tag, got, c.want)
 		}
-	})
-
-	t.Run("a pattern's matches beat its tags' spans", func(t *testing.T) {
-		h, _ := New([]config.HighlightRule{{Match: config.Match{Tags: []string{"page"}, Pattern: `hi`}, Style: blue, Scope: "match"}})
-		want := Result{Styled: true, Runs: []Run{{Start: 0, End: 6}, {Start: 6, End: 8, Style: blue, Styled: true}, {Start: 8, End: 12}}}
-		if got := h.Apply(plain, pageSpans); !reflect.DeepEqual(got, want) {
-			t.Errorf("Apply = %+v", got)
-		}
-	})
-
-	t.Run("overlapping spans merge", func(t *testing.T) {
-		h, _ := New([]config.HighlightRule{{Match: config.Match{Tags: []string{"page"}}, Style: blue, Scope: "match"}})
-		tags := []classify.Tag{{Name: "page", Spans: []classify.Span{{Start: 0, End: 4}, {Start: 0, End: 5}}}}
-		want := Result{Styled: true, Runs: []Run{{Start: 0, End: 5, Style: blue, Styled: true}, {Start: 5, End: 12}}}
-		if got := h.Apply(plain, tags); !reflect.DeepEqual(got, want) {
-			t.Errorf("Apply = %+v", got)
-		}
-	})
-
-	t.Run("no spans: no style, attention still counts", func(t *testing.T) {
-		h, _ := New([]config.HighlightRule{{Match: config.Match{Tags: []string{"start"}}, Style: blue, Scope: "match", Attention: true}})
-		if got := h.Apply(plain, tagged("start")); !reflect.DeepEqual(got, Result{Attention: true}) {
-			t.Errorf("Apply = %+v", got)
-		}
-	})
+	}
 }
 
 func TestQuietWinsOverAttention(t *testing.T) {
-	h, err := New([]config.HighlightRule{
-		{Match: config.Match{Tags: []string{"self"}}, Style: config.Style{Bold: true}, Attention: true},
-		{Match: config.Match{Pattern: `^\[Wiki\]`}, Quiet: true},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	self := []classify.Tag{{Name: "self"}}
-	if res := h.Apply("[Wiki] Kit edited a page", self); !res.Quiet || res.Attention || !res.Styled {
-		t.Errorf("quiet line: %+v; want quiet, no attention, still styled", res)
-	}
-	if res := h.Apply("Rook waves to Kit", self); res.Quiet || !res.Attention {
-		t.Errorf("ordinary line: %+v", res)
+	h := New(mustTheme(t, ""), []string{"self", "spam"}, []string{"spam"})
+	for _, tags := range [][]classify.Tag{{tag("spam")}, {tag("self"), tag("spam")}} {
+		res := h.Apply("x", tags)
+		if !res.Quiet || res.Attention {
+			t.Errorf("%v: quiet %v attention %v, want quiet only", tags, res.Quiet, res.Attention)
+		}
 	}
 }

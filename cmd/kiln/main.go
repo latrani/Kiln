@@ -125,10 +125,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 	if err != nil {
 		return err
 	}
-	hl, err := rules.New(ch.Rules.Highlight)
-	if err != nil {
-		return err
-	}
+	hl := rules.New(theme.Active(), nil, nil)
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		w, h = 80, 24
