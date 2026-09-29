@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func TestFormEditsFocusedField(t *testing.T) {
@@ -34,14 +35,14 @@ func TestFormEditsFocusedField(t *testing.T) {
 }
 
 func TestFormRow(t *testing.T) {
-	f := newForm("Enter to connect · Esc to close", textField("Filter"))
+	f := newForm(pickerHint, textField("Filter"))
 	f.key(tea.KeyPressMsg{Code: 'm', Text: "m"})
 	f.key(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	rows, row, col := f.rows()
 	if len(rows) != 1 || row != 0 {
 		t.Fatalf("a one-field form is one row: %q, cursor row %d", rows, row)
 	}
-	if got := ansi.Strip(rows[0]); got != "Filter: ma  · Enter to connect · Esc to close" {
+	if got := ansi.Strip(rows[0]); got != "Filter: ma "+str.Separator()+pickerHint {
 		t.Errorf("row = %q", got)
 	}
 	if col != len("Filter: ma") {
@@ -56,7 +57,7 @@ func typeText(f *form, s string) {
 }
 
 func worldForm() *form {
-	return newForm("Esc to cancel",
+	return newForm(str.EditorHint(),
 		textField("World"), textField("Host"), textField("Port"), toggleField("TLS"), buttonField("Save"))
 }
 
@@ -158,7 +159,7 @@ func TestFormStackedRows(t *testing.T) {
 		"Host:  muck.example.org",
 		"Port:  ",
 		"TLS:   [ ]",
-		"[ Save ]  · Enter next field · Esc to cancel",
+		"[ Save ] " + str.Separator() + str.FormNextField(str.EditorHint()),
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("rows =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

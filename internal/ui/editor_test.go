@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func (h *harness) worldFile(id string) string {
@@ -45,19 +47,19 @@ func TestEditWorldFromPicker(t *testing.T) {
 		t.Fatalf("no world editor:\n%s", h.screen())
 	}
 	s := h.screen()
-	if !strings.Contains(s, "│Host: muck.test") || !strings.Contains(s, "► "+extraLabel) || strings.Contains(s, "Max bytes") {
+	if !strings.Contains(s, "│Host: muck.test") || !strings.Contains(s, "► "+extraLabel) || strings.Contains(s, maxBytesLabel) {
 		t.Errorf("editor should show the basics, extras folded:\n%s", s)
 	}
 	h.focusOn(extraLabel)
 	h.enter() // unfold
-	if s := h.screen(); !strings.Contains(s, "▼ "+extraLabel) || !strings.Contains(s, "Reconnect") {
+	if s := h.screen(); !strings.Contains(s, "▼ "+extraLabel) || !strings.Contains(s, reconnectLabel) {
 		t.Fatalf("extras didn't unfold:\n%s", s)
 	}
-	h.focusOn("Max bytes")
+	h.focusOn(maxBytesLabel)
 	h.press(tea.KeyBackspace, 0)
 	h.press(tea.KeyBackspace, 0)
 	h.typeText("400")
-	h.focusOn("Local echo")
+	h.focusOn(echoLabel)
 	h.press(' ', 0) // default → on
 	h.focusOn(saveLabel)
 	h.enter()
@@ -141,7 +143,7 @@ func TestForgetPassword(t *testing.T) {
 	if _, ok := h.saved["fm/kit"]; ok {
 		t.Error("password not forgotten")
 	}
-	if !strings.Contains(h.screen(), "forgot fm/kit's saved password") {
+	if !strings.Contains(h.screen(), str.EditorForgotPassword("fm", "kit")) {
 		t.Errorf("no status:\n%s", h.screen())
 	}
 }
@@ -154,7 +156,7 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 	h.enter()
 	h.focusOn(delCharLabel)
 	h.enter()
-	if !strings.Contains(h.screen(), "Enter again to delete") || h.m.chars["fm/kit"] == nil {
+	if !strings.Contains(h.screen(), upTo(str.EditorDeleteCharacterWarning(mark))) || h.m.chars["fm/kit"] == nil {
 		t.Fatalf("the first Enter should only warn:\n%s", h.screen())
 	}
 	h.press(tea.KeyUp, 0)
@@ -183,7 +185,7 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 	h.focusOn(delWorldLabel)
 	h.enter()
 	h.enter()
-	if !strings.Contains(h.screen(), "still has 1 character") {
+	if !strings.Contains(h.screen(), str.ConfigWorldHasCharacters("fm")[:20]) { // the note is cut to the pane
 		t.Fatalf("a world with characters was deleted, or no reason given:\n%s", h.screen())
 	}
 	h.press(tea.KeyEscape, 0)
@@ -228,8 +230,8 @@ func TestEditCharacterNotify(t *testing.T) {
 	h.enter()
 	h.focusOn(extraLabel)
 	h.enter()
-	h.focusOn("Notify")
-	if !strings.Contains(h.screen(), "default (first)") {
+	h.focusOn(notifyLabel)
+	if !strings.Contains(h.screen(), str.EditorDefault("first")) {
 		t.Errorf("Notify should show what it inherits:\n%s", h.screen())
 	}
 	h.press(tea.KeyLeft, 0) // default → none, backwards

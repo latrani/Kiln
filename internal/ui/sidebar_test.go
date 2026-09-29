@@ -94,7 +94,7 @@ func TestSidebarBadgesAndActivity(t *testing.T) {
 	if got := strings.TrimSpace(sideRow(h, 2)); got != "× Rook" {
 		t.Errorf("disconnected row = %q", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != "+ Open connection" {
+	if got := strings.TrimSpace(sideRow(h, 3)); got != addLabel {
 		t.Errorf("last row = %q", got)
 	}
 	h.m.chars["fm/rook"].state = session.Connecting
@@ -182,13 +182,13 @@ func TestEmptyState(t *testing.T) {
 	}
 	h.typeText("hello")
 	h.enter()
-	if !strings.Contains(h.screen(), "nothing open to send to") {
+	if !strings.Contains(h.screen(), str.StatusNothingOpen()) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	h.press('c', tea.ModCtrl) // clear "hello"
 	h.typeText("/log")
 	h.enter()
-	if !strings.Contains(h.screen(), "/log needs an open character") {
+	if !strings.Contains(h.screen(), str.StatusNeedsCharacter("/log")) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	h.enter() // empty input: open the picker
@@ -237,7 +237,7 @@ func TestSidebarIndent(t *testing.T) {
 		t.Errorf("disconnected row = %q, want the × one space in, pushing the name over", got)
 	}
 	h.press('o', tea.ModCtrl)
-	if got := sideRow(h, 1); !strings.HasPrefix(got, " + Character") {
+	if got := sideRow(h, 1); !strings.HasPrefix(got, " "+addCharLabel) {
 		t.Errorf("picker row = %q, want one space in too", got)
 	}
 }

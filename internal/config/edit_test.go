@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // uglyWorld has comments everywhere, a multi-line array, inline tables,
@@ -33,7 +35,7 @@ autoconnect = true
 [[highlight]]
 match = { pattern = '(?i)lighthouse' }
 style = { fg = "#ffd166", bold = true }
-`
+` //str:ok: a file Kiln wrote earlier
 
 func editDir(t *testing.T, world string) string {
 	t.Helper()
@@ -167,14 +169,14 @@ func TestDeleteCharacter(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readWorld(t, dir)
-	if strings.Contains(got, "[[characters") || strings.Contains(got, "Rook") || !strings.Contains(got, "# added by /highlight\n[[highlight]]") {
+	if strings.Contains(got, "[[characters") || strings.Contains(got, "Rook") || !strings.Contains(got, "# added by /highlight\n[[highlight]]") { //str:ok: from the fixture
 		t.Errorf("deleting the last character took the wrong lines:\n%s", got)
 	}
 }
 
 func TestDeleteWorld(t *testing.T) {
 	dir := editDir(t, uglyWorld)
-	if err := DeleteWorld(dir, "fm"); err == nil || !strings.Contains(err.Error(), "2 character") {
+	if err := DeleteWorld(dir, "fm"); err == nil || err.Error() != str.ConfigWorldHasCharacters("fm") {
 		t.Fatalf("deleted a world with characters: %v", err)
 	}
 	DeleteCharacter(dir, "fm", "Kit")

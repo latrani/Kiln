@@ -10,6 +10,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // notifyHarness has Kit connected with the given notify level (and
@@ -208,7 +209,7 @@ func TestNotifyCommand(t *testing.T) {
 	h := notifyHarness(t, "first", nil)
 	h.typeText("/notify")
 	h.enter()
-	if !strings.Contains(h.screen(), "Kit notify: first") {
+	if !strings.Contains(h.screen(), str.NotifyLevel("first")) {
 		t.Errorf("status:\n%s", h.screen())
 	}
 	h.typeText("/notify none")
@@ -218,7 +219,7 @@ func TestNotifyCommand(t *testing.T) {
 	}
 	h.typeText("/notify")
 	h.enter()
-	if !strings.Contains(h.screen(), "Kit notify: none (override; config says first)") {
+	if !strings.Contains(h.screen(), str.NotifyLevel(str.NotifyLevelOverride("none", "first"))) {
 		t.Errorf("status:\n%s", h.screen())
 	}
 	h.m.Update(tea.BlurMsg{})

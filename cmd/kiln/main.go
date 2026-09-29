@@ -69,7 +69,7 @@ func run(args []string) error {
 	case "tail":
 		ch, ok := cfg.Find(args[1], args[2])
 		if !ok {
-			return errors.New(str.CliNoCharacterDefine(args[1], args[2], filepath.Join(cfgDir, "worlds", args[1]+".toml")))
+			return errors.New(str.CliNoCharacterDefine(args[1], args[2]))
 		}
 		return tail(ch, dataDir, cfg)
 	case "passwd":

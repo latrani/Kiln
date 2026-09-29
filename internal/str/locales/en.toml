@@ -22,7 +22,7 @@ no_saved_password = "no saved password for {world}/{char}"
 [conn]
 no_certificate = "server sent no certificate"
 reading_known_hosts = "reading known_hosts: {err}"
-bad_fingerprint = "malformed fingerprint {fp:%q}: want sha256: followed by 64 lowercase hex digits"
+bad_fingerprint = "malformed sha256 fingerprint {fp:%q}"
 cert_changed = "certificate for {host} changed: pinned {pinned}, got {got}"
 
 [logstore]
@@ -36,9 +36,9 @@ reading = "logstore: reading {file}: {err}"
 bad_level = 'notify must be "all", "first", "attention" or "none"'
 bad_method = 'notify_method must be "osc", "bell" or "both"'
 held_more = "{msg} (+{n} more)"
-level_override = "{level} (override; config says {config})"
-level = "{name} notify: {level}"
-level_until_quit = "{name} notify: {level} until Kiln quits"
+level_override = "{level} (overridden from {config})"
+level = "notify level: {level}"
+level_until_quit = "{name} notify level set to {level} for this session"
 
 [pathfmt]
 unknown_placeholder = "unknown placeholder {{{name}}} (use {vars})"
@@ -56,9 +56,9 @@ usage:
   kiln passwd <world> <char>
   kiln trust <world> <fingerprint>"""
 error = "kiln: {err}"
-no_character_define = "no character {world}/{char} (define it in {path})"
+no_character_define = "no character {world}/{char}"
 no_character = "no character {world}/{char}"
-store_none = 'password_store is "none" in config.toml; set it to "keychain" or "file" to save passwords'
+store_none = 'password store disabled'
 password_prompt = "password for {world}/{char}: "
 no_world = "no world {world}"
 not_sent = "not sent: {err}"
@@ -79,10 +79,10 @@ character_number = "{file}: characters #{n}"
 character_id = "{file}: characters {id:%q}"
 name_required = "{where}: name is required"
 name_required_bare = "name is required"
-bad_character_id = '{where}: id may only use letters, digits, _ and - (set id = "..." if the name has others)'
-duplicate_character_id = "{where}: id is used by another character in this world"
+bad_character_id = '{where}: id may only use letters, digits, _ and -'
+duplicate_character_id = "{where}: id already used"
 bad_pack_id = "pack id {id:%q} may only use letters, digits, _ and -"
-unknown_pack = "unknown pack {id:%q} (no packs/{id}.toml)"
+unknown_pack = "unknown pack {id:%q}"
 bad_max_line_bytes = "max_line_bytes must be positive"
 bad_newline_mode = 'newline_mode must be "batch" or "flatten"'
 classify_needs_tag = "classify rule {n}: tag or tags is required"
@@ -93,7 +93,7 @@ bad_highlight_scope = 'highlight rule {n}: scope must be "line" or "match"'
 unknown_key = "{file}: unknown key {key:%q}"
 no_character_in_world = "{world} has no character {id:%q}"
 missing_character_table = "{file}: can't find character {id:%q}'s table"
-world_has_characters = { one = "{world} still has 1 character; delete it first", other = "{world} still has {n} characters; delete them first" }
+world_has_characters = "{world} still has characters"
 nothing_to_highlight = "nothing to highlight"
 added_by_highlight = "added by /highlight"
 added_by_kiln = "added by Kiln"
@@ -116,8 +116,8 @@ connected = "connected"
 failed = "failed"
 
 [view]
-nothing_open = "Nothing open · Enter or Ctrl+O to open a connection"
-no_characters = "No characters yet · Ctrl+O to add one"
+nothing_open = "Hit Enter or Ctrl+O to choose a connection"
+no_characters = ""
 save_password = "Save password for {name} in {store}? [Y/n]"
 password_label = "Password for {name}: "
 password_keys = "   Enter to log in · Esc to skip"
@@ -136,7 +136,7 @@ more_below = "▼ {n} more"
 
 # The world and character editors.
 [editor]
-extra = "Additional settings"
+extra = "More settings"
 save = "Save"
 forget_password = "Forget saved password"
 delete_character = "Delete character"
@@ -169,8 +169,8 @@ bytes_number = "a number of bytes"
 port_range = "port must be 1-65535"
 editing = "Editing {name}"
 new_world = "New world"
-delete_world_warning = "Enter again to delete {world} (logs are kept)"
-delete_character_warning = "Enter again to delete it and its saved password (logs are kept)"
+delete_world_warning = "Enter again to delete {world}"
+delete_character_warning = "Enter again to delete {what} and forget the password"
 saved = "saved {what}"
 forgot_password = "forgot {world}/{char}'s saved password"
 deleted_password_kept = "deleted {what}, but its password wasn't: {err}"
@@ -216,7 +216,7 @@ history_ends = "─── history ends {when} ───"
 loading = "─── loading older history… ───"
 
 [sidebar]
-open_connection = "+ Open connection"
+open_connection = "+ Connection"
 
 # Log mode (browse, in the code).
 [browse]
@@ -256,10 +256,10 @@ add_char_hint = "Enter to connect · Esc to cancel"
 add_character = "+ Character"
 add_world = "+ World"
 # Short, so it fits after log mode's statusline prefix on an 80-column screen.
-blocked_by_log = "Esc out of log mode first"
+blocked_by_log = "Exit log mode first"
 blocked_by_question = "Answer the question first"
 filter = "Filter"
 name = "Name"
 
 [form]
-next_field = "Enter next field · {hint}"
+next_field = "Use enter or arrows to move between fields · {hint}"

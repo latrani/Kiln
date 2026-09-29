@@ -112,9 +112,9 @@ func CliNoCharacter(world, char any) string {
 	return get("cli.no_character", map[string]any{"world": world, "char": char})
 }
 
-// CliNoCharacterDefine is cli.no_character_define: "no character {world}/{char} (define it in {path})"
-func CliNoCharacterDefine(world, char, path any) string {
-	return get("cli.no_character_define", map[string]any{"world": world, "char": char, "path": path})
+// CliNoCharacterDefine is cli.no_character_define: "no character {world}/{char}"
+func CliNoCharacterDefine(world, char any) string {
+	return get("cli.no_character_define", map[string]any{"world": world, "char": char})
 }
 
 // CliNoWorld is cli.no_world: "no world {world}"
@@ -128,7 +128,7 @@ func CliPasswordPrompt(world, char any) string {
 	return get("cli.password_prompt", map[string]any{"world": world, "char": char})
 }
 
-// CliStoreNone is cli.store_none: "password_store is \"none\" in config.toml; set it to \"keychain\" or \"file\" to save passwords"
+// CliStoreNone is cli.store_none: "password store disabled"
 func CliStoreNone() string { return get("cli.store_none", nil) }
 
 // CliTrustHint is cli.trust_hint: "if you expected this, run: kiln trust {world} {fingerprint}"
@@ -145,7 +145,7 @@ func ConfigAddedByHighlight() string { return get("config.added_by_highlight", n
 // ConfigAddedByKiln is config.added_by_kiln: "added by Kiln"
 func ConfigAddedByKiln() string { return get("config.added_by_kiln", nil) }
 
-// ConfigBadCharacterId is config.bad_character_id: "{where}: id may only use letters, digits, _ and - (set id = \"...\" if the name has others)"
+// ConfigBadCharacterId is config.bad_character_id: "{where}: id may only use letters, digits, _ and -"
 func ConfigBadCharacterId(where any) string {
 	return get("config.bad_character_id", map[string]any{"where": where})
 }
@@ -219,7 +219,7 @@ func ConfigClassifyNeedsTag(n int) string {
 	return get("config.classify_needs_tag", map[string]any{"n": n})
 }
 
-// ConfigDuplicateCharacterId is config.duplicate_character_id: "{where}: id is used by another character in this world"
+// ConfigDuplicateCharacterId is config.duplicate_character_id: "{where}: id already used"
 func ConfigDuplicateCharacterId(where any) string {
 	return get("config.duplicate_character_id", map[string]any{"where": where})
 }
@@ -292,23 +292,21 @@ func ConfigUnknownKey(file, key any) string {
 	return get("config.unknown_key", map[string]any{"file": file, "key": key})
 }
 
-// ConfigUnknownPack is config.unknown_pack: "unknown pack {id:%q} (no packs/{id}.toml)"
+// ConfigUnknownPack is config.unknown_pack: "unknown pack {id:%q}"
 func ConfigUnknownPack(id any) string { return get("config.unknown_pack", map[string]any{"id": id}) }
 
 // ConfigWorldExists is config.world_exists: "world {id:%q} already exists"
 func ConfigWorldExists(id any) string { return get("config.world_exists", map[string]any{"id": id}) }
 
-// ConfigWorldHasCharacters is config.world_has_characters, by count:
-//   - one: "{world} still has 1 character; delete it first"
-//   - other: "{world} still has {n} characters; delete them first"
-func ConfigWorldHasCharacters(n int, world any) string {
-	return count("config.world_has_characters", n, map[string]any{"n": n, "world": world})
+// ConfigWorldHasCharacters is config.world_has_characters: "{world} still has characters"
+func ConfigWorldHasCharacters(world any) string {
+	return get("config.world_has_characters", map[string]any{"world": world})
 }
 
 // ConfigWorldIdChars is config.world_id_chars: "world id may only use letters, digits, _ and -"
 func ConfigWorldIdChars() string { return get("config.world_id_chars", nil) }
 
-// ConnBadFingerprint is conn.bad_fingerprint: "malformed fingerprint {fp:%q}: want sha256: followed by 64 lowercase hex digits"
+// ConnBadFingerprint is conn.bad_fingerprint: "malformed sha256 fingerprint {fp:%q}"
 func ConnBadFingerprint(fp any) string { return get("conn.bad_fingerprint", map[string]any{"fp": fp}) }
 
 // ConnCertChanged is conn.cert_changed: "certificate for {host} changed: pinned {pinned}, got {got}"
@@ -356,13 +354,15 @@ func EditorDefaultHint(value any) string {
 // EditorDeleteCharacter is editor.delete_character: "Delete character"
 func EditorDeleteCharacter() string { return get("editor.delete_character", nil) }
 
-// EditorDeleteCharacterWarning is editor.delete_character_warning: "Enter again to delete it and its saved password (logs are kept)"
-func EditorDeleteCharacterWarning() string { return get("editor.delete_character_warning", nil) }
+// EditorDeleteCharacterWarning is editor.delete_character_warning: "Enter again to delete {what} and forget the password"
+func EditorDeleteCharacterWarning(what any) string {
+	return get("editor.delete_character_warning", map[string]any{"what": what})
+}
 
 // EditorDeleteWorld is editor.delete_world: "Delete world"
 func EditorDeleteWorld() string { return get("editor.delete_world", nil) }
 
-// EditorDeleteWorldWarning is editor.delete_world_warning: "Enter again to delete {world} (logs are kept)"
+// EditorDeleteWorldWarning is editor.delete_world_warning: "Enter again to delete {world}"
 func EditorDeleteWorldWarning(world any) string {
 	return get("editor.delete_world_warning", map[string]any{"world": world})
 }
@@ -378,7 +378,7 @@ func EditorDeletedPasswordKept(what any, err error) string {
 // EditorEditing is editor.editing: "Editing {name}"
 func EditorEditing(name any) string { return get("editor.editing", map[string]any{"name": name}) }
 
-// EditorExtra is editor.extra: "Additional settings"
+// EditorExtra is editor.extra: "More settings"
 func EditorExtra() string { return get("editor.extra", nil) }
 
 // EditorForgetPassword is editor.forget_password: "Forget saved password"
@@ -458,7 +458,7 @@ func EditorWorld() string { return get("editor.world", nil) }
 // EditorWorldIdChars is editor.world_id_chars: "a world id can only use letters, digits, _ and -"
 func EditorWorldIdChars() string { return get("editor.world_id_chars", nil) }
 
-// FormNextField is form.next_field: "Enter next field · {hint}"
+// FormNextField is form.next_field: "Use enter or arrows to move between fields · {hint}"
 func FormNextField(hint any) string { return get("form.next_field", map[string]any{"hint": hint}) }
 
 // LogstoreBadDirection is logstore.bad_direction: "logstore: bad direction {dir:%q}"
@@ -493,17 +493,15 @@ func NotifyHeldMore(msg any, n int) string {
 	return get("notify.held_more", map[string]any{"msg": msg, "n": n})
 }
 
-// NotifyLevel is notify.level: "{name} notify: {level}"
-func NotifyLevel(name, level any) string {
-	return get("notify.level", map[string]any{"name": name, "level": level})
-}
+// NotifyLevel is notify.level: "notify level: {level}"
+func NotifyLevel(level any) string { return get("notify.level", map[string]any{"level": level}) }
 
-// NotifyLevelOverride is notify.level_override: "{level} (override; config says {config})"
+// NotifyLevelOverride is notify.level_override: "{level} (overridden from {config})"
 func NotifyLevelOverride(level, config any) string {
 	return get("notify.level_override", map[string]any{"level": level, "config": config})
 }
 
-// NotifyLevelUntilQuit is notify.level_until_quit: "{name} notify: {level} until Kiln quits"
+// NotifyLevelUntilQuit is notify.level_until_quit: "{name} notify level set to {level} for this session"
 func NotifyLevelUntilQuit(name, level any) string {
 	return get("notify.level_until_quit", map[string]any{"name": name, "level": level})
 }
@@ -530,7 +528,7 @@ func PickerAddCharacter() string { return get("picker.add_character", nil) }
 // PickerAddWorld is picker.add_world: "+ World"
 func PickerAddWorld() string { return get("picker.add_world", nil) }
 
-// PickerBlockedByLog is picker.blocked_by_log: "Esc out of log mode first"
+// PickerBlockedByLog is picker.blocked_by_log: "Exit log mode first"
 func PickerBlockedByLog() string { return get("picker.blocked_by_log", nil) }
 
 // PickerBlockedByQuestion is picker.blocked_by_question: "Answer the question first"
@@ -603,7 +601,7 @@ func SessionSentNotLogged(err error) string {
 	return get("session.sent_not_logged", map[string]any{"err": err})
 }
 
-// SidebarOpenConnection is sidebar.open_connection: "+ Open connection"
+// SidebarOpenConnection is sidebar.open_connection: "+ Connection"
 func SidebarOpenConnection() string { return get("sidebar.open_connection", nil) }
 
 // StateConnected is state.connected: "connected"
@@ -740,10 +738,10 @@ func ViewMoreAbove(n int) string { return get("view.more_above", map[string]any{
 // ViewMoreBelow is view.more_below: "▼ {n} more"
 func ViewMoreBelow(n int) string { return get("view.more_below", map[string]any{"n": n}) }
 
-// ViewNoCharacters is view.no_characters: "No characters yet · Ctrl+O to add one"
+// ViewNoCharacters is view.no_characters: ""
 func ViewNoCharacters() string { return get("view.no_characters", nil) }
 
-// ViewNothingOpen is view.nothing_open: "Nothing open · Enter or Ctrl+O to open a connection"
+// ViewNothingOpen is view.nothing_open: "Hit Enter or Ctrl+O to choose a connection"
 func ViewNothingOpen() string { return get("view.nothing_open", nil) }
 
 // ViewPasswordKeys is view.password_keys: "   Enter to log in · Esc to skip"
