@@ -275,7 +275,7 @@ func parseTables(name string, raw map[string]any) (file, error) {
 				if sub, ok := pv.(map[string]any); ok {
 					ap, known := appearanceKeys[pk]
 					if !known {
-						return f, errors.New(str.ThemePaletteNotColor(name, pk))
+						return f, errors.New(str.ThemeBadAppearancePalette(name, pk))
 					}
 					m := map[string]string{}
 					for sk, sv := range sub {

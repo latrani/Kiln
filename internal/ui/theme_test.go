@@ -632,10 +632,16 @@ func TestAsksOnStartAndFocus(t *testing.T) {
 func TestMissingNamedTheme(t *testing.T) {
 	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	had := theme.Active()
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("theme = \"nope\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	if !strings.Contains(h.m.status, str.ThemeNoTheme("nope")) {
 		t.Errorf("status = %q", h.m.status)
+	}
+	if theme.Active() != had {
+		t.Error("a missing theme on reload should keep the colors Kiln had")
 	}
 }
 

@@ -285,5 +285,6 @@ bad_extends = "{file}: extends {name:%q} isn't a theme name (a file name in them
 tag_not_table = "{file}: tag {tag:%q} needs a table of settings, like {{ fg = … }}"
 bad_scope = '{file}: tag {tag:%q}: scope must be "line" or "match"'
 tag_entry = "tag {name}"
+bad_appearance_palette = "{file}: [palette.{name}] isn't an appearance (a palette can have [palette.light] and [palette.dark])"
 bad_name = "theme {name:%q} isn't a theme name (a file name in themes/, without .toml)"
 palette_not_color = '{file}: palette {name:%q} must be a color written in quotes, like "#rrggbb"'

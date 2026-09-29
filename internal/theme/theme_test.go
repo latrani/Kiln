@@ -284,11 +284,12 @@ func TestEqualSeesPalette(t *testing.T) {
 }
 
 func TestPaletteValueNotAString(t *testing.T) {
-	for _, body := range []string{"[palette]\nx = 1\n", "[palette]\nx = { a = 1 }\n"} {
-		_, err := parse("t.toml", []byte(body))
-		if err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x") {
-			t.Errorf("%q: err = %v", body, err)
-		}
+	if _, err := parse("t.toml", []byte("[palette]\nx = 1\n")); err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x") {
+		t.Errorf("a number: err = %v", err)
+	}
+	// A table is read as a palette for an appearance.
+	if _, err := parse("t.toml", []byte("[palette]\nx = { a = 1 }\n")); err == nil || err.Error() != str.ThemeBadAppearancePalette("t.toml", "x") {
+		t.Errorf("a table: err = %v", err)
 	}
 }
 
@@ -358,7 +359,7 @@ func TestLayersFollowAppearance(t *testing.T) {
 func TestPaletteSubTableErrors(t *testing.T) {
 	for _, body := range []string{"[palette.dusk]\nx = \"#000000\"\n", "[palette.light]\nx = 1\n"} {
 		_, err := parse("t.toml", []byte(body))
-		want := str.ThemePaletteNotColor("t.toml", "dusk")
+		want := str.ThemeBadAppearancePalette("t.toml", "dusk")
 		if strings.Contains(body, "light") {
 			want = str.ThemePaletteNotColor("t.toml", "x")
 		}
