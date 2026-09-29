@@ -565,7 +565,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if cs := m.cur(); cs != nil && cs.browse != nil {
 			// Only a text prompt takes a paste; the chat draft must not.
 			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
-				cs.browse.pin.InsertText(strings.ReplaceAll(msg.Content, "\n", " "))
+				cs.browse.pin.InsertText(oneLine(msg.Content))
 			}
 		} else if m.mode == modeNormal {
 			m.input().InsertText(msg.Content)

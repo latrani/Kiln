@@ -837,10 +837,39 @@ func (h *harness) quits(cmd tea.Cmd) bool {
 }
 
 func TestPasteInsertsMultiline(t *testing.T) {
+	for _, c := range []struct{ paste, want string }{
+		{"one\ntwo", "one\ntwo"},
+		{"one\rtwo", "one\ntwo"}, // how most terminals paste line breaks
+		{"one\r\ntwo\rthree", "one\ntwo\nthree"},
+		{"a\tb", "a    b"},
+		{"red \x1b[31mtext\x1b[0m\x07", "red text"},
+	} {
+		h := newHarness(t, map[string]string{"fm": fmWorld})
+		h.m.Update(tea.PasteMsg{Content: c.paste})
+		if got := h.m.chars["fm/kit"].in.Value(); got != c.want {
+			t.Errorf("paste %q: input = %q, want %q", c.paste, got, c.want)
+		}
+	}
+}
+
+func TestPastedLinesSendSeparately(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.Update(tea.PasteMsg{Content: "one\ntwo"})
-	if got := h.m.chars["fm/kit"].in.Value(); got != "one\ntwo" {
-		t.Errorf("input = %q", got)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.m.Update(tea.PasteMsg{Content: ":waves.\rsay hi"})
+	h.enter()
+	want := []string{"connect Kit hunter2", ":waves.", "say hi"}
+	if got := h.conn("fm/kit").Sent(); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("sent %q, want %q", got, want)
+	}
+}
+
+func TestPasteIntoOneLineField(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('o', tea.ModCtrl)
+	h.m.Update(tea.PasteMsg{Content: "k\ri"})
+	if got := h.m.picker.form.value(0); got != "k i" {
+		t.Errorf("filter = %q, want the line break as a space", got)
 	}
 }
 

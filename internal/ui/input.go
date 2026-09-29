@@ -7,6 +7,8 @@ import (
 
 	xansi "github.com/charmbracelet/x/ansi"
 	"github.com/rivo/uniseg"
+
+	"github.com/latrani/Kiln/internal/ansi"
 )
 
 // overLimit is the style for bytes past a line's max_line_bytes.
@@ -89,13 +91,14 @@ func (in *Input) CommitSecret() string {
 // InsertText inserts s at the cursor; "\n" (or "\r\n") starts a new line.
 func (in *Input) InsertText(s string) {
 	in.goal = -1
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	for i, part := range strings.Split(s, "\n") {
+	for i, part := range strings.Split(lineBreaks.Replace(s), "\n") {
 		if i > 0 {
 			in.Newline()
 		}
 		line := in.lines[in.row]
-		ins := []rune(part)
+		// Pasted text can carry tabs, escapes and other controls, which
+		// would throw off the cursor and the screen.
+		ins := []rune(ansi.Strip(ansi.Sanitize(part)))
 		out := make([]rune, 0, len(line)+len(ins))
 		out = append(out, line[:in.col]...)
 		out = append(out, ins...)
@@ -104,6 +107,13 @@ func (in *Input) InsertText(s string) {
 		in.col = snapForward(out, in.col+len(ins))
 	}
 }
+
+// lineBreaks turns every kind of line break into \n: terminals paste
+// line breaks as \r, the Enter key's code.
+var lineBreaks = strings.NewReplacer("\r\n", "\n", "\r", "\n")
+
+// oneLine is s with its line breaks as spaces, for a one-line field.
+func oneLine(s string) string { return strings.ReplaceAll(lineBreaks.Replace(s), "\n", " ") }
 
 // clusters returns the rune index of every grapheme cluster boundary in
 // line, from 0 through len(line).
