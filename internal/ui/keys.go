@@ -22,6 +22,7 @@ const (
 	actDate
 	actExport
 	actCopy
+	actTags
 )
 
 // openBrowseKey opens log mode (browse, in the code) from the normal view.
@@ -54,6 +55,7 @@ var browseKeys = map[string]browseAction{
 	"g":      actDate,
 	"e":      actExport,
 	"c":      actCopy,
+	"t":      actTags,
 }
 
 // Export format keys, pressed after actExport.

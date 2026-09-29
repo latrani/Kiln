@@ -249,7 +249,13 @@ to_today = "{first} → today"
 find_status = "find: {find} {i}/{n}"
 tags = "tags:"
 loading = "loading older history…"
-hints = "m mark · space exclude · / find · n/N · g date · 1-9 tags · e export · c copy · esc back"
+hints = "m mark · space exclude · / find · n/N · g date · 1-9 filter · t tags · e export · c copy · esc back"
+# What t shows: the cursor line's tags, and for one with no style of its
+# own, the tag up its slashes whose style it takes.
+line_tags = "tags: {tags}"
+no_line_tags = "no tags on this line"
+tag_as = "{tag} (styled as {styled})"
+tag_unstyled = "{tag} (unstyled)"
 
 # The open-connection picker.
 [picker]

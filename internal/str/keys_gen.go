@@ -37,8 +37,11 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "m mark · space exclude · / find · n/N · g date · 1-9 tags · e export · c copy · esc back"
+// BrowseHints is browse.hints: "m mark · space exclude · / find · n/N · g date · 1-9 filter · t tags · e export · c copy · esc back"
 func BrowseHints() string { return get("browse.hints", nil) }
+
+// BrowseLineTags is browse.line_tags: "tags: {tags}"
+func BrowseLineTags(tags any) string { return get("browse.line_tags", map[string]any{"tags": tags}) }
 
 // BrowseLinesInRange is browse.lines_in_range, by count:
 //   - one: "1 line in range"
@@ -61,6 +64,9 @@ func BrowseNoExportDir() string { return get("browse.no_export_dir", nil) }
 
 // BrowseNoFileName is browse.no_file_name: "no file name given"
 func BrowseNoFileName() string { return get("browse.no_file_name", nil) }
+
+// BrowseNoLineTags is browse.no_line_tags: "no tags on this line"
+func BrowseNoLineTags() string { return get("browse.no_line_tags", nil) }
 
 // BrowseNoLogs is browse.no_logs: "no logs yet"
 func BrowseNoLogs() string { return get("browse.no_logs", nil) }
@@ -92,6 +98,14 @@ func BrowseSavePrompt() string { return get("browse.save_prompt", nil) }
 
 // BrowseSaved is browse.saved: "saved {path}"
 func BrowseSaved(path any) string { return get("browse.saved", map[string]any{"path": path}) }
+
+// BrowseTagAs is browse.tag_as: "{tag} (styled as {styled})"
+func BrowseTagAs(tag, styled any) string {
+	return get("browse.tag_as", map[string]any{"tag": tag, "styled": styled})
+}
+
+// BrowseTagUnstyled is browse.tag_unstyled: "{tag} (unstyled)"
+func BrowseTagUnstyled(tag any) string { return get("browse.tag_unstyled", map[string]any{"tag": tag}) }
 
 // BrowseTags is browse.tags: "tags:"
 func BrowseTags() string { return get("browse.tags", nil) }

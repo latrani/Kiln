@@ -589,8 +589,32 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		}
 		b.setStatus(false, str.BrowseCopied(len(sel)))
 		return tea.SetClipboard(scene.Plain(sel)), false
+	case actTags:
+		if b.cursor != nil {
+			b.setStatus(false, b.lineTags(b.cursor))
+		}
 	}
 	return nil, false
+}
+
+// lineTags says which tags l has, and for each one without a style of
+// its own, whose style it takes.
+func (b *browse) lineTags(l *bline) string {
+	if len(l.tags) == 0 {
+		return str.BrowseNoLineTags()
+	}
+	parts := make([]string, len(l.tags))
+	for i, tag := range l.tags {
+		switch styled, ok := b.cs.hl.Styled(tag); {
+		case !ok:
+			parts[i] = str.BrowseTagUnstyled(tag)
+		case styled != tag:
+			parts[i] = str.BrowseTagAs(tag, styled)
+		default:
+			parts[i] = tag
+		}
+	}
+	return str.BrowseLineTags(strings.Join(parts, str.Separator()))
 }
 
 func (b *browse) cycleChip(tag string) {

@@ -42,7 +42,7 @@ fm              │LOG Kit · Thu Sep 24 → today   find: Mira 1/1
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │m mark · space exclude · / find · n/N · g date · 1-9 tags · e e
+                │m mark · space exclude · / find · n/N · g date · 1-9 filter · t
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
                 │LOG · 0 selected · fm/Kit · connected                     21:15
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-19 bold,fg=#a0b7e3; @20-74 fg=#a0b7e3; @75-79 fg=#8b98b1

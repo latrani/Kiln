@@ -44,6 +44,13 @@ type hit struct {
 	spans []classify.Span
 }
 
+// Styled is the tag whose style tag takes: tag itself, or the nearest
+// styled one up its slashes. ok is false when none has a style.
+func (h *Highlighter) Styled(tag string) (styled string, ok bool) {
+	styled, _, ok = h.th.Tag(tag)
+	return styled, ok
+}
+
 // Apply works out plain's runs and behavior from its tags. Each tag
 // takes the style of the most specific styled name up its slashes; tags
 // that land on the same name count once. Whole-line styles fold first,

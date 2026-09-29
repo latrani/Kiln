@@ -219,6 +219,26 @@ func TestBrowseCopy(t *testing.T) {
 	}
 }
 
+// t says which tags the cursor's line has, and which style each takes.
+func TestBrowseLineTags(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("t") // Rook yawns.
+	if !strings.Contains(h.screen(), str.BrowseNoLineTags()) {
+		t.Errorf("want no tags:\n%s", h.screen())
+	}
+	h.keys("up", "up", "t") // Kit grins.
+	if want := str.BrowseLineTags("self"); !strings.Contains(h.screen(), want) {
+		t.Errorf("want %q:\n%s", want, h.screen())
+	}
+	h.keys("up", "up", "t") // Mira pages
+	want := str.BrowseLineTags("page" + str.Separator() + str.BrowseTagAs("page/in", "page"))
+	if !strings.Contains(h.screen(), want) {
+		t.Errorf("want %q:\n%s", want, h.screen())
+	}
+}
+
 func TestBrowseChips(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
