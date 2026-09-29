@@ -59,7 +59,7 @@ func TestBuiltinLook(t *testing.T) {
 }
 
 func TestLoadWithoutAFileIsBuiltin(t *testing.T) {
-	th, err := Load(t.TempDir())
+	th, err := Load(t.TempDir(), "default", Dark)
 	if err != nil || th.SGR(StatusError) != Builtin().SGR(StatusError) {
 		t.Errorf("Load = %v, %v", th, err)
 	}
@@ -68,7 +68,7 @@ func TestLoadWithoutAFileIsBuiltin(t *testing.T) {
 func TestExtendsDefaultIsBuiltin(t *testing.T) {
 	dir := t.TempDir()
 	writeTheme(t, dir, "default", "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
-	th, err := Load(dir)
+	th, err := Load(dir, "default", Dark)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestExtendsAnotherTheme(t *testing.T) {
 	dir := t.TempDir()
 	writeTheme(t, dir, "ember", "extends = \"default\"\n[palette]\nember = \"#ff9f43\"\n")
 	writeTheme(t, dir, "default", "extends = \"ember\"\n[ui]\n\"status.error\" = { fg = \"ember\" }\n")
-	th, err := Load(dir)
+	th, err := Load(dir, "default", Dark)
 	if err != nil || th.SGR(StatusError) != "\x1b[38;2;255;159;67m" {
 		t.Errorf("Load = %q, %v", th.SGR(StatusError), err)
 	}
@@ -92,7 +92,7 @@ func TestExtendsCycle(t *testing.T) {
 	writeTheme(t, dir, "default", "extends = \"a\"\n") // default → a → b → a
 	writeTheme(t, dir, "a", "extends = \"b\"\n")
 	writeTheme(t, dir, "b", "extends = \"a\"\n")
-	_, err := Load(dir)
+	_, err := Load(dir, "default", Dark)
 	if err == nil || !strings.Contains(err.Error(), str.ThemeExtendsLoop("themes/b.toml", "a")) {
 		t.Errorf("err = %v", err)
 	}
@@ -106,7 +106,7 @@ func TestLoadErrors(t *testing.T) {
 	} {
 		dir := t.TempDir()
 		writeTheme(t, dir, "default", c.body)
-		th, err := Load(dir)
+		th, err := Load(dir, "default", Dark)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%q: err = %v, want %q", c.body, err, c.want)
 		}
@@ -125,5 +125,29 @@ func TestActive(t *testing.T) {
 	SetActive(th)
 	if SGR(StatusError) != "\x1b[32m" {
 		t.Errorf("SetActive didn't take: %q", SGR(StatusError))
+	}
+}
+
+func TestLoadByName(t *testing.T) {
+	dir := t.TempDir()
+	writeTheme(t, dir, "ember", "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
+	th, err := Load(dir, "ember", Dark)
+	if err != nil || th.SGR(StatusError) != "\x1b[38;2;255;0;0m" {
+		t.Errorf("Load(ember) = %q, %v", th.SGR(StatusError), err)
+	}
+	if _, err := Load(dir, "nope", Dark); err == nil || err.Error() != str.ThemeNoTheme("nope") {
+		t.Errorf("missing theme: err = %v", err)
+	}
+	if th, err := Load(dir, "../x", Light); err == nil || err.Error() != str.ThemeBadName("../x") || th != BuiltinFor(Light) {
+		t.Errorf("bad name: %v, %v", th, err)
+	}
+}
+
+func TestBuiltinForLight(t *testing.T) {
+	if BuiltinFor(Dark) != Builtin() {
+		t.Error("Builtin is the dark built-in")
+	}
+	if BuiltinFor(Light) == Builtin() {
+		t.Error("the light built-in should be its own theme")
 	}
 }

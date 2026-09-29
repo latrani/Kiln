@@ -83,13 +83,26 @@ type tagFileStyle struct {
 	scope *string // "line" or "match"; nil: unset
 }
 
+// Appearance is whether the terminal's background is dark or light,
+// which picks a theme's [palette.dark] or [palette.light].
+type Appearance int
+
+const (
+	Dark Appearance = iota
+	Light
+)
+
+// appearanceKeys are the [palette] sub-tables, by appearance.
+var appearanceKeys = map[string]Appearance{"dark": Dark, "light": Light} //str:ok: theme vocabulary
+
 // file is one parsed theme file.
 type file struct {
-	name    string
-	extends string
-	palette map[string]string
-	ui      map[Role]fileStyle
-	tags    map[string]tagFileStyle
+	name       string
+	extends    string
+	palette    map[string]string
+	appearance map[Appearance]map[string]string // [palette.dark], [palette.light]
+	ui         map[Role]fileStyle
+	tags       map[string]tagFileStyle
 }
 
 // style is a role's resolved style.
@@ -156,6 +169,7 @@ type Theme struct {
 	tags    map[string]TagStyle
 	palette map[string]color // for layers, which may name its colors
 	chain   []file           // what it was built from, base first
+	ap      Appearance       // which palettes it was built with
 }
 
 // Layer is a world's or character's own [palette] and [tags], drawn over
@@ -186,7 +200,7 @@ func (t *Theme) With(layers ...Layer) (*Theme, error) {
 	for _, l := range layers {
 		chain = append(chain, l.f)
 	}
-	return build(chain)
+	return build(chain, t.ap)
 }
 
 // Tag is how a line tag is drawn: the style of the most specific styled
@@ -240,7 +254,7 @@ func parse(name string, data []byte) (file, error) {
 
 // parseTables reads a theme's tables, already decoded.
 func parseTables(name string, raw map[string]any) (file, error) {
-	f := file{name: name, palette: map[string]string{}, ui: map[Role]fileStyle{}, tags: map[string]tagFileStyle{}}
+	f := file{name: name, palette: map[string]string{}, appearance: map[Appearance]map[string]string{}, ui: map[Role]fileStyle{}, tags: map[string]tagFileStyle{}}
 	for k, v := range raw {
 		switch k {
 		case "extends":
@@ -258,6 +272,22 @@ func parseTables(name string, raw map[string]any) (file, error) {
 				return f, errors.New(str.ThemeNotTable(name, k))
 			}
 			for pk, pv := range tbl {
+				if sub, ok := pv.(map[string]any); ok {
+					ap, known := appearanceKeys[pk]
+					if !known {
+						return f, errors.New(str.ThemePaletteNotColor(name, pk))
+					}
+					m := map[string]string{}
+					for sk, sv := range sub {
+						s, ok := sv.(string)
+						if !ok {
+							return f, errors.New(str.ThemePaletteNotColor(name, sk))
+						}
+						m[sk] = s
+					}
+					f.appearance[ap] = m
+					continue
+				}
 				s, ok := pv.(string)
 				if !ok {
 					return f, errors.New(str.ThemePaletteNotColor(name, pk))
@@ -397,24 +427,20 @@ func readTags(name string, tbl map[string]any, out map[string]tagFileStyle) erro
 	return nil
 }
 
-// build resolves a chain of files, base first: later files override
-// earlier ones field by field, then roles inherit down their dots.
-func build(chain []file) (*Theme, error) {
+// build resolves a chain of files, base first, for ap: each file adds its
+// palette and then ap's; later files override earlier ones field by
+// field, then roles inherit down their dots.
+func build(chain []file, ap Appearance) (*Theme, error) {
 	palette := map[string]color{}
 	merged := map[Role]fileStyle{}
 	origin := map[Role]string{} // which file set a role last, for messages
 	mergedTags := map[string]tagFileStyle{}
 	tagOrigin := map[string]string{}
 	for _, f := range chain {
-		for _, n := range slices.Sorted(maps.Keys(f.palette)) {
-			if n == defaultColor || slices.Contains(terminalColors, n) {
-				return nil, errors.New(str.ThemePaletteNameTaken(f.name, n))
+		for _, entries := range []map[string]string{f.palette, f.appearance[ap]} {
+			if err := addPalette(f.name, entries, palette); err != nil {
+				return nil, err
 			}
-			c, ok := literal(f.palette[n])
-			if !ok {
-				return nil, errors.New(str.ThemeBadColor(f.name, str.ThemePaletteEntry(n), f.palette[n]))
-			}
-			palette[n] = c
 		}
 		for r, s := range f.ui {
 			if !slices.Contains(Roles, r) {
@@ -432,7 +458,7 @@ func build(chain []file) (*Theme, error) {
 			mergedTags[tag], tagOrigin[tag] = m, f.name
 		}
 	}
-	t := &Theme{styles: map[Role]style{}, sgr: map[Role]string{}, tags: map[string]TagStyle{}, palette: palette, chain: chain}
+	t := &Theme{styles: map[Role]style{}, sgr: map[Role]string{}, tags: map[string]TagStyle{}, palette: palette, chain: chain, ap: ap}
 	for _, r := range Roles {
 		s, err := resolveStyle(t.styles[r.parent()], merged[r], palette, origin[r], string(r))
 		if err != nil {
@@ -449,6 +475,22 @@ func build(chain []file) (*Theme, error) {
 		t.tags[tag] = TagStyle{Style: Style{s}, Match: fs.scope != nil && *fs.scope == "match"}
 	}
 	return t, nil
+}
+
+// addPalette checks entries, one file's palette names and their colors,
+// and adds them to palette.
+func addPalette(name string, entries map[string]string, palette map[string]color) error {
+	for _, n := range slices.Sorted(maps.Keys(entries)) {
+		if n == defaultColor || slices.Contains(terminalColors, n) {
+			return errors.New(str.ThemePaletteNameTaken(name, n))
+		}
+		c, ok := literal(entries[n])
+		if !ok {
+			return errors.New(str.ThemeBadColor(name, str.ThemePaletteEntry(n), entries[n]))
+		}
+		palette[n] = c
+	}
+	return nil
 }
 
 // resolveStyle is fs's fields over base, with its colors resolved in

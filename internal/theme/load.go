@@ -14,32 +14,42 @@ import (
 //go:embed default.toml
 var builtinSrc []byte
 
-var builtin = func() *Theme {
+var builtins = func() map[Appearance]*Theme {
 	f, err := parse(themePath("default"), builtinSrc)
 	if err != nil {
 		panic(err)
 	}
-	t, err := build([]file{f})
-	if err != nil {
-		panic(err)
+	out := map[Appearance]*Theme{}
+	for _, ap := range []Appearance{Dark, Light} {
+		t, err := build([]file{f}, ap)
+		if err != nil {
+			panic(err)
+		}
+		out[ap] = t
 	}
-	return t
+	return out
 }()
 
-// Builtin is the theme Kiln ships with.
-func Builtin() *Theme { return builtin }
+// Builtin is the theme Kiln ships with, for a dark terminal.
+func Builtin() *Theme { return builtins[Dark] }
 
-// Load reads dir/themes/default.toml, following extends, or returns the
-// built-in theme when there's no such file. On an error it returns the
+// BuiltinFor is the theme Kiln ships with, for ap.
+func BuiltinFor(ap Appearance) *Theme { return builtins[ap] }
+
+// Load reads dir/themes/<name>.toml, following extends, for ap. With no
+// such file, "default" is the built-in. On an error it returns the
 // built-in theme too, so there's always something to draw with.
-func Load(dir string) (*Theme, error) {
-	chain, err := chainFor(dir, "default", nil)
-	if err != nil {
-		return builtin, err
+func Load(dir, name string, ap Appearance) (*Theme, error) {
+	if !validName(name) {
+		return builtins[ap], errors.New(str.ThemeBadName(name))
 	}
-	t, err := build(chain)
+	chain, err := chainFor(dir, name, nil)
 	if err != nil {
-		return builtin, err
+		return builtins[ap], err
+	}
+	t, err := build(chain, ap)
+	if err != nil {
+		return builtins[ap], err
 	}
 	return t, nil
 }
@@ -87,7 +97,7 @@ func themePath(name string) string { return "themes/" + name + ".toml" } //str:o
 
 var active atomic.Pointer[Theme]
 
-func init() { active.Store(builtin) }
+func init() { active.Store(builtins[Dark]) }
 
 // Active is the theme to draw with.
 func Active() *Theme { return active.Load() }
@@ -101,13 +111,16 @@ func Paint(r Role, text string) string { return Active().Paint(r, text) }
 // SGR is Active().SGR.
 func SGR(r Role) string { return Active().SGR(r) }
 
-// FromTOML builds a theme from src on top of the built-in, for tests and
-// tools.
-func FromTOML(src string) (*Theme, error) {
+// FromTOML builds a theme from src on top of the built-in, for a dark
+// terminal, for tests and tools.
+func FromTOML(src string) (*Theme, error) { return FromTOMLFor(src, Dark) }
+
+// FromTOMLFor is FromTOML for ap.
+func FromTOMLFor(src string, ap Appearance) (*Theme, error) {
 	base, _ := parse(themePath("default"), builtinSrc)
 	f, err := parse(themePath("test"), []byte(src))
 	if err != nil {
 		return nil, err
 	}
-	return build([]file{base, f})
+	return build([]file{base, f}, ap)
 }

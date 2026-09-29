@@ -733,6 +733,9 @@ func ThemeBadField(file, role, field, want any) string {
 	return get("theme.bad_field", map[string]any{"file": file, "role": role, "field": field, "want": want})
 }
 
+// ThemeBadName is theme.bad_name: "theme {name:%q} isn't a theme name (a file name in themes/, without .toml)"
+func ThemeBadName(name any) string { return get("theme.bad_name", map[string]any{"name": name}) }
+
 // ThemeBadScope is theme.bad_scope: "{file}: tag {tag:%q}: scope must be \"line\" or \"match\""
 func ThemeBadScope(file, tag any) string {
 	return get("theme.bad_scope", map[string]any{"file": file, "tag": tag})

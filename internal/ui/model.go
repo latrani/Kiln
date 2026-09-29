@@ -261,7 +261,7 @@ func (m *Model) reloadNow() bool {
 // reported when the update ends (see Update), after any message the
 // caller shows for what it did.
 func (m *Model) loadTheme() {
-	th, err := theme.Load(m.d.ConfigDir)
+	th, err := theme.Load(m.d.ConfigDir, "default", theme.Dark)
 	m.themeErr = err
 	if err != nil && m.themed {
 		return // keep the theme we have

@@ -17,7 +17,7 @@ func mustBuild(t *testing.T, srcs ...string) *Theme {
 		}
 		chain = append(chain, f)
 	}
-	th, err := build(chain)
+	th, err := build(chain, Dark)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestBuildErrors(t *testing.T) {
 	} {
 		f, err := parse("t0.toml", []byte(c.src))
 		if err == nil {
-			_, err = build([]file{f})
+			_, err = build([]file{f}, Dark)
 		}
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%q: err = %v, want %q", c.src, err, c.want)
@@ -149,7 +149,7 @@ func TestDefaultColorClearsInherited(t *testing.T) {
 		t.Errorf("CSS(sidebar.add) = %q, %q", fg, bg)
 	}
 	f, _ := parse("t.toml", []byte("[palette]\ndefault = \"#000000\"\n"))
-	if _, err := build([]file{f}); err == nil || err.Error() != str.ThemePaletteNameTaken("t.toml", "default") {
+	if _, err := build([]file{f}, Dark); err == nil || err.Error() != str.ThemePaletteNameTaken("t.toml", "default") {
 		t.Errorf("a palette name default: err = %v", err)
 	}
 }
@@ -206,7 +206,7 @@ func TestTagErrors(t *testing.T) {
 		}
 	}
 	f, _ := parse("t.toml", []byte("[tags]\npage = { fg = \"nope\" }\n"))
-	if _, err := build([]file{f}); err == nil || err.Error() != str.ThemeBadColor("t.toml", str.ThemeTagEntry("page"), "nope") {
+	if _, err := build([]file{f}, Dark); err == nil || err.Error() != str.ThemeBadColor("t.toml", str.ThemeTagEntry("page"), "nope") {
 		t.Errorf("unknown color: err = %v", err)
 	}
 }
@@ -288,6 +288,82 @@ func TestPaletteValueNotAString(t *testing.T) {
 		_, err := parse("t.toml", []byte(body))
 		if err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x") {
 			t.Errorf("%q: err = %v", body, err)
+		}
+	}
+}
+
+func mustBuildFor(t *testing.T, ap Appearance, srcs ...string) *Theme {
+	t.Helper()
+	var chain []file
+	for i, s := range srcs {
+		f, err := parse("t"+string(rune('0'+i))+".toml", []byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		chain = append(chain, f)
+	}
+	th, err := build(chain, ap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return th
+}
+
+func TestPalettePerAppearance(t *testing.T) {
+	src := `
+[palette]
+ink = "#aaaaaa"
+[palette.light]
+ink = "#111111"
+[ui]
+sidebar = { fg = "ink" }
+[tags]
+page = { fg = "ink" }
+`
+	dark, light := mustBuildFor(t, Dark, src), mustBuildFor(t, Light, src)
+	if dark.SGR(Sidebar) != "\x1b[38;2;170;170;170m" || light.SGR(Sidebar) != "\x1b[38;2;17;17;17m" {
+		t.Errorf("sidebar: dark %q, light %q", dark.SGR(Sidebar), light.SGR(Sidebar))
+	}
+	if _, ts, _ := light.Tag("page"); ts.Style.SGR() != "\x1b[38;2;17;17;17m" {
+		t.Errorf("light page = %q", ts.Style.SGR())
+	}
+}
+
+// Along extends, each file adds its [palette] then its appearance's: a
+// later file's plain [palette] beats an earlier file's [palette.light].
+func TestAppearancePaletteOrder(t *testing.T) {
+	th := mustBuildFor(t, Light,
+		"[palette]\nink = \"#aaaaaa\"\n[palette.light]\nink = \"#111111\"\n",
+		"[palette]\nink = \"#222222\"\n[ui]\nsidebar = { fg = \"ink\" }\n")
+	if th.SGR(Sidebar) != "\x1b[38;2;34;34;34m" {
+		t.Errorf("sidebar = %q, want the later file's plain palette", th.SGR(Sidebar))
+	}
+}
+
+func TestLayersFollowAppearance(t *testing.T) {
+	base := mustBuildFor(t, Light, "")
+	l, err := ParseLayer("worlds/fm.toml", map[string]any{"x": "#aaaaaa", "light": map[string]any{"x": "#111111"}}, map[string]any{"page": map[string]any{"fg": "x"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err := base.With(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ts, _ := th.Tag("page"); ts.Style.SGR() != "\x1b[38;2;17;17;17m" {
+		t.Errorf("a light theme's layer should use its light palette: %q", ts.Style.SGR())
+	}
+}
+
+func TestPaletteSubTableErrors(t *testing.T) {
+	for _, body := range []string{"[palette.dusk]\nx = \"#000000\"\n", "[palette.light]\nx = 1\n"} {
+		_, err := parse("t.toml", []byte(body))
+		want := str.ThemePaletteNotColor("t.toml", "dusk")
+		if strings.Contains(body, "light") {
+			want = str.ThemePaletteNotColor("t.toml", "x")
+		}
+		if err == nil || err.Error() != want {
+			t.Errorf("%q: err = %v, want %q", body, err, want)
 		}
 	}
 }
