@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Level is how much a character notifies while you're away.
@@ -26,7 +27,7 @@ func ParseLevel(s string) (Level, error) {
 	case All, First, Attention, None:
 		return l, nil
 	}
-	return "", errors.New(`notify must be "all", "first", "attention" or "none"`)
+	return "", errors.New(str.NotifyBadLevel())
 }
 
 // Method is how a notification reaches the terminal.
@@ -44,7 +45,7 @@ func ParseMethod(s string) (Method, error) {
 	case OSC, Bell, Both:
 		return m, nil
 	}
-	return "", errors.New(`notify_method must be "osc", "bell" or "both"`)
+	return "", errors.New(str.NotifyBadMethod())
 }
 
 // MaxLen is the longest message, in characters.
@@ -76,7 +77,7 @@ func Encode(msg string, m Method, tmux bool) string {
 	if m == OSC || m == Both {
 		osc := "\x1b]9;" + msg + "\a"
 		if tmux {
-			osc = "\x1bPtmux;" + strings.ReplaceAll(osc, "\x1b", "\x1b\x1b") + "\x1b\\"
+			osc = "\x1bPtmux;" + strings.ReplaceAll(osc, "\x1b", "\x1b\x1b") + "\x1b\\" //str:ok
 		}
 		b.WriteString(osc)
 	}

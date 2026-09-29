@@ -11,9 +11,11 @@
 package logstore
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"time"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Dir is the direction of a logged line.
@@ -26,7 +28,7 @@ const (
 )
 
 // Header is the first line of every log file.
-const Header = "#kiln-log v1"
+const Header = "#kiln-log v1" //str:ok
 
 // timeLayout always renders a numeric offset (never "Z") so the prefix
 // stays fixed-width.
@@ -51,20 +53,20 @@ func Format(e Entry) string {
 func Parse(line string) (Entry, error) {
 	tab := strings.IndexByte(line, '\t')
 	if tab < 0 {
-		return Entry{}, fmt.Errorf("logstore: no tab in %q", line)
+		return Entry{}, errors.New(str.LogstoreNoTab(line))
 	}
 	prefix, text := line[:tab], line[tab+1:]
 	sp := strings.LastIndexByte(prefix, ' ')
 	if sp < 0 || sp != len(prefix)-2 {
-		return Entry{}, fmt.Errorf("logstore: bad prefix %q", prefix)
+		return Entry{}, errors.New(str.LogstoreBadPrefix(prefix))
 	}
 	t, err := time.Parse(timeLayout, prefix[:sp])
 	if err != nil {
-		return Entry{}, fmt.Errorf("logstore: bad time: %w", err)
+		return Entry{}, str.Wrap(str.LogstoreBadTime(err), err)
 	}
 	d := Dir(prefix[sp+1])
 	if d != In && d != Out && d != Sys {
-		return Entry{}, fmt.Errorf("logstore: bad direction %q", prefix[sp+1])
+		return Entry{}, errors.New(str.LogstoreBadDirection(prefix[sp+1]))
 	}
 	return Entry{Time: t, Dir: d, Text: text}, nil
 }

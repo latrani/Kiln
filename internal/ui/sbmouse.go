@@ -86,7 +86,7 @@ func (s *Scrollback) At(y, x int) (p sbPos, ok bool) {
 }
 
 // urlRE finds web links. Trailing punctuation is trimmed by trimURL.
-var urlRE = regexp.MustCompile(`https?://[^\s<>"'` + "`" + `]+`)
+var urlRE = regexp.MustCompile(`https?://[^\s<>"'` + "`" + `]+`) //str:ok
 
 // trimURL drops sentence punctuation after a link, and a closing bracket
 // that doesn't close one inside it.

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/zalando/go-keyring"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 const service = "kiln"
@@ -63,7 +65,7 @@ type None struct{}
 func (None) Get(string, string) (string, error) { return "", ErrNotFound }
 
 func (None) Set(string, string, string) error {
-	return errors.New(`password_store is "none"`)
+	return errors.New(str.SecretsStoreNone())
 }
 
 func (None) Delete(string, string) error { return nil }

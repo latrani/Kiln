@@ -21,6 +21,7 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/scene"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -155,7 +156,7 @@ func (b *browse) loadOlder() bool {
 
 func (b *browse) prepend(msg olderMsg) {
 	if msg.err != nil {
-		b.setStatus(true, "reading logs: %v", msg.err)
+		b.setStatus(true, str.BrowseReadingLogs(msg.err))
 	}
 	b.histDone = msg.done
 	b.lines = append(msg.lines, b.lines...)
@@ -225,8 +226,8 @@ func (b *browse) last() *bline {
 	return b.lines[len(b.lines)-1]
 }
 
-func (b *browse) setStatus(isErr bool, format string, args ...any) {
-	b.status, b.statusErr = fmt.Sprintf(format, args...), isErr
+func (b *browse) setStatus(isErr bool, msg string) {
+	b.status, b.statusErr = msg, isErr
 }
 
 func (b *browse) visible() []*bline {
@@ -321,7 +322,7 @@ func (b *browse) mark() {
 	}
 	if b.start == nil || b.end != nil {
 		b.newRange(b.cursor, nil)
-		b.setStatus(false, "range start marked; m again at the end")
+		b.setStatus(false, str.BrowseRangeStart())
 		return
 	}
 	b.end = b.cursor
@@ -339,11 +340,7 @@ func (b *browse) newRange(start, end *bline) {
 }
 
 func (b *browse) rangeStatus() {
-	if n := b.index(b.end) - b.index(b.start) + 1; n == 1 {
-		b.setStatus(false, "1 line in range")
-	} else {
-		b.setStatus(false, "%d lines in range", n)
-	}
+	b.setStatus(false, str.BrowseLinesInRange(b.index(b.end)-b.index(b.start)+1))
 }
 
 // extendTo grows the range to take in l, from whichever end is nearer.
@@ -362,7 +359,7 @@ func (b *browse) extendTo(l *bline) {
 
 func (b *browse) toggleExclude(l *bline) {
 	if l == nil || b.end == nil || !b.inRange(l) {
-		b.setStatus(true, "exclude works inside a marked range")
+		b.setStatus(true, str.BrowseExcludeNeedsRange())
 		return
 	}
 	b.excluded[l] = !b.excluded[l]
@@ -394,7 +391,7 @@ func (b *browse) matches() []*bline {
 func (b *browse) jumpMatch(dir int, includeCursor bool) {
 	ms := b.matches()
 	if len(ms) == 0 {
-		b.setStatus(true, "no matches for %q", b.find)
+		b.setStatus(true, str.BrowseNoMatches(b.find))
 		return
 	}
 	pos := make(map[*bline]int, len(b.lines))
@@ -437,7 +434,7 @@ func (b *browse) matchPos() (int, int) {
 // visible line.
 func (b *browse) gotoDate(day string) tea.Cmd {
 	if _, err := time.Parse("2006-01-02", day); err != nil {
-		b.setStatus(true, "dates look like 2026-09-24")
+		b.setStatus(true, str.BrowseDateFormat())
 		return nil
 	}
 	if (len(b.lines) == 0 || b.lines[0].day > day) && !b.histDone {
@@ -451,7 +448,7 @@ func (b *browse) gotoDate(day string) tea.Cmd {
 			return nil
 		}
 	}
-	b.setStatus(true, "no logs on or after %s", day)
+	b.setStatus(true, str.BrowseNoLogsAfter(day))
 	return nil
 }
 
@@ -474,7 +471,7 @@ func (b *browse) title() string {
 	ch := b.cs.ch
 	when := ""
 	if b.start != nil {
-		when = " — " + b.start.e.Time.Local().Format("Mon Jan 2 2006")
+		when = " — " + b.start.e.Time.Local().Format(str.DateDayYear())
 	}
 	return ch.World + " " + ch.Name + when
 }
@@ -484,38 +481,38 @@ func (b *browse) title() string {
 func (b *browse) save(path string) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		b.setStatus(true, "no file name given")
+		b.setStatus(true, str.BrowseNoFileName())
 		return
 	}
 	path, err := config.ExpandHome(path)
 	if err != nil {
-		b.setStatus(true, "%v", err)
+		b.setStatus(true, err.Error())
 		return
 	}
 	if !filepath.IsAbs(path) {
 		if b.exportDir == "" {
-			b.setStatus(true, "no export_dir configured; give a full path")
+			b.setStatus(true, str.BrowseNoExportDir())
 			return
 		}
 		path = filepath.Join(b.exportDir, path)
 	}
 	sel := b.selection()
 	if len(sel) == 0 {
-		b.setStatus(true, "nothing to export")
+		b.setStatus(true, str.BrowseNothingToExport())
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		b.setStatus(true, "%v", err)
+		b.setStatus(true, err.Error())
 		return
 	}
 	// O_EXCL makes "never overwrite" atomic: no window between checking
 	// for the file and creating it.
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if errors.Is(err, os.ErrExist) {
-		b.setStatus(true, "%s exists; pick another name", filepath.Base(path))
+		b.setStatus(true, str.BrowseFileExists(filepath.Base(path)))
 		return
 	} else if err != nil {
-		b.setStatus(true, "%v", err)
+		b.setStatus(true, err.Error())
 		return
 	}
 	_, err = f.WriteString(scene.Render(b.format, sel, b.title()))
@@ -523,10 +520,10 @@ func (b *browse) save(path string) {
 		err = cerr
 	}
 	if err != nil {
-		b.setStatus(true, "%v", err)
+		b.setStatus(true, err.Error())
 		return
 	}
-	b.setStatus(false, "saved %s", path)
+	b.setStatus(false, str.BrowseSaved(path))
 }
 
 // key handles a key press in browse mode. It returns (cmd, close).
@@ -574,17 +571,17 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		b.pin.SetValue("")
 	case actExport:
 		if len(b.selection()) == 0 {
-			b.setStatus(true, "mark a range with m (only received lines export)")
+			b.setStatus(true, str.BrowseMarkRange())
 			break
 		}
 		b.prompt = promptFormat
 	case actCopy:
 		sel := b.selection()
 		if len(sel) == 0 {
-			b.setStatus(true, "mark a range with m (only received lines export)")
+			b.setStatus(true, str.BrowseMarkRange())
 			break
 		}
-		b.setStatus(false, "copied %d lines", len(sel))
+		b.setStatus(false, str.BrowseCopied(len(sel)))
 		return tea.SetClipboard(scene.Plain(sel)), false
 	}
 	return nil, false
@@ -631,7 +628,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			sel := b.selection()
 			if len(sel) == 0 {
 				b.prompt = promptNone
-				b.setStatus(true, "nothing left to export")
+				b.setStatus(true, str.BrowseNothingLeft())
 				return nil
 			}
 			b.format = f
@@ -678,16 +675,16 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 func (b *browse) promptLabel() string {
 	switch b.prompt {
 	case promptFind:
-		return "find: "
+		return str.BrowseFindPrompt()
 	case promptDate:
-		return "go to date (YYYY-MM-DD): "
+		return str.BrowseDatePrompt()
 	case promptFormat:
 		if b.exportFormat != "" {
-			return "export as (p)lain · (a)nsi · (h)tml · enter " + b.exportFormat + "   esc cancel"
+			return str.BrowseFormatPromptDefault(b.exportFormat)
 		}
-		return "export as (p)lain · (a)nsi · (h)tml   esc cancel"
+		return str.BrowseFormatPrompt()
 	case promptFilename:
-		return "save as: "
+		return str.BrowseSavePrompt()
 	}
 	return ""
 }
@@ -758,20 +755,20 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	b.scrollToCursor(v, bodyH, w)
 
 	// Header row 1.
-	span := "no logs yet"
+	span := str.BrowseNoLogs()
 	if len(b.lines) > 0 {
-		span = dayLabel(b.lines[0].day) + " → today"
+		span = str.BrowseToToday(dayLabel(b.lines[0].day))
 		if !b.histDone {
 			span = "…" + span
 		}
 	}
-	head := bold + "LOG " + b.cs.ch.Name + style.Reset + " · " + span
+	head := bold + str.BrowseLog() + " " + b.cs.ch.Name + style.Reset + str.Separator() + span
 	if b.find != "" {
 		i, n := b.matchPos()
-		head += fmt.Sprintf("   find: %s %d/%d", b.find, i, n)
+		head += "   " + str.BrowseFindStatus(b.find, i, n)
 	}
 	// Header row 2: chips.
-	chipRow := "tags:"
+	chipRow := str.BrowseTags()
 	b.chipSpans = b.chipSpans[:0]
 	for i, t := range b.tagList() {
 		label := t
@@ -796,7 +793,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	ms := b.matches()
 	start := slices.Index(v, b.top)
 	if b.loading && start <= 0 { // the oldest loaded line is at the top
-		rows = append(rows, style.Dim("loading older history…"))
+		rows = append(rows, style.Dim(str.BrowseLoading()))
 		b.rowLines = append(b.rowLines, nil)
 	}
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
@@ -859,7 +856,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		}
 		rows = append(rows, msg)
 	default:
-		rows = append(rows, style.Dim(browseHints))
+		rows = append(rows, style.Dim(str.BrowseHints()))
 	}
 	return rows, curX, curY, showCur
 }
@@ -870,7 +867,7 @@ func dayLabel(day string) string {
 	if err != nil {
 		return day
 	}
-	return t.Format("Mon Jan 2")
+	return t.Format(str.DateDay())
 }
 
 // highlightFind reverses every case-insensitive occurrence of needle.

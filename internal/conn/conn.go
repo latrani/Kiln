@@ -6,13 +6,13 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/telnet"
 )
 
@@ -84,12 +84,12 @@ func tlsConfig(o Options, hostport string) *tls.Config {
 	cfg.InsecureSkipVerify = true
 	cfg.VerifyConnection = func(cs tls.ConnectionState) error {
 		if len(cs.PeerCertificates) == 0 {
-			return errors.New("server sent no certificate")
+			return errors.New(str.ConnNoCertificate())
 		}
 		got := Fingerprint(cs.PeerCertificates[0])
 		pinned, ok, err := o.KnownHosts.Lookup(hostport)
 		if err != nil {
-			return fmt.Errorf("reading known_hosts: %w", err)
+			return str.Wrap(str.ConnReadingKnownHosts(err), err)
 		}
 		if !ok {
 			return o.KnownHosts.Trust(hostport, got)

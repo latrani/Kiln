@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 const spWorld = "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\naliases = [\"Cinder\"]\n"
@@ -380,7 +381,7 @@ func TestPickerClickAddRows(t *testing.T) {
 
 func TestNoCharactersPointsAtPicker(t *testing.T) {
 	h := newHarness(t, nil)
-	if s := h.screen(); !strings.Contains(s, "│"+noCharacters) {
+	if s := h.screen(); !strings.Contains(s, "│"+str.ViewNoCharacters()) {
 		t.Errorf("empty config doesn't say how to add a character:\n%s", s)
 	}
 }

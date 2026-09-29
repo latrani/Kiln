@@ -1,21 +1,15 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
-
-// emptyHint is the input area's prompt while nothing is open.
-const emptyHint = "Nothing open · Enter or Ctrl+O to open a connection"
-
-// noCharacters fills the pane when nothing is configured.
-const noCharacters = "No characters yet · Ctrl+O to add one"
 
 // Minimum usable terminal size.
 const (
@@ -94,7 +88,7 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		if pc := m.chars[key(m.pendingCh[0], m.pendingCh[1])]; pc != nil {
 			name = pc.ch.Name
 		}
-		return hint(fmt.Sprintf("Save password for %s in %s? [Y/n]", name, storeName(m.passwordStore())))
+		return hint(str.ViewSavePassword(name, storeName(m.passwordStore())))
 	case m.picker != nil:
 		f := m.picker.form
 		if m.picker.edit != nil {
@@ -103,41 +97,41 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		rows, row, col := f.rows()
 		return rows, row, col, true
 	case cs == nil && m.idle.Empty():
-		return hint(emptyHint)
+		return hint(str.ViewNothingOpen())
 	case cs == nil:
 		return nil, 0, 0, false
 	case cs.needPW:
 		// Bullets for what's typed, between a label and the keys to press.
 		rows, _, c := cs.in.Render(1<<20, 0, false, true)
-		label := fmt.Sprintf("Password for %s: ", cs.ch.Name)
-		text := style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim("   Enter to log in · Esc to skip")
+		label := str.ViewPasswordLabel(cs.ch.Name)
+		text := style.Dim(label) + strings.TrimPrefix(rows[0], gutterMark) + style.Dim(str.ViewPasswordKeys())
 		return []string{text}, 0, c - gutterWidth + xansi.StringWidth(label), true
 	case !cs.in.Empty() || cs.state == session.Connected:
 		return nil, 0, 0, false
 	case cs.pin != nil:
-		return hint("Certificate changed · /trust to accept it")
+		return hint(str.ViewCertChanged())
 	case cs.state == session.Connecting:
-		return hint("Connecting…")
+		return hint(str.ViewConnecting())
 	case cs.state == session.Failed:
-		return hint("Connection failed · Enter to retry")
+		return hint(str.ViewConnectFailed())
 	}
-	return hint("Disconnected · Enter to connect")
+	return hint(str.ViewDisconnected())
 }
 
 // storeName describes a password_store setting for the save prompt.
 func storeName(store string) string {
 	if store == "file" {
-		return "the password file"
+		return str.ViewStoreFile()
 	}
-	return "the keychain"
+	return str.ViewStoreKeychain()
 }
 
 // pillText is the "jump to live" marker shown while scrolled up.
 func pillText(cs *charState) string {
 	if n := cs.sb.Unseen(); n > 0 {
-		return fmt.Sprintf(" ▼ %d new ", n)
+		return " " + str.ViewPillNew(n) + " "
 	}
-	return " ▼ more "
+	return " " + str.ViewPillMore() + " "
 }
 
 // fit truncates or pads s to exactly w cells.
@@ -157,12 +151,13 @@ func fit(s string, w int) string {
 // it starts with "LOG · N selected". The version and clock are pinned to
 // the right; when space runs out, the left side is cut first.
 func (m *Model) statusLine(w int) string {
+	sep := str.Separator()
 	cs := m.cur()
 	name := ""
 	if cs != nil {
 		name = cs.ch.World + "/" + cs.ch.Name
 		if cs.browse != nil {
-			name = fmt.Sprintf("%sLOG%s · %d selected · %s", bold, style.Reset, len(cs.browse.selection()), name)
+			name = bold + str.BrowseLog() + style.Reset + sep + str.ViewSelected(len(cs.browse.selection())) + sep + name
 		}
 	}
 	var parts []string
@@ -176,24 +171,24 @@ func (m *Model) statusLine(w int) string {
 		}
 		parts = append(parts, msg)
 	} else if cs != nil {
-		parts = append(parts, cs.state.String())
+		parts = append(parts, stateName(cs.state))
 	}
 	right := m.d.Now().Format("15:04")
 	if m.d.Version != "" {
-		right = m.d.Version + " · " + right
+		right = m.d.Version + sep + right
 	}
 	rw := xansi.StringWidth(right)
 	if w <= rw {
 		return fit(right, w)
 	}
-	return fitName(strings.Join(parts, " · "), w-rw-1) + " " + right
+	return fitName(strings.Join(parts, sep), w-rw-1) + " " + right
 }
 
 // View draws the whole screen.
 func (m *Model) View() tea.View {
 	v := tea.View{AltScreen: true, MouseMode: tea.MouseModeAllMotion, ReportFocus: true} // all motion: links light up on hover; focus: notifications
 	if m.width < MinWidth || m.height < MinHeight {
-		v.Content = fmt.Sprintf("Kiln needs at least %dx%d (now %dx%d)", MinWidth, MinHeight, m.width, m.height)
+		v.Content = str.ViewTooSmall(MinWidth, MinHeight, m.width, m.height)
 		return v
 	}
 	l := m.layout()
@@ -209,7 +204,7 @@ func (m *Model) View() tea.View {
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
 		if len(m.allChars()) == 0 {
-			right[0] = style.Dim(noCharacters)
+			right[0] = style.Dim(str.ViewNoCharacters())
 		}
 	} else {
 		cs.sb.SetWidth(l.rw)
@@ -237,9 +232,9 @@ func (m *Model) View() tea.View {
 		}
 		switch r, hint := sv.at(y); {
 		case hint < 0:
-			b.WriteString(style.Dim(fit(fmt.Sprintf("▲ %d more", sv.top), l.sw)))
+			b.WriteString(style.Dim(fit(str.ViewMoreAbove(sv.top), l.sw)))
 		case hint > 0:
-			b.WriteString(style.Dim(fit(fmt.Sprintf("▼ %d more", len(sv.rows)-sv.top-sv.avail), l.sw)))
+			b.WriteString(style.Dim(fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)))
 		case r != nil && m.picker != nil:
 			b.WriteString(m.pickerLine(*r, l.sw))
 		case r != nil:
@@ -255,4 +250,17 @@ func (m *Model) View() tea.View {
 	v.Content = b.String()
 	v.Cursor = cursor
 	return v
+}
+
+// stateName is a connection state as the statusline says it.
+func stateName(s session.State) string {
+	switch s {
+	case session.Connecting:
+		return str.StateConnecting()
+	case session.Connected:
+		return str.StateConnected()
+	case session.Failed:
+		return str.StateFailed()
+	}
+	return str.StateDisconnected()
 }

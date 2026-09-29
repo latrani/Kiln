@@ -31,26 +31,21 @@ import (
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/ui"
 	"github.com/latrani/Kiln/internal/version"
 )
 
-const usage = `usage:
-  kiln
-  kiln tail <world> <char>
-  kiln passwd <world> <char>
-  kiln trust <world> <fingerprint>`
-
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "kiln:", err)
+		fmt.Fprintln(os.Stderr, str.CliError(err))
 		os.Exit(1)
 	}
 }
 
 func run(args []string) error {
 	if len(args) != 0 && len(args) != 3 {
-		return errors.New(usage)
+		return errors.New(str.CliUsage())
 	}
 	cfgDir, err := config.Dir()
 	if err != nil {
@@ -74,17 +69,17 @@ func run(args []string) error {
 	case "tail":
 		ch, ok := cfg.Find(args[1], args[2])
 		if !ok {
-			return fmt.Errorf("no character %s/%s (define it in %s)", args[1], args[2], filepath.Join(cfgDir, "worlds", args[1]+".toml"))
+			return errors.New(str.CliNoCharacterDefine(args[1], args[2], filepath.Join(cfgDir, "worlds", args[1]+".toml")))
 		}
 		return tail(ch, dataDir, cfg)
 	case "passwd":
 		if _, ok := cfg.Find(args[1], args[2]); !ok {
-			return fmt.Errorf("no character %s/%s", args[1], args[2])
+			return errors.New(str.CliNoCharacter(args[1], args[2]))
 		}
 		if cfg.PasswordStore == "none" {
-			return errors.New(`password_store is "none" in config.toml; set it to "keychain" or "file" to save passwords`)
+			return errors.New(str.CliStoreNone())
 		}
-		fmt.Fprintf(os.Stderr, "password for %s/%s: ", args[1], args[2])
+		fmt.Fprint(os.Stderr, str.CliPasswordPrompt(args[1], args[2]))
 		pw, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Fprintln(os.Stderr)
 		if err != nil {
@@ -94,7 +89,7 @@ func run(args []string) error {
 	case "trust":
 		w := findWorld(cfg, args[1])
 		if w == nil {
-			return fmt.Errorf("no world %s", args[1])
+			return errors.New(str.CliNoWorld(args[1]))
 		}
 		if err := conn.ValidateFingerprint(args[2]); err != nil {
 			return err
@@ -103,7 +98,7 @@ func run(args []string) error {
 		hp := ch.Host + ":" + strconv.Itoa(ch.Port)
 		return knownHosts(dataDir).Trust(hp, args[2])
 	}
-	return errors.New(usage)
+	return errors.New(str.CliUsage())
 }
 
 func findWorld(cfg *config.Config, id string) *config.World {
@@ -158,7 +153,7 @@ func tail(ch config.Character, dataDir string, cfg *config.Config) error {
 			if errors.As(err, &logErr) {
 				fmt.Fprintln(os.Stderr, "\x1b[31m*", err, "\x1b[0m")
 			} else if err != nil {
-				fmt.Fprintln(os.Stderr, "\x1b[2m* not sent:", err, "\x1b[0m")
+				fmt.Fprintln(os.Stderr, "\x1b[2m*", str.CliNotSent(err), "\x1b[0m")
 				continue
 			}
 			fmt.Println(render(e, rules.Result{}))
@@ -177,11 +172,11 @@ func tail(ch config.Character, dataDir string, cfg *config.Config) error {
 			}
 			fmt.Println(render(ev.Entry, res))
 		case session.EventLogError:
-			fmt.Fprintln(os.Stderr, "\x1b[31m* log write failed:", ev.Err, "\x1b[0m")
+			fmt.Fprintln(os.Stderr, "\x1b[31m*", str.CliLogWriteFailed(ev.Err), "\x1b[0m")
 		case session.EventState:
 			var pin *conn.PinMismatchError
 			if errors.As(ev.Err, &pin) {
-				fmt.Fprintf(os.Stderr, "* if you expected this, run: kiln trust %s %s\n", ch.World, pin.Got)
+				fmt.Fprintln(os.Stderr, "*", str.CliTrustHint(ch.World, pin.Got))
 				stop()
 			}
 		}
@@ -256,9 +251,9 @@ func openURL(url string) error {
 	case "darwin":
 		cmd = exec.Command("open", url)
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url) //str:ok
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.Command("xdg-open", url) //str:ok
 	}
 	if err := cmd.Start(); err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func TestStartupOpensOnlyAutoconnect(t *testing.T) {
@@ -173,7 +174,7 @@ func TestOpeningShowsConnectingNotX(t *testing.T) {
 
 func TestEmptyState(t *testing.T) {
 	h := newHarness(t, map[string]string{"sp": spWorld}) // nothing autoconnects
-	if s := h.screen(); !strings.Contains(s, "│"+emptyHint) {
+	if s := h.screen(); !strings.Contains(s, "│"+str.ViewNothingOpen()) {
 		t.Fatalf("no empty-state prompt:\n%s", s)
 	}
 	for _, k := range []rune{tea.KeyUp, tea.KeyDown, tea.KeyPgUp, tea.KeyPgDown, tea.KeyEscape} {
@@ -207,7 +208,7 @@ func TestClosingLastCharacterShowsEmptyState(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("/close")
 	h.enter()
-	if s := h.screen(); !strings.Contains(s, "│"+emptyHint) || strings.Contains(s, "Kit") {
+	if s := h.screen(); !strings.Contains(s, "│"+str.ViewNothingOpen()) || strings.Contains(s, "Kit") {
 		t.Errorf("screen:\n%s", s)
 	}
 }

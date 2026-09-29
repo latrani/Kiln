@@ -5,14 +5,18 @@
 package pathfmt
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // verbs are the strftime verbs a template may use, as Go layouts.
+//
+//str:ok
 var verbs = map[byte]string{
 	'Y': "2006", // year
 	'y': "06",   // year, two digits
@@ -36,7 +40,7 @@ var varRE = regexp.MustCompile(`\{([^{}]*)\}`)
 func Check(template string, vars []string) error {
 	for _, m := range varRE.FindAllStringSubmatch(template, -1) {
 		if !slices.Contains(vars, m[1]) {
-			return fmt.Errorf("unknown placeholder {%s} (use {%s})", m[1], strings.Join(vars, "}, {"))
+			return errors.New(str.PathfmtUnknownPlaceholder(m[1], "{"+strings.Join(vars, "}, {")+"}"))
 		}
 	}
 	for i := 0; i < len(template); i++ {
@@ -44,10 +48,10 @@ func Check(template string, vars []string) error {
 			continue
 		}
 		if i+1 == len(template) {
-			return fmt.Errorf("%% at the end (use %%%% for a %%)")
+			return errors.New(str.PathfmtTrailingPercent())
 		}
 		if c := template[i+1]; c != '%' && verbs[c] == "" {
-			return fmt.Errorf("unknown time code %%%c", c)
+			return errors.New(str.PathfmtUnknownTimeCode(rune(c)))
 		}
 		i++
 	}

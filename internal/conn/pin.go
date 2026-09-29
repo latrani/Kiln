@@ -12,24 +12,26 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Fingerprint is the pin for a certificate: "sha256:<hex>".
 func Fingerprint(cert *x509.Certificate) string {
 	sum := sha256.Sum256(cert.Raw)
-	return "sha256:" + hex.EncodeToString(sum[:])
+	return "sha256:" + hex.EncodeToString(sum[:]) //str:ok
 }
 
 // ValidateFingerprint checks that fp has the form Fingerprint produces,
 // "sha256:" and 64 lowercase hex digits, so a typo is never pinned.
 func ValidateFingerprint(fp string) error {
-	hexPart, ok := strings.CutPrefix(fp, "sha256:")
+	hexPart, ok := strings.CutPrefix(fp, "sha256:") //str:ok
 	if ok && len(hexPart) == 2*sha256.Size && strings.ToLower(hexPart) == hexPart {
 		if _, err := hex.DecodeString(hexPart); err == nil {
 			return nil
 		}
 	}
-	return fmt.Errorf("malformed fingerprint %q: want sha256: followed by 64 lowercase hex digits", fp)
+	return errors.New(str.ConnBadFingerprint(fp))
 }
 
 // PinMismatchError means a server presented a different certificate than
@@ -41,7 +43,7 @@ type PinMismatchError struct {
 }
 
 func (e *PinMismatchError) Error() string {
-	return fmt.Sprintf("certificate for %s changed: pinned %s, got %s", e.HostPort, e.Pinned, e.Got)
+	return str.ConnCertChanged(e.HostPort, e.Pinned, e.Got)
 }
 
 // KnownHosts is a file of "host:port fingerprint" lines.

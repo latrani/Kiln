@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // State is a session's connection state.
@@ -99,12 +99,12 @@ func DefaultBackoff(attempt int) time.Duration {
 }
 
 // ErrNotConnected is returned by Send while no connection is open.
-var ErrNotConnected = errors.New("not connected")
+var ErrNotConnected = errors.New(str.SessionNotConnected())
 
 // LogError is returned by Send when the line was sent but could not be logged.
 type LogError struct{ Err error }
 
-func (e *LogError) Error() string { return "sent, but not logged: " + e.Err.Error() }
+func (e *LogError) Error() string { return str.SessionSentNotLogged(e.Err) }
 func (e *LogError) Unwrap() error { return e.Err }
 
 // Session is one character's connection lifecycle.
@@ -155,7 +155,7 @@ func (s *Session) SetChar(ch config.Character) {
 
 // DefaultLoginPattern is used to spot typed passwords when a character
 // has no login template (or one without {password}).
-const DefaultLoginPattern = "connect {name} {password}"
+const DefaultLoginPattern = "connect {name} {password}" //str:ok
 
 // loginPattern turns a login template like "connect {name} {password}"
 // into a regexp whose first group captures the password in a typed line.
@@ -328,7 +328,7 @@ func (s *Session) Run(ctx context.Context) {
 	attempt := 0
 	for ctx.Err() == nil {
 		if s.takeHalt() {
-			s.sys("disconnected (quit)")
+			s.sys(str.SessionQuit())
 			s.state(Disconnected, nil)
 			if !s.stayDown(ctx) {
 				return
@@ -342,7 +342,7 @@ func (s *Session) Run(ctx context.Context) {
 				return
 			}
 			if permanent(err) {
-				s.sys("connect failed: " + err.Error())
+				s.sys(str.SessionConnectFailed(err))
 				s.state(Failed, err)
 				if !s.stayDown(ctx) {
 					return
@@ -350,7 +350,7 @@ func (s *Session) Run(ctx context.Context) {
 				continue
 			}
 			if !s.Char().Reconnect {
-				s.sys("connect failed: " + err.Error())
+				s.sys(str.SessionConnectFailed(err))
 				s.state(Disconnected, err)
 				if !s.stayDown(ctx) {
 					return
@@ -359,7 +359,7 @@ func (s *Session) Run(ctx context.Context) {
 			}
 			delay := s.o.Backoff(attempt)
 			attempt++
-			s.sys(fmt.Sprintf("connect failed: %v; retrying in %s", err, delay))
+			s.sys(str.SessionConnectFailedRetrying(err, delay))
 			s.state(Disconnected, err)
 			if !s.wait(ctx, delay) {
 				return
@@ -371,7 +371,7 @@ func (s *Session) Run(ctx context.Context) {
 			c.Close()
 			for range c.Lines() {
 			}
-			s.sys("disconnected (quit)")
+			s.sys(str.SessionQuit())
 			s.state(Disconnected, nil)
 			if !s.stayDown(ctx) {
 				return
@@ -384,7 +384,7 @@ func (s *Session) Run(ctx context.Context) {
 		if l, ok := s.o.Log.(sessioner); ok {
 			l.NewSession()
 		}
-		s.sys(fmt.Sprintf("connected to %s:%d", ch.Host, ch.Port))
+		s.sys(str.SessionConnected(ch.Host, ch.Port))
 		s.state(Connected, nil)
 		s.login(c)
 		s.pump(ctx, c)
@@ -398,7 +398,7 @@ func (s *Session) Run(ctx context.Context) {
 		s.quitting = false
 		s.mu.Unlock()
 		if quit {
-			s.sys("disconnected (quit)")
+			s.sys(str.SessionQuit())
 			s.state(Disconnected, nil)
 			if !s.stayDown(ctx) {
 				return
@@ -406,12 +406,12 @@ func (s *Session) Run(ctx context.Context) {
 			continue
 		}
 
-		reason := "closed by server"
+		reason := str.SessionClosedByServer()
 		if err := c.Err(); err != nil {
 			reason = err.Error()
 		}
 		if !s.Char().Reconnect {
-			s.sys(fmt.Sprintf("disconnected (%s)", reason))
+			s.sys(str.SessionDisconnected(reason))
 			s.state(Disconnected, c.Err())
 			if !s.stayDown(ctx) {
 				return
@@ -420,7 +420,7 @@ func (s *Session) Run(ctx context.Context) {
 		}
 		delay := s.o.Backoff(attempt)
 		attempt++
-		s.sys(fmt.Sprintf("disconnected (%s); retrying in %s", reason, delay))
+		s.sys(str.SessionDisconnectedRetrying(reason, delay))
 		s.state(Disconnected, c.Err())
 		if !s.wait(ctx, delay) {
 			return
@@ -467,7 +467,7 @@ func (s *Session) login(c LineConn) {
 			pw, err = s.o.Password()
 		}
 		if s.o.Password == nil || err != nil || pw == "" {
-			s.sys(fmt.Sprintf("no saved password for %s/%s", ch.World, ch.ID))
+			s.sys(str.SessionNoSavedPassword(ch.World, ch.ID))
 			s.emit(Event{Kind: EventNeedPassword})
 			return
 		}
