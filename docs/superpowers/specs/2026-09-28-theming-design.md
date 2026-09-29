@@ -30,10 +30,9 @@ Kiln draws can be any color.**
 
 ## Three layers, joined by tags
 
-1. **What a line is: classify.** Classify rules turn patterns into tags,
-   as they do now. A rule can also say `span = true`: its tags then style
-   only the matched text, not the whole line. That takes over from
-   highlight's `scope = "match"`.
+1. **What a line is: classify.** Classify rules tag lines, as they do
+   now. A tag also remembers where in the line its pattern matched, which
+   a tag style can use (`scope`, below).
 2. **How it looks: the theme.** A palette, styles for the chrome's roles,
    and styles for tags.
 3. **How it behaves: attention and quiet.** These become tag lists,
@@ -78,7 +77,14 @@ panel  = "#1f2029"
 ```
 
 - A style has `fg`, `bg`, `bold`, `italic` and `underline`. A color is a
-  palette name or `#rrggbb`. The default theme uses free (24-bit) colors.
+  palette name or `#rrggbb`.
+- A tag style can also say `scope = "match"` to style only the text its
+  tag's pattern matched, instead of the whole line (`scope = "line"`, the
+  default). That's a look decision, so it lives with the style, not the
+  classify rule, and it suits some tags and not others: `highlight` wants
+  just the word, while `page/in`'s pattern only matches the `Mira pages:`
+  prefix, so it wants the whole line. It takes over from `[[highlight]]`'s
+  `scope`. The default theme uses free (24-bit) colors.
   Terminals with fewer colors get them downsampled by `colorprofile`,
   already a dependency through Bubble Tea.
 - Roles fall back up their dots (`sidebar.active` → `sidebar`), and tags
@@ -189,7 +195,7 @@ the modal.
    with tests pinning it, so the plumbing lands without a visual change.
 2. **The new default look.** Indi's redesign, on top of phase 1.
 3. **Tags, behavior and migration.** `[tags]`, world and character theme
-   tables, `span`,
+   tables, `scope`,
    the attention/quiet lists, the `[[highlight]]` shim, the fuzzball pack,
    and `/highlight`.
 4. **Choosing themes.** The inheritable `theme` setting, light and dark
