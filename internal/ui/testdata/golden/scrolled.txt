@@ -1,48 +1,48 @@
 fm              │line 1 https://kiln.test/1                                     
-  @0-15 bold; @16-16 faint; @24-42 underline
+  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
  Kit            │line 2 https://kiln.test/2                                     
-  @0-15 reverse; @16-16 faint; @24-42 underline
-+ Connection    │line 3 https://kiln.test/3                                     
-  @0-16 faint; @24-42 underline
+  @0-15 reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
+ + Connection   │line 3 https://kiln.test/3                                     
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 4 https://kiln.test/4                                     
-  @16-16 faint; @24-42 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 5 https://kiln.test/5                                     
-  @16-16 faint; @24-42 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 6 https://kiln.test/6                                     
-  @16-16 faint; @24-42 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 7 https://kiln.test/7                                     
-  @16-16 faint; @24-42 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 8 https://kiln.test/8                                     
-  @16-16 faint; @24-42 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 9 https://kiln.test/9                                     
-  @16-16 faint; @24-42 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 10 https://kiln.test/10                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 11 https://kiln.test/11                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 12 https://kiln.test/12                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 13 https://kiln.test/13                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 14 https://kiln.test/14                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 15 https://kiln.test/15                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 16 https://kiln.test/16                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 17 https://kiln.test/17                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 18 https://kiln.test/18                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 19 https://kiln.test/19                                   
-  @16-16 faint; @25-44 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline
                 │line 20 https://kiln.test/20                            ▼ more 
-  @16-16 faint; @25-44 underline,fg=ansi12; @72-79 reverse
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @25-44 underline,fg=ansi12; @72-79 reverse
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#cdc1a2
                 │›                                                              
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │fm/Kit · connected                                        21:16
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1

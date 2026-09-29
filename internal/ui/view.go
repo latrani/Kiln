@@ -31,8 +31,11 @@ type layout struct {
 }
 
 // SidebarWidth is the sidebar's width on a screen w columns wide: a
-// fifth of it, at least wide enough for "+ Open connection", at most 22.
-func SidebarWidth(w int) int { return min(22, max(xansi.StringWidth(addLabel), w/5)) }
+// fifth of it, at least wide enough for the add chips, at most 22.
+func SidebarWidth(w int) int {
+	chips := 2 + max(xansi.StringWidth(addLabel), 1+xansi.StringWidth(addCharLabel), xansi.StringWidth(addWorldLabel))
+	return min(22, max(chips, w/5))
+}
 
 func (m *Model) layout() layout {
 	l := layout{sw: SidebarWidth(m.width)}
@@ -183,6 +186,10 @@ func (m *Model) statusLine(w int) string {
 	return fitName(strings.Join(parts, sep), w-rw-1) + " " + right
 }
 
+// chip draws something you can click: its label with a space either
+// side, in r.
+func chip(r theme.Role, label string) string { return theme.Paint(r, " "+label+" ") }
+
 // modal reports whether the picker or an editor owns the input area; the
 // scrollback is then a backdrop.
 func (m *Model) modal() bool { return m.picker != nil }
@@ -225,15 +232,24 @@ func (m *Model) View() tea.View {
 		right = append(right, rows...)
 	}
 	if cs == nil || cs.browse == nil {
-		rule := theme.Paint(theme.Rule, strings.Repeat("─", l.rw))
-		right = append(right, rule)
-		for _, r := range l.inRows {
-			right = append(right, theme.Fill(theme.Input, r, l.rw))
+		// Each rule takes the color of the area below it.
+		area, top := theme.Input, theme.RuleInput
+		if m.modal() {
+			area, top = theme.Form, theme.RuleForm
 		}
-		right = append(right, rule, theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
+		rule := strings.Repeat("─", l.rw)
+		right = append(right, theme.Paint(top, rule))
+		for _, r := range l.inRows {
+			right = append(right, theme.Fill(area, r, l.rw))
+		}
+		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
 	}
 
+	side := theme.Sidebar
+	if m.picker != nil {
+		side = theme.Picker
+	}
 	sv := m.sidebarView()
 	var b strings.Builder
 	for y := 0; y < m.height; y++ {
@@ -242,15 +258,15 @@ func (m *Model) View() tea.View {
 		}
 		switch r, hint := sv.at(y); {
 		case hint < 0:
-			b.WriteString(theme.Fill(theme.Sidebar, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
+			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
 		case hint > 0:
-			b.WriteString(theme.Fill(theme.Sidebar, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)), l.sw))
+			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)), l.sw))
 		case r != nil && m.picker != nil:
-			b.WriteString(theme.Fill(theme.Sidebar, m.pickerLine(*r, l.sw), l.sw))
+			b.WriteString(theme.Fill(side, m.pickerLine(*r, l.sw), l.sw))
 		case r != nil:
-			b.WriteString(theme.Fill(theme.Sidebar, m.sidebarLine(*r, l.sw), l.sw))
+			b.WriteString(theme.Fill(side, m.sidebarLine(*r, l.sw), l.sw))
 		default:
-			b.WriteString(theme.Fill(theme.Sidebar, "", l.sw))
+			b.WriteString(theme.Fill(side, "", l.sw))
 		}
 		b.WriteString(theme.Paint(theme.Divider, "│"))
 		if y < len(right) {

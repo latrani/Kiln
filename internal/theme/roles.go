@@ -20,14 +20,17 @@ const (
 	SidebarAdd          Role = "sidebar.add"
 	SidebarMore         Role = "sidebar.more"
 
-	Picker              Role = "picker"
+	Picker              Role = "picker" // area, in place of sidebar while it's open
 	PickerWorld         Role = "picker.world"
 	PickerWorldSelected Role = "picker.world.selected"
 	PickerSelected      Role = "picker.selected"
 	PickerAdd           Role = "picker.add"
 
-	Divider Role = "divider"
-	Rule    Role = "rule"
+	Divider    Role = "divider"
+	Rule       Role = "rule"
+	RuleInput  Role = "rule.input"  // above the input area
+	RuleForm   Role = "rule.form"   // above it while a form is up
+	RuleStatus Role = "rule.status" // above the statusline
 
 	Scrollback           Role = "scrollback" // never an area: server text keeps the terminal background
 	ScrollbackDay        Role = "scrollback.day"
@@ -52,12 +55,13 @@ const (
 	StatusError Role = "status.error"
 	StatusClock Role = "status.clock"
 
-	Form      Role = "form"
-	FormLabel Role = "form.label"
-	FormHint  Role = "form.hint"
-	FormError Role = "form.error"
-	FormFocus Role = "form.focus"
-	FormTitle Role = "form.title"
+	Form       Role = "form" // area, in place of input while it's up
+	FormLabel  Role = "form.label"
+	FormHint   Role = "form.hint"
+	FormError  Role = "form.error"
+	FormFocus  Role = "form.focus"
+	FormTitle  Role = "form.title"
+	FormButton Role = "form.button"
 
 	Log         Role = "log"
 	LogHeader   Role = "log.header" // area
@@ -83,12 +87,12 @@ var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarAttention,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarMore,
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd,
-	Divider, Rule,
+	Divider, Rule, RuleInput, RuleForm, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	Status, StatusLog, StatusError, StatusClock,
-	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle,
+	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton,
 	Log, LogHeader, LogTitle, LogChip, LogChipOn, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogError,
 	Export,

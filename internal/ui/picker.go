@@ -273,26 +273,27 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 // pickerLine draws one picker row: a world, a character or an add row
 // indented under it, or the add-world row; highlighted when selected.
 func (m *Model) pickerLine(r sidebarRow, w int) string {
-	var line string
+	sel := selKey(r) == m.picker.sel
 	switch r.kind {
 	case rowWorld:
-		if selKey(r) == m.picker.sel {
+		if sel {
 			return theme.Paint(theme.PickerWorldSelected, fitName(r.world, w))
 		}
 		return theme.Paint(theme.PickerWorld, fitName(r.world, w))
-	case rowAddChar:
-		line = fitName(" "+addCharLabel, w)
-	case rowAddWorld:
-		line = fitName(addWorldLabel, w)
-	default:
-		ch, _ := m.find(r.char)
-		line = fitName(" "+ch.Name, w)
+	case rowAddChar, rowAddWorld:
+		label, role, indent := addWorldLabel, theme.PickerAdd, ""
+		if r.kind == rowAddChar {
+			label, indent = addCharLabel, " "
+		}
+		if sel {
+			role = theme.PickerSelected
+		}
+		return fit(indent+chip(role, label), w)
 	}
-	switch {
-	case selKey(r) == m.picker.sel:
+	ch, _ := m.find(r.char)
+	line := fitName(" "+ch.Name, w)
+	if sel {
 		return theme.Paint(theme.PickerSelected, line)
-	case r.kind != rowChar:
-		return theme.Paint(theme.PickerAdd, line)
 	}
 	return line
 }

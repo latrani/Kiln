@@ -8,7 +8,7 @@ import (
 )
 
 func TestFillUnstyledIsPlainFit(t *testing.T) {
-	b := Builtin()
+	b := mustBuild(t, "")
 	if got := b.Fill(Sidebar, "abc", 6); got != "abc   " {
 		t.Errorf("Fill = %q", got)
 	}

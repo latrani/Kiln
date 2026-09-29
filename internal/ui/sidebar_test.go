@@ -237,7 +237,20 @@ func TestSidebarIndent(t *testing.T) {
 		t.Errorf("disconnected row = %q, want the × one space in, pushing the name over", got)
 	}
 	h.press('o', tea.ModCtrl)
-	if got := sideRow(h, 1); !strings.HasPrefix(got, " "+addCharLabel) {
-		t.Errorf("picker row = %q, want one space in too", got)
+	if got := sideRow(h, 1); !strings.HasPrefix(got, "  "+addCharLabel+" ") {
+		t.Errorf("picker row = %q, want its chip one space in too", got)
+	}
+}
+
+// At the narrowest screen the add chips still fit whole.
+func TestAddChipsFitNarrowSidebar(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.Update(tea.WindowSizeMsg{Width: MinWidth, Height: 24})
+	if s := h.screen(); !strings.Contains(s, " "+addLabel+" ") {
+		t.Errorf("the %s chip is cut:\n%s", addLabel, s)
+	}
+	h.press('o', tea.ModCtrl)
+	if s := h.screen(); !strings.Contains(s, "  "+addCharLabel+" ") {
+		t.Errorf("the %s chip is cut:\n%s", addCharLabel, s)
 	}
 }

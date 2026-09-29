@@ -311,11 +311,10 @@ func (f *form) fieldRow(i, w int) (text string, col int) {
 		return t, 0
 	}
 	if fl.button {
-		b := "[ " + fl.label + " ]"
 		if i == f.focus {
-			b = theme.Paint(theme.FormFocus, b)
+			return chip(theme.FormFocus, fl.label), 1
 		}
-		return b, 2
+		return chip(theme.FormButton, fl.label), 1
 	}
 	label := fl.label + ": " + strings.Repeat(" ", w-xansi.StringWidth(fl.label))
 	if fl.choices != nil {

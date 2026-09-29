@@ -1,48 +1,48 @@
 fm              │                                                               
-  @0-15 bold; @16-16 faint
+  @0-15 bold,fg=#e3bda0; @16-16 fg=#a2cdcc
  Rook           │                                                               
-  @0-15 reverse; @16-16 faint
- + Character    │                                                               
-  @0-16 faint
-+ World         │                                                               
-  @0-16 faint
+  @0-15 reverse,fg=#e3bda0; @16-16 fg=#a2cdcc
+  + Character   │                                                               
+  @0-0 fg=#e3bda0; @1-13 bold,fg=#edd3c0,bg=#3d200b; @14-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+ + World        │                                                               
+  @0-8 bold,fg=#edd3c0,bg=#3d200b; @9-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │* connected to muck.test:8888                                  
-  @16-45 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-45 faint
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#cdb5a2
                 │Editing fm                                                     
-  @16-16 faint; @17-26 bold
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-26 bold,fg=#e3bda0; @27-79 fg=#e3bda0
                 │Host: muck.test                                                
-  @16-22 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-22 fg=#b19c8b; @23-79 fg=#e3bda0
                 │Port: 8888                                                     
-  @16-22 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-22 fg=#b19c8b; @23-79 fg=#e3bda0
                 │TLS:  [x]                                                      
-  @16-22 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-22 fg=#b19c8b; @23-79 fg=#e3bda0
                 │► More settings                                                
-  @16-16 faint
-                │[ Save ]                                                       
-  @16-16 faint
-                │[ Delete world ]  · a port is a number                         
-  @16-16 faint; @33-36 faint; @37-54 fg=ansi1
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#e3bda0
+                │ Save                                                          
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-22 bold,fg=#edd3c0,bg=#3d200b; @23-79 fg=#e3bda0
+                │ Delete world   · a port is a number                           
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-30 bold,fg=#edd3c0,bg=#3d200b; @31-34 fg=#b19c8b; @35-52 fg=ansi1; @53-79 fg=#e3bda0
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │fm/Kit · connected                                        21:15
-  @16-16 faint
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1

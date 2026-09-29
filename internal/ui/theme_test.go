@@ -124,16 +124,15 @@ func TestFormUsesTheme(t *testing.T) {
 	}
 }
 
-func TestStatusAndRulesUseTheme(t *testing.T) {
+func TestStatusUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	th := withTheme(t, `[ui]
 status = { bg = "#010203" }
 "status.error" = { fg = "#0a0b0c" }
-"status.clock" = { fg = "#0d0e0f" }
-rule = { fg = "#101112" }`)
+"status.clock" = { fg = "#0d0e0f" }`)
 	h.m.setStatus(true, "x")
 	s := h.drawn()
-	for _, role := range []theme.Role{theme.Status, theme.StatusError, theme.StatusClock, theme.Rule} {
+	for _, role := range []theme.Role{theme.Status, theme.StatusError, theme.StatusClock} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("screen doesn't draw %s", role)
 		}
@@ -405,5 +404,76 @@ func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
 	}
 	if n < 2 {
 		t.Errorf("dividers = %d, want the preload's and the batch's", n)
+	}
+}
+
+// Each rule takes the color of the area below it: the input's or, while
+// a form is up, the form's; the lower one, the statusline's.
+func TestRulesTakeTheirAreas(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	th := withTheme(t, `[ui]
+"rule.input" = { fg = "#0a0b0c" }
+"rule.form" = { fg = "#0d0e0f" }
+"rule.status" = { fg = "#101112" }`)
+	rules := func() (top, bottom string) {
+		l := h.m.layout()
+		rows := strings.Split(h.drawn(), "\n")
+		return rows[l.sbH], rows[l.sbH+len(l.inRows)+1]
+	}
+	top, bottom := rules()
+	if !strings.Contains(top, th.SGR(theme.RuleInput)) || !strings.Contains(bottom, th.SGR(theme.RuleStatus)) {
+		t.Errorf("rules: top %q, bottom %q", top, bottom)
+	}
+	h.typeText("/edit world")
+	h.enter()
+	top, bottom = rules()
+	if !strings.Contains(top, th.SGR(theme.RuleForm)) || !strings.Contains(bottom, th.SGR(theme.RuleStatus)) {
+		t.Errorf("rules with a form up: top %q, bottom %q", top, bottom)
+	}
+}
+
+// While the picker is open the sidebar is the picker's area, and a form
+// fills the input area with the form's.
+func TestPickerAndFormAreAreas(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	th := withTheme(t, `[ui]
+sidebar = { bg = "#010203" }
+picker = { bg = "#040506" }
+form = { bg = "#070809" }`)
+	h.press('o', tea.ModCtrl)
+	rows := strings.Split(h.drawn(), "\n")
+	for y, r := range rows {
+		if !strings.HasPrefix(r, th.SGR(theme.Picker)) {
+			t.Fatalf("sidebar row %d isn't the picker's area: %q", y, r)
+		}
+	}
+	l := h.m.layout()
+	_, in, _ := strings.Cut(rows[l.sbH+1], "│")
+	if in = strings.TrimPrefix(in, theme.Reset); !strings.HasPrefix(in, th.SGR(theme.Form)) {
+		t.Errorf("the picker's filter row isn't the form's area: %q", in)
+	}
+}
+
+// Everything you can click is a chip: its label with a space either
+// side, in its role.
+func TestClickablesAreChips(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	th := withTheme(t, `[ui]
+"sidebar.add" = { bg = "#010203" }
+"picker.add" = { bg = "#040506" }
+"form.button" = { bg = "#070809" }`)
+	chip := func(r theme.Role, label string) string { return th.Paint(r, " "+label+" ") }
+	if s := h.drawn(); !strings.Contains(s, chip(theme.SidebarAdd, addLabel)) {
+		t.Errorf("no %s chip:\n%q", addLabel, s)
+	}
+	h.press('o', tea.ModCtrl)
+	if s := h.drawn(); !strings.Contains(s, chip(theme.PickerAdd, addWorldLabel)) {
+		t.Errorf("no %s chip:\n%q", addWorldLabel, s)
+	}
+	h.press(tea.KeyEsc, 0)
+	h.typeText("/edit world")
+	h.enter()
+	if s := h.drawn(); !strings.Contains(s, chip(theme.FormButton, saveLabel)) {
+		t.Errorf("no %s chip:\n%q", saveLabel, s)
 	}
 }

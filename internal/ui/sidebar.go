@@ -245,7 +245,7 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	case rowWorld:
 		return theme.Paint(theme.SidebarWorld, fitName(r.world, w))
 	case rowAdd:
-		return theme.Paint(theme.SidebarAdd, fitName(addLabel, w))
+		return fit(chip(theme.SidebarAdd, addLabel), w)
 	}
 	cs := m.chars[r.char]
 	// A connected character's name sits one space in, under its world; a

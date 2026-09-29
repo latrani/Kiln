@@ -159,7 +159,7 @@ func TestFormStackedRows(t *testing.T) {
 		"Host:  muck.example.org",
 		"Port:  ",
 		"TLS:   [ ]",
-		"[ Save ] " + str.Separator() + str.FormNextField(str.EditorHint()),
+		" Save  " + str.Separator() + str.FormNextField(str.EditorHint()),
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("rows =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -173,7 +173,7 @@ func TestFormStackedRows(t *testing.T) {
 		t.Errorf("toggle cursor = %d,%d", row, col)
 	}
 	f.key(tea.KeyPressMsg{Code: tea.KeyDown})
-	if _, row, col = f.rows(); row != 4 || col != len("[ ") {
+	if _, row, col = f.rows(); row != 4 || col != len(" ") {
 		t.Errorf("button cursor = %d,%d", row, col)
 	}
 }

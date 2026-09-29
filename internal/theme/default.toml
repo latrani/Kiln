@@ -1,24 +1,55 @@
 # Kiln's built-in theme. To change the look, make themes/default.toml in
 # Kiln's config folder with extends = "default", and set only the roles
-# you want different. Colors are "#rrggbb", a [palette] name, or a
-# terminal color (red, bright-blue, ...). Styles take fg, bg, bold, faint,
-# italic, underline and reverse. A role inherits from the role before its
-# last dot: link.hover starts from link.
+# you want different. Colors are "#rrggbb", a [palette] name, a terminal
+# color (red, bright-blue, ...), or "default" for the terminal's own.
+# Styles take fg, bg, bold, faint, italic, underline and reverse. A role
+# inherits from the role before its last dot: link.hover starts from link.
+#
+# Each part of the screen has a glaze: celadon for the sidebar, cobalt
+# for the statusline, gold for the input and kaki for forms. Its lines
+# and text are pale tints of it; its buttons sit on a deep one.
+
+[palette]
+celadon-deep   = "#0b3d3b"
+celadon-mid    = "#8bb1b0"
+celadon-line   = "#a2cdcc"
+celadon-ink    = "#a0e3e1"
+celadon-bright = "#c0edeb"
+
+cobalt-deep   = "#0b1b3d"
+cobalt-mid    = "#8b98b1"
+cobalt-line   = "#a2b0cd"
+cobalt-ink    = "#a0b7e3"
+cobalt-bright = "#c0cfed"
+
+gold-mid  = "#b1a68b"
+gold-line = "#cdc1a2"
+gold-ink  = "#e3d0a0"
+
+kaki-deep   = "#3d200b"
+kaki-mid    = "#b19c8b"
+kaki-line   = "#cdb5a2"
+kaki-ink    = "#e3bda0"
+kaki-bright = "#edd3c0"
 
 [ui]
+"sidebar"           = { fg = "celadon-ink" }
 "sidebar.world"     = { bold = true }
 "sidebar.active"    = { reverse = true }
 "sidebar.attention" = { fg = "#ffd166", bold = true }
-"sidebar.add"       = { faint = true }
-"sidebar.more"      = { faint = true }
+"sidebar.add"       = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
+"sidebar.more"      = { fg = "celadon-mid" }
 
+"picker"                = { fg = "kaki-ink" }
 "picker.world"          = { bold = true }
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
-"picker.add"            = { faint = true }
+"picker.add"            = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
 
-"divider" = { faint = true }
-"rule"    = { faint = true }
+"divider"     = { fg = "celadon-line" }
+"rule.input"  = { fg = "gold-line" }
+"rule.form"   = { fg = "kaki-line" }
+"rule.status" = { fg = "cobalt-line" }
 
 "scrollback.day"         = { faint = true }
 "scrollback.history_end" = { faint = true }
@@ -32,27 +63,35 @@
 "link"                   = { underline = true }
 "link.hover"             = { fg = "bright-blue" }
 
-"input.hint"       = { faint = true }
-"input.over_limit" = { fg = "bright-white", bg = "red" }
+"input"            = { fg = "gold-ink" }
+"input.hint"       = { fg = "gold-mid" }
+"input.over_limit" = { fg = "#d92626", bg = "#2a0909" }
 "input.selection"  = { reverse = true }
 
+"status"       = { fg = "cobalt-ink" }
 "status.log"   = { bold = true }
 "status.error" = { fg = "red" }
+"status.clock" = { fg = "cobalt-mid" }
 
-"form.label" = { faint = true }
-"form.hint"  = { faint = true }
-"form.error" = { fg = "red" }
-"form.focus" = { reverse = true }
-"form.title" = { bold = true }
+"form"        = { fg = "kaki-ink" }
+"form.label"  = { fg = "kaki-mid" }
+"form.hint"   = { fg = "kaki-mid" }
+"form.error"  = { fg = "red" }
+"form.focus"  = { reverse = true }
+"form.title"  = { bold = true }
+"form.button" = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
 
+"log.header"         = { fg = "cobalt-ink" }
 "log.header.title"   = { bold = true }
+"log.header.chip"    = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
 "log.header.chip.on" = { reverse = true }
 "log.time"           = { faint = true }
 "log.cursor"         = { reverse = true }
 "log.find"           = { reverse = true }
 "log.day"            = { faint = true }
 "log.loading"        = { faint = true }
-"log.bar.hints"      = { faint = true }
+"log.bar"            = { fg = "gold-ink" }
+"log.bar.hints"      = { fg = "gold-mid" }
 "log.bar.error"      = { fg = "red" }
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }

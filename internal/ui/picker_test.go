@@ -271,7 +271,7 @@ func TestPickerAddWorld(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	toAddWorld(h)
 	s := h.screen()
-	for _, want := range []string{"│World: ", "│Host:  ", "│Port:  ", "│TLS:   [ ]", "│[ Save ]"} {
+	for _, want := range []string{"│World: ", "│Host:  ", "│Port:  ", "│TLS:   [ ]", "│ Save "} {
 		if !strings.Contains(s, want) {
 			t.Errorf("editor is missing %q:\n%s", want, s)
 		}
@@ -287,7 +287,7 @@ func TestPickerAddWorld(t *testing.T) {
 	h.press(tea.KeyTab, 0)
 	h.press(' ', 0)
 	h.press(tea.KeyDown, 0) // past the collapsed extras
-	h.press(tea.KeyDown, 0) // to [ Save ]
+	h.press(tea.KeyDown, 0) // to Save
 	h.enter()
 	if h.m.picker == nil || h.m.picker.edit != nil {
 		t.Fatalf("saving should go back to the picker:\n%s", h.screen())
@@ -322,7 +322,7 @@ func TestPickerAddWorldErrorKeepsEditor(t *testing.T) {
 	h.typeText("23")
 	h.press(tea.KeyTab, 0)
 	h.press(tea.KeyDown, 0)
-	h.press(tea.KeyDown, 0) // to [ Save ]
+	h.press(tea.KeyDown, 0) // to Save
 	h.enter()
 	if h.m.picker.edit == nil || !strings.Contains(h.screen(), str.ConfigWorldExists("fm")) {
 		t.Errorf("a taken id should keep the editor open and say why:\n%s", h.screen())

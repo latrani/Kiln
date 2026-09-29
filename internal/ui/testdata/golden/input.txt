@@ -1,48 +1,48 @@
 fm              │                                                               
-  @0-15 bold; @16-16 faint
+  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc
  Kit            │                                                               
-  @0-15 reverse; @16-16 faint
-+ Connection    │                                                               
-  @0-16 faint
+  @0-15 reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
+ + Connection   │                                                               
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │* connected to muck.test:8888                                  
-  @16-45 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#cdc1a2
                 │›this line runs past twenty bytes                              
-  @16-16 faint; @18-22 reverse; @38-49 fg=ansi15,bg=ansi1
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-17 fg=#e3d0a0; @18-22 reverse,fg=#e3d0a0; @23-37 fg=#e3d0a0; @38-49 fg=#d92626,bg=#2a0909; @50-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │fm/Kit · not sent: x                                      21:15
-  @16-16 faint; @26-36 fg=ansi1
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-25 fg=#a0b7e3; @26-36 fg=ansi1; @37-74 fg=#a0b7e3; @75-79 fg=#8b98b1

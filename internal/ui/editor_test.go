@@ -215,7 +215,7 @@ func TestTallFormScrolls(t *testing.T) {
 	h.focusOn(extraLabel)
 	h.enter()
 	h.focusOn(delWorldLabel)
-	if s := h.screen(); !strings.Contains(s, "[ "+delWorldLabel+" ]") || strings.Contains(s, "│Host:") {
+	if s := h.screen(); !strings.Contains(s, " "+delWorldLabel+" ") || strings.Contains(s, "│Host:") {
 		t.Errorf("the form should scroll to the focused button:\n%s", s)
 	}
 	h.focusOn("Host")

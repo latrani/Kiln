@@ -17,19 +17,24 @@ func writeTheme(t *testing.T, dir, name, body string) {
 	}
 }
 
-func TestBuiltinIsTodaysLook(t *testing.T) {
+// TestBuiltinLook pins a few of the built-in theme's roles; the golden
+// screens in internal/ui pin the rest.
+func TestBuiltinLook(t *testing.T) {
 	b := Builtin()
 	for _, c := range []struct {
 		role Role
 		want string
 	}{
 		{ScrollbackEcho, "\x1b[2m"},
-		{SidebarActive, "\x1b[7m"},
+		{Sidebar, "\x1b[38;2;160;227;225m"},
+		{SidebarActive, "\x1b[7;38;2;160;227;225m"},
+		{SidebarAdd, "\x1b[1;38;2;192;237;235;48;2;11;61;59m"},
+		{RuleForm, "\x1b[38;2;205;181;162m"},
 		{StatusError, "\x1b[31m"},
 		{LinkHover, "\x1b[4;94m"},
-		{InputOverLimit, "\x1b[97;41m"},
+		{InputOverLimit, "\x1b[38;2;217;38;38;48;2;42;9;9m"},
 		{SidebarAttention, "\x1b[1;38;2;255;209;102m"},
-		{Sidebar, ""},
+		{Scrollback, ""},
 	} {
 		if got := b.SGR(c.role); got != c.want {
 			t.Errorf("builtin %s = %q, want %q", c.role, got, c.want)
@@ -51,7 +56,7 @@ func TestExtendsDefaultIsBuiltin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if th.SGR(StatusError) != "\x1b[38;2;255;0;0m" || th.SGR(SidebarActive) != "\x1b[7m" {
+	if th.SGR(StatusError) != "\x1b[38;2;255;0;0m" || th.SGR(SidebarActive) != Builtin().SGR(SidebarActive) {
 		t.Errorf("want the override on top of the built-in: %q, %q", th.SGR(StatusError), th.SGR(SidebarActive))
 	}
 }

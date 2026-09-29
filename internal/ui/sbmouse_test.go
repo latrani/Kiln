@@ -104,7 +104,7 @@ func TestInputSelectionIgnoresSoftWraps(t *testing.T) {
 	in.StartSelect(2, 0)
 	in.DragTo(1, 2)
 	rows, _, _ := in.Render(5, 0, false, false)
-	if !strings.Contains(rows[0], theme.SGR(theme.ScrollbackSelection)+"c") || strings.Contains(rows[2], theme.SGR(theme.ScrollbackSelection)+"z") {
+	if !strings.Contains(rows[0], theme.SGR(theme.InputSelection)+"c") || strings.Contains(rows[2], theme.SGR(theme.InputSelection)+"z") {
 		t.Errorf("highlight wrong: %q", rows)
 	}
 	if got := in.EndSelect(); got != "cdefgh\nxy" {

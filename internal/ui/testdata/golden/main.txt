@@ -1,48 +1,48 @@
 fm              │                                                               
-  @0-15 bold; @16-16 faint
+  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc
  Kit            │                                                               
-  @0-15 reverse; @16-16 faint
+  @0-15 reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
  × Rook      ● 3│                                                               
-  @13-13 bold,fg=#ffd166; @16-16 faint
-+ Connection    │                                                               
-  @0-16 faint
+  @0-12 fg=#a0e3e1; @13-13 bold,fg=#ffd166; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+ + Connection   │                                                               
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │* connected to muck.test:8888                                  
-  @16-45 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
                 │›connect Kit ***                                               
-  @16-32 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-32 faint
                 │Rook says, "Evening, Kit."                                     
-  @16-16 faint; @17-42 bold
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-42 bold
                 │See https://kiln.test/map for the way                          
-  @16-16 faint; @21-41 underline
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @21-41 underline
                 │›:waves.                                                       
-  @16-24 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-24 faint
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#cdc1a2
                 │›                                                              
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
-  @16-79 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │fm/Kit · connected                                        21:15
-  @16-16 faint
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1
