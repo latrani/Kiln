@@ -455,8 +455,9 @@ func decodeBytes(path string, b []byte, v any) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
+	_, world := v.(*worldFile) // only worlds and their characters have looks
 	for _, k := range md.Undecoded() {
-		if !inLooks(k) {
+		if !world || !inLooks(k) {
 			return errors.New(str.ConfigUnknownKey(filepath.Base(path), k.String()))
 		}
 	}

@@ -566,3 +566,20 @@ func TestHighlightIsGone(t *testing.T) {
 		t.Errorf("err = %v, want the unknown-key error naming fm.toml and highlight", err)
 	}
 }
+
+// Only worlds and characters have looks: a [tags] table in a pack or
+// config.toml is an unknown key, not silently ignored.
+func TestLooksOnlyInWorlds(t *testing.T) {
+	for _, c := range []struct{ file, body, key string }{
+		{"packs/p.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
+		{"config.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
+		{"config.toml", "[palette.x]\ny = 1\n", "palette.x"},
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{c.file: c.body, "worlds/fm.toml": "host = \"h\"\nport = 1\nuse = [\"p\"]\n", "packs/p.toml": ""})
+		write(t, dir, map[string]string{c.file: c.body})
+		if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), str.ConfigUnknownKey(filepath.Base(c.file), c.key)) {
+			t.Errorf("%s with %q: err = %v, want an unknown key", c.file, c.body, err)
+		}
+	}
+}

@@ -151,10 +151,11 @@ type TagStyle struct {
 
 // Theme is a loaded theme: every role's and tag's style, resolved.
 type Theme struct {
-	styles map[Role]style
-	sgr    map[Role]string
-	tags   map[string]TagStyle
-	chain  []file // what it was built from, base first
+	styles  map[Role]style
+	sgr     map[Role]string
+	tags    map[string]TagStyle
+	palette map[string]color // for layers, which may name its colors
+	chain   []file           // what it was built from, base first
 }
 
 // Layer is a world's or character's own [palette] and [tags], drawn over
@@ -431,7 +432,7 @@ func build(chain []file) (*Theme, error) {
 			mergedTags[tag], tagOrigin[tag] = m, f.name
 		}
 	}
-	t := &Theme{styles: map[Role]style{}, sgr: map[Role]string{}, tags: map[string]TagStyle{}, chain: chain}
+	t := &Theme{styles: map[Role]style{}, sgr: map[Role]string{}, tags: map[string]TagStyle{}, palette: palette, chain: chain}
 	for _, r := range Roles {
 		s, err := resolveStyle(t.styles[r.parent()], merged[r], palette, origin[r], string(r))
 		if err != nil {
@@ -518,10 +519,11 @@ func resolve(s string, palette map[string]color) (color, bool) {
 	return c, ok
 }
 
-// Equal reports whether t and o draw every role the same way. (A role's
-// SGR pins its colors exactly, so the CSS matches too.)
+// Equal reports whether t and o draw every role and tag the same way,
+// with the same palette for layers to name. (A role's SGR pins its
+// colors exactly, so the CSS matches too.)
 func (t *Theme) Equal(o *Theme) bool {
-	return maps.Equal(t.sgr, o.sgr) && maps.EqualFunc(t.tags, o.tags, func(a, b TagStyle) bool {
+	return maps.Equal(t.sgr, o.sgr) && maps.Equal(t.palette, o.palette) && maps.EqualFunc(t.tags, o.tags, func(a, b TagStyle) bool {
 		return a.Match == b.Match && a.Style.SGR() == b.Style.SGR()
 	})
 }

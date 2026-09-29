@@ -533,3 +533,22 @@ func TestBadWorldLookFallsBackToTheme(t *testing.T) {
 		t.Error("the page should draw in the theme's own page/in style")
 	}
 }
+
+// Editing a world's look into one that doesn't resolve redraws what's on
+// screen in the theme's own tag styles, not the old look.
+func TestBrokenLookEditRestyles(t *testing.T) {
+	world := fmWorld + "\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n"
+	h := newHarness(t, map[string]string{"fm": world})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("Mira pages: you around?")
+	broken := fmWorld + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(broken), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.m.Update(reloadMsg{})
+	_, ts, _ := theme.Active().Tag("page/in")
+	if s := h.drawn(); !strings.Contains(s, ts.Style.SGR()+"Mira pages") {
+		t.Errorf("the page kept its old look after the edit:\n%q", s)
+	}
+}

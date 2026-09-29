@@ -133,7 +133,7 @@ func TestDottedAndNestedRoleMerge(t *testing.T) {
 
 func TestEqual(t *testing.T) {
 	a := mustBuild(t, "[ui]\n\"status.error\" = { fg = \"red\" }\n")
-	b := mustBuild(t, "[palette]\nx = \"#000000\"\n[ui]\n\"status.error\" = { fg = \"red\" }\n")
+	b := mustBuild(t, "[ui]\n\"status.error\" = { fg = \"red\", bold = false }\n") // same look, spelled differently
 	c := mustBuild(t, "[ui]\n\"status.error\" = { fg = \"green\" }\n")
 	if !a.Equal(b) || a.Equal(c) {
 		t.Errorf("Equal: same looks %v, different looks %v", a.Equal(b), a.Equal(c))
@@ -270,5 +270,15 @@ func TestLayerErrors(t *testing.T) {
 	}
 	if _, err := Builtin().With(l); err == nil || err.Error() != str.ThemeBadColor("worlds/fm.toml", str.ThemeTagEntry("page"), "nowhere") {
 		t.Errorf("unknown color: err = %v", err)
+	}
+}
+
+// A palette color only a world's look uses still makes themes differ,
+// so changing it restyles.
+func TestEqualSeesPalette(t *testing.T) {
+	a := mustBuild(t, "[palette]\ngold = \"#111111\"\n")
+	b := mustBuild(t, "[palette]\ngold = \"#222222\"\n")
+	if a.Equal(b) || !a.Equal(mustBuild(t, "[palette]\ngold = \"#111111\"\n")) {
+		t.Error("Equal must compare the palette")
 	}
 }

@@ -273,7 +273,7 @@ func (m *Model) loadTheme() {
 	theme.SetActive(th)
 	for _, k := range m.order { // in order, so which error shows is settled
 		cs := m.chars[k]
-		if err := cs.compile(); err != nil { // each highlighter holds the theme it was built on
+		if _, err := cs.compile(); err != nil { // each highlighter holds the theme it was built on
 			m.setStatus(true, k+": "+err.Error())
 		}
 		render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
@@ -308,9 +308,11 @@ func (m *Model) applyConfig(cfg *config.Config) {
 		}
 		restyle := !reflect.DeepEqual(styleInputs(cs.ch), styleInputs(ch))
 		cs.ch, cs.orphan = ch, false
-		if err := cs.compile(); err != nil {
+		installed, err := cs.compile()
+		if err != nil {
 			m.setStatus(true, k+": "+err.Error())
-		} else if restyle {
+		}
+		if installed && restyle {
 			cs.sb.Rerender(func(e logstore.Entry) string { text, _ := cs.render(e); return text })
 		}
 		if cs.sess != nil {
@@ -335,20 +337,21 @@ func styleInputs(ch config.Character) any {
 }
 
 // compile builds cs's classifier, and its highlighter from the active
-// theme with the character's own looks on top. Looks that don't resolve
-// (a color nobody defines) leave the theme's own tag styles in use; the
-// error is returned for the caller to show.
-func (cs *charState) compile() error {
+// theme with the character's own looks on top, reporting whether it
+// installed them. Looks that don't resolve (a color nobody defines)
+// leave the theme's own tag styles in use; either way the error is
+// returned for the caller to show.
+func (cs *charState) compile() (installed bool, err error) {
 	cls, err := classify.New(cs.ch.Rules.Classify, cs.ch.Name, cs.ch.Aliases)
 	if err != nil {
-		return err
+		return false, err
 	}
 	th, lookErr := theme.Active().With(cs.ch.Looks...)
 	if lookErr != nil {
 		th = theme.Active()
 	}
 	cs.cls, cs.hl = cls, rules.New(th, cs.ch.Rules.Attention, cs.ch.Rules.Quiet)
-	return lookErr
+	return true, lookErr
 }
 
 // logLayout is where ch's logs go; ok is false when there's nowhere.
