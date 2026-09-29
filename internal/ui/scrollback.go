@@ -15,6 +15,7 @@ type Scrollback struct {
 	width   int
 	offset  int // visual rows scrolled up from the bottom; 0 = live
 	unseen  int // lines appended while scrolled up
+	seen    int // lines before this index have been on screen; see Pause
 	prompt  string
 	more    bool       // older lines exist that have not been paged in yet
 	loading bool       // a page of older lines is being read; see RequestOlder
@@ -169,6 +170,7 @@ func (s *Scrollback) Prepend(lines []string, more bool) {
 func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
 	s.loading, s.more = false, more
 	s.lines = append(batch, s.lines...)
+	s.seen += len(batch)
 	if s.sel != nil {
 		s.sel.anchor.line += len(batch)
 		s.sel.head.line += len(batch)
@@ -210,8 +212,44 @@ func (s *Scrollback) ScrollDown(n int) {
 	}
 }
 
-// ToBottom returns to the live view.
-func (s *Scrollback) ToBottom() { s.offset, s.unseen = 0, 0 }
+// ToBottom returns to the live view, where everything has been seen.
+func (s *Scrollback) ToBottom() { s.offset, s.unseen, s.seen = 0, 0, len(s.lines) }
+
+// MarkSeen counts every line as seen, when the view is live: the next
+// Pause measures from the next line to arrive.
+func (s *Scrollback) MarkSeen() {
+	if s.offset == 0 {
+		s.seen = len(s.lines)
+	}
+}
+
+// Pause is the pager: when the lines not yet seen wrap to more than h
+// rows, it stops the live view with the first of them at the top, as if
+// scrolled up. Later lines pile up below as unseen; paging down (which
+// ends at the live view) shows them.
+func (s *Scrollback) Pause(h int) {
+	if s.offset > 0 || h < 1 || s.seen >= len(s.lines) {
+		return
+	}
+	w := s.w()
+	rows := 0
+	for _, l := range s.lines[s.seen:] {
+		rows += len(l.wrap(w))
+	}
+	if rows <= h {
+		return
+	}
+	s.offset = rows - h
+	// Unseen: the lines entirely below the view.
+	s.unseen = 0
+	for i, below := len(s.lines)-1, 0; i >= s.seen; i-- {
+		below += len(s.lines[i].wrap(w))
+		if below > s.offset {
+			break
+		}
+		s.unseen++
+	}
+}
 
 func (s *Scrollback) w() int {
 	if s.width < 1 {

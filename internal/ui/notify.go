@@ -33,7 +33,7 @@ func (m *Model) notifyLevel(cs *charState) notify.Level {
 // click or wheel. It re-arms "first" for every character.
 // You've seen anything held, so it's dropped.
 func (m *Model) here() {
-	m.lastHere = m.d.Now()
+	m.lastHere, m.awayNow = m.d.Now(), false
 	m.hereGen++
 	for _, cs := range m.chars {
 		cs.held, cs.heldMore = "", 0
@@ -48,11 +48,11 @@ func (m *Model) notifyIdle() time.Duration {
 	return config.DefaultNotifyIdle
 }
 
-// away reports whether you've switched away, or been idle past
-// notify_idle.
+// away reports whether you've switched away, said /away, or been idle
+// past notify_idle.
 func (m *Model) away() bool {
 	idle := m.notifyIdle()
-	return !m.focused || idle > 0 && m.d.Now().Sub(m.lastHere) > idle
+	return !m.focused || m.awayNow || idle > 0 && m.d.Now().Sub(m.lastHere) > idle
 }
 
 // encode turns a message into the bytes to write.

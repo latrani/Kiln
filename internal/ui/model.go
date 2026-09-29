@@ -90,6 +90,7 @@ type Model struct {
 	}
 	focused         bool                    // the terminal has focus, as far as we know
 	lastHere        time.Time               // latest focus-in or input; see here
+	awayNow         bool                    // set by /away until the next input; see away
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
@@ -116,6 +117,8 @@ type charState struct {
 	sentGen     int              // hereGen when the last notification went out; -1: none yet
 	connectedAt time.Time        // when the current connection came up
 	lastSent    time.Time        // when the last notification went out
+	lastLine    time.Time        // when the last line arrived; see pageGap
+	lineAway    bool             // whether you were away when it did
 	held        string           // first notification held while you still counted as here; "" if none
 	heldMore    int              // how many more were held after it
 }
@@ -629,6 +632,14 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	ev := msg.ev
 	switch ev.Kind {
 	case session.EventLine:
+		// The pager: whatever was on screen before a new burst, or before
+		// you went away, counts as seen. While you're away, or looking at
+		// another character, nothing new does.
+		now, away, shown := m.d.Now(), m.away(), msg.key == m.active && cs.browse == nil
+		if shown && (!away && now.Sub(cs.lastLine) > pageGap || away && !cs.lineAway) {
+			cs.sb.MarkSeen()
+		}
+		cs.lastLine, cs.lineAway = now, away
 		text, res := cs.render(ev.Entry)
 		switch {
 		case !cs.echoes(ev.Entry):
@@ -636,6 +647,11 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 			cs.sb.append(entryLine(text, ev.Entry))
 		default:
 			cs.sb.AppendLine(entryLine(text, ev.Entry))
+		}
+		if msg.key == m.active {
+			l := m.layout()
+			cs.sb.SetWidth(l.rw) // measure at the pane's width, even before a View
+			cs.sb.Pause(l.sbH)
 		}
 		if cs.browse != nil {
 			cs.browse.appendLive(ev.Entry)
@@ -766,6 +782,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		if cs != nil && cs.needPW {
 			cs.endPassword()
 			m.setStatus(false, str.StatusSkippedLogin())
+		} else if cs != nil && cs.sb.Scrolled() {
+			cs.sb.ToBottom() // back to live, from a pause or a scroll
 		}
 	case "enter":
 		return m.submit()
@@ -786,6 +804,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	m.confirm = false
 	return nil
 }
+
+// pageGap is how long a pause between incoming lines ends a burst: lines
+// closer together than this are one burst, and the pager stops a burst
+// that won't fit on the screen at its first line.
+const pageGap = time.Second
 
 // quitWindow is how long a first Ctrl+C or Ctrl+D waits for its second.
 const quitWindow = 2 * time.Second
@@ -869,8 +892,14 @@ func (m *Model) switchTo(k string) {
 	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
 	if m.active != "" && m.active != k {
 		m.recent = append([]string{m.active}, m.recent...)
+		if old := m.cur(); old != nil {
+			old.sb.MarkSeen() // you saw it up to now
+		}
 	}
 	m.active, m.confirm = k, false
+	l := m.layout()
+	cs.sb.SetWidth(l.rw)
+	cs.sb.Pause(l.sbH) // open at the first line you haven't seen
 	if cs.browse != nil && m.picker != nil {
 		m.closePicker() // browse has the pane; the filter would be hidden
 	}
@@ -969,6 +998,11 @@ func isLogErr(err error) bool {
 // that take free text (/highlight) can keep its spacing.
 func (m *Model) command(cs *charState, text string) tea.Cmd {
 	args := strings.Fields(text)
+	if args[0] == "/away" {
+		m.awayNow = true
+		m.setStatus(false, str.StatusAway())
+		return m.flushHeld()
+	}
 	if cs == nil && args[0] != "/quit" && args[0] != "/open" {
 		m.setStatus(true, str.StatusNeedsCharacter(args[0]))
 		return nil

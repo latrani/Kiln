@@ -621,6 +621,9 @@ func StatusAlreadyConnected(name any) string {
 	return get("status.already_connected", map[string]any{"name": name})
 }
 
+// StatusAway is status.away: "away until your next key or click"
+func StatusAway() string { return get("status.away", nil) }
+
 // StatusCertChanged is status.cert_changed: "{name}: certificate changed; /trust to accept"
 func StatusCertChanged(name any) string {
 	return get("status.cert_changed", map[string]any{"name": name})
