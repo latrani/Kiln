@@ -213,8 +213,8 @@ styled in the world; see Choosing a theme).
 | `self` | lines that mention you (Kiln tags these from the character's name and aliases) |
 
 `say` and `pose` aren't core: on a MUCK they're the bulk of ordinary
-scene text, not something to set apart. The fuzzball pack's `say` tag can
-stay as its own.
+scene text, not something to set apart. The fuzzball pack's `say` tag is
+gone for the same reason.
 
 ## Decided against
 

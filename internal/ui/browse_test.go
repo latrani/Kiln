@@ -221,7 +221,7 @@ func TestBrowseChips(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	s := h.screen()
-	if !strings.Contains(s, "tags: 1[page] 2[page/in] 3[say] 4[self]") {
+	if !strings.Contains(s, "tags: 1[page] 2[page/in] 3[self]") {
 		t.Fatalf("chips:\n%s", s)
 	}
 	h.key("1") // page → only
@@ -254,12 +254,12 @@ func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
 		t.Errorf("cursor moved to %q, want the next line", got)
 	}
 	h.keys("1", "home", "down", "down", "down", "down") // neutral; Kit grins. (self)
-	h.keys("4", "4")                                    // self → only → hide
+	h.keys("3", "3")                                    // self → only → hide
 	if got := b.cursor.e.Text; got != "Rook says, \"The lighthouse is dark.\"" {
 		t.Errorf("cursor moved to %q, want the next visible line", got)
 	}
 	// With nothing visible after it, fall back to the previous line.
-	h.keys("4", "end", "1") // self neutral; Rook yawns; page → only
+	h.keys("3", "end", "1") // self neutral; Rook yawns; page → only
 	if got := b.cursor.e.Text; got != "Mira pages: you around?" {
 		t.Errorf("cursor moved to %q, want the previous visible line", got)
 	}
@@ -267,21 +267,21 @@ func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
 
 func TestBrowseChipNumbersStayStable(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, "Rook says, \"Hi, Kit.\"")
+	h.writeLog(day24, "Rook whispers, \"Hi, Kit.\"")
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.key("ctrl+l")
-	if s := h.screen(); !strings.Contains(s, "tags: 1[say] 2[self]") {
+	if s := h.screen(); !strings.Contains(s, "tags: 1[self] 2[whisper] 3[whisper/in]") {
 		t.Fatalf("chips:\n%s", s)
 	}
 	h.conn("fm/kit").lines <- "Mira pages: you around?"
 	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Mira pages") })
-	if s := h.screen(); !strings.Contains(s, "tags: 1[say] 2[self] 3[page]") {
+	if s := h.screen(); !strings.Contains(s, "tags: 1[self] 2[whisper] 3[whisper/in] 4[page]") {
 		t.Errorf("new tag renumbered chips:\n%s", s)
 	}
 	h.key("1")
-	if b := h.br(); b.chips["say"] == 0 || b.chips["page"] != 0 {
-		t.Errorf("1 should still target say: %v", b.chips)
+	if b := h.br(); b.chips["self"] == 0 || b.chips["page"] != 0 {
+		t.Errorf("1 should still target self: %v", b.chips)
 	}
 }
 
