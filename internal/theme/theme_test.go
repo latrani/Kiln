@@ -282,3 +282,12 @@ func TestEqualSeesPalette(t *testing.T) {
 		t.Error("Equal must compare the palette")
 	}
 }
+
+func TestPaletteValueNotAString(t *testing.T) {
+	for _, body := range []string{"[palette]\nx = 1\n", "[palette]\nx = { a = 1 }\n"} {
+		_, err := parse("t.toml", []byte(body))
+		if err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x") {
+			t.Errorf("%q: err = %v", body, err)
+		}
+	}
+}

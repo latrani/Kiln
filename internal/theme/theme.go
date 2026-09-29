@@ -260,7 +260,7 @@ func parseTables(name string, raw map[string]any) (file, error) {
 			for pk, pv := range tbl {
 				s, ok := pv.(string)
 				if !ok {
-					return f, errors.New(str.ThemeBadColor(name, str.ThemePaletteEntry(pk), fmt.Sprint(pv)))
+					return f, errors.New(str.ThemePaletteNotColor(name, pk))
 				}
 				f.palette[pk] = s
 			}

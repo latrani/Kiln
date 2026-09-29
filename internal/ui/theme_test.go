@@ -523,7 +523,7 @@ func TestBadWorldLookFallsBackToTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": world})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	want := "fm/kit: " + str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere")
+	want := str.StatusCharError("fm/kit", errors.New(str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere")))
 	if !strings.Contains(h.m.status, want) {
 		t.Errorf("status = %q, want the bad color reported", h.m.status)
 	}

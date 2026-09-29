@@ -1,11 +1,15 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 func TestRender(t *testing.T) {
@@ -39,5 +43,24 @@ func TestRender(t *testing.T) {
 				t.Errorf("render = %q, want %q", got, c.want)
 			}
 		})
+	}
+}
+
+// A character's look that doesn't resolve is reported like the other
+// errors, and the theme's own tag styles stand in.
+func TestLookThemeReportsBadLook(t *testing.T) {
+	l, err := theme.ParseLayer("worlds/fm.toml", nil, map[string]any{"page": map[string]any{"fg": "nowhere"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch := config.Character{World: "fm", ID: "kit", Looks: []theme.Layer{l}}
+	var out strings.Builder
+	th := lookTheme(ch, &out)
+	_, lookErr := theme.Active().With(l)
+	if want := theme.Paint(theme.StatusError, "* "+str.StatusCharError("fm/kit", lookErr)) + "\n"; out.String() != want {
+		t.Errorf("reported %q, want %q", out.String(), want)
+	}
+	if th != theme.Active() {
+		t.Error("want the active theme when the look doesn't resolve")
 	}
 }

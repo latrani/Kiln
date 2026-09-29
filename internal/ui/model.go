@@ -274,7 +274,7 @@ func (m *Model) loadTheme() {
 	for _, k := range m.order { // in order, so which error shows is settled
 		cs := m.chars[k]
 		if _, err := cs.compile(); err != nil { // each highlighter holds the theme it was built on
-			m.setStatus(true, k+": "+err.Error())
+			m.setStatus(true, str.StatusCharError(k, err))
 		}
 		render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
 		cs.sb.Rerender(render)
@@ -310,7 +310,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 		cs.ch, cs.orphan = ch, false
 		installed, err := cs.compile()
 		if err != nil {
-			m.setStatus(true, k+": "+err.Error())
+			m.setStatus(true, str.StatusCharError(k, err))
 		}
 		if installed && restyle {
 			cs.sb.Rerender(func(e logstore.Entry) string { text, _ := cs.render(e); return text })

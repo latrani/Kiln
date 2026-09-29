@@ -70,7 +70,7 @@ func (m *Model) open(k string) *charState {
 	}
 	cs := &charState{key: k, ch: ch, in: NewInput(), sentGen: -1}
 	if _, err := cs.compile(); err != nil {
-		m.setStatus(true, k+": "+err.Error())
+		m.setStatus(true, str.StatusCharError(k, err))
 	}
 	m.chars[k] = cs
 	m.order = append(m.order, k)

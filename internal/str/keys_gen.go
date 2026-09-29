@@ -614,6 +614,11 @@ func StatusCertChanged(name any) string {
 	return get("status.cert_changed", map[string]any{"name": name})
 }
 
+// StatusCharError is status.char_error: "{key}: {err}"
+func StatusCharError(key any, err error) string {
+	return get("status.char_error", map[string]any{"key": key, "err": err})
+}
+
 // StatusConfigNotReloaded is status.config_not_reloaded: "config not reloaded: {err}"
 func StatusConfigNotReloaded(err error) string {
 	return get("status.config_not_reloaded", map[string]any{"err": err})
@@ -754,6 +759,11 @@ func ThemePaletteEntry(name any) string {
 // ThemePaletteNameTaken is theme.palette_name_taken: "{file}: palette name {name:%q} is a terminal color"
 func ThemePaletteNameTaken(file, name any) string {
 	return get("theme.palette_name_taken", map[string]any{"file": file, "name": name})
+}
+
+// ThemePaletteNotColor is theme.palette_not_color: "{file}: palette {name:%q} must be a color written in quotes, like \"#rrggbb\""
+func ThemePaletteNotColor(file, name any) string {
+	return get("theme.palette_not_color", map[string]any{"file": file, "name": name})
 }
 
 // ThemeParse is theme.parse: "{file}: {err}"

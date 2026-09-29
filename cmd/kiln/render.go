@@ -1,9 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -26,4 +31,15 @@ func render(e logstore.Entry, res rules.Result) string {
 		marker = "» "
 	}
 	return marker + style.Highlight(e.Text, res.Runs) // runs index e.Text, not the marker
+}
+
+// lookTheme is the active theme with ch's own looks on top. Looks that
+// don't resolve are reported to w, and the theme's own tag styles stand in.
+func lookTheme(ch config.Character, w io.Writer) *theme.Theme {
+	th, err := theme.Active().With(ch.Looks...)
+	if err != nil {
+		fmt.Fprintln(w, theme.Paint(theme.StatusError, "* "+str.StatusCharError(ch.World+"/"+ch.ID, err)))
+		return theme.Active()
+	}
+	return th
 }

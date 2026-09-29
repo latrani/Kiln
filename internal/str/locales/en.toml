@@ -181,6 +181,7 @@ day_year = "Mon Jan 2 2006"
 day_time = "Mon Jan 2 15:04"
 
 [status]
+char_error = "{key}: {err}"
 config_not_reloaded = "config not reloaded: {err}"
 config_reloaded = "config reloaded"
 cert_changed = "{name}: certificate changed; /trust to accept"
@@ -283,3 +284,4 @@ bad_extends = "{file}: extends {name:%q} isn't a theme name (a file name in them
 tag_not_table = "{file}: tag {tag:%q} needs a table of settings, like {{ fg = … }}"
 bad_scope = '{file}: tag {tag:%q}: scope must be "line" or "match"'
 tag_entry = "tag {name}"
+palette_not_color = '{file}: palette {name:%q} must be a color written in quotes, like "#rrggbb"'
