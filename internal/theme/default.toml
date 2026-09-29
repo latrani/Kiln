@@ -44,7 +44,7 @@ kaki-bright = "#edd3c0"
 "picker.world"          = { bold = true }
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
-"picker.add"            = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
+"picker.add"            = { fg = "kaki-bright", bg = "kaki-deep" }
 
 "divider"     = { fg = "celadon-line" }
 "rule.input"  = { fg = "gold-line" }
@@ -79,7 +79,8 @@ kaki-bright = "#edd3c0"
 "form.error"  = { fg = "red" }
 "form.focus"  = { reverse = true }
 "form.title"  = { bold = true }
-"form.button" = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
+"form.button"           = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
+"form.button.secondary" = { bold = false }
 
 "log.header"         = { fg = "cobalt-ink" }
 "log.header.title"   = { bold = true }

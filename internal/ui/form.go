@@ -56,6 +56,7 @@ type field struct {
 	in      *Input // nil for everything but a text field
 	on      bool   // a toggle's state
 	button  bool
+	primary bool               // the button Enter is for: Save
 	section bool               // the header over the extra fields
 	extra   bool               // shown only while the form is expanded
 	choices []string           // a choice's options; see choiceField
@@ -68,6 +69,9 @@ type field struct {
 func textField(label string) field   { return field{label: label, in: NewInput()} }
 func toggleField(label string) field { return field{label: label} }
 func buttonField(label string) field { return field{label: label, button: true} }
+
+// primaryButton is the form's main button.
+func primaryButton(label string) field { return field{label: label, button: true, primary: true} }
 
 // sectionField heads the extra fields, which it shows and hides.
 func sectionField(label string) field { return field{label: label, section: true} }
@@ -314,7 +318,10 @@ func (f *form) fieldRow(i, w int) (text string, col int) {
 		if i == f.focus {
 			return chip(theme.FormFocus, fl.label), 1
 		}
-		return chip(theme.FormButton, fl.label), 1
+		if fl.primary {
+			return chip(theme.FormButton, fl.label), 1
+		}
+		return chip(theme.FormButtonSecondary, fl.label), 1
 	}
 	label := fl.label + ": " + strings.Repeat(" ", w-xansi.StringWidth(fl.label))
 	if fl.choices != nil {

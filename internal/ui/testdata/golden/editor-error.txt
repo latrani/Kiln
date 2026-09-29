@@ -3,9 +3,9 @@ fm              │
  Rook           │                                                               
   @0-15 reverse,fg=#e3bda0; @16-16 fg=#a2cdcc
   + Character   │                                                               
-  @0-0 fg=#e3bda0; @1-13 bold,fg=#edd3c0,bg=#3d200b; @14-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+  @0-0 fg=#e3bda0; @1-13 fg=#edd3c0,bg=#3d200b; @14-15 fg=#e3bda0; @16-16 fg=#a2cdcc
  + World        │                                                               
-  @0-8 bold,fg=#edd3c0,bg=#3d200b; @9-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+  @0-8 fg=#edd3c0,bg=#3d200b; @9-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
@@ -41,7 +41,7 @@ fm              │
                 │ Save                                                          
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-22 bold,fg=#edd3c0,bg=#3d200b; @23-79 fg=#e3bda0
                 │ Delete world   · a port is a number                           
-  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-30 bold,fg=#edd3c0,bg=#3d200b; @31-34 fg=#b19c8b; @35-52 fg=ansi1; @53-79 fg=#e3bda0
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-30 fg=#edd3c0,bg=#3d200b; @31-34 fg=#b19c8b; @35-52 fg=ansi1; @53-79 fg=#e3bda0
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │fm/Kit · connected                                        21:15

@@ -58,7 +58,7 @@ func typeText(f *form, s string) {
 
 func worldForm() *form {
 	return newForm(str.EditorHint(),
-		textField("World"), textField("Host"), textField("Port"), toggleField("TLS"), buttonField("Save"))
+		textField("World"), textField("Host"), textField("Port"), toggleField("TLS"), primaryButton("Save"))
 }
 
 func TestFormMovesBetweenFields(t *testing.T) {

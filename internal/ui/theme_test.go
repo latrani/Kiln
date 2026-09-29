@@ -477,3 +477,27 @@ func TestClickablesAreChips(t *testing.T) {
 		t.Errorf("no %s chip:\n%q", saveLabel, s)
 	}
 }
+
+// Save is a form's primary button; the rest are secondary.
+func TestSecondaryButtons(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	th := withTheme(t, `[ui]
+"form.button" = { bg = "#070809" }
+"form.button.secondary" = { bg = "#0a0b0c" }`)
+	chip := func(r theme.Role, label string) string { return th.Paint(r, " "+label+" ") }
+	h.typeText("/edit world")
+	h.enter()
+	s := h.drawn()
+	if !strings.Contains(s, chip(theme.FormButton, saveLabel)) || !strings.Contains(s, chip(theme.FormButtonSecondary, delWorldLabel)) {
+		t.Errorf("want %s primary and %s secondary:\n%q", saveLabel, delWorldLabel, s)
+	}
+	h.press(tea.KeyEsc, 0)
+	h.typeText("/edit")
+	h.enter()
+	s = h.drawn()
+	for _, l := range []string{forgetPWLabel, delCharLabel} {
+		if !strings.Contains(s, chip(theme.FormButtonSecondary, l)) {
+			t.Errorf("want %s secondary:\n%q", l, s)
+		}
+	}
+}

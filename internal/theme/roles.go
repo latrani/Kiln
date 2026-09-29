@@ -55,13 +55,14 @@ const (
 	StatusError Role = "status.error"
 	StatusClock Role = "status.clock"
 
-	Form       Role = "form" // area, in place of input while it's up
-	FormLabel  Role = "form.label"
-	FormHint   Role = "form.hint"
-	FormError  Role = "form.error"
-	FormFocus  Role = "form.focus"
-	FormTitle  Role = "form.title"
-	FormButton Role = "form.button"
+	Form                Role = "form" // area, in place of input while it's up
+	FormLabel           Role = "form.label"
+	FormHint            Role = "form.hint"
+	FormError           Role = "form.error"
+	FormFocus           Role = "form.focus"
+	FormTitle           Role = "form.title"
+	FormButton          Role = "form.button" // the primary one: Save
+	FormButtonSecondary Role = "form.button.secondary"
 
 	Log         Role = "log"
 	LogHeader   Role = "log.header" // area
@@ -92,7 +93,7 @@ var Roles = []Role{
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	Status, StatusLog, StatusError, StatusClock,
-	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton,
+	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogHeader, LogTitle, LogChip, LogChipOn, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogError,
 	Export,

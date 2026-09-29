@@ -163,7 +163,7 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 		asExtra(inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off")),
 		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none")),
 		asExtra(inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off")),
-		buttonField(saveLabel))
+		primaryButton(saveLabel))
 	if !add {
 		fields = append(fields, buttonField(delWorldLabel))
 	}
@@ -238,7 +238,7 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 		asExtra(inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off")),
 		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none")),
 		asExtra(inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off")),
-		buttonField(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
+		primaryButton(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
 	f.title = str.EditorEditing(name)
 	f.fields[f.field(aliasesLabel)].in.SetValue(strings.Join(s.Aliases, ", "))
 	f.setBool(autoconnLabel, s.Autoconnect)
