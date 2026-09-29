@@ -312,3 +312,33 @@ func TestBrokenThemeDoesNotBlockAddingACharacter(t *testing.T) {
 		t.Errorf("the theme's error should stay up:\n%s", h.screen())
 	}
 }
+
+// TestActiveRowWinsOverItsParts: with the sidebar colored (so every
+// sidebar.* child inherits a color), the active row's name and unread
+// count still draw in sidebar.active, and the attention dot's reset
+// doesn't end the highlight.
+func TestActiveRowWinsOverItsParts(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.m.switchTo("fm/rook")
+	h.m.chars["fm/rook"].unread, h.m.chars["fm/rook"].attention = 3, true
+	withTheme(t, `[ui]
+sidebar = { fg = "#6b6f7a", bg = "#1f2029" }
+"sidebar.char" = { fg = "#0a0b0c" }
+"sidebar.unread" = { fg = "#0d0e0f" }
+"sidebar.active" = { fg = "#ffffff", bold = true }`)
+	row := strings.Split(cells(h.drawn()), "\n")
+	for i, r := range row {
+		if strings.Contains(r, " Rook") && i+1 < len(row) {
+			runs := row[i+1]
+			if strings.Contains(runs, "fg=#0a0b0c") || strings.Contains(runs, "fg=#0d0e0f") {
+				t.Errorf("a child role drew over the active row: %s\n%s", r, runs)
+			}
+			if !strings.HasPrefix(strings.TrimSpace(runs), "@0-") || strings.Count(runs, "fg=#ffffff") < 2 {
+				t.Errorf("the active style should cover the name and, past the dot, the count: %s\n%s", r, runs)
+			}
+			return
+		}
+	}
+	t.Fatalf("no Rook row:\n%s", h.screen())
+}

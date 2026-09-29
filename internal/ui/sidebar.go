@@ -11,6 +11,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -257,18 +258,27 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	case closable(cs):
 		lead, leadRole = " × ", theme.SidebarDisconnected
 	}
-	activity, shown := "", ""
+	active := r.char == m.active
+	count, activity := "", ""
 	if cs.unread > 0 {
-		activity = fmt.Sprintf(" %d", cs.unread)
-		shown = theme.Paint(theme.SidebarUnread, activity)
+		count = fmt.Sprintf(" %d", cs.unread)
+		activity = count
 		if cs.attention {
 			activity = " ●" + activity
-			shown = " " + attentionMark() + shown
 		}
 	}
-	line := theme.Paint(leadRole, fitName(lead+cs.ch.Name, w-xansi.StringWidth(activity))) + shown
-	if r.char == m.active {
-		return theme.Paint(theme.SidebarActive, line)
+	name := fitName(lead+cs.ch.Name, w-xansi.StringWidth(activity))
+	if !active {
+		name, count = theme.Paint(leadRole, name), theme.Paint(theme.SidebarUnread, count)
+	}
+	line := name + count
+	if cs.attention && cs.unread > 0 {
+		line = name + " " + attentionMark() + count
+	}
+	if active {
+		// The active style covers the whole row: its parts draw plain
+		// inside it, and it comes back after the dot's reset.
+		return theme.Paint(theme.SidebarActive, style.Reassert(line, theme.SGR(theme.SidebarActive)))
 	}
 	return line
 }
