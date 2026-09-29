@@ -22,7 +22,7 @@
   - Until an answer arrives, or if none ever does, it's dark.
   - A pinned `dark` or `light` never asks, and ignores any answer that arrives anyway.
   - `kiln tail` never asks: `light` means light, anything else means dark.
-- **Restyling** goes through `loadTheme`. `Theme.Equal` must also compare the appearance, so that two appearances with identical palettes still count as equal. (They do already, because `Equal` compares the resolved SGR and palette, so nothing extra is needed. Don't add an appearance comparison.)
+- **Restyling** goes through `loadTheme`, which already skips it when the new theme `Equal`s the active one. Two appearances whose palettes resolve the same really do draw the same, so `Equal` needs no appearance comparison.
 - **The dark look must not change.** The golden screens stay identical in every task.
 - **User-facing text goes through `internal/str`.** Tests build expected text from `str` functions. Commits that add strings carry a `Strings:` trailer. Config values (`auto`, `dark`, `light`) are vocabulary.
 - Fixtures use Kit, Rook, Ash, Mira and world `fm`. Smoke tests use a scratch `XDG_CONFIG_HOME`/`XDG_DATA_HOME`.
@@ -578,8 +578,10 @@ func TestMissingNamedTheme(t *testing.T) {
 	}
 }
 
-// cmdAsks reports whether cmd, run the way Bubble Tea would (batches
-// opened, sequences not), includes a background-color request.
+// cmdAsks reports whether cmd is, or is a batch holding, a
+// background-color request. It compares functions, and only ever calls
+// the top-level command (a tea.Batch's function just returns its list),
+// so nothing else in the batch runs.
 func cmdAsks(cmd tea.Cmd) bool {
 	if cmd == nil {
 		return false
@@ -588,18 +590,12 @@ func cmdAsks(cmd tea.Cmd) bool {
 	if reflect.ValueOf(cmd).Pointer() == want {
 		return true
 	}
-	if b, ok := cmd().(tea.BatchMsg); ok {
-		for _, c := range b {
-			if cmdAsks(c) {
-				return true
-			}
-		}
-	}
-	return false
+	b, ok := cmd().(tea.BatchMsg)
+	return ok && slices.ContainsFunc(b, func(c tea.Cmd) bool { return c != nil && reflect.ValueOf(c).Pointer() == want })
 }
 ```
 
-(`cmdAsks` runs the non-matching commands in a batch. Init's batch holds `tick`, `watch` and connects. `watch` blocks on `m.d.Changes`, which is nil in the harness, so it returns nil; `connect` is only in the batch for autoconnect characters, and `fmWorld`'s Kit autoconnects. Running it starts a session against the harness's fake dialer, which is harmless. If a command in the batch blocks, compare function pointers without calling it: check each `c` against `want` first, and only call it if it's a `tea.Batch`. The simplest safe form is to skip calling `c()` at all for anything but the top-level batch.)
+(Add `"reflect"` and `"slices"` to the test imports if they aren't there. `cmdAsks` must only be called on a command known to be `askBackground`'s result or a `tea.Batch`, as these tests do: calling any other command would run it.)
 
 Run: `go test ./internal/ui -run 'TestLightAnswerRestyles|TestNoAnswerStaysDark|TestPinnedAppearance|TestSameAnswer|TestAsksOnStartAndFocus|TestMissingNamedTheme'`
 Expected: FAIL.
@@ -786,4 +782,3 @@ git commit -m "docs: choosing themes, light and dark"
 ## Self-review notes
 
 - **Spec coverage:** global `theme` (Tasks 2, 4), `appearance` and detection with the focus re-ask (Tasks 2, 4), `[palette.dark]`/`[palette.light]` including layers (Task 1), the default light palette (Task 3), the mosh note (Task 6), restyling (Task 4 via `loadTheme`, Task 5 for log mode).
-- **The Global Constraints bullet on `Equal`:** the resolved palette already differs between appearances wherever a light entry exists, and when none exists the two themes really do draw the same, so no appearance comparison is needed.
