@@ -142,12 +142,12 @@ func (m *Model) notifyCommand(cs *charState, args []string) {
 		if l := m.notifyOverrides[cs.key]; l != "" {
 			shown = str.NotifyLevelOverride(l, cs.ch.Notify)
 		}
-		m.setStatus(false, str.NotifyLevel(cs.ch.Name, shown))
+		m.setStatus(false, str.NotifyLevel(shown))
 		return
 	}
 	if args[0] == "default" {
 		delete(m.notifyOverrides, cs.key)
-		m.setStatus(false, str.NotifyLevel(cs.ch.Name, cs.ch.Notify))
+		m.setStatus(false, str.NotifyLevel(cs.ch.Notify))
 		return
 	}
 	l, err := notify.ParseLevel(args[0])

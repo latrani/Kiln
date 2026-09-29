@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/latrani/Kiln/internal/notify"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // write creates files under dir from a map of relative path → content.
@@ -130,8 +131,8 @@ func TestLoadErrors(t *testing.T) {
 		{"bad newline mode", "host = \"h\"\nport = 1\nnewline_mode = \"x\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "newline_mode"},
 		{"bad char id", "host = \"h\"\nport = 1\n[[characters]]\nid = \"a/b\"\nname = \"X\"\n", "id may only use"},
 		{"bad scope", "host = \"h\"\nport = 1\n[[highlight]]\nmatch = { pattern = 'x' }\nscope = \"word\"\n[[characters]]\nname = \"Kit\"\n", `highlight rule 1: scope must be "line" or "match"`},
-		{"name needs an id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Big Kit\"\n", "set id"},
-		{"duplicate id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Kit\"\n[[characters]]\nid = \"kit\"\nname = \"Other\"\n", "used by another character"},
+		{"name needs an id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Big Kit\"\n", str.ConfigBadCharacterId("")},
+		{"duplicate id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Kit\"\n[[characters]]\nid = \"kit\"\nname = \"Other\"\n", str.ConfigDuplicateCharacterId("")},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

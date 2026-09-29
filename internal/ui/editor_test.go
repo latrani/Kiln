@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func (h *harness) worldFile(id string) string {
@@ -183,7 +185,7 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 	h.focusOn(delWorldLabel)
 	h.enter()
 	h.enter()
-	if !strings.Contains(h.screen(), "still has 1 character") {
+	if !strings.Contains(h.screen(), str.ConfigWorldHasCharacters("fm")[:20]) { // the note is cut to the pane
 		t.Fatalf("a world with characters was deleted, or no reason given:\n%s", h.screen())
 	}
 	h.press(tea.KeyEscape, 0)

@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func TestFormEditsFocusedField(t *testing.T) {
@@ -158,7 +159,7 @@ func TestFormStackedRows(t *testing.T) {
 		"Host:  muck.example.org",
 		"Port:  ",
 		"TLS:   [ ]",
-		"[ Save ]  · Enter next field · Esc to cancel",
+		"[ Save ] " + str.Separator() + str.FormNextField(str.EditorHint()),
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("rows =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

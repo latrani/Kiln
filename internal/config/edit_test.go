@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // uglyWorld has comments everywhere, a multi-line array, inline tables,
@@ -174,7 +176,7 @@ func TestDeleteCharacter(t *testing.T) {
 
 func TestDeleteWorld(t *testing.T) {
 	dir := editDir(t, uglyWorld)
-	if err := DeleteWorld(dir, "fm"); err == nil || !strings.Contains(err.Error(), "2 character") {
+	if err := DeleteWorld(dir, "fm"); err == nil || err.Error() != str.ConfigWorldHasCharacters("fm") {
 		t.Fatalf("deleted a world with characters: %v", err)
 	}
 	DeleteCharacter(dir, "fm", "Kit")

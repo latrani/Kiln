@@ -372,7 +372,7 @@ func (m *Model) deleteWarning(e *editor) string {
 	if e.kind == editWorld {
 		return str.EditorDeleteWorldWarning(e.world)
 	}
-	return str.EditorDeleteCharacterWarning()
+	return str.EditorDeleteCharacterWarning(e.world + "/" + e.char)
 }
 
 // saveNewWorld writes the new world, then highlights its row for adding a

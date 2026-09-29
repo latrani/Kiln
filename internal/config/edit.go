@@ -481,8 +481,8 @@ func DeleteWorld(dir, world string) error {
 	if err := decodeFile(path, &wf, false); err != nil {
 		return err
 	}
-	if n := len(wf.Characters); n > 0 {
-		return errors.New(str.ConfigWorldHasCharacters(n, world))
+	if len(wf.Characters) > 0 {
+		return errors.New(str.ConfigWorldHasCharacters(world))
 	}
 	return os.Remove(path)
 }
