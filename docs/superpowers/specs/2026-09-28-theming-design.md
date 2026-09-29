@@ -95,9 +95,26 @@ panel  = "#1f2029"
 then the world, then the character. Different worlds can look different,
 and a character can differ from its world.
 
-Worlds and characters can also carry a `[styles]` table: tag styles
-layered over their theme. That's the home for local, one-off colors, like
-the rules `/highlight` adds.
+Worlds and characters can also carry a theme's own tables (`[palette]`,
+`[tags]`, even `[ui]`), layered over the theme they use: a character's
+over its world's, over the theme. A world can name its own colors and
+style its own special tags, in the same format as a theme file.
+
+## Light and dark
+
+The painted areas bring their own backgrounds, so they look the same
+whatever the terminal's background is. Everything else sits on the
+terminal's background (tag styles, links, the scrollback's roles, log
+mode's body), and a color picked for dark can wash out on light.
+
+- A theme can give a palette for each appearance: `[palette.dark]` and
+  `[palette.light]` on top of `[palette]`. Tags and roles refer to palette
+  names, so they follow along.
+- `appearance = "auto"` (the default), `"dark"` or `"light"`. Auto asks
+  the terminal for its background (Bubble Tea's `RequestBackgroundColor`,
+  OSC 11) and goes by `IsDark`. Some setups may not answer (mosh or tmux,
+  to be checked), so the setting can pin it, and with no answer Kiln
+  assumes dark.
 
 ## Roles
 
@@ -152,8 +169,9 @@ the modal.
 ## Migration
 
 - Old `[[highlight]]` rules keep working. At load time each becomes its
-  parts: a classify rule with a generated tag, a `[styles]` entry, and
-  attention or quiet for that tag. Nobody's config breaks.
+  parts: a classify rule with a generated tag, a `[tags]` entry in its
+  world or character, and attention or quiet for that tag. Nobody's
+  config breaks.
 - The fuzzball pack moves to the new form: classify tags plus
   `attention = ["page/in", "whisper/in", "self"]`. Its colors move to the
   default theme's `[tags]`.
@@ -170,11 +188,12 @@ the modal.
    the area helpers. The modal backdrop comes with it. The default theme reproduces today's look closely,
    with tests pinning it, so the plumbing lands without a visual change.
 2. **The new default look.** Indi's redesign, on top of phase 1.
-3. **Tags, behavior and migration.** `[tags]` and `[styles]`, `span`,
+3. **Tags, behavior and migration.** `[tags]`, world and character theme
+   tables, `span`,
    the attention/quiet lists, the `[[highlight]]` shim, the fuzzball pack,
    and `/highlight`.
-4. **Choosing themes.** The inheritable `theme` setting and restyling on
-   change.
+4. **Choosing themes.** The inheritable `theme` setting, light and dark
+   (`appearance`, palettes per appearance), and restyling on change.
 5. **Later:** importing palettes from other tools (base16/base24 YAML,
    Ghostty and kitty theme files), and maybe ANSI remapping.
 
@@ -182,9 +201,12 @@ the modal.
 
 - **A shared tag vocabulary.** A theme that styles `page/in` assumes the
   pack emits it. Packs should agree on standard tags (say, `pose`, `say`,
-  `page`, `whisper`, `self`, `sys`), or themes won't carry between worlds.
-- **A default style for plain server text** (a `line` tag every line
-  has)? It would stay on the terminal background, but could set a
-  foreground.
-- **Can the scrollback have a background after all?** The rule above says
-  no, and ANSI remapping is what would make it safe.
+  `page`, `whisper`, `self`, `sys`), so themes carry between worlds. A
+  world's own special tags are styled in the world (see Choosing a theme).
+
+## Decided against
+
+- **A default style for plain server text.** Server text keeps the
+  terminal's foreground; a fixed one would fight light and dark.
+- **A scrollback background.** The rule stands: server text sits on the
+  terminal's background.
