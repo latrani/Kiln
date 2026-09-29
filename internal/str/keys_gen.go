@@ -728,7 +728,7 @@ func StatusUnknownCommand(command any) string {
 	return get("status.unknown_command", map[string]any{"command": command})
 }
 
-// ThemeBadColor is theme.bad_color: "themes/{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, or a terminal color like bright-blue)"
+// ThemeBadColor is theme.bad_color: "themes/{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, a terminal color like bright-blue, or default)"
 func ThemeBadColor(file, where, color any) string {
 	return get("theme.bad_color", map[string]any{"file": file, "where": where, "color": color})
 }

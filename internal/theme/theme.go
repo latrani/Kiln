@@ -31,6 +31,10 @@ var terminalColors = []string{"black", "red", "green", "yellow", "blue", "magent
 var terminalHex = []string{"#000000", "#cd0000", "#00cd00", "#cdcd00", "#0000ee", "#cd00cd", "#00cdcd", "#e5e5e5",
 	"#7f7f7f", "#ff0000", "#00ff00", "#ffff00", "#5c5cff", "#ff00ff", "#00ffff", "#ffffff"}
 
+// defaultColor is the terminal's own foreground or background, for
+// clearing a color a role inherits.
+const defaultColor = "default" //str:ok
+
 var hexRE = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`) //str:ok
 
 // color is a resolved color: a terminal color (ansi 0–15) or a hex one.
@@ -260,7 +264,7 @@ func build(chain []file) (*Theme, error) {
 	origin := map[Role]string{} // which file set a role last, for messages
 	for _, f := range chain {
 		for _, n := range slices.Sorted(maps.Keys(f.palette)) {
-			if slices.Contains(terminalColors, n) {
+			if n == defaultColor || slices.Contains(terminalColors, n) {
 				return nil, errors.New(str.ThemePaletteNameTaken(f.name, n))
 			}
 			c, ok := literal(f.palette[n])
@@ -286,6 +290,10 @@ func build(chain []file) (*Theme, error) {
 			dst **color
 		}{{fs.fg, &s.fg}, {fs.bg, &s.bg}} {
 			if c.src == nil {
+				continue
+			}
+			if *c.src == defaultColor {
+				*c.dst = nil
 				continue
 			}
 			col, ok := resolve(*c.src, palette)

@@ -139,3 +139,17 @@ func TestEqual(t *testing.T) {
 		t.Errorf("Equal: same looks %v, different looks %v", a.Equal(b), a.Equal(c))
 	}
 }
+
+func TestDefaultColorClearsInherited(t *testing.T) {
+	th := mustBuild(t, "[ui]\nsidebar = { fg = \"red\", bg = \"#010203\" }\n\"sidebar.add\" = { bg = \"default\" }\n")
+	if got := th.SGR(SidebarAdd); got != "\x1b[31m" {
+		t.Errorf("SGR(sidebar.add) = %q, want the fg without the inherited bg", got)
+	}
+	if fg, bg := th.CSS(SidebarAdd); fg == "" || bg != "" {
+		t.Errorf("CSS(sidebar.add) = %q, %q", fg, bg)
+	}
+	f, _ := parse("t.toml", []byte("[palette]\ndefault = \"#000000\"\n"))
+	if _, err := build([]file{f}); err == nil || err.Error() != str.ThemePaletteNameTaken("t.toml", "default") {
+		t.Errorf("a palette name default: err = %v", err)
+	}
+}
