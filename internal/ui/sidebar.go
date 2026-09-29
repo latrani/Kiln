@@ -75,6 +75,7 @@ func (m *Model) open(k string) *charState {
 	m.order = append(m.order, k)
 	m.sortOrder()
 	m.preload(cs)
+	cs.sb.MarkSeen() // history isn't news
 	if m.active == "" {
 		m.active = k
 	}

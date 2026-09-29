@@ -713,6 +713,13 @@ func TestScrollPill(t *testing.T) {
 		c.lines <- "filler"
 	}
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].sb.Len() >= 61 })
+	if !h.m.chars["fm/kit"].sb.Scrolled() {
+		t.Error("a 60-line burst should pause at its start")
+	}
+	h.press(tea.KeyEscape, 0) // back to live
+	if h.m.chars["fm/kit"].sb.Scrolled() {
+		t.Error("Esc should go back to live")
+	}
 	h.press(tea.KeyPgUp, 0)
 	if !strings.Contains(h.screen(), str.ViewPillMore()) {
 		t.Errorf("no pill:\n%s", h.screen())
@@ -722,7 +729,7 @@ func TestScrollPill(t *testing.T) {
 		sb := &h.m.chars["fm/kit"].sb
 		return strings.Contains(sb.lines[sb.Len()-1].text, "fresh")
 	})
-	if !strings.Contains(h.screen(), " new ") {
+	if !strings.Contains(h.screen(), str.ViewPillNew(h.m.chars["fm/kit"].sb.Unseen())) {
 		t.Errorf("pill should count new lines:\n%s", h.screen())
 	}
 	l := h.m.layout()

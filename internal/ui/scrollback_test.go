@@ -244,3 +244,50 @@ func TestRuleChangeRestylesScrollback(t *testing.T) {
 		t.Errorf("found %d lighthouse lines, want 2", styled)
 	}
 }
+
+// TestPauseHoldsABurst: a burst taller than the view stops with its
+// first line at the top; later lines pile up unseen; paging down ends at
+// the live view, where everything counts as seen.
+func TestPauseHoldsABurst(t *testing.T) {
+	s := sb(20, "old 1", "old 2")
+	s.MarkSeen()
+	for i := 1; i <= 6; i++ {
+		s.Append(fmt.Sprintf("new %d", i))
+		s.Pause(4)
+	}
+	if got := s.View(4); !reflect.DeepEqual(got, []string{"new 1", "new 2", "new 3", "new 4"}) {
+		t.Errorf("paused view = %q", got)
+	}
+	if s.Unseen() != 2 {
+		t.Errorf("unseen = %d, want 2", s.Unseen())
+	}
+	s.ScrollDown(3)
+	if s.Scrolled() || s.seen != s.Len() {
+		t.Errorf("paging to the end should go live with everything seen (offset %d, seen %d)", s.offset, s.seen)
+	}
+	s.Append("next")
+	s.Pause(4)
+	if s.Scrolled() {
+		t.Error("a line that fits shouldn't pause")
+	}
+}
+
+// TestPauseCountsWrappedRows: the pager measures screen rows, not lines.
+func TestPauseCountsWrappedRows(t *testing.T) {
+	s := sb(10)
+	s.MarkSeen()
+	s.Append("a line long enough to wrap twice")
+	s.Pause(3)
+	if !s.Scrolled() {
+		t.Error("one line wrapping past the view should pause")
+	}
+}
+
+func TestPrependKeepsSeen(t *testing.T) {
+	s := sb(20, "a", "b")
+	s.MarkSeen()
+	s.Prepend([]string{"x", "y", "z"}, false)
+	if s.seen != 5 {
+		t.Errorf("seen = %d after prepending, want 5", s.seen)
+	}
+}

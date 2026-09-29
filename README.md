@@ -106,9 +106,9 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before |
 | `Ctrl+O` | Open a connection (same as `/open`): type to filter, `Enter` to connect, `Esc` to close |
 | `Ctrl+E` (in the `Ctrl+O` list) | Edit the highlighted world or character (`Enter` on a world does it too) |
-| `PgUp` / `PgDn`, mouse wheel | Scroll back (click the `▼ new` pill to jump to live) |
+| `PgUp` / `PgDn`, mouse wheel | Scroll back, or page through held output (see [Paging](#paging)) |
 | `Ctrl+L` | Open log mode |
-| `Esc` | Skip the login prompt |
+| `Esc` | Skip the login prompt; while scrolled back, jump to live (so does clicking the `▼ new` pill) |
 | `Ctrl+C` | Clear the input; on an empty input, press twice to quit |
 | `Ctrl+D` | Delete the character after the cursor; on an empty input, press twice to quit |
 
@@ -126,12 +126,17 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/open` | Open a connection (same as `Ctrl+O`) |
 | `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file) |
+| `/away` | Count as away right now: output is held and notifications go out, until your next key or click |
 | `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |
 | `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see below) |
 | `/quit` | Quit Kiln |
 
 To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
+
+### Paging
+
+Kiln never scrolls text past you unread. When a burst of output (a long room description, a `WHO` list) is taller than the screen, the view stops with its first line at the top, and the rest waits below behind the `▼ new` pill. The same happens with everything that arrives while you're away (see [Notifications](#notifications), or say `/away`), and when you switch to a character that piled up more than a screen while you were elsewhere. `PgDn` shows the next screenful, and `Esc`, clicking the pill, or sending a line jumps to live. Lines that trickle in (less than a second apart counts as one burst) scroll normally while you're here.
 
 ### Log mode
 
@@ -153,7 +158,7 @@ Exports contain only received lines: no timestamps, your own commands (the serve
 
 ### Notifications
 
-When you're away from Kiln, activity shows up as a desktop notification like `Kit: Rook pages: you around?` (`Kit@fm:` when two worlds have a Kit). You're away when you switch to another window or tab, or after `notify_idle` (default 5 minutes) without typing or clicking. Something that arrives while you still count as here is held, and sent (with how many more followed) if `notify_idle` passes without you coming back. The `notify` setting picks what notifies: `first` (the default) sends the first line since you left and then only lines that need attention (pages and whispers), `all` sends every line, `attention` only those, and `none` nothing. Lines hidden by a `quiet` rule never notify, and for a few seconds after connecting only attention lines do, so the login banner stays quiet. A burst of lines (like a room description) notifies only its first line. `/notify` changes it for one character until Kiln quits.
+When you're away from Kiln, activity shows up as a desktop notification like `Kit: Rook pages: you around?` (`Kit@fm:` when two worlds have a Kit). You're away when you switch to another window or tab, after `notify_idle` (default 5 minutes) without typing or clicking, or from `/away` until your next key or click. Something that arrives while you still count as here is held, and sent (with how many more followed) if `notify_idle` passes without you coming back. The `notify` setting picks what notifies: `first` (the default) sends the first line since you left and then only lines that need attention (pages and whispers), `all` sends every line, `attention` only those, and `none` nothing. Lines hidden by a `quiet` rule never notify, and for a few seconds after connecting only attention lines do, so the login banner stays quiet. A burst of lines (like a room description) notifies only its first line. `/notify` changes it for one character until Kiln quits.
 
 Notifications work in iTerm2, kitty, Ghostty, WezTerm, foot and Blink, locally or over ssh. Inside tmux, add this to `~/.tmux.conf`:
 
