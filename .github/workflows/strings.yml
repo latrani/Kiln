@@ -1,0 +1,61 @@
+# Flags pull requests that change what Kiln says: when one touches the
+# string catalogs, it gets the "strings" label and a comment listing the
+# entries added, changed and removed, kept up to date on each push.
+name: strings
+
+on:
+  pull_request:
+    paths: ["internal/str/locales/**"]
+
+permissions:
+  contents: read
+  issues: write # labels
+  pull-requests: write # the comment
+
+jobs:
+  review:
+    # A fork's PR gets a read-only token, so it couldn't label or comment.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      # The default checkout is the PR merged into its base; its first
+      # parent is the base, so the difference is just the PR's.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: List changed entries
+        run: |
+          : > report.md
+          for f in $(git diff --name-only HEAD^1 HEAD -- 'internal/str/locales/*.toml'); do
+            git show "HEAD^1:$f" > old.toml 2>/dev/null || rm -f old.toml
+            out=$(go run ./internal/str/diff old.toml "$f" 2>&1) || { echo "$out"; exit 1; }
+            if [ -n "$out" ]; then
+              printf '### `%s`\n%s\n\n' "$(basename "$f")" "$out" >> report.md
+            fi
+          done
+          cat report.md
+      - name: Label and comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- kiln-strings -->'
+          old=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n1)
+          if [ ! -s report.md ]; then
+            # Only comments or formatting changed: nothing to review.
+            gh pr edit "$PR" --remove-label strings || true
+            [ -n "$old" ] && gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/$old"
+            exit 0
+          fi
+          gh label create strings --color FBCA04 --description "Changes user-facing text" 2>/dev/null || true
+          gh pr edit "$PR" --add-label strings
+          { echo "$marker"; echo "## Strings to review"; echo; cat report.md; } > body.md
+          if [ -n "$old" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$old" -F body=@body.md > /dev/null
+          else
+            gh pr comment "$PR" --body-file body.md
+          fi
