@@ -1193,8 +1193,8 @@ func Load(dir string) (*Theme, error) {
 }
 
 // chainFor is the files theme name is built from, base first. seen is the
-// user files already on the chain: a file extending its own name means the
-// built-in (only default has one).
+// user files already on the chain: naming one of those again means the
+// built-in theme of that name (only default has one), and otherwise a loop.
 func chainFor(dir, name string, seen []string) ([]file, error) {
 	builtinFile := func() ([]file, error) {
 		if name != "default" {
@@ -1204,7 +1204,7 @@ func chainFor(dir, name string, seen []string) ([]file, error) {
 		return []file{f}, nil
 	}
 	if slices.Contains(seen, name) {
-		if name == seen[len(seen)-1] {
+		if name == "default" { // the user's default.toml is on the chain: this means the built-in
 			return builtinFile()
 		}
 		return nil, errors.New(str.ThemeExtendsLoop(seen[len(seen)-1]+".toml", name))
@@ -1247,7 +1247,7 @@ func Paint(r Role, text string) string { return Active().Paint(r, text) }
 func SGR(r Role) string { return Active().SGR(r) }
 ```
 
-Note the cycle rule in `chainFor`: a name already on the chain is the built-in only when it is the file that just asked for it (`default.toml` saying `extends = "default"`). Any other repeat is a loop.
+Note the cycle rule in `chainFor`: `default` named again while the user's `default.toml` is on the chain means the built-in. Any other repeat is a loop.
 
 - [ ] **Step 5: Make and watch the themes folder**
 

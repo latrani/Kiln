@@ -1,0 +1,57 @@
+# Kiln's built-in theme. To change the look, make themes/default.toml in
+# Kiln's config folder with extends = "default", and set only the roles
+# you want different. Colors are "#rrggbb", a [palette] name, or a
+# terminal color (red, bright-blue, ...). Styles take fg, bg, bold, faint,
+# italic, underline and reverse. A role inherits from the role before its
+# last dot: link.hover starts from link.
+
+[ui]
+"sidebar.world"     = { bold = true }
+"sidebar.active"    = { reverse = true }
+"sidebar.attention" = { fg = "#ffd166", bold = true }
+"sidebar.add"       = { faint = true }
+"sidebar.more"      = { faint = true }
+
+"picker.world"          = { bold = true }
+"picker.world.selected" = { reverse = true }
+"picker.selected"       = { reverse = true }
+"picker.add"            = { faint = true }
+
+"divider" = { faint = true }
+"rule"    = { faint = true }
+
+"scrollback.day"         = { faint = true }
+"scrollback.history_end" = { faint = true }
+"scrollback.loading"     = { faint = true }
+"scrollback.echo"        = { faint = true }
+"scrollback.sys"         = { faint = true }
+"scrollback.pill"        = { reverse = true }
+"scrollback.selection"   = { reverse = true }
+"scrollback.inactive"    = { faint = true }
+"link"                   = { underline = true }
+"link.hover"             = { fg = "bright-blue" }
+
+"input.hint"       = { faint = true }
+"input.over_limit" = { fg = "bright-white", bg = "red" }
+"input.selection"  = { reverse = true }
+
+"status.log"   = { bold = true }
+"status.error" = { fg = "red" }
+
+"form.label" = { faint = true }
+"form.hint"  = { faint = true }
+"form.error" = { fg = "red" }
+"form.focus" = { reverse = true }
+"form.title" = { bold = true }
+
+"log.header.title"   = { bold = true }
+"log.header.chip.on" = { reverse = true }
+"log.time"           = { faint = true }
+"log.cursor"         = { reverse = true }
+"log.find"           = { reverse = true }
+"log.day"            = { faint = true }
+"log.loading"        = { faint = true }
+"log.bar.hints"      = { faint = true }
+"log.bar.error"      = { fg = "red" }
+
+"export" = { fg = "#d8d8d8", bg = "#1b1b1f" }

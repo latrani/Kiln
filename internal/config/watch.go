@@ -17,14 +17,14 @@ type Watcher struct {
 	changes chan struct{}
 }
 
-// Watch starts watching dir, dir/worlds and dir/packs. Call EnsureDefaults
-// first so all three exist.
+// Watch starts watching dir, dir/worlds, dir/packs and dir/themes. Call
+// EnsureDefaults first so they all exist.
 func Watch(dir string) (*Watcher, error) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-	for _, d := range []string{dir, filepath.Join(dir, "worlds"), filepath.Join(dir, "packs")} {
+	for _, d := range []string{dir, filepath.Join(dir, "worlds"), filepath.Join(dir, "packs"), filepath.Join(dir, "themes")} {
 		if err := fw.Add(d); err != nil {
 			fw.Close()
 			return nil, err

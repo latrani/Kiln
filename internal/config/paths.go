@@ -36,7 +36,7 @@ var defaults embed.FS
 // starter config.toml and packs/fuzzball.toml if they don't exist yet.
 // Existing files are never overwritten.
 func EnsureDefaults(dir string) error {
-	for _, sub := range []string{"worlds", "packs"} {
+	for _, sub := range []string{"worlds", "packs", "themes"} {
 		if err := os.MkdirAll(filepath.Join(dir, sub), 0o700); err != nil {
 			return err
 		}

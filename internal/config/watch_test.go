@@ -48,3 +48,21 @@ func TestWatchIgnoresNonToml(t *testing.T) {
 	case <-time.After(3 * Debounce):
 	}
 }
+
+func TestWatchSeesThemes(t *testing.T) {
+	dir := t.TempDir()
+	if err := EnsureDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	w, err := Watch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("extends = \"default\"\n"), 0o644)
+	select {
+	case <-w.Changes():
+	case <-time.After(2 * time.Second):
+		t.Fatal("no change reported for a theme file")
+	}
+}
