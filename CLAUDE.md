@@ -31,3 +31,18 @@ output) lives in `internal/str/locales/en.toml`, not in Go source.
   rewording a string never breaks a test. For part of a message, fill a
   placeholder with `mark` and cut with `upTo`/`after` (in each package's
   `catalog_test.go`). `TestTestsReadTheCatalog` flags copied phrases.
+
+## Colors and styles
+
+Every color and attribute Kiln draws comes from a theme role
+(`internal/theme/roles.go`), never an escape code in the UI:
+`theme.Paint(theme.StatusError, msg)`. A new kind of thing on screen gets
+a new role, added to `roles.go` (`Roles` too), the built-in
+`internal/theme/default.toml`, and the README's role list.
+`TestNoHardCodedStyles` fails on escape codes in `internal/ui` and
+`cmd/kiln`. Painted areas (sidebar, input, statusline, log header and
+action bar) go through `theme.Fill`. The scrollback and log body never do:
+server text sits on the terminal's background. The golden screens in
+`internal/ui/testdata/golden` pin the built-in look; update them with
+`-update` only when a change to the look is intended, and say so in the
+commit.

@@ -156,6 +156,25 @@ Kiln never scrolls text past you unread. When a burst of output (a long room des
 
 Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
 
+### Themes
+
+Kiln's colors come from a theme. To change them, make `themes/default.toml` in Kiln's config folder, start it with `extends = "default"`, and set only what you want different. Kiln picks up changes as you save.
+
+    extends = "default"
+
+    [palette]
+    panel = "#1f2029"
+
+    [ui]
+    "sidebar"        = { bg = "panel" }
+    "sidebar.active" = { reverse = true }
+    "status"         = { bg = "panel" }
+    "status.error"   = { fg = "#ff6b6b", bold = true }
+
+A style sets any of `fg`, `bg`, `bold`, `faint`, `italic`, `underline` and `reverse`. A color is `#rrggbb`, a name from `[palette]`, or one of the terminal's own sixteen (`red`, `bright-blue`, and so on). A role inherits from the one before its last dot (`link.hover` starts from `link`). Text from the server always sits on your terminal's background; the sidebar, input box, statusline and log mode's header and action bar can have their own. If a theme has a mistake, Kiln says so in the statusline and keeps the colors it had.
+
+The roles are: `sidebar` (`.world`, `.char`, `.active`, `.unread`, `.attention`, `.connecting`, `.disconnected`, `.add`, `.more`), `picker` (`.world`, `.world.selected`, `.selected`, `.add`), `divider`, `rule`, `scrollback` (`.day`, `.history_end`, `.loading`, `.echo`, `.sys`, `.pill`, `.selection`, `.inactive`, `.empty`), `link` (`.hover`), `input` (`.hint`, `.over_limit`, `.selection`), `status` (`.log`, `.error`, `.clock`), `form` (`.label`, `.hint`, `.error`, `.focus`, `.title`), `log` (`.header`, `.header.title`, `.header.chip`, `.header.chip.on`, `.time`, `.cursor`, `.selected`, `.excluded`, `.find`, `.day`, `.loading`, `.bar`, `.bar.hints`, `.bar.error`), and `export` (the HTML export's page).
+
 ### Notifications
 
 When you're away from Kiln, activity shows up as a desktop notification like `Kit: Rook pages: you around?` (`Kit@fm:` when two worlds have a Kit). You're away when you switch to another window or tab, after `notify_idle` (default 5 minutes) without typing or clicking, or from `/away` until your next key or click. Something that arrives while you still count as here is held, and sent (with how many more followed) if `notify_idle` passes without you coming back. The `notify` setting picks what notifies: `first` (the default) sends the first line since you left and then only lines that need attention (pages and whispers), `all` sends every line, `attention` only those, and `none` nothing. Lines hidden by a `quiet` rule never notify, and for a few seconds after connecting only attention lines do, so the login banner stays quiet. A burst of lines (like a room description) notifies only its first line. `/notify` changes it for one character until Kiln quits.

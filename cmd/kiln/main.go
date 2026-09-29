@@ -157,9 +157,9 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 			e, err := s.Send(sc.Text())
 			var logErr *session.LogError
 			if errors.As(err, &logErr) {
-				fmt.Fprintln(os.Stderr, "\x1b[31m*", err, "\x1b[0m")
+				fmt.Fprintln(os.Stderr, theme.Paint(theme.StatusError, "* "+err.Error()))
 			} else if err != nil {
-				fmt.Fprintln(os.Stderr, "\x1b[2m*", str.CliNotSent(err), "\x1b[0m")
+				fmt.Fprintln(os.Stderr, theme.Paint(theme.ScrollbackSys, "* "+str.CliNotSent(err)))
 				continue
 			}
 			fmt.Println(render(e, rules.Result{}))
@@ -178,7 +178,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 			}
 			fmt.Println(render(ev.Entry, res))
 		case session.EventLogError:
-			fmt.Fprintln(os.Stderr, "\x1b[31m*", str.CliLogWriteFailed(ev.Err), "\x1b[0m")
+			fmt.Fprintln(os.Stderr, theme.Paint(theme.StatusError, "* "+str.CliLogWriteFailed(ev.Err)))
 		case session.EventState:
 			var pin *conn.PinMismatchError
 			if errors.As(ev.Err, &pin) {
