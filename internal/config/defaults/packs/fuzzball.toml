@@ -2,10 +2,6 @@
 # cmd-page and cmd-whisper programs). Servers customize these heavily;
 # edit freely.
 
-[[classify]]
-tag = "say"
-pattern = '^(You say|\S+ says), "'
-
 # Whispers, like pages below: "whisper/in" to you, "whisper/out" your own.
 [[classify]]
 tags = ["whisper", "whisper/in"]
