@@ -39,7 +39,7 @@
 ### Task 1: `[tags]` in theme files
 
 **Files:**
-- Modify: `internal/theme/theme.go`, `internal/theme/load.go`
+- Modify: `internal/theme/theme.go`, `internal/theme/load.go`, `internal/theme/default.toml`
 - Modify: `internal/str/locales/en.toml` (then `go generate ./internal/str`)
 - Test: `internal/theme/theme_test.go`, `internal/theme/load_test.go`
 
@@ -377,16 +377,43 @@ func (t *Theme) Equal(o *Theme) bool {
 }
 ```
 
-- [ ] **Step 6: Run the theme tests**
+- [ ] **Step 6: The default theme styles the core tags the old pack colored, and `highlight`**
+
+Add to `internal/theme/default.toml`, after the `[palette]` swatches:
+
+```toml
+ember    = "#ff9f43"
+lavender = "#c39bd3"
+beacon   = "#ffd166"
+```
+
+and at the end:
+
+```toml
+# How lines with classify tags are drawn. A tag falls back up its
+# slashes: whisper/in uses whisper's style if it has none of its own.
+# scope = "match" styles only the text the tag's pattern matched.
+[tags]
+"page/in"    = { fg = "ember", bold = true }
+"whisper/in" = { fg = "lavender", italic = true }
+"self"       = { bold = true }
+"highlight"  = { fg = "beacon", bold = true, scope = "match" }
+```
+
+`sidebar.attention` keeps its own `#ffd166`: it's chrome, and it can now say `fg = "beacon"`. Make that change so both follow one swatch.
+
+Run: `go test ./internal/theme -run TestBuiltinLook` and add a row pinning it: `{"page/in" via Tag, "\x1b[1;38;2;255;159;67m"}` (call `b.Tag("page/in")` in a small extra check, since the table is keyed by role). The golden screens don't change: nothing draws tags until Task 5, and then these reproduce the old pack's colors.
+
+- [ ] **Step 7: Run the theme tests**
 
 Run: `go test ./internal/theme ./internal/str`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add internal/theme internal/str
-git commit -m "feat(theme): [tags]: styles for classify tags, with scope
+git commit -m "feat(theme): [tags]: styles for classify tags, with scope; the default theme styles the core tags
 
 Strings: theme.tag_not_table, theme.bad_scope, theme.tag_entry (new);
 theme.* (every file message takes the file's path)"
@@ -849,7 +876,7 @@ func (cs *charState) compile() error {
 and `renderLine` ends `return style.Highlight(text, res.Runs), res`. Fix `TestRenderLineMatchScope` in `model_test.go` to build its highlighter from `theme.FromTOML("[tags]\npage = { fg = \"#2053ff\", bold = true, scope = \"match\" }\n")` with `attention = []string{"page"}`, and expect `"\x1b[1;38;2;32;83;255mPAGE:" + style.Reset + " Mira says hi" + style.Reset` with `res.Attention`.
 
 Run: `go build ./... && go test ./internal/rules ./internal/style ./cmd/...`
-Expected: PASS. (`internal/ui` and `internal/config` still have `[[highlight]]` fixtures; Task 4 fixes them.)
+Expected: PASS. (`internal/ui` and `internal/config` still have `[[highlight]]` fixtures, and nothing asks for attention until Task 4 passes the lists in; `go test ./internal/ui` is expected to fail on those until then.)
 
 - [ ] **Step 8: Commit**
 
@@ -1145,7 +1172,8 @@ func TestBadWorldLookFallsBackToTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": world})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	if !strings.Contains(h.m.status, "fm/kit: "+upTo(str.ThemeBadColor(mark, "", ""))) {
+	want := "fm/kit: " + str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "beacon")
+	if !strings.Contains(h.m.status, want) {
 		t.Errorf("status = %q, want the bad color reported", h.m.status)
 	}
 	h.show("Mira pages: you around?")
@@ -1155,8 +1183,6 @@ func TestBadWorldLookFallsBackToTheme(t *testing.T) {
 	}
 }
 ```
-
-(`upTo`/`mark` cut the catalog text at the placeholder; see `internal/ui/catalog_test.go`. If `str.ThemeBadColor`'s first placeholder isn't the one to cut at, cut with `after` instead, so the test only relies on the catalog.)
 
 In `model_test.go` and `notify_test.go`, the three quiet fixtures (`model_test.go:1165`, `notify_test.go:157`) become a classify tag plus `quiet`:
 
@@ -1236,7 +1262,7 @@ func styleInputs(ch config.Character) any {
 - [ ] **Step 4: Run all the UI tests, goldens included**
 
 Run: `go test ./internal/ui`
-Expected: PASS, with the golden screens unchanged. If `TestGoldenMain` fails on the "Rook says, "Evening, Kit."" line, Task 6's default `[tags]` aren't in yet: this task's goldens rely on the default theme styling `self` bold. Move Step 1 of Task 6 (the default theme's `[tags]`) into this task, and commit it here.
+Expected: PASS, with the golden screens unchanged: the default theme's `[tags]` (Task 1) reproduce the old pack's colors.
 
 - [ ] **Step 5: Commit**
 
@@ -1247,10 +1273,9 @@ git commit -m "feat(ui): lines draw their tags from the theme and the character'
 
 ---
 
-### Task 6: The default theme's tags, the fuzzball pack, `/highlight`, docs
+### Task 6: The fuzzball pack, `/highlight`, docs
 
 **Files:**
-- Modify: `internal/theme/default.toml`
 - Modify: `internal/config/defaults/packs/fuzzball.toml`
 - Create: `internal/config/pack_test.go` (replaces the deleted `internal/rules/pack_test.go`)
 - Modify: `README.md`
@@ -1260,32 +1285,7 @@ git commit -m "feat(ui): lines draw their tags from the theme and the character'
 - Consumes: everything above.
 - Produces: nothing new in code.
 
-- [ ] **Step 1: The default theme styles the core tags the old pack colored, and `highlight`**
-
-Add to `internal/theme/default.toml`, after the `[palette]` swatches:
-
-```toml
-ember    = "#ff9f43"
-lavender = "#c39bd3"
-beacon   = "#ffd166"
-```
-
-and at the end:
-
-```toml
-# How lines with classify tags are drawn. A tag falls back up its
-# slashes: whisper/in uses whisper's style if it has none of its own.
-# scope = "match" styles only the text the tag's pattern matched.
-[tags]
-"page/in"    = { fg = "ember", bold = true }
-"whisper/in" = { fg = "lavender", italic = true }
-"self"       = { bold = true }
-"highlight"  = { fg = "beacon", bold = true, scope = "match" }
-```
-
-`sidebar.attention` keeps its own `#ffd166`: it's chrome, and it can now say `fg = "beacon"`. Make that change so both follow one swatch.
-
-- [ ] **Step 2: Write the failing pack test**
+- [ ] **Step 1: Write the failing pack test**
 
 Create `internal/config/pack_test.go`:
 
@@ -1354,7 +1354,7 @@ func TestStarterPackPages(t *testing.T) {
 Run: `go test ./internal/config -run TestStarterPackPages`
 Expected: FAIL. The embedded pack still has `[[highlight]]`, so `Load` errors on the unknown key.
 
-- [ ] **Step 3: Move the pack to the new form**
+- [ ] **Step 2: Move the pack to the new form**
 
 In `internal/config/defaults/packs/fuzzball.toml`, delete the three `[[highlight]]` blocks. Change the header comment and add the list:
 
@@ -1369,7 +1369,7 @@ attention = ["page/in", "whisper/in", "self"]
 
 (`attention` goes above the first `[[classify]]`, so it stays a top-level key.) The page comment's "while the highlight below colors only what you receive" becomes "while only what you receive asks for attention."
 
-- [ ] **Step 4: Run the pack, `/highlight` and golden tests**
+- [ ] **Step 3: Run the pack, `/highlight` and golden tests**
 
 `TestHighlightCommand` (`browse_test.go:526`) should still pass: the status text is unchanged. Add a check that a line containing the text now draws in the theme's `highlight` style:
 
@@ -1386,7 +1386,7 @@ attention = ["page/in", "whisper/in", "self"]
 Run: `go test ./...`
 Expected: PASS, goldens unchanged.
 
-- [ ] **Step 5: Docs**
+- [ ] **Step 4: Docs**
 
 In `README.md`:
 
@@ -1396,10 +1396,10 @@ In `README.md`:
 - A **Core tags** subsection for pack authors, with the spec's table (`page`, `page/in`, `page/out`, `whisper`, …, `self`) and the sentence about `say` and `pose` not being core.
 - The Themes section's style-field sentence mentions that `[tags]` styles also take `scope`, and its example gains a `[tags]` table.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add internal/theme/default.toml internal/config README.md internal/ui/browse_test.go
+git add internal/config README.md internal/ui/browse_test.go
 git commit -m "feat: the fuzzball pack and default theme in the new form; docs for tags"
 ```
 
