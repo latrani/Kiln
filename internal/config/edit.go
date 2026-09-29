@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2/unstable"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Editing hand-written world files. Only the lines being changed change:
@@ -277,7 +280,7 @@ func Defaults(dir string) (Inherited, error) {
 
 func worldPath(dir, world string) (string, error) {
 	if !idRE.MatchString(world) {
-		return "", fmt.Errorf("bad world id %q", world)
+		return "", errors.New(str.ConfigBadWorldIdBare(world))
 	}
 	return filepath.Join(dir, "worlds", world+".toml"), nil
 }
@@ -357,7 +360,7 @@ func characterIndex(wf worldFile, world, id string) (int, error) {
 			return i, nil
 		}
 	}
-	return 0, fmt.Errorf("%s has no character %q", world, id)
+	return 0, errors.New(str.ConfigNoCharacterInWorld(world, id))
 }
 
 // ReadCharacter returns what character id's entry in worlds/<world>.toml
@@ -430,7 +433,7 @@ func (d *tomlDoc) characterTable(path, world, id string) (int, error) {
 	}
 	t, ok := d.character(n)
 	if !ok {
-		return 0, fmt.Errorf("%s: can't find character %q's table", filepath.Base(path), id)
+		return 0, errors.New(str.ConfigMissingCharacterTable(filepath.Base(path), id))
 	}
 	return t, nil
 }
@@ -479,7 +482,7 @@ func DeleteWorld(dir, world string) error {
 		return err
 	}
 	if n := len(wf.Characters); n > 0 {
-		return fmt.Errorf("%s still has %d character(s); delete them first", world, n)
+		return errors.New(str.ConfigWorldHasCharacters(n, world))
 	}
 	return os.Remove(path)
 }

@@ -6,6 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -266,7 +267,7 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 	}
 	if len(f.fields) == 1 {
 		text, col := f.fieldRow(0, len(f.fields[0].label))
-		return []string{text + style.Dim("  · ") + note}, 0, col
+		return []string{text + style.Dim(" " + str.Separator()) + note}, 0, col
 	}
 	if f.title != "" {
 		rows = append(rows, bold+f.title+style.Reset)
@@ -288,9 +289,9 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 		rows = append(rows, text)
 	}
 	if f.reject == "" {
-		note = style.Dim("Enter next field · " + f.hint)
+		note = style.Dim(str.FormNextField(f.hint))
 	}
-	rows[len(rows)-1] += style.Dim("  · ") + note
+	rows[len(rows)-1] += style.Dim(" " + str.Separator()) + note
 	return rows, curRow, curCol
 }
 

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -110,7 +111,7 @@ func (s *Scrollback) append(text string) {
 }
 
 // loadingRow sits above the oldest line while more history may exist.
-var loadingRow = style.Dim("─── loading older history… ───")
+var loadingRow = style.Dim(str.ScrollbackLoading())
 
 // SetMore records whether lines older than the first one exist. The
 // scrollback never reads them itself: RequestOlder says when the view

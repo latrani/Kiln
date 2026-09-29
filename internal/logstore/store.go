@@ -14,9 +14,12 @@ import (
 	"time"
 
 	"github.com/latrani/Kiln/internal/pathfmt"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Defaults for the log_dir and log_name settings.
+//
+//str:ok
 const (
 	DefaultDir  = "{world}/{char}"         // under the log root
 	DefaultName = "%Y-%m-%d %H%M%S {char}" // plus ".log"
@@ -28,7 +31,7 @@ var Vars = []string{"world", "char", "name"}
 
 // charLine is the header's second line: whose log this is, so characters
 // can share a folder whatever their files are named.
-const charLine = "#kiln-char "
+const charLine = "#kiln-char " //str:ok
 
 // Layout says where one character's logs go: the log_dir and log_name
 // templates (strftime codes and Vars; "" for the defaults), with a
@@ -127,7 +130,7 @@ func (w *Writer) create(e Entry) error {
 	for n := 1; ; n++ {
 		name := base + ".log"
 		if n > 1 {
-			name = fmt.Sprintf("%s (%d).log", base, n)
+			name = fmt.Sprintf("%s (%d).log", base, n) //str:ok
 		}
 		path := filepath.Join(dir, name)
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -210,14 +213,14 @@ func readHead(path string) head {
 // Older versions of Kiln wrote logs with no #kiln-char line: per day
 // ("2026-09-24.log" in the character's own folder), then per session
 // ("2026-09-24 211403 Kit.log").
-var dayFileRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}\.log$`)
+var dayFileRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}\.log$`) //str:ok
 
 func (l Layout) oldName(path string) bool {
 	name := filepath.Base(path)
 	if dayFileRE.MatchString(name) {
 		return filepath.Base(filepath.Dir(path)) == l.Char
 	}
-	re := regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{6} ` + regexp.QuoteMeta(l.Char) + `(?: \(\d+\))?\.log$`)
+	re := regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{6} ` + regexp.QuoteMeta(l.Char) + `(?: \(\d+\))?\.log$`) //str:ok
 	return re.MatchString(name)
 }
 
@@ -289,7 +292,7 @@ func ReadFile(path string) ([]Entry, error) {
 		out = append(out, e)
 	}
 	if err := sc.Err(); err != nil {
-		return out, fmt.Errorf("logstore: reading %s: %w", filepath.Base(path), err)
+		return out, str.Wrap(str.LogstoreReading(filepath.Base(path), err), err)
 	}
 	return out, nil
 }

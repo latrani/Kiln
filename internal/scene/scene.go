@@ -90,37 +90,37 @@ pre { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-spac
 </head>
 <body>
 <pre>
-`, html.EscapeString(title))
+`, html.EscapeString(title)) //str:ok
 	for _, e := range entries {
 		for _, sp := range ansi.Spans(ansi.Sanitize(e.Text)) {
 			if css := spanCSS(sp.Style); css != "" {
-				fmt.Fprintf(&b, `<span style="%s">%s</span>`, css, html.EscapeString(sp.Text))
+				fmt.Fprintf(&b, `<span style="%s">%s</span>`, css, html.EscapeString(sp.Text)) //str:ok
 			} else {
 				b.WriteString(html.EscapeString(sp.Text))
 			}
 		}
 		b.WriteByte('\n')
 	}
-	b.WriteString("</pre>\n</body>\n</html>\n")
+	b.WriteString("</pre>\n</body>\n</html>\n") //str:ok
 	return b.String()
 }
 
 func spanCSS(s ansi.SpanStyle) string {
 	var parts []string
 	if s.FG != "" {
-		parts = append(parts, "color:"+s.FG)
+		parts = append(parts, "color:"+s.FG) //str:ok
 	}
 	if s.BG != "" {
-		parts = append(parts, "background:"+s.BG)
+		parts = append(parts, "background:"+s.BG) //str:ok
 	}
 	if s.Bold {
-		parts = append(parts, "font-weight:bold")
+		parts = append(parts, "font-weight:bold") //str:ok
 	}
 	if s.Italic {
-		parts = append(parts, "font-style:italic")
+		parts = append(parts, "font-style:italic") //str:ok
 	}
 	if s.Underline {
-		parts = append(parts, "text-decoration:underline")
+		parts = append(parts, "text-decoration:underline") //str:ok
 	}
 	return strings.Join(parts, ";")
 }

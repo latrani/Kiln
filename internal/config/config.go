@@ -23,6 +23,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/pathfmt"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Style is how a highlighted line is drawn. Empty colors mean "unchanged".
@@ -212,7 +213,7 @@ const (
 	DefaultNotifyIdle = 5 * time.Minute
 )
 
-var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`) //str:ok
 
 // Load reads and resolves the config directory. config.toml and the
 // worlds/ and packs/ directories are all optional.
@@ -238,7 +239,7 @@ func Load(dir string) (*Config, error) {
 		store = DefaultPasswordStore
 	}
 	if store != "keychain" && store != "file" && store != "none" {
-		return nil, errors.New(`config.toml: password_store must be "keychain", "file" or "none"`)
+		return nil, errors.New(str.ConfigBadPasswordStore())
 	}
 	exportName := g.ExportName
 	if exportName == "" {
@@ -250,7 +251,7 @@ func Load(dir string) (*Config, error) {
 	switch g.ExportFormat {
 	case "", "plain", "ansi", "html":
 	default:
-		return nil, errors.New(`config.toml: export_format must be "plain", "ansi" or "html"`)
+		return nil, errors.New(str.ConfigBadExportFormat())
 	}
 	idle := DefaultNotifyIdle
 	if g.NotifyIdle != nil {
@@ -259,13 +260,13 @@ func Load(dir string) (*Config, error) {
 			idle, err = time.ParseDuration(v)
 		}
 		if !ok || err != nil || idle < 0 {
-			return nil, errors.New(`config.toml: notify_idle must be a duration like "5m" ("0" turns it off)`)
+			return nil, errors.New(str.ConfigBadNotifyIdle())
 		}
 	}
 	method := notify.OSC
 	if g.NotifyMethod != "" {
 		if method, err = notify.ParseMethod(g.NotifyMethod); err != nil {
-			return nil, fmt.Errorf("config.toml: %w", err)
+			return nil, fmt.Errorf("config.toml: %w", err) //str:ok
 		}
 	}
 	logDir := g.LogDir
@@ -281,7 +282,7 @@ func Load(dir string) (*Config, error) {
 		return nil, err
 	}
 	if strings.ContainsAny(g.LogName, `/\`) {
-		return nil, errors.New("config.toml: log_name is a file name; put folders in log_dir")
+		return nil, errors.New(str.ConfigLogNameHasFolders())
 	}
 	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store,
 		NotifyIdle: idle, NotifyMethod: method}
@@ -317,7 +318,7 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 	id := strings.TrimSuffix(filepath.Base(path), ".toml")
 	rel := filepath.Join("worlds", filepath.Base(path))
 	if !idRE.MatchString(id) {
-		return World{}, fmt.Errorf("%s: world id %q may only use letters, digits, _ and -", rel, id)
+		return World{}, errors.New(str.ConfigBadWorldId(rel, id))
 	}
 	var wf worldFile
 	if data == nil {
@@ -328,17 +329,17 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 		return World{}, err
 	}
 	if wf.Host == "" {
-		return World{}, fmt.Errorf("%s: host is required", rel)
+		return World{}, errors.New(str.ConfigHostRequired(rel))
 	}
 	if wf.Port <= 0 || wf.Port > 65535 {
-		return World{}, fmt.Errorf("%s: port must be 1-65535", rel)
+		return World{}, errors.New(str.ConfigBadPort(rel))
 	}
 	switch wf.TLSTrust {
 	case "":
 		wf.TLSTrust = "pin"
 	case "pin", "ca":
 	default:
-		return World{}, fmt.Errorf("%s: tls_trust must be \"pin\" or \"ca\"", rel)
+		return World{}, errors.New(str.ConfigBadTlsTrust(rel))
 	}
 
 	var worldRules Rules
@@ -356,21 +357,21 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 	w := World{ID: id}
 	seen := map[string]bool{}
 	for i, cf := range wf.Characters {
-		where := fmt.Sprintf("%s: characters #%d", rel, i+1)
+		where := str.ConfigCharacterNumber(rel, i+1)
 		if strings.TrimSpace(cf.Name) == "" {
-			return World{}, fmt.Errorf("%s: name is required", where)
+			return World{}, errors.New(str.ConfigNameRequired(where))
 		}
 		cid := cf.ID
 		if cid == "" {
 			cid = cf.Name
 		}
-		where = fmt.Sprintf("%s: characters %q", rel, cid)
+		where = str.ConfigCharacterId(rel, cid)
 		if !idRE.MatchString(cid) {
-			return World{}, fmt.Errorf("%s: id may only use letters, digits, _ and - (set id = \"...\" if the name has others)", where)
+			return World{}, errors.New(str.ConfigBadCharacterId(where))
 		}
 		// Case-insensitively, since the id names log folders.
 		if seen[strings.ToLower(cid)] {
-			return World{}, fmt.Errorf("%s: id is used by another character in this world", where)
+			return World{}, errors.New(str.ConfigDuplicateCharacterId(where))
 		}
 		seen[strings.ToLower(cid)] = true
 		cs := ws
@@ -395,12 +396,12 @@ func loadPack(dir, id string, cache map[string]Rules) (Rules, error) {
 		return r, nil
 	}
 	if !idRE.MatchString(id) {
-		return Rules{}, fmt.Errorf("pack id %q may only use letters, digits, _ and -", id)
+		return Rules{}, errors.New(str.ConfigBadPackId(id))
 	}
 	var r Rules
 	path := filepath.Join(dir, "packs", id+".toml")
 	if _, err := os.Stat(path); err != nil {
-		return Rules{}, fmt.Errorf("unknown pack %q (no packs/%s.toml)", id, id)
+		return Rules{}, errors.New(str.ConfigUnknownPack(id))
 	}
 	if err := decodeFile(path, &r, false); err != nil {
 		return Rules{}, err
@@ -411,10 +412,10 @@ func loadPack(dir, id string, cache map[string]Rules) (Rules, error) {
 
 func validate(ch Character) error {
 	if ch.MaxLineBytes <= 0 {
-		return errors.New("max_line_bytes must be positive")
+		return errors.New(str.ConfigBadMaxLineBytes())
 	}
 	if ch.NewlineMode != "batch" && ch.NewlineMode != "flatten" {
-		return errors.New(`newline_mode must be "batch" or "flatten"`)
+		return errors.New(str.ConfigBadNewlineMode())
 	}
 	if _, err := notify.ParseLevel(string(ch.Notify)); err != nil {
 		return err
@@ -422,21 +423,21 @@ func validate(ch Character) error {
 	for i, r := range ch.Rules.Classify {
 		tags := r.AllTags()
 		if len(tags) == 0 {
-			return fmt.Errorf("classify rule %d: tag or tags is required", i+1)
+			return errors.New(str.ConfigClassifyNeedsTag(i + 1))
 		}
 		if _, err := regexp.Compile(r.Pattern); err != nil {
-			return fmt.Errorf("classify rule %d (%s): %w", i+1, strings.Join(tags, ", "), err)
+			return str.Wrap(str.ConfigClassifyBadPattern(i+1, strings.Join(tags, ", "), err), err)
 		}
 	}
 	for i, r := range ch.Rules.Highlight {
 		if len(r.Match.Tags) == 0 && r.Match.Pattern == "" {
-			return fmt.Errorf("highlight rule %d: match needs tags or pattern", i+1)
+			return errors.New(str.ConfigHighlightNeedsMatch(i + 1))
 		}
 		if _, err := regexp.Compile(r.Match.Pattern); err != nil {
-			return fmt.Errorf("highlight rule %d: %w", i+1, err)
+			return str.Wrap(str.ConfigHighlightBadPattern(i+1, err), err)
 		}
 		if r.Scope != "" && r.Scope != "line" && r.Scope != "match" {
-			return fmt.Errorf(`highlight rule %d: scope must be "line" or "match"`, i+1)
+			return errors.New(str.ConfigBadHighlightScope(i + 1))
 		}
 	}
 	return nil
@@ -461,13 +462,13 @@ func decodeBytes(path string, b []byte, v any) error {
 		return fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
 	if und := md.Undecoded(); len(und) > 0 {
-		return fmt.Errorf("%s: unknown key %q", filepath.Base(path), und[0].String())
+		return errors.New(str.ConfigUnknownKey(filepath.Base(path), und[0].String()))
 	}
 	return nil
 }
 
 // DefaultExportName is used when config.toml sets no export_name.
-const DefaultExportName = "{date} {time} {world} {name}"
+const DefaultExportName = "{date} {time} {world} {name}" //str:ok
 
 // LogVars are the placeholders log_dir and log_name may use (with
 // strftime codes for the session's start): the world id, the character's
@@ -483,13 +484,13 @@ var ExportNameVars = []string{"date", "time", "world", "name"}
 // unknown strftime codes.
 func checkVars(setting, template string, vars []string) error {
 	if err := pathfmt.Check(template, vars); err != nil {
-		return fmt.Errorf("config.toml: %s: %w", setting, err)
+		return fmt.Errorf("config.toml: %s: %w", setting, err) //str:ok
 	}
 	return nil
 }
 
 // DefaultExportDir is used when config.toml sets no export_dir.
-const DefaultExportDir = "~/Documents/Kiln Scenes"
+const DefaultExportDir = "~/Documents/Kiln Scenes" //str:ok
 
 // ExpandHome expands a leading "~/" (and defaults an empty path to
 // DefaultExportDir).

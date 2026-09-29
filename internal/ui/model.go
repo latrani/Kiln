@@ -5,7 +5,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -23,6 +22,7 @@ import (
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -228,7 +228,7 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 func (m *Model) reloadNow() bool {
 	cfg, err := m.d.Load(m.d.ConfigDir)
 	if err != nil {
-		m.setStatus(true, "config not reloaded: %v", err)
+		m.setStatus(true, str.StatusConfigNotReloaded(err))
 		return false
 	}
 	m.applyConfig(cfg)
@@ -259,7 +259,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 		}
 		cs.ch, cs.orphan = ch, false
 		if err := cs.compile(); err != nil {
-			m.setStatus(true, "%s: %v", k, err)
+			m.setStatus(true, k+": "+err.Error())
 		}
 		if cs.sess != nil {
 			cs.sess.SetChar(ch)
@@ -334,7 +334,7 @@ func (m *Model) preload(cs *charState) {
 	for _, text := range cs.renderDays(entries, startsDay) {
 		cs.sb.Append(text)
 	}
-	cs.sb.Append(style.Dim("─── history ends " + entries[len(entries)-1].Time.Format("Mon Jan 2 15:04") + " ───"))
+	cs.sb.Append(style.Dim(str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
 	cs.hist, cs.leftover = hist, leftover
 	cs.sb.SetMore(leftover != nil || !hist.Exhausted())
 }
@@ -501,7 +501,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case reloadMsg:
 		if m.reloadNow() {
-			m.setStatus(false, "config reloaded")
+			m.setStatus(false, str.StatusConfigReloaded())
 		}
 		return m, m.watch()
 	case eventMsg:
@@ -579,8 +579,8 @@ func (m *Model) passwordStore() string {
 	return config.DefaultPasswordStore
 }
 
-func (m *Model) setStatus(isErr bool, format string, args ...any) {
-	m.status, m.statusErr = fmt.Sprintf(format, args...), isErr
+func (m *Model) setStatus(isErr bool, msg string) {
+	m.status, m.statusErr = msg, isErr
 }
 
 func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
@@ -623,7 +623,7 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		var pin *conn.PinMismatchError
 		if ev.State == session.Failed && errors.As(ev.Err, &pin) {
 			cs.pin = pin
-			m.setStatus(true, "%s: certificate changed; /trust to accept", cs.ch.Name)
+			m.setStatus(true, str.StatusCertChanged(cs.ch.Name))
 		}
 		if ev.State == session.Connected {
 			cs.pin = nil
@@ -632,7 +632,7 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 			cs.endPassword()
 		}
 	case session.EventLogError:
-		m.setStatus(true, "%s: log write failed: %v", cs.ch.Name, ev.Err)
+		m.setStatus(true, str.StatusLogWriteFailed(cs.ch.Name, ev.Err))
 	case session.EventNeedPassword:
 		cs.startPassword()
 	}
@@ -657,14 +657,14 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			store := m.passwordStore()
 			switch err := m.d.SavePassword(store, m.pendingCh[0], m.pendingCh[1], m.pendingPW); {
 			case err != nil && store == "keychain":
-				m.setStatus(true, `keychain: %v (set password_store = "file" or "none" in config.toml)`, err)
+				m.setStatus(true, str.StatusKeychainFailed(err))
 			case err != nil:
-				m.setStatus(true, "password not saved: %v", err)
+				m.setStatus(true, str.StatusPasswordNotSavedErr(err))
 			default:
-				m.setStatus(false, "password saved")
+				m.setStatus(false, str.StatusPasswordSaved())
 			}
 		case "n", "N", "esc", "ctrl+c":
-			m.setStatus(false, "password not saved")
+			m.setStatus(false, str.StatusPasswordNotSaved())
 		case openPickerKey:
 			m.openPicker() // says why not
 			return nil
@@ -727,7 +727,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		m.confirm = false
 		if cs != nil && cs.needPW {
 			cs.endPassword()
-			m.setStatus(false, "skipped login")
+			m.setStatus(false, str.StatusSkippedLogin())
 		}
 	case "enter":
 		return m.submit()
@@ -754,7 +754,7 @@ const quitWindow = 2 * time.Second
 
 // quitHint is the status shown while key is armed.
 func quitHint(key string) string {
-	return "Press Ctrl+" + strings.ToUpper(strings.TrimPrefix(key, "ctrl+")) + " again to quit"
+	return str.StatusQuitHint(strings.ToUpper(strings.TrimPrefix(key, "ctrl+"))) //str:ok
 }
 
 // armQuit quits if key was already armed (pressed just before), and
@@ -765,7 +765,7 @@ func (m *Model) armQuit(key, armed string) tea.Cmd {
 	}
 	m.quitKey = key
 	m.quitGen++
-	m.setStatus(false, "%s", quitHint(key))
+	m.setStatus(false, quitHint(key))
 	gen := m.quitGen
 	return tea.Tick(quitWindow, func(time.Time) tea.Msg { return quitExpiredMsg(gen) })
 }
@@ -850,7 +850,7 @@ func (m *Model) submit() tea.Cmd {
 			m.idle.Commit()
 			return m.command(nil, text)
 		default:
-			m.setStatus(true, "nothing open to send to")
+			m.setStatus(true, str.StatusNothingOpen())
 		}
 		return nil
 	}
@@ -858,7 +858,7 @@ func (m *Model) submit() tea.Cmd {
 		pw := cs.in.CommitSecret()
 		e, err := cs.sess.Login(pw)
 		if err != nil && !isLogErr(err) {
-			m.setStatus(true, "login not sent: %v", err)
+			m.setStatus(true, str.StatusLoginNotSent(err))
 			return nil
 		}
 		cs.endPassword()
@@ -885,12 +885,12 @@ func (m *Model) submit() tea.Cmd {
 	}
 	text = strings.TrimPrefix(text, "/") // "//foo" sends "/foo"
 	if cs.sess == nil || cs.state != session.Connected {
-		m.setStatus(true, "%s is not connected (/connect)", cs.ch.Name)
+		m.setStatus(true, str.StatusNotConnected(cs.ch.Name))
 		return nil
 	}
 	if cs.in.OverLimit(cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten") && !m.confirm {
 		m.confirm = true
-		m.setStatus(true, "over %d bytes: Enter again to send anyway", cs.ch.MaxLineBytes)
+		m.setStatus(true, str.StatusOverLimit(cs.ch.MaxLineBytes))
 		return nil
 	}
 	m.confirm = false
@@ -902,11 +902,11 @@ func (m *Model) submit() tea.Cmd {
 	for _, line := range lines {
 		e, err := cs.sess.Send(line)
 		if err != nil && !isLogErr(err) {
-			m.setStatus(true, "not sent: %v", err)
+			m.setStatus(true, str.StatusNotSent(err))
 			break
 		}
 		if err != nil {
-			m.setStatus(true, "%v", err)
+			m.setStatus(true, err.Error())
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
 		if cs.echoes(e) {
@@ -932,13 +932,13 @@ func isLogErr(err error) bool {
 func (m *Model) command(cs *charState, text string) tea.Cmd {
 	args := strings.Fields(text)
 	if cs == nil && args[0] != "/quit" && args[0] != "/open" {
-		m.setStatus(true, "%s needs an open character", args[0])
+		m.setStatus(true, str.StatusNeedsCharacter(args[0]))
 		return nil
 	}
 	switch args[0] {
 	case "/connect":
 		if cs.sess != nil && cs.state == session.Connected {
-			m.setStatus(false, "%s is already connected", cs.ch.Name)
+			m.setStatus(false, str.StatusAlreadyConnected(cs.ch.Name))
 			return nil
 		}
 		return m.connect(cs)
@@ -950,14 +950,14 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		}
 	case "/trust":
 		if cs.pin == nil {
-			m.setStatus(true, "no changed certificate to trust")
+			m.setStatus(true, str.StatusNoChangedCert())
 			return nil
 		}
 		if err := m.d.KnownHosts.Trust(cs.pin.HostPort, cs.pin.Got); err != nil {
-			m.setStatus(true, "trust: %v", err)
+			m.setStatus(true, str.StatusTrustFailed(err))
 			return nil
 		}
-		m.setStatus(false, "trusted new certificate for %s", cs.pin.HostPort)
+		m.setStatus(false, str.StatusTrusted(cs.pin.HostPort))
 		cs.pin = nil
 		return m.connect(cs)
 	case "/close":
@@ -973,14 +973,14 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 	case "/highlight":
 		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), args[0]))
 		if err := config.AppendHighlight(m.d.ConfigDir, cs.ch.World, text); err != nil {
-			m.setStatus(true, "highlight: %v", err)
+			m.setStatus(true, str.StatusHighlightFailed(err))
 			return nil
 		}
-		m.setStatus(false, "added highlight for %q", text)
+		m.setStatus(false, str.StatusHighlightAdded(text))
 	case "/notify":
 		m.notifyCommand(cs, args[1:])
 	default:
-		m.setStatus(true, "unknown command %s", args[0])
+		m.setStatus(true, str.StatusUnknownCommand(args[0]))
 	}
 	return nil
 }
@@ -1130,9 +1130,9 @@ func (m *Model) openLink(u string) {
 		return
 	}
 	if err := m.d.OpenURL(u); err != nil {
-		m.setStatus(true, "can't open link: %v", err)
+		m.setStatus(true, str.StatusLinkFailed(err))
 	} else {
-		m.setStatus(false, "opened %s", u)
+		m.setStatus(false, str.StatusLinkOpened(u))
 	}
 }
 
@@ -1154,6 +1154,6 @@ func (m *Model) handleRelease() tea.Cmd {
 	if text == "" {
 		return nil
 	}
-	m.setStatus(false, "copied to clipboard")
+	m.setStatus(false, str.StatusCopied())
 	return tea.SetClipboard(text)
 }

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // connectGrace is how long after connecting only attention lines
@@ -75,7 +75,7 @@ func (m *Model) flushHeld() tea.Cmd {
 		}
 		msg := cs.held
 		if cs.heldMore > 0 {
-			msg += fmt.Sprintf(" (+%d more)", cs.heldMore)
+			msg = str.NotifyHeldMore(msg, cs.heldMore)
 		}
 		cmds = append(cmds, m.encode(msg))
 		cs.held, cs.heldMore = "", 0
@@ -140,21 +140,21 @@ func (m *Model) notifyCommand(cs *charState, args []string) {
 	if len(args) == 0 {
 		shown := string(m.notifyLevel(cs))
 		if l := m.notifyOverrides[cs.key]; l != "" {
-			shown = fmt.Sprintf("%s (override; config says %s)", l, cs.ch.Notify)
+			shown = str.NotifyLevelOverride(l, cs.ch.Notify)
 		}
-		m.setStatus(false, "%s notify: %s", cs.ch.Name, shown)
+		m.setStatus(false, str.NotifyLevel(cs.ch.Name, shown))
 		return
 	}
 	if args[0] == "default" {
 		delete(m.notifyOverrides, cs.key)
-		m.setStatus(false, "%s notify: %s", cs.ch.Name, cs.ch.Notify)
+		m.setStatus(false, str.NotifyLevel(cs.ch.Name, cs.ch.Notify))
 		return
 	}
 	l, err := notify.ParseLevel(args[0])
 	if err != nil {
-		m.setStatus(true, "%v", err)
+		m.setStatus(true, err.Error())
 		return
 	}
 	m.notifyOverrides[cs.key] = l
-	m.setStatus(false, "%s notify: %s until Kiln quits", cs.ch.Name, l)
+	m.setStatus(false, str.NotifyLevelUntilQuit(cs.ch.Name, l))
 }

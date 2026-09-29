@@ -7,22 +7,24 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
 // pickerHint follows the filter in the input area.
-const pickerHint = "Enter to connect · Esc to close"
+var pickerHint = str.PickerHint()
 
 // addCharHint is the hint for the editor that adds a character.
-const addCharHint = "Enter to connect · Esc to cancel"
+var addCharHint = str.PickerAddCharHint()
 
 // The picker's add rows, and their selection keys. Neither key can be a
 // character's, which always has a "/".
-const (
-	addCharLabel  = "+ Character"
-	addWorldLabel = "+ World"
-	addWorldSel   = "+"
+var (
+	addCharLabel  = str.PickerAddCharacter()
+	addWorldLabel = str.PickerAddWorld()
 )
+
+const addWorldSel = "+"
 
 func addCharSel(world string) string { return "+" + world }
 
@@ -33,11 +35,11 @@ func worldSel(world string) string { return "=" + world }
 // browseBlocksPicker is the status when the picker can't open because
 // browse mode has the pane. Short, so it fits after browse mode's
 // status-line prefix on an 80-column screen.
-const browseBlocksPicker = "Esc out of log mode first"
+var browseBlocksPicker = str.PickerBlockedByLog()
 
 // questionBlocksPicker is the status when the picker can't open because
 // the save-password question owns the input area.
-const questionBlocksPicker = "Answer the question first"
+var questionBlocksPicker = str.PickerBlockedByQuestion()
 
 // picker is the open-connection list shown in the sidebar: every
 // configured character that isn't open, narrowed by a one-field form,
@@ -76,7 +78,7 @@ func (m *Model) openPicker() {
 		m.setStatus(true, browseBlocksPicker)
 		return
 	}
-	m.picker = &picker{form: newForm(pickerHint, textField("Filter"))}
+	m.picker = &picker{form: newForm(pickerHint, textField(str.PickerFilter()))}
 	m.sideTop, m.sideShown = 0, ""
 	m.fixPick()
 }
@@ -209,7 +211,7 @@ func (m *Model) choose(sel string) tea.Cmd {
 	case sel == addWorldSel:
 		m.openWorldEditor("")
 	case strings.HasPrefix(sel, "+"):
-		name := textField("Name")
+		name := textField(str.PickerName())
 		name.accept = config.NameChars
 		m.picker.edit = &editor{form: newForm(addCharHint, name), kind: addChar, world: strings.TrimPrefix(sel, "+")}
 	default:

@@ -65,5 +65,4 @@ const (
 	glyphExcluded = "░"
 	glyphChipOnly = "+"
 	glyphChipHide = "−"
-	browseHints   = "m mark · space exclude · / find · n/N · g date · 1-9 tags · e export · c copy · esc back"
 )

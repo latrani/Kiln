@@ -1,0 +1,265 @@
+# Every string Kiln shows a person. Edit freely, then run
+#   go generate ./internal/str
+# Placeholders: {name}, or {name:%q} with a fmt verb; {{ and }} are literal
+# braces. A table of plural forms (one, other, …) picks by {n}.
+
+# Between parts of the statusline, the log header, and a form and its hint;
+# the spaces are part of it.
+separator = " · "
+
+[session]
+not_connected = "not connected"
+sent_not_logged = "sent, but not logged: {err}"
+quit = "disconnected (quit)"
+connect_failed = "connect failed: {err}"
+connect_failed_retrying = "connect failed: {err}; retrying in {delay}"
+connected = "connected to {host}:{port}"
+closed_by_server = "closed by server"
+disconnected = "disconnected ({reason})"
+disconnected_retrying = "disconnected ({reason}); retrying in {delay}"
+no_saved_password = "no saved password for {world}/{char}"
+
+[conn]
+no_certificate = "server sent no certificate"
+reading_known_hosts = "reading known_hosts: {err}"
+bad_fingerprint = "malformed fingerprint {fp:%q}: want sha256: followed by 64 lowercase hex digits"
+cert_changed = "certificate for {host} changed: pinned {pinned}, got {got}"
+
+[logstore]
+no_tab = "logstore: no tab in {line:%q}"
+bad_prefix = "logstore: bad prefix {prefix:%q}"
+bad_time = "logstore: bad time: {err}"
+bad_direction = "logstore: bad direction {dir:%q}"
+reading = "logstore: reading {file}: {err}"
+
+[notify]
+bad_level = 'notify must be "all", "first", "attention" or "none"'
+bad_method = 'notify_method must be "osc", "bell" or "both"'
+held_more = "{msg} (+{n} more)"
+level_override = "{level} (override; config says {config})"
+level = "{name} notify: {level}"
+level_until_quit = "{name} notify: {level} until Kiln quits"
+
+[pathfmt]
+unknown_placeholder = "unknown placeholder {{{name}}} (use {vars})"
+trailing_percent = "% at the end (use %% for a %)"
+unknown_time_code = "unknown time code %{code:%c}"
+
+[secrets]
+store_none = 'password_store is "none"'
+
+[cli]
+usage = """
+usage:
+  kiln
+  kiln tail <world> <char>
+  kiln passwd <world> <char>
+  kiln trust <world> <fingerprint>"""
+error = "kiln: {err}"
+no_character_define = "no character {world}/{char} (define it in {path})"
+no_character = "no character {world}/{char}"
+store_none = 'password_store is "none" in config.toml; set it to "keychain" or "file" to save passwords'
+password_prompt = "password for {world}/{char}: "
+no_world = "no world {world}"
+not_sent = "not sent: {err}"
+log_write_failed = "log write failed: {err}"
+trust_hint = "if you expected this, run: kiln trust {world} {fingerprint}"
+
+[config]
+bad_password_store = 'config.toml: password_store must be "keychain", "file" or "none"'
+bad_export_format = 'config.toml: export_format must be "plain", "ansi" or "html"'
+bad_notify_idle = 'config.toml: notify_idle must be a duration like "5m" ("0" turns it off)'
+log_name_has_folders = "config.toml: log_name is a file name; put folders in log_dir"
+bad_world_id = "{file}: world id {id:%q} may only use letters, digits, _ and -"
+bad_world_id_bare = "bad world id {id:%q}"
+host_required = "{file}: host is required"
+bad_port = "{file}: port must be 1-65535"
+bad_tls_trust = '{file}: tls_trust must be "pin" or "ca"'
+character_number = "{file}: characters #{n}"
+character_id = "{file}: characters {id:%q}"
+name_required = "{where}: name is required"
+name_required_bare = "name is required"
+bad_character_id = '{where}: id may only use letters, digits, _ and - (set id = "..." if the name has others)'
+duplicate_character_id = "{where}: id is used by another character in this world"
+bad_pack_id = "pack id {id:%q} may only use letters, digits, _ and -"
+unknown_pack = "unknown pack {id:%q} (no packs/{id}.toml)"
+bad_max_line_bytes = "max_line_bytes must be positive"
+bad_newline_mode = 'newline_mode must be "batch" or "flatten"'
+classify_needs_tag = "classify rule {n}: tag or tags is required"
+classify_bad_pattern = "classify rule {n} ({tags}): {err}"
+highlight_needs_match = "highlight rule {n}: match needs tags or pattern"
+highlight_bad_pattern = "highlight rule {n}: {err}"
+bad_highlight_scope = 'highlight rule {n}: scope must be "line" or "match"'
+unknown_key = "{file}: unknown key {key:%q}"
+no_character_in_world = "{world} has no character {id:%q}"
+missing_character_table = "{file}: can't find character {id:%q}'s table"
+world_has_characters = { one = "{world} still has 1 character; delete it first", other = "{world} still has {n} characters; delete them first" }
+nothing_to_highlight = "nothing to highlight"
+added_by_highlight = "added by /highlight"
+added_by_kiln = "added by Kiln"
+name_bad_start = "a name can't start with {char:%c}"
+name_has_spaces = "a name can't have spaces"
+name_bad_char = "a name can't have {char:%c}"
+name_not_ascii = "a name can only use plain ASCII"
+name_reserved = "{name:%q} isn't allowed as a name"
+character_id_taken = "{world} already has a character with id {id:%q}"
+world_id_chars = "world id may only use letters, digits, _ and -"
+bad_host = "host must be a hostname or address"
+port_range = "port must be 1-65535"
+world_exists = "world {id:%q} already exists"
+
+# A connection's state, on the statusline.
+[state]
+disconnected = "disconnected"
+connecting = "connecting"
+connected = "connected"
+failed = "failed"
+
+[view]
+nothing_open = "Nothing open · Enter or Ctrl+O to open a connection"
+no_characters = "No characters yet · Ctrl+O to add one"
+save_password = "Save password for {name} in {store}? [Y/n]"
+password_label = "Password for {name}: "
+password_keys = "   Enter to log in · Esc to skip"
+cert_changed = "Certificate changed · /trust to accept it"
+connecting = "Connecting…"
+connect_failed = "Connection failed · Enter to retry"
+disconnected = "Disconnected · Enter to connect"
+store_file = "the password file"
+store_keychain = "the keychain"
+pill_new = "▼ {n} new"
+pill_more = "▼ more"
+selected = "{n} selected"
+too_small = "Kiln needs at least {min_w}x{min_h} (now {w}x{h})"
+more_above = "▲ {n} more"
+more_below = "▼ {n} more"
+
+# The world and character editors.
+[editor]
+extra = "Additional settings"
+save = "Save"
+forget_password = "Forget saved password"
+delete_character = "Delete character"
+delete_world = "Delete world"
+hint = "Esc to cancel"
+on = "on"
+off = "off"
+default = "default ({value})"
+default_hint = "default: {value}"
+none = "none"
+world = "World"
+host = "Host"
+port = "Port"
+tls = "TLS"
+cert_trust = "Cert trust"
+packs = "Packs"
+login = "Login"
+max_bytes = "Max bytes"
+newlines = "Newlines"
+autoconnect = "Autoconnect"
+reconnect = "Reconnect"
+notify = "Notify"
+local_echo = "Local echo"
+aliases = "Aliases"
+world_id_chars = "a world id can only use letters, digits, _ and -"
+host_spaces = "a host can't have spaces"
+port_number = "a port is a number"
+packs_list = "pack ids, separated by commas"
+bytes_number = "a number of bytes"
+port_range = "port must be 1-65535"
+editing = "Editing {name}"
+new_world = "New world"
+delete_world_warning = "Enter again to delete {world} (logs are kept)"
+delete_character_warning = "Enter again to delete it and its saved password (logs are kept)"
+saved = "saved {what}"
+forgot_password = "forgot {world}/{char}'s saved password"
+deleted_password_kept = "deleted {what}, but its password wasn't: {err}"
+deleted = "deleted {what} (logs kept)"
+
+# Date layouts, in Go's reference-time notation (Mon Jan 2 15:04:05 2006).
+# Day and month names stay English whatever the locale.
+[date]
+day = "Mon Jan 2"
+day_year = "Mon Jan 2 2006"
+day_time = "Mon Jan 2 15:04"
+
+[status]
+config_not_reloaded = "config not reloaded: {err}"
+config_reloaded = "config reloaded"
+cert_changed = "{name}: certificate changed; /trust to accept"
+log_write_failed = "{name}: log write failed: {err}"
+keychain_failed = 'keychain: {err} (set password_store = "file" or "none" in config.toml)'
+password_not_saved_err = "password not saved: {err}"
+password_saved = "password saved"
+password_not_saved = "password not saved"
+skipped_login = "skipped login"
+quit_hint = "Press Ctrl+{key} again to quit"
+nothing_open = "nothing open to send to"
+login_not_sent = "login not sent: {err}"
+not_connected = "{name} is not connected (/connect)"
+over_limit = "over {n} bytes: Enter again to send anyway"
+not_sent = "not sent: {err}"
+needs_character = "{command} needs an open character"
+already_connected = "{name} is already connected"
+no_changed_cert = "no changed certificate to trust"
+trust_failed = "trust: {err}"
+trusted = "trusted new certificate for {host}"
+highlight_failed = "highlight: {err}"
+highlight_added = "added highlight for {text:%q}"
+unknown_command = "unknown command {command}"
+link_failed = "can't open link: {err}"
+link_opened = "opened {url}"
+copied = "copied to clipboard"
+
+[scrollback]
+history_ends = "─── history ends {when} ───"
+loading = "─── loading older history… ───"
+
+[sidebar]
+open_connection = "+ Open connection"
+
+# Log mode (browse, in the code).
+[browse]
+log = "LOG"
+reading_logs = "reading logs: {err}"
+range_start = "range start marked; m again at the end"
+lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
+exclude_needs_range = "exclude works inside a marked range"
+no_matches = "no matches for {find:%q}"
+date_format = "dates look like 2026-09-24"
+no_logs_after = "no logs on or after {day}"
+no_file_name = "no file name given"
+no_export_dir = "no export_dir configured; give a full path"
+nothing_to_export = "nothing to export"
+file_exists = "{file} exists; pick another name"
+saved = "saved {path}"
+mark_range = "mark a range with m (only received lines export)"
+copied = { one = "copied 1 line", other = "copied {n} lines" }
+nothing_left = "nothing left to export"
+find_prompt = "find: "
+date_prompt = "go to date (YYYY-MM-DD): "
+# The letters in parentheses are the keys; they stay p, a and h.
+format_prompt = "export as (p)lain · (a)nsi · (h)tml   esc cancel"
+format_prompt_default = "export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel"
+save_prompt = "save as: "
+no_logs = "no logs yet"
+to_today = "{first} → today"
+find_status = "find: {find} {i}/{n}"
+tags = "tags:"
+loading = "loading older history…"
+hints = "m mark · space exclude · / find · n/N · g date · 1-9 tags · e export · c copy · esc back"
+
+# The open-connection picker.
+[picker]
+hint = "Enter to connect · Esc to close"
+add_char_hint = "Enter to connect · Esc to cancel"
+add_character = "+ Character"
+add_world = "+ World"
+# Short, so it fits after log mode's statusline prefix on an 80-column screen.
+blocked_by_log = "Esc out of log mode first"
+blocked_by_question = "Answer the question first"
+filter = "Filter"
+name = "Name"
+
+[form]
+next_field = "Enter next field · {hint}"

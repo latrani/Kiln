@@ -10,6 +10,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -68,7 +69,7 @@ func (m *Model) open(k string) *charState {
 	}
 	cs := &charState{key: k, ch: ch, in: NewInput(), sentGen: -1}
 	if err := cs.compile(); err != nil {
-		m.setStatus(true, "%s: %v", k, err)
+		m.setStatus(true, k+": "+err.Error())
 	}
 	m.chars[k] = cs
 	m.order = append(m.order, k)
@@ -121,7 +122,7 @@ type sidebarRow struct {
 }
 
 // addLabel is the sidebar's last row.
-const addLabel = "+ Open connection"
+var addLabel = str.SidebarOpenConnection()
 
 // badgeX is the column of a character row's connection badge; clicking a
 // × there closes the character.

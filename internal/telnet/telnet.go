@@ -161,7 +161,7 @@ func (p *Parser) subneg(opt byte, data []byte) []byte {
 	}
 	sep := data[1]
 	for _, name := range bytes.Split(data[2:], []byte{sep}) {
-		if n := strings.ToUpper(string(name)); n == "UTF-8" || n == "UTF8" {
+		if n := strings.ToUpper(string(name)); n == "UTF-8" || n == "UTF8" { //str:ok
 			p.utf8 = true
 			msg := []byte{IAC, SB, OptCharset, charsetAccepted}
 			msg = append(msg, name...)

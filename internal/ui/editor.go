@@ -2,7 +2,6 @@ package ui
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // The editors open over the picker, in the input area: adding a world or
@@ -36,21 +36,35 @@ type editor struct {
 	closeAll bool   // opened by /edit: closing the editor closes the picker
 }
 
-// Field and button labels.
-const (
-	extraLabel    = "Additional settings"
-	saveLabel     = "Save"
-	forgetPWLabel = "Forget saved password"
-	delCharLabel  = "Delete character"
-	delWorldLabel = "Delete world"
-	editorHint    = "Esc to cancel"
+// Field and button labels. Fields are found by label, so each is read
+// from the catalog once.
+var (
+	extraLabel     = str.EditorExtra()
+	saveLabel      = str.EditorSave()
+	forgetPWLabel  = str.EditorForgetPassword()
+	delCharLabel   = str.EditorDeleteCharacter()
+	delWorldLabel  = str.EditorDeleteWorld()
+	worldLabel     = str.EditorWorld()
+	hostLabel      = str.EditorHost()
+	portLabel      = str.EditorPort()
+	tlsLabel       = str.EditorTls()
+	trustLabel     = str.EditorCertTrust()
+	packsLabel     = str.EditorPacks()
+	loginLabel     = str.EditorLogin()
+	maxBytesLabel  = str.EditorMaxBytes()
+	newlinesLabel  = str.EditorNewlines()
+	autoconnLabel  = str.EditorAutoconnect()
+	reconnectLabel = str.EditorReconnect()
+	notifyLabel    = str.EditorNotify()
+	echoLabel      = str.EditorLocalEcho()
+	aliasesLabel   = str.EditorAliases()
 )
 
 var (
-	worldIDChar = regexp.MustCompile(`^[A-Za-z0-9_-]*$`)
+	worldIDChar = regexp.MustCompile(`^[A-Za-z0-9_-]*$`) //str:ok
 	portChar    = regexp.MustCompile(`^[0-9]{0,5}$`)
 	numChar     = regexp.MustCompile(`^[0-9]{0,9}$`)
-	packsChar   = regexp.MustCompile(`^[A-Za-z0-9_, -]*$`)
+	packsChar   = regexp.MustCompile(`^[A-Za-z0-9_, -]*$`) //str:ok
 )
 
 // onlyMatching accepts what re matches, and otherwise says why.
@@ -70,10 +84,26 @@ func onOff(b bool) string {
 	return "off"
 }
 
+// shown is how a choice's value reads: on and off in words, config values
+// (batch, pin, …) as they're written in the file.
+func shown(v string) string {
+	switch v {
+	case "on":
+		return str.EditorOn()
+	case "off":
+		return str.EditorOff()
+	}
+	return v
+}
+
 // inheritChoice is a choice between inheriting (shown with what that
 // gives) and the given options.
 func inheritChoice(label, inherits string, options ...string) field {
-	return choiceField(label, append([]string{""}, options...), append([]string{"default (" + inherits + ")"}, options...))
+	labels := []string{str.EditorDefault(shown(inherits))}
+	for _, o := range options {
+		labels = append(labels, shown(o))
+	}
+	return choiceField(label, append([]string{""}, options...), labels)
 }
 
 // setBool puts an optional on/off setting into a choice field.
@@ -103,89 +133,89 @@ func list(s string) []string {
 func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited) *form {
 	var fields []field
 	if add {
-		world := textField("World")
-		world.accept = onlyMatching(worldIDChar, "a world id can only use letters, digits, _ and -")
+		world := textField(worldLabel)
+		world.accept = onlyMatching(worldIDChar, str.EditorWorldIdChars())
 		fields = append(fields, world)
 	}
-	host, port := textField("Host"), textField("Port")
+	host, port := textField(hostLabel), textField(portLabel)
 	host.accept = func(s string) error {
 		if strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r > '~' }) {
-			return errors.New("a host can't have spaces")
+			return errors.New(str.EditorHostSpaces())
 		}
 		return nil
 	}
-	port.accept = onlyMatching(portChar, "a port is a number")
-	packs := withHint(textField("Packs"), "none")
-	packs.accept = onlyMatching(packsChar, "pack ids, separated by commas")
-	login := "none"
+	port.accept = onlyMatching(portChar, str.EditorPortNumber())
+	packs := withHint(textField(packsLabel), str.EditorNone())
+	packs.accept = onlyMatching(packsChar, str.EditorPacksList())
+	login := str.EditorNone()
 	if inh.Login != "" {
 		login = inh.Login
 	}
-	maxBytes := withHint(textField("Max bytes"), "default: "+strconv.Itoa(inh.MaxLineBytes))
-	maxBytes.accept = onlyMatching(numChar, "a number of bytes")
-	fields = append(fields, host, port, toggleField("TLS"), sectionField(extraLabel),
-		asExtra(inheritChoice("Cert trust", "pin", "pin", "ca")),
+	maxBytes := withHint(textField(maxBytesLabel), str.EditorDefaultHint(inh.MaxLineBytes))
+	maxBytes.accept = onlyMatching(numChar, str.EditorBytesNumber())
+	fields = append(fields, host, port, toggleField(tlsLabel), sectionField(extraLabel),
+		asExtra(inheritChoice(trustLabel, "pin", "pin", "ca")),
 		asExtra(packs),
-		asExtra(withHint(textField("Login"), "default: "+login)),
+		asExtra(withHint(textField(loginLabel), str.EditorDefaultHint(login))),
 		asExtra(maxBytes),
-		asExtra(inheritChoice("Newlines", inh.NewlineMode, "batch", "flatten")),
-		asExtra(inheritChoice("Autoconnect", onOff(inh.Autoconnect), "on", "off")),
-		asExtra(inheritChoice("Reconnect", onOff(inh.Reconnect), "on", "off")),
-		asExtra(inheritChoice("Notify", inh.Notify, "all", "first", "attention", "none")),
-		asExtra(inheritChoice("Local echo", onOff(inh.LocalEcho), "on", "off")),
+		asExtra(inheritChoice(newlinesLabel, inh.NewlineMode, "batch", "flatten")),
+		asExtra(inheritChoice(autoconnLabel, onOff(inh.Autoconnect), "on", "off")),
+		asExtra(inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off")),
+		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none")),
+		asExtra(inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off")),
 		buttonField(saveLabel))
 	if !add {
 		fields = append(fields, buttonField(delWorldLabel))
 	}
-	f := newForm(editorHint, fields...)
-	f.fields[f.field("Host")].in.SetValue(s.Host)
+	f := newForm(str.EditorHint(), fields...)
+	f.fields[f.field(hostLabel)].in.SetValue(s.Host)
 	if s.Port > 0 {
-		f.fields[f.field("Port")].in.SetValue(strconv.Itoa(s.Port))
+		f.fields[f.field(portLabel)].in.SetValue(strconv.Itoa(s.Port))
 	}
-	f.fields[f.field("TLS")].on = s.TLS
-	f.choose(f.field("Cert trust"), s.TLSTrust)
-	f.fields[f.field("Packs")].in.SetValue(strings.Join(s.Use, ", "))
+	f.fields[f.field(tlsLabel)].on = s.TLS
+	f.choose(f.field(trustLabel), s.TLSTrust)
+	f.fields[f.field(packsLabel)].in.SetValue(strings.Join(s.Use, ", "))
 	if s.Login != nil {
-		f.fields[f.field("Login")].in.SetValue(*s.Login)
+		f.fields[f.field(loginLabel)].in.SetValue(*s.Login)
 	}
 	if s.MaxLineBytes != nil {
-		f.fields[f.field("Max bytes")].in.SetValue(strconv.Itoa(*s.MaxLineBytes))
+		f.fields[f.field(maxBytesLabel)].in.SetValue(strconv.Itoa(*s.MaxLineBytes))
 	}
 	if s.NewlineMode != nil {
-		f.choose(f.field("Newlines"), *s.NewlineMode)
+		f.choose(f.field(newlinesLabel), *s.NewlineMode)
 	}
-	f.setBool("Autoconnect", s.Autoconnect)
-	f.setBool("Reconnect", s.Reconnect)
+	f.setBool(autoconnLabel, s.Autoconnect)
+	f.setBool(reconnectLabel, s.Reconnect)
 	if s.Notify != nil {
-		f.choose(f.field("Notify"), *s.Notify)
+		f.choose(f.field(notifyLabel), *s.Notify)
 	}
-	f.setBool("Local echo", s.LocalEcho)
+	f.setBool(echoLabel, s.LocalEcho)
 	return f
 }
 
 // worldSettings reads a world form.
 func worldSettings(f *form) (config.WorldSettings, error) {
-	port, err := strconv.Atoi(f.value(f.field("Port")))
+	port, err := strconv.Atoi(f.value(f.field(portLabel)))
 	if err != nil || port < 1 || port > 65535 {
-		return config.WorldSettings{}, errors.New("port must be 1-65535")
+		return config.WorldSettings{}, errors.New(str.EditorPortRange())
 	}
 	s := config.WorldSettings{
-		Host: f.value(f.field("Host")), Port: port, TLS: f.on(f.field("TLS")),
-		TLSTrust: f.chosen(f.field("Cert trust")), Use: list(f.value(f.field("Packs"))),
-		Autoconnect: f.optBool("Autoconnect"), Reconnect: f.optBool("Reconnect"),
-		LocalEcho: f.optBool("Local echo"),
+		Host: f.value(f.field(hostLabel)), Port: port, TLS: f.on(f.field(tlsLabel)),
+		TLSTrust: f.chosen(f.field(trustLabel)), Use: list(f.value(f.field(packsLabel))),
+		Autoconnect: f.optBool(autoconnLabel), Reconnect: f.optBool(reconnectLabel),
+		LocalEcho: f.optBool(echoLabel),
 	}
-	if v := f.value(f.field("Login")); v != "" {
+	if v := f.value(f.field(loginLabel)); v != "" {
 		s.Login = &v
 	}
-	if v := f.value(f.field("Max bytes")); v != "" {
+	if v := f.value(f.field(maxBytesLabel)); v != "" {
 		n, _ := strconv.Atoi(v)
 		s.MaxLineBytes = &n
 	}
-	if v := f.chosen(f.field("Newlines")); v != "" {
+	if v := f.chosen(f.field(newlinesLabel)); v != "" {
 		s.NewlineMode = &v
 	}
-	if v := f.chosen(f.field("Notify")); v != "" {
+	if v := f.chosen(f.field(notifyLabel)); v != "" {
 		s.Notify = &v
 	}
 	return s, nil
@@ -193,7 +223,7 @@ func worldSettings(f *form) (config.WorldSettings, error) {
 
 // charForm builds the form for editing a character.
 func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inherited) *form {
-	aliases := withHint(textField("Aliases"), "none")
+	aliases := withHint(textField(aliasesLabel), str.EditorNone())
 	aliases.accept = func(v string) error {
 		for _, a := range list(v) {
 			if err := config.NameChars(a); err != nil {
@@ -202,21 +232,21 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 		}
 		return nil
 	}
-	f := newForm(editorHint, sectionField(extraLabel),
+	f := newForm(str.EditorHint(), sectionField(extraLabel),
 		asExtra(aliases),
-		asExtra(inheritChoice("Autoconnect", onOff(inh.Autoconnect), "on", "off")),
-		asExtra(inheritChoice("Reconnect", onOff(inh.Reconnect), "on", "off")),
-		asExtra(inheritChoice("Notify", inh.Notify, "all", "first", "attention", "none")),
-		asExtra(inheritChoice("Local echo", onOff(inh.LocalEcho), "on", "off")),
+		asExtra(inheritChoice(autoconnLabel, onOff(inh.Autoconnect), "on", "off")),
+		asExtra(inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off")),
+		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none")),
+		asExtra(inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off")),
 		buttonField(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
-	f.title = "Editing " + name
-	f.fields[f.field("Aliases")].in.SetValue(strings.Join(s.Aliases, ", "))
-	f.setBool("Autoconnect", s.Autoconnect)
-	f.setBool("Reconnect", s.Reconnect)
+	f.title = str.EditorEditing(name)
+	f.fields[f.field(aliasesLabel)].in.SetValue(strings.Join(s.Aliases, ", "))
+	f.setBool(autoconnLabel, s.Autoconnect)
+	f.setBool(reconnectLabel, s.Reconnect)
 	if s.Notify != nil {
-		f.choose(f.field("Notify"), *s.Notify)
+		f.choose(f.field(notifyLabel), *s.Notify)
 	}
-	f.setBool("Local echo", s.LocalEcho)
+	f.setBool(echoLabel, s.LocalEcho)
 	return f
 }
 
@@ -230,21 +260,21 @@ func (m *Model) openWorldEditor(world string) {
 		}
 		inh, err := config.Defaults(m.d.ConfigDir)
 		if err != nil {
-			m.setStatus(true, "%v", err)
+			m.setStatus(true, err.Error())
 			return
 		}
 		f := m.worldForm(true, s, inh)
-		f.title = "New world"
+		f.title = str.EditorNewWorld()
 		m.picker.edit = &editor{form: f, kind: addWorld}
 		return
 	}
 	s, inh, err := config.ReadWorld(m.d.ConfigDir, world)
 	if err != nil {
-		m.setStatus(true, "%v", err)
+		m.setStatus(true, err.Error())
 		return
 	}
 	f := m.worldForm(false, s, inh)
-	f.title = "Editing " + world
+	f.title = str.EditorEditing(world)
 	m.picker.edit = &editor{form: f, kind: editWorld, world: world}
 }
 
@@ -256,7 +286,7 @@ func (m *Model) openCharEditor(k string) {
 	}
 	s, inh, err := config.ReadCharacter(m.d.ConfigDir, ch.World, ch.ID)
 	if err != nil {
-		m.setStatus(true, "%v", err)
+		m.setStatus(true, err.Error())
 		return
 	}
 	m.picker.edit = &editor{form: m.charForm(ch.World+"/"+ch.Name, s, inh), kind: editChar, world: ch.World, char: ch.ID}
@@ -340,9 +370,9 @@ func (m *Model) editorEnter(e *editor) tea.Cmd {
 // deleteWarning says what a delete will do, asking for Enter again.
 func (m *Model) deleteWarning(e *editor) string {
 	if e.kind == editWorld {
-		return fmt.Sprintf("Enter again to delete %s (logs are kept)", e.world)
+		return str.EditorDeleteWorldWarning(e.world)
 	}
-	return "Enter again to delete it and its saved password (logs are kept)"
+	return str.EditorDeleteCharacterWarning()
 }
 
 // saveNewWorld writes the new world, then highlights its row for adding a
@@ -354,7 +384,7 @@ func (m *Model) saveNewWorld() {
 		f.reject = err.Error()
 		return
 	}
-	id := f.value(f.field("World"))
+	id := f.value(f.field(worldLabel))
 	if err := config.AddWorld(m.d.ConfigDir, id, s.Host, s.Port, s.TLS); err != nil {
 		f.reject = err.Error()
 		return
@@ -384,7 +414,7 @@ func (m *Model) saveWorld() {
 	}
 	m.closeEditor()
 	if m.reloadNow() {
-		m.setStatus(false, "saved %s", e.world)
+		m.setStatus(false, str.EditorSaved(e.world))
 	}
 }
 
@@ -392,10 +422,10 @@ func (m *Model) saveWorld() {
 func (m *Model) saveCharSettings() {
 	e := m.picker.edit
 	f := e.form
-	s := config.CharacterSettings{Aliases: list(f.value(f.field("Aliases"))),
-		Autoconnect: f.optBool("Autoconnect"), Reconnect: f.optBool("Reconnect"),
-		LocalEcho: f.optBool("Local echo")}
-	if v := f.chosen(f.field("Notify")); v != "" {
+	s := config.CharacterSettings{Aliases: list(f.value(f.field(aliasesLabel))),
+		Autoconnect: f.optBool(autoconnLabel), Reconnect: f.optBool(reconnectLabel),
+		LocalEcho: f.optBool(echoLabel)}
+	if v := f.chosen(f.field(notifyLabel)); v != "" {
 		s.Notify = &v
 	}
 	if err := config.WriteCharacter(m.d.ConfigDir, e.world, e.char, s); err != nil {
@@ -404,7 +434,7 @@ func (m *Model) saveCharSettings() {
 	}
 	m.closeEditor()
 	if m.reloadNow() {
-		m.setStatus(false, "saved %s/%s", e.world, e.char)
+		m.setStatus(false, str.EditorSaved(e.world+"/"+e.char))
 	}
 }
 
@@ -417,7 +447,7 @@ func (m *Model) forgetPassword(e *editor) {
 		e.form.reject = err.Error()
 		return
 	}
-	m.setStatus(false, "forgot %s/%s's saved password", e.world, e.char)
+	m.setStatus(false, str.EditorForgotPassword(e.world, e.char))
 	m.closeEditor()
 }
 
@@ -434,7 +464,7 @@ func (m *Model) deleteEdited(e *editor) {
 			m.close(key(e.world, e.char))
 			if m.d.DeletePassword != nil {
 				if perr := m.d.DeletePassword(m.passwordStore(), e.world, e.char); perr != nil {
-					m.setStatus(true, "deleted %s, but its password wasn't: %v", what, perr)
+					m.setStatus(true, str.EditorDeletedPasswordKept(what, perr))
 				}
 			}
 		}
@@ -449,9 +479,9 @@ func (m *Model) deleteEdited(e *editor) {
 	m.closeEditor()
 	status, isErr := m.status, m.statusErr
 	if m.reloadNow() && !isErr {
-		m.setStatus(false, "deleted %s (logs kept)", what)
+		m.setStatus(false, str.EditorDeleted(what))
 	} else if isErr {
-		m.setStatus(true, "%s", status)
+		m.setStatus(true, status)
 	}
 	if m.picker != nil {
 		m.fixPick()
