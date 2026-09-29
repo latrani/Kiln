@@ -3,7 +3,10 @@ package ui
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/latrani/Kiln/internal/ansi"
 )
 
 func sb(width int, lines ...string) *Scrollback {
@@ -212,5 +215,32 @@ func TestScrollbackNoOlderSourceClampsAsBefore(t *testing.T) {
 	s.ScrollUp(50)
 	if got := s.View(2); !reflect.DeepEqual(got, []string{"1", "2"}) || s.Scrolled() {
 		t.Errorf("View = %q scrolled=%v", got, s.Scrolled())
+	}
+}
+
+// TestRuleChangeRestylesScrollback: a new highlight rule reaches lines
+// already in the scrollback, both preloaded history and live lines (#79).
+func TestRuleChangeRestylesScrollback(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, "Rook: The lighthouse was lit.")
+	h.m.preload(h.m.chars["fm/kit"])
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.line("Rook: The Lighthouse is dark.")
+	h.typeText("/highlight the lighthouse")
+	h.enter()
+	h.m.Update(reloadMsg{})
+	styled := 0
+	for _, l := range h.m.chars["fm/kit"].sb.lines {
+		if !strings.Contains(strings.ToLower(ansi.Strip(l.text)), "lighthouse") {
+			continue
+		}
+		if !strings.Contains(l.text, "\x1b[1;38;2;255;209;102m") {
+			t.Errorf("line not restyled: %q", l.text)
+		}
+		styled++
+	}
+	if styled != 2 {
+		t.Errorf("found %d lighthouse lines, want 2", styled)
 	}
 }

@@ -267,7 +267,7 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 	}
 	if len(f.fields) == 1 {
 		text, col := f.fieldRow(0, len(f.fields[0].label))
-		return []string{text + style.Dim(" " + str.Separator()) + note}, 0, col
+		return []string{text + style.Dim(" "+str.Separator()) + note}, 0, col
 	}
 	if f.title != "" {
 		rows = append(rows, bold+f.title+style.Reset)
@@ -291,7 +291,7 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 	if f.reject == "" {
 		note = style.Dim(str.FormNextField(f.hint))
 	}
-	rows[len(rows)-1] += style.Dim(" " + str.Separator()) + note
+	rows[len(rows)-1] += style.Dim(" "+str.Separator()) + note
 	return rows, curRow, curCol
 }
 

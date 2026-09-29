@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -125,6 +126,26 @@ func clipboard(cmd tea.Cmd) string {
 		return ""
 	}
 	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		// Timers in the batch (the status's expiry) would block, so each
+		// command gets a moment and the clipboard is taken from whichever
+		// answers.
+		got := make(chan string, len(batch))
+		for _, c := range batch {
+			go func() { got <- clipboard(c) }()
+		}
+		for range batch {
+			select {
+			case s := <-got:
+				if s != "" {
+					return s
+				}
+			case <-time.After(100 * time.Millisecond):
+				return ""
+			}
+		}
+		return ""
+	}
 	if fmt.Sprintf("%T", msg) != "tea.setClipboardMsg" {
 		return ""
 	}

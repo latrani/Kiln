@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
@@ -24,6 +25,7 @@ type Scrollback struct {
 
 type sbLine struct {
 	text  string
+	entry *logstore.Entry // what text was rendered from; nil for dividers and such
 	rows  []string
 	wrapW int
 	// Plain text and its rows, for the mouse; see plainRows.
@@ -91,19 +93,26 @@ func (s *Scrollback) rebase(from, to int) int {
 
 // Append adds a line. A pending prompt is cleared: the server has moved on.
 // While scrolled up, the view stays put and the line counts as unseen.
-func (s *Scrollback) Append(text string) {
-	s.append(text)
+func (s *Scrollback) Append(text string) { s.AppendLine(sbLine{text: text}) }
+
+// AppendQuiet is Append for a line a quiet rule matched: it never counts
+// as unseen.
+func (s *Scrollback) AppendQuiet(text string) { s.append(sbLine{text: text}) }
+
+// AppendLine is Append for a line that may carry the entry it was
+// rendered from (see Rerender).
+func (s *Scrollback) AppendLine(l sbLine) {
+	s.append(l)
 	if s.offset > 0 {
 		s.unseen++
 	}
 }
 
-// AppendQuiet is Append for a line a quiet rule matched: it never counts
-// as unseen.
-func (s *Scrollback) AppendQuiet(text string) { s.append(text) }
+// entryLine is a line rendered from e.
+func entryLine(text string, e logstore.Entry) sbLine { return sbLine{text: text, entry: &e} }
 
-func (s *Scrollback) append(text string) {
-	s.lines = append(s.lines, sbLine{text: text})
+func (s *Scrollback) append(l sbLine) {
+	s.lines = append(s.lines, l)
 	s.prompt = ""
 	if s.offset > 0 {
 		s.offset += len(s.lines[len(s.lines)-1].wrap(s.w()))
@@ -149,16 +158,33 @@ func (s *Scrollback) hasRows(n int) bool {
 // still older lines exist. The view is anchored to the bottom, so
 // prepending never moves what is on screen.
 func (s *Scrollback) Prepend(lines []string, more bool) {
-	s.loading, s.more = false, more
 	batch := make([]sbLine, len(lines))
 	for i, l := range lines {
 		batch[i] = sbLine{text: l}
 	}
+	s.PrependLines(batch, more)
+}
+
+// PrependLines is Prepend for lines that may carry their entries.
+func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
+	s.loading, s.more = false, more
 	s.lines = append(batch, s.lines...)
 	if s.sel != nil {
 		s.sel.anchor.line += len(batch)
 		s.sel.head.line += len(batch)
 	}
+}
+
+// Rerender redraws every line rendered from a log entry with render,
+// for when the rules that styled them change. The view keeps its offset;
+// a selection is dropped, since its byte positions may no longer fit.
+func (s *Scrollback) Rerender(render func(logstore.Entry) string) {
+	for i, l := range s.lines {
+		if l.entry != nil {
+			s.lines[i] = sbLine{text: render(*l.entry), entry: l.entry}
+		}
+	}
+	s.sel, s.hover = nil, nil
 }
 
 // SetPrompt shows an unterminated prompt below the last line.

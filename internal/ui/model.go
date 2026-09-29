@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -59,29 +60,31 @@ const (
 
 // Model is the Bubble Tea model.
 type Model struct {
-	d         Deps
-	cfg       *config.Config // the loaded config; the picker lists from it
-	picker    *picker        // non-nil while the open-connection picker is open
-	idle      *Input         // the input box while nothing is open
-	chars     map[string]*charState
-	order     []string // sidebar order of character keys
-	active    string
-	width     int
-	height    int
-	status    string
-	statusErr bool
-	mode      mode
-	pendingPW string                 // entered password awaiting the save y/n answer
-	pendingCh [2]string              // world and character id the pending password belongs to
-	confirm   bool                   // next Enter sends an over-limit line anyway
-	resizeGen int                    // bumped per WindowSizeMsg; see resizeMsg
-	sideTop   int                    // first sidebar row shown when it overflows
-	sideShown string                 // active character last scrolled into view
-	pwStore   atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
-	recent    []string               // open characters by when last active, most recent first; not the active one
-	quitKey   string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
-	quitGen   int                    // bumped per arming; see quitExpiredMsg
-	lastClick struct {               // for spotting a double-click in the sidebar
+	d           Deps
+	cfg         *config.Config // the loaded config; the picker lists from it
+	picker      *picker        // non-nil while the open-connection picker is open
+	idle        *Input         // the input box while nothing is open
+	chars       map[string]*charState
+	order       []string // sidebar order of character keys
+	active      string
+	width       int
+	height      int
+	status      string
+	statusErr   bool
+	mode        mode
+	pendingPW   string                 // entered password awaiting the save y/n answer
+	pendingCh   [2]string              // world and character id the pending password belongs to
+	confirm     bool                   // next Enter sends an over-limit line anyway
+	resizeGen   int                    // bumped per WindowSizeMsg; see resizeMsg
+	sideTop     int                    // first sidebar row shown when it overflows
+	sideShown   string                 // active character last scrolled into view
+	pwStore     atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
+	recent      []string               // open characters by when last active, most recent first; not the active one
+	quitKey     string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen     int                    // bumped per arming; see quitExpiredMsg
+	statusGen   int                    // bumped by each setStatus; see statusExpiredMsg
+	statusTimed int                    // the statusGen whose expiry is scheduled
+	lastClick   struct {               // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
 	}
@@ -122,7 +125,7 @@ type charState struct {
 type sbOlderMsg struct {
 	key   string
 	hist  *history.Reader // the reader that was asked; stale if it has changed
-	lines []string
+	lines []sbLine
 	more  bool
 }
 
@@ -161,6 +164,9 @@ type (
 	// quitExpiredMsg fires quitWindow after a quit key is armed; it
 	// carries that arming's generation, and only the latest disarms.
 	quitExpiredMsg int
+	// statusExpiredMsg fires statusTimeout after a status is set; it
+	// carries that status's generation, and only the latest clears.
+	statusExpiredMsg int
 	// notifyDueMsg fires notify_idle after you were last here; it
 	// carries that hereGen, and is stale once you've come back.
 	notifyDueMsg int
@@ -257,9 +263,12 @@ func (m *Model) applyConfig(cfg *config.Config) {
 			}
 			continue
 		}
+		restyle := !reflect.DeepEqual(styleInputs(cs.ch), styleInputs(ch))
 		cs.ch, cs.orphan = ch, false
 		if err := cs.compile(); err != nil {
 			m.setStatus(true, k+": "+err.Error())
+		} else if restyle {
+			cs.sb.Rerender(func(e logstore.Entry) string { text, _ := cs.render(e); return text })
 		}
 		if cs.sess != nil {
 			cs.sess.SetChar(ch)
@@ -269,6 +278,16 @@ func (m *Model) applyConfig(cfg *config.Config) {
 	if m.picker != nil {
 		m.fixPick()
 	}
+}
+
+// styleInputs is what a character's scrollback styling depends on: the
+// rules, and the name and aliases that classify its own lines.
+func styleInputs(ch config.Character) any {
+	return struct {
+		rules   config.Rules
+		name    string
+		aliases []string
+	}{ch.Rules, ch.Name, ch.Aliases}
 }
 
 func (cs *charState) compile() error {
@@ -331,8 +350,8 @@ func (m *Model) preload(cs *charState) {
 	}
 	// The preload starts a day only if nothing of that day was left over.
 	startsDay := len(leftover) == 0 || leftover[len(leftover)-1].Time.Local().Format("2006-01-02") != entries[0].Time.Local().Format("2006-01-02")
-	for _, text := range cs.renderDays(entries, startsDay) {
-		cs.sb.Append(text)
+	for _, l := range cs.renderDays(entries, startsDay) {
+		cs.sb.AppendLine(l)
 	}
 	cs.sb.Append(style.Dim(str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
 	cs.hist, cs.leftover = hist, leftover
@@ -367,14 +386,14 @@ func (m *Model) pageOlder() tea.Cmd {
 // of each day. The very first entry gets one only if startsDay, i.e. it
 // really is the first line of its day. Sent lines are left out unless the
 // character has local_echo on.
-func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []string {
+func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []sbLine {
 	return renderDays(cs.cls, cs.hl, cs.ch.LocalEcho, entries, startsDay)
 }
 
 // renderDays is charState.renderDays with the given rules; like
 // renderLine it is safe off the UI goroutine.
-func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []string {
-	out := make([]string, 0, len(entries)+2)
+func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []sbLine {
+	out := make([]sbLine, 0, len(entries)+2)
 	prev := ""
 	for i, e := range entries {
 		if e.Dir == logstore.Out && !echo {
@@ -382,11 +401,11 @@ func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entr
 		}
 		day := e.Time.Local().Format("2006-01-02")
 		if day != prev && (i > 0 || startsDay) {
-			out = append(out, style.Dim("── "+dayLabel(day)+" ──"))
+			out = append(out, sbLine{text: style.Dim("── " + dayLabel(day) + " ──")})
 		}
 		prev = day
 		text, _ := renderLine(cls, hl, e)
-		out = append(out, text)
+		out = append(out, entryLine(text, e))
 	}
 	return out
 }
@@ -479,6 +498,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if older := m.pageOlder(); older != nil {
 		cmd = tea.Batch(cmd, older)
 	}
+	if m.statusGen != m.statusTimed { // a new status: time it out
+		m.statusTimed = m.statusGen
+		gen := m.statusGen
+		cmd = tea.Batch(cmd, tea.Tick(statusTimeout, func(time.Time) tea.Msg { return statusExpiredMsg(gen) }))
+	}
 	return m, cmd
 }
 
@@ -499,6 +523,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if int(msg) == m.quitGen {
 			m.disarmQuit()
 		}
+	case statusExpiredMsg:
+		if int(msg) == m.statusGen {
+			m.status = ""
+		}
 	case reloadMsg:
 		if m.reloadNow() {
 			m.setStatus(false, str.StatusConfigReloaded())
@@ -517,7 +545,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
-			cs.sb.Prepend(msg.lines, msg.more)
+			cs.sb.PrependLines(msg.lines, msg.more)
 		}
 	case olderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.browse == msg.b {
@@ -543,7 +571,12 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		m.focused = true
 		m.here()
-		return m, m.handleKey(msg)
+		before, gen := m.input().Value(), m.statusGen
+		cmd := m.handleKey(msg)
+		if m.statusGen == gen && m.input().Value() != before {
+			m.status = "" // typing again dismisses what was said before
+		}
+		return m, cmd
 	case tea.MouseWheelMsg:
 		if m.focused { // macOS scrolls windows in the background
 			m.here()
@@ -579,8 +612,13 @@ func (m *Model) passwordStore() string {
 	return config.DefaultPasswordStore
 }
 
+// statusTimeout is how long a status message stays up. Typing clears it
+// sooner.
+const statusTimeout = 30 * time.Second
+
 func (m *Model) setStatus(isErr bool, msg string) {
 	m.status, m.statusErr = msg, isErr
+	m.statusGen++
 }
 
 func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
@@ -595,9 +633,9 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		switch {
 		case !cs.echoes(ev.Entry):
 		case res.Quiet:
-			cs.sb.AppendQuiet(text)
+			cs.sb.append(entryLine(text, ev.Entry))
 		default:
-			cs.sb.Append(text)
+			cs.sb.AppendLine(entryLine(text, ev.Entry))
 		}
 		if cs.browse != nil {
 			cs.browse.appendLive(ev.Entry)
