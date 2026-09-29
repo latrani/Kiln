@@ -231,7 +231,7 @@ func (f *form) key(k tea.KeyPressMsg) bool {
 
 // paste inserts s into the focused field, as one line.
 func (f *form) paste(s string) {
-	s = strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", " "), "\n", " ")
+	s = oneLine(s)
 	f.edit(func(in *Input) bool { in.InsertText(s); return true })
 }
 
