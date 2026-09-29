@@ -562,10 +562,11 @@ func resolve(s string, palette map[string]color) (color, bool) {
 }
 
 // Equal reports whether t and o draw every role and tag the same way,
-// with the same palette for layers to name. (A role's SGR pins its
+// with the same palette for layers to name, for the same appearance (a
+// layer's own [palette.light] may differ where the theme doesn't). (A role's SGR pins its
 // colors exactly, so the CSS matches too.)
 func (t *Theme) Equal(o *Theme) bool {
-	return maps.Equal(t.sgr, o.sgr) && maps.Equal(t.palette, o.palette) && maps.EqualFunc(t.tags, o.tags, func(a, b TagStyle) bool {
+	return t.ap == o.ap && maps.Equal(t.sgr, o.sgr) && maps.Equal(t.palette, o.palette) && maps.EqualFunc(t.tags, o.tags, func(a, b TagStyle) bool {
 		return a.Match == b.Match && a.Style.SGR() == b.Style.SGR()
 	})
 }

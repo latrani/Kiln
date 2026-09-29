@@ -684,3 +684,33 @@ func TestBrowseOlderDayAfterThemeChange(t *testing.T) {
 		}
 	}
 }
+
+// A light answer switches a world's own [palette.light] in, even when
+// the theme itself looks the same either way.
+func TestLayerLightPaletteFollowsAnswer(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	world := fmWorld + "\n[palette]\nx = \"#aaaaaa\"\n\n[palette.light]\nx = \"#111111\"\n\n[tags]\n\"page/in\" = { fg = \"x\" }\n"
+	h := newHarness(t, map[string]string{"fm": world})
+	writeUserTheme(t, h, "[ui]\nsidebar = { bold = true }\n") // no extends: the same in both appearances
+	h.m.Update(reloadMsg{})
+	h.m.Update(lightBG)
+	text, _ := h.m.chars["fm/kit"].render(logstore.Entry{Dir: logstore.In, Text: "Mira pages: hi"})
+	if !strings.Contains(text, "\x1b[38;2;17;17;17m") {
+		t.Errorf("the world's light palette wasn't used: %q", text)
+	}
+}
+
+// A broken theme at start stands in the built-in, which still follows
+// the terminal's answer.
+func TestStandInBuiltinFollowsAnswer(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	dir := t.TempDir()
+	config.EnsureDefaults(dir)
+	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("[ui\n"), 0o644)
+	cfg, _ := config.Load(dir)
+	m := New(Deps{ConfigDir: dir, Load: config.Load, Now: func() time.Time { return time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local) }}, cfg)
+	m.Update(lightBG)
+	if theme.Active() != theme.BuiltinFor(theme.Light) {
+		t.Error("the stand-in built-in should turn light with a light answer")
+	}
+}

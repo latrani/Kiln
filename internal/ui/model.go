@@ -93,6 +93,7 @@ type Model struct {
 	lastHere        time.Time               // latest focus-in or input; see here
 	awayNow         bool                    // set by /away until the next input; see away
 	themed          bool                    // a theme has been loaded; see loadTheme
+	standIn         bool                    // the theme is the built-in standing in for a broken one; see loadTheme
 	themeErr        error                   // why the theme didn't load, to report once the update is done
 	detected        theme.Appearance        // the terminal's last answer about its background; Dark until one comes
 	hereGen         int                     // bumped by each here; re-arms "first"
@@ -285,10 +286,10 @@ func (m *Model) askBackground() tea.Cmd {
 func (m *Model) loadTheme() {
 	th, err := theme.Load(m.d.ConfigDir, m.cfg.Theme, m.appearance())
 	m.themeErr = err
-	if err != nil && m.themed {
+	if err != nil && m.themed && !m.standIn {
 		return // keep the theme we have
 	}
-	m.themed = true
+	m.themed, m.standIn = true, err != nil // a stand-in built-in still follows the appearance
 	if th == theme.Active() || th.Equal(theme.Active()) {
 		return // restyling would drop a selection for nothing
 	}
