@@ -654,3 +654,33 @@ func cmdAsks(cmd tea.Cmd) bool {
 	b, ok := cmd().(tea.BatchMsg)
 	return ok && slices.ContainsFunc(b, func(c tea.Cmd) bool { return c != nil && reflect.ValueOf(c).Pointer() == want })
 }
+
+// A day log mode reads under one theme and receives after a change is
+// restyled on arrival, like the scrollback's.
+func TestBrowseOlderDayAfterThemeChange(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for d := 21; d <= 24; d++ {
+		lines := make([]string, 150)
+		for i := range lines {
+			lines[i] = fmt.Sprintf("Mira pages: day %d line %d", d, i)
+		}
+		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
+	}
+	h.key("ctrl+l")
+	b := h.br()
+	_, cmd := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
+	if cmd == nil {
+		t.Fatal("Home should start a background load")
+	}
+	msg := cmd() // read under the old theme...
+	writeUserTheme(t, h, "extends = \"default\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{}) // ...the theme changes...
+	h.m.Update(msg)         // ...then the day arrives
+	cs := h.m.chars["fm/kit"]
+	for _, l := range b.lines {
+		if want, _ := cs.render(l.e); l.text != want {
+			t.Fatalf("%q kept its old style", l.e.Text)
+		}
+	}
+}

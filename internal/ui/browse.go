@@ -86,6 +86,7 @@ type olderMsg struct {
 	lines []*bline
 	done  bool // history is now exhausted
 	err   error
+	theme *theme.Theme // the theme active when the read started
 }
 
 type chipSpan struct {
@@ -175,10 +176,10 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 		return nil
 	}
 	b.loading = true
-	h, cls, hl, key := b.hist, b.cs.cls, b.cs.hl, b.cs.key
+	h, cls, hl, key, th := b.hist, b.cs.cls, b.cs.hl, b.cs.key, theme.Active()
 	return func() tea.Msg {
 		msg := readOlder(h, cls, hl)
-		msg.key, msg.b = key, b
+		msg.key, msg.b, msg.theme = key, b, th
 		return msg
 	}
 }
@@ -186,6 +187,11 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 // receive prepends a day read by requestOlder and runs what was waiting.
 func (b *browse) receive(msg olderMsg) tea.Cmd {
 	b.loading = false
+	if msg.theme != theme.Active() { // rendered in a theme since replaced
+		for _, l := range msg.lines {
+			l.text, _ = b.cs.render(l.e)
+		}
+	}
 	b.prepend(msg)
 	then := b.pending
 	b.pending = nil
