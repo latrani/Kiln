@@ -4,6 +4,7 @@
 //	kiln tail <world> <char>          connect, print output, send stdin lines
 //	kiln passwd <world> <char>        save a character's password (see password_store)
 //	kiln trust <world> <fingerprint>  accept a changed server certificate
+//	kiln theme show <theme>           print a theme, merged into one file
 package main
 
 import (
@@ -98,6 +99,16 @@ func run(args []string) error {
 		ch := w.Characters[0]
 		hp := ch.Host + ":" + strconv.Itoa(ch.Port)
 		return knownHosts(dataDir).Trust(hp, args[2])
+	case "theme":
+		if args[1] != "show" { //str:ok: a subcommand
+			break
+		}
+		out, err := theme.Show(cfgDir, args[2])
+		if err != nil {
+			return err
+		}
+		fmt.Print(out)
+		return nil
 	}
 	return errors.New(str.CliUsage())
 }

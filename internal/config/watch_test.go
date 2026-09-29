@@ -59,7 +59,7 @@ func TestWatchSeesThemes(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer w.Close()
-	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("extends = \"default\"\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("extends = \"kiln\"\n"), 0o644)
 	select {
 	case <-w.Changes():
 	case <-time.After(2 * time.Second):

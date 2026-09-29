@@ -95,7 +95,7 @@ type Config struct {
 	PasswordStore string        // "keychain", "file" or "none"
 	NotifyIdle    time.Duration // no input for this long counts as away; 0: only blur does
 	NotifyMethod  notify.Method
-	Theme         string // themes/<name>.toml; "default" is the built-in without one
+	Theme         string // themes/<name>.toml; "kiln" is the built-in, as is "default" without one
 	Appearance    string // "auto", "dark" or "light"
 }
 

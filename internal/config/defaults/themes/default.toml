@@ -1,0 +1,23 @@
+# Your theme. It starts as Kiln's built-in one and changes only what you
+# set here; Kiln picks up changes as you save. To see every role, tag and
+# color the built-in sets: kiln theme show kiln
+#
+# Colors are "#rrggbb", a [palette] name, a terminal color (red,
+# bright-blue, ...), or "default" for the terminal's own. Styles take fg,
+# bg, bold, faint, italic, underline and reverse; a tag's can also say
+# scope = "match" to color only the text its rule matched.
+
+extends = "kiln"
+
+# [palette]
+# ember = "#ff7a1a"
+
+# [palette.light]
+# ember = "#b34d00"
+
+# [ui]
+# "sidebar"      = { bg = "#1d2021" }
+# "status.error" = { fg = "ember", bold = true }
+
+# [tags]
+# "page" = { fg = "ember", bold = true, scope = "match" }

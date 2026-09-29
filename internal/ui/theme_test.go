@@ -237,7 +237,7 @@ func TestThemeReloads(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.typeText(":waves.")
 	h.enter()
-	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.echo\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.echo\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
 	want := theme.Active().SGR(theme.ScrollbackEcho)
 	if want != "\x1b[2;38;2;10;11;12m" {
@@ -251,7 +251,7 @@ func TestThemeReloads(t *testing.T) {
 func TestThemeReloadErrorKeepsTheme(t *testing.T) {
 	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"status.error\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
 	good := theme.Active()
 	writeUserTheme(t, h, "[ui]\n\"status.eror\" = { fg = \"red\" }\n")
@@ -289,7 +289,7 @@ func TestThemeReloadKeepsScroll(t *testing.T) {
 	sb := &h.m.chars["fm/kit"].sb
 	offset := sb.offset
 	sb.StartSelect(sbPos{line: 5})
-	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.sys\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.sys\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
 	if !sb.Scrolled() || sb.offset != offset {
 		t.Errorf("reload moved the view: offset %d, was %d", sb.offset, offset)
@@ -354,7 +354,7 @@ func TestUnchangedThemeReloadKeepsSelection(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.show("line")
-	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.sys\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.sys\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
 	sb := &h.m.chars["fm/kit"].sb
 	sb.StartSelect(sbPos{line: 0})
@@ -392,7 +392,7 @@ func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
 	if msg.lines == nil {
 		t.Fatal("no older batch was read")
 	}
-	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{}) // ...the theme changes...
 	h.m.Update(msg)         // ...then the batch arrives
 	day := theme.Active().SGR(theme.ScrollbackDay)
@@ -512,7 +512,7 @@ func TestThemeTagChangeRestyles(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.show("Mira pages: you around?")
-	writeUserTheme(t, h, "extends = \"default\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
 	if !strings.Contains(h.drawn(), "\x1b[1;38;2;10;11;12m") {
 		t.Error("the page wasn't restyled with the theme's new page/in color (bold from the built-in)")
@@ -632,7 +632,7 @@ func TestAsksOnStartAndFocus(t *testing.T) {
 func TestMissingNamedTheme(t *testing.T) {
 	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	writeUserTheme(t, h, "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"status.error\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
 	had := theme.Active()
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("theme = \"nope\"\n"), 0o600)
@@ -680,7 +680,7 @@ func TestBrowseOlderDayAfterThemeChange(t *testing.T) {
 		t.Fatal("Home should start a background load")
 	}
 	msg := cmd() // read under the old theme...
-	writeUserTheme(t, h, "extends = \"default\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{}) // ...the theme changes...
 	h.m.Update(msg)         // ...then the day arrives
 	cs := h.m.chars["fm/kit"]

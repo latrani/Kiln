@@ -65,9 +65,9 @@ func TestLoadWithoutAFileIsBuiltin(t *testing.T) {
 	}
 }
 
-func TestExtendsDefaultIsBuiltin(t *testing.T) {
+func TestExtendsKilnIsBuiltin(t *testing.T) {
 	dir := t.TempDir()
-	writeTheme(t, dir, "default", "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
+	writeTheme(t, dir, "default", "extends = \"kiln\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
 	th, err := Load(dir, "default", Dark)
 	if err != nil {
 		t.Fatal(err)
@@ -77,9 +77,30 @@ func TestExtendsDefaultIsBuiltin(t *testing.T) {
 	}
 }
 
+// Before the built-in was called kiln, a default.toml said extends =
+// "default" to mean it. Those files keep working.
+func TestDefaultExtendingDefaultIsBuiltin(t *testing.T) {
+	dir := t.TempDir()
+	writeTheme(t, dir, "default", "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
+	th, err := Load(dir, "default", Dark)
+	if err != nil || th.SGR(StatusError) != "\x1b[38;2;255;0;0m" || th.SGR(SidebarActive) != Builtin().SGR(SidebarActive) {
+		t.Errorf("Load = %q, %v", th.SGR(StatusError), err)
+	}
+}
+
+// kiln is always the built-in, even with a themes/kiln.toml.
+func TestKilnIsBuiltin(t *testing.T) {
+	dir := t.TempDir()
+	writeTheme(t, dir, "kiln", "[ui\n")
+	th, err := Load(dir, "kiln", Light)
+	if err != nil || th.SGR(Sidebar) != BuiltinFor(Light).SGR(Sidebar) {
+		t.Errorf("Load(kiln) = %q, %v", th.SGR(Sidebar), err)
+	}
+}
+
 func TestExtendsAnotherTheme(t *testing.T) {
 	dir := t.TempDir()
-	writeTheme(t, dir, "ember", "extends = \"default\"\n[palette]\nember = \"#ff9f43\"\n")
+	writeTheme(t, dir, "ember", "extends = \"kiln\"\n[palette]\nember = \"#ff9f43\"\n")
 	writeTheme(t, dir, "default", "extends = \"ember\"\n[ui]\n\"status.error\" = { fg = \"ember\" }\n")
 	th, err := Load(dir, "default", Dark)
 	if err != nil || th.SGR(StatusError) != "\x1b[38;2;255;159;67m" {
@@ -130,7 +151,7 @@ func TestActive(t *testing.T) {
 
 func TestLoadByName(t *testing.T) {
 	dir := t.TempDir()
-	writeTheme(t, dir, "ember", "extends = \"default\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
+	writeTheme(t, dir, "ember", "extends = \"kiln\"\n[ui]\n\"status.error\" = { fg = \"#ff0000\" }\n")
 	th, err := Load(dir, "ember", Dark)
 	if err != nil || th.SGR(StatusError) != "\x1b[38;2;255;0;0m" {
 		t.Errorf("Load(ember) = %q, %v", th.SGR(StatusError), err)

@@ -154,7 +154,7 @@ func TestEnsureDefaultsWritesStarterFilesOnce(t *testing.T) {
 	if err := EnsureDefaults(dir); err != nil {
 		t.Fatal(err)
 	}
-	for _, rel := range []string{"config.toml", "packs/fuzzball.toml"} {
+	for _, rel := range []string{"config.toml", "packs/fuzzball.toml", "themes/default.toml"} {
 		if _, err := os.Stat(filepath.Join(dir, rel)); err != nil {
 			t.Errorf("%s not written: %v", rel, err)
 		}
@@ -167,6 +167,23 @@ func TestEnsureDefaultsWritesStarterFilesOnce(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(dir, "config.toml"))
 	if string(b) != "# mine\n" {
 		t.Errorf("EnsureDefaults overwrote config.toml: %q", b)
+	}
+}
+
+// The starter theme changes nothing until you uncomment something.
+func TestStarterThemeIsBuiltin(t *testing.T) {
+	dir := t.TempDir()
+	EnsureDefaults(dir)
+	for _, ap := range []theme.Appearance{theme.Dark, theme.Light} {
+		th, err := theme.Load(dir, "default", ap)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range theme.Roles {
+			if th.SGR(r) != theme.BuiltinFor(ap).SGR(r) {
+				t.Errorf("%s: %q, want %q", r, th.SGR(r), theme.BuiltinFor(ap).SGR(r))
+			}
+		}
 	}
 }
 

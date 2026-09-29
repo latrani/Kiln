@@ -158,9 +158,9 @@ Exports contain only received lines: no timestamps, your own commands (the serve
 
 ### Themes
 
-Kiln's colors come from a theme. To change them, make `themes/default.toml` in Kiln's config folder, start it with `extends = "default"`, and set only what you want different. Kiln picks up changes as you save. To keep several themes, give each its own file in `themes/` and pick one with `theme = "name"` in `config.toml`.
+Kiln's colors come from a theme. Kiln makes `themes/default.toml` in its config folder on first run, saying `extends = "kiln"`: it starts as the built-in theme, `kiln`, and changes only what you set. Kiln picks up changes as you save. `kiln theme show kiln` prints everything the built-in sets, and `kiln theme show <name>` prints any theme with what it extends merged in. To keep several themes, give each its own file in `themes/` and pick one with `theme = "name"` in `config.toml`.
 
-    extends = "default"
+    extends = "kiln"
 
     [palette]
     panel = "#1f2029"
@@ -243,7 +243,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `password_store` | config.toml | `"keychain"` (default), `"file"` (`~/.local/share/kiln/passwords.json`, readable only by you) or `"none"` (never save) |
 | `notify_idle` | config.toml | No input for this long counts as away (default `"5m"`; `"0"`: only switching away counts), see [Notifications](#notifications) |
 | `notify_method` | config.toml | `"osc"` (default): a notification with the line; `"bell"`: a bell (works over mosh); `"both"` |
-| `theme` | config.toml | Which `themes/<name>.toml` to draw with (default `"default"`: yours if you made one, else the built-in), see [Themes](#themes) |
+| `theme` | config.toml | Which `themes/<name>.toml` to draw with (default `"default"`, which Kiln makes on first run; `"kiln"` is the built-in), see [Themes](#themes) |
 | `appearance` | config.toml | `"auto"` (default: ask the terminal), `"dark"` or `"light"`: which palette themes use, see [Themes](#themes) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
@@ -384,6 +384,7 @@ kiln                               the full-screen client
 kiln tail <world> <char>           connect, print output, send lines typed on stdin
 kiln passwd <world> <char>         save a character's password (see password_store)
 kiln trust <world> <fingerprint>   accept a changed server certificate
+kiln theme show <theme>            print a theme, merged into one file
 ```
 
 ## Releasing

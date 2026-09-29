@@ -33,7 +33,8 @@ func xdg(env, fallback string) (string, error) {
 var defaults embed.FS
 
 // EnsureDefaults creates the config directory layout and writes the
-// starter config.toml and packs/fuzzball.toml if they don't exist yet.
+// starter config.toml, packs/fuzzball.toml and themes/default.toml if they
+// don't exist yet.
 // Existing files are never overwritten.
 func EnsureDefaults(dir string) error {
 	for _, sub := range []string{"worlds", "packs", "themes"} {

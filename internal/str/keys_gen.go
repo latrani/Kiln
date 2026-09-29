@@ -136,7 +136,7 @@ func CliTrustHint(world, fingerprint any) string {
 	return get("cli.trust_hint", map[string]any{"world": world, "fingerprint": fingerprint})
 }
 
-// CliUsage is cli.usage: "usage:\n  kiln\n  kiln tail <world> <char>\n  kiln passwd <world> <char>\n  kiln trust <world> <fingerprint>"
+// CliUsage is cli.usage: "usage:\n  kiln\n  kiln tail <world> <char>\n  kiln passwd <world> <char>\n  kiln trust <world> <fingerprint>\n  kiln theme show <theme>"
 func CliUsage() string { return get("cli.usage", nil) }
 
 // ConfigAddedByHighlight is config.added_by_highlight: "added by /highlight"
@@ -749,6 +749,9 @@ func ThemeBadScope(file, tag any) string {
 	return get("theme.bad_scope", map[string]any{"file": file, "tag": tag})
 }
 
+// ThemeBuiltin is theme.builtin: "the built-in theme"
+func ThemeBuiltin() string { return get("theme.builtin", nil) }
+
 // ThemeExtendsLoop is theme.extends_loop: "{file}: extends loops back to {name:%q}"
 func ThemeExtendsLoop(file, name any) string {
 	return get("theme.extends_loop", map[string]any{"file": file, "name": name})
@@ -786,6 +789,9 @@ func ThemeParse(file any, err error) string {
 func ThemeRoleNotTable(file, role any) string {
 	return get("theme.role_not_table", map[string]any{"file": file, "role": role})
 }
+
+// ThemeShowMerged is theme.show_merged: "{name}, with the themes it extends merged in. It looks the same saved\nas a file of its own. A role inherits from the one before its last dot."
+func ThemeShowMerged(name any) string { return get("theme.show_merged", map[string]any{"name": name}) }
 
 // ThemeTagEntry is theme.tag_entry: "tag {name}"
 func ThemeTagEntry(name any) string { return get("theme.tag_entry", map[string]any{"name": name}) }
