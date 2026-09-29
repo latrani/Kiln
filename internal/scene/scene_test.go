@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 func TestVisible(t *testing.T) {
@@ -95,5 +96,25 @@ func TestFileName(t *testing.T) {
 	}
 	if Render("plain", sample, "") != Plain(sample) || Render("html", sample, "t") != HTML(sample, "t") {
 		t.Error("Render dispatch wrong")
+	}
+}
+
+func TestHTMLUsesTheExportRole(t *testing.T) {
+	th, err := theme.FromTOML("[ui]\nexport = { fg = \"#0a0b0c\", bg = \"#0d0e0f\" }\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	theme.SetActive(th)
+	defer theme.SetActive(theme.Builtin())
+	page := HTML(nil, "t")
+	if !strings.Contains(page, "background: #0d0e0f") || !strings.Contains(page, "color: #0a0b0c") {
+		t.Errorf("page:\n%s", page)
+	}
+}
+
+func TestHTMLDefaultColorsUnchanged(t *testing.T) {
+	page := HTML(nil, "t")
+	if !strings.Contains(page, "background: #1b1b1f; color: #d8d8d8;") {
+		t.Errorf("the built-in export colors changed:\n%s", page)
 	}
 }

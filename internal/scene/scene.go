@@ -14,6 +14,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/pathfmt"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // Chip is a tag filter's state.
@@ -78,19 +79,28 @@ func ANSI(entries []logstore.Entry) string {
 // HTML renders entries as a standalone dark-background page.
 func HTML(entries []logstore.Entry, title string) string {
 	var b strings.Builder
+	fg, bg := theme.Active().CSS(theme.Export)
+	var body []string
+	if bg != "" {
+		body = append(body, "background: "+bg) //str:ok
+	}
+	if fg != "" {
+		body = append(body, "color: "+fg) //str:ok
+	}
+	body = append(body, "margin: 2rem") //str:ok
 	fmt.Fprintf(&b, `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>%s</title>
 <style>
-body { background: #1b1b1f; color: #d8d8d8; margin: 2rem; }
+body { %s; }
 pre { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <pre>
-`, html.EscapeString(title)) //str:ok
+`, html.EscapeString(title), strings.Join(body, "; ")) //str:ok
 	for _, e := range entries {
 		for _, sp := range ansi.Spans(ansi.Sanitize(e.Text)) {
 			if css := spanCSS(sp.Style); css != "" {
