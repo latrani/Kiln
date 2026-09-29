@@ -94,6 +94,7 @@ type Model struct {
 	awayNow         bool                    // set by /away until the next input; see away
 	themed          bool                    // a theme has been loaded; see loadTheme
 	themeErr        error                   // why the theme didn't load, to report once the update is done
+	detected        theme.Appearance        // the terminal's last answer about its background; Dark until one comes
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
@@ -208,7 +209,7 @@ func New(d Deps, cfg *config.Config) *Model {
 
 // Init connects autoconnect characters and starts the clock and watcher.
 func (m *Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{tick(m.d.Now()), m.watch()}
+	cmds := []tea.Cmd{tick(m.d.Now()), m.watch(), m.askBackground()}
 	for _, k := range m.order {
 		if m.chars[k].ch.Autoconnect {
 			cmds = append(cmds, m.connect(m.chars[k]))
@@ -255,13 +256,34 @@ func (m *Model) reloadNow() bool {
 	return true
 }
 
+// appearance is the palette to draw with: the setting, or with auto the
+// terminal's last answer (dark until one comes).
+func (m *Model) appearance() theme.Appearance {
+	switch m.cfg.Appearance {
+	case "light":
+		return theme.Light
+	case "dark":
+		return theme.Dark
+	}
+	return m.detected
+}
+
+// askBackground asks the terminal for its background, when the
+// appearance is auto.
+func (m *Model) askBackground() tea.Cmd {
+	if m.cfg.Appearance != "auto" {
+		return nil
+	}
+	return tea.RequestBackgroundColor
+}
+
 // loadTheme reads the theme from the config folder and draws with it,
 // restyling what's on screen. A broken theme changes nothing, except at
 // start, when the built-in theme stands in; either way its error is
 // reported when the update ends (see Update), after any message the
 // caller shows for what it did.
 func (m *Model) loadTheme() {
-	th, err := theme.Load(m.d.ConfigDir, "default", theme.Dark)
+	th, err := theme.Load(m.d.ConfigDir, m.cfg.Theme, m.appearance())
 	m.themeErr = err
 	if err != nil && m.themed {
 		return // keep the theme we have
@@ -587,12 +609,24 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.reloadNow() {
 			m.setStatus(false, str.StatusConfigReloaded())
 		}
-		return m, m.watch()
+		return m, tea.Batch(m.watch(), m.askBackground())
 	case eventMsg:
 		return m, m.handleEvent(msg)
 	case tea.FocusMsg:
 		m.focused = true
 		m.here()
+		return m, m.askBackground() // the terminal may have gone light or dark meanwhile
+	case tea.BackgroundColorMsg:
+		ap := theme.Light
+		if msg.IsDark() {
+			ap = theme.Dark
+		}
+		if ap != m.detected {
+			m.detected = ap
+			if m.cfg.Appearance == "auto" {
+				m.loadTheme()
+			}
+		}
 	case tea.BlurMsg:
 		m.focused = false
 	case notifyDueMsg:

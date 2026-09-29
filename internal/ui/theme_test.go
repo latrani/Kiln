@@ -3,8 +3,11 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -551,4 +554,103 @@ func TestBrokenLookEditRestyles(t *testing.T) {
 	if s := h.drawn(); !strings.Contains(s, ts.Style.SGR()+"Mira pages") {
 		t.Errorf("the page kept its old look after the edit:\n%q", s)
 	}
+}
+
+var (
+	lightBG = tea.BackgroundColorMsg{Color: color.RGBA{0xfb, 0xf8, 0xf1, 0xff}}
+	darkBG  = tea.BackgroundColorMsg{Color: color.RGBA{0x31, 0x2a, 0x54, 0xff}}
+)
+
+func withAppearance(t *testing.T, h *harness, setting string) {
+	t.Helper()
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("appearance = \""+setting+"\"\n"), 0o600)
+	h.m.Update(reloadMsg{})
+}
+
+func TestLightAnswerRestyles(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.Update(lightBG)
+	if theme.Active().SGR(theme.Sidebar) != theme.BuiltinFor(theme.Light).SGR(theme.Sidebar) {
+		t.Error("a light answer should switch to the light palette")
+	}
+	h.m.Update(darkBG)
+	if theme.Active().SGR(theme.Sidebar) != theme.Builtin().SGR(theme.Sidebar) {
+		t.Error("a dark answer should switch back")
+	}
+}
+
+func TestNoAnswerStaysDark(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	if theme.Active().SGR(theme.Sidebar) != theme.Builtin().SGR(theme.Sidebar) || h.m.status != "" {
+		t.Errorf("with no answer: sidebar %q, status %q", theme.Active().SGR(theme.Sidebar), h.m.status)
+	}
+}
+
+func TestPinnedAppearanceIgnoresAnswer(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	withAppearance(t, h, "light")
+	light := theme.Active()
+	if light.SGR(theme.Sidebar) != theme.BuiltinFor(theme.Light).SGR(theme.Sidebar) {
+		t.Fatal("appearance = light should draw light")
+	}
+	h.m.Update(darkBG)
+	if theme.Active() != light {
+		t.Error("a pinned appearance must ignore the terminal's answer")
+	}
+	if cmd := h.m.Init(); cmdAsks(cmd) {
+		t.Error("a pinned appearance must not ask")
+	}
+}
+
+func TestSameAnswerKeepsSelection(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("line")
+	sb := &h.m.chars["fm/kit"].sb
+	sb.StartSelect(sbPos{line: 0})
+	h.m.Update(darkBG) // already dark
+	if sb.sel == nil {
+		t.Error("an answer that doesn't change the appearance dropped the selection")
+	}
+}
+
+func TestAsksOnStartAndFocus(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	if !cmdAsks(h.m.Init()) {
+		t.Error("auto should ask at start")
+	}
+	_, cmd := h.m.Update(tea.FocusMsg{})
+	if !cmdAsks(cmd) {
+		t.Error("auto should ask again on focus-in")
+	}
+}
+
+func TestMissingNamedTheme(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("theme = \"nope\"\n"), 0o600)
+	h.m.Update(reloadMsg{})
+	if !strings.Contains(h.m.status, str.ThemeNoTheme("nope")) {
+		t.Errorf("status = %q", h.m.status)
+	}
+}
+
+// cmdAsks reports whether cmd is, or is a batch holding, a
+// background-color request. It compares functions, and only ever calls
+// the top-level command (a tea.Batch's function just returns its list),
+// so nothing else in the batch runs.
+func cmdAsks(cmd tea.Cmd) bool {
+	if cmd == nil {
+		return false
+	}
+	want := reflect.ValueOf(tea.RequestBackgroundColor).Pointer()
+	if reflect.ValueOf(cmd).Pointer() == want {
+		return true
+	}
+	b, ok := cmd().(tea.BatchMsg)
+	return ok && slices.ContainsFunc(b, func(c tea.Cmd) bool { return c != nil && reflect.ValueOf(c).Pointer() == want })
 }

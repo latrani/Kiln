@@ -116,7 +116,11 @@ func knownHosts(dataDir string) conn.KnownHosts {
 }
 
 func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error {
-	if th, err := theme.Load(cfgDir, "default", theme.Dark); err != nil {
+	ap := theme.Dark // tail never asks the terminal
+	if cfg.Appearance == "light" {
+		ap = theme.Light
+	}
+	if th, err := theme.Load(cfgDir, cfg.Theme, ap); err != nil {
 		fmt.Fprintln(os.Stderr, "*", str.StatusThemeNotLoaded(err))
 	} else {
 		theme.SetActive(th)
