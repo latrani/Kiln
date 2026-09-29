@@ -108,3 +108,19 @@ func TestHighlight(t *testing.T) {
 		})
 	}
 }
+
+func TestReassert(t *testing.T) {
+	base := "\x1b[48;2;1;2;3m"
+	for _, c := range []struct{ in, want string }{
+		{"a\x1b[0mb", "a\x1b[0m" + base + "b"},
+		{"a\x1b[mb", "a\x1b[m" + base + "b"},
+		{"a\x1b[1;31mb", "a\x1b[1;31mb"},             // no reset: left alone
+		{"a\x1b[0;31mb", "a\x1b[0;31m" + base + "b"}, // a reset, then red
+		{"a\x1b[38;5;0mb", "a\x1b[38;5;0mb"},         // black, not a reset
+		{"plain", "plain"},
+	} {
+		if got := Reassert(c.in, base); got != c.want {
+			t.Errorf("Reassert(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

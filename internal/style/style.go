@@ -146,3 +146,29 @@ func afterReset(params string) (tail string, reset bool) {
 	}
 	return strings.Join(ps[last+1:], ";"), true
 }
+
+// Reassert writes base again after every SGR sequence in s that resets,
+// so a painted area keeps its colors across the resets of what's drawn
+// inside it.
+func Reassert(s, base string) string {
+	if base == "" || !strings.Contains(s, "\x1b[") {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] != 0x1b {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		j := ansi.EscapeEnd(s, i)
+		b.WriteString(s[i:j])
+		if params, ok := sgrParams(s[i:j]); ok {
+			if _, reset := afterReset(params); reset {
+				b.WriteString(base)
+			}
+		}
+		i = j
+	}
+	return b.String()
+}

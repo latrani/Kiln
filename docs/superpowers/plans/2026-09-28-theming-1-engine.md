@@ -1362,7 +1362,7 @@ func TestFillUnstyledIsPlainFit(t *testing.T) {
 }
 
 func TestFillReassertsAfterReset(t *testing.T) {
-	th := mustBuild(t, "[ui]\nsidebar = { bg = \"#010203\" }\n")
+	th := mustBuild(t, "[ui]\nsidebar = { bg = \"#010203\" }\n\"status.error\" = { fg = \"red\" }\n")
 	base := th.SGR(Sidebar)
 	row := "a" + th.Paint(StatusError, "b") + "c" // "b" ends in a reset
 	got := th.Fill(Sidebar, row, 5)
