@@ -733,6 +733,11 @@ func ThemeBadColor(file, where, color any) string {
 	return get("theme.bad_color", map[string]any{"file": file, "where": where, "color": color})
 }
 
+// ThemeBadExtends is theme.bad_extends: "themes/{file}: extends {name:%q} isn't a theme name (a file name in themes/, without .toml)"
+func ThemeBadExtends(file, name any) string {
+	return get("theme.bad_extends", map[string]any{"file": file, "name": name})
+}
+
 // ThemeBadField is theme.bad_field: "themes/{file}: {role}: {field} must be {want}"
 func ThemeBadField(file, role, field, want any) string {
 	return get("theme.bad_field", map[string]any{"file": file, "role": role, "field": field, "want": want})
@@ -745,6 +750,11 @@ func ThemeExtendsLoop(file, name any) string {
 
 // ThemeNoTheme is theme.no_theme: "no theme {name:%q} (no themes/{name}.toml)"
 func ThemeNoTheme(name any) string { return get("theme.no_theme", map[string]any{"name": name}) }
+
+// ThemeNotTable is theme.not_table: "themes/{file}: {key} must be a table, like [{key}]"
+func ThemeNotTable(file, key any) string {
+	return get("theme.not_table", map[string]any{"file": file, "key": key})
+}
 
 // ThemePaletteEntry is theme.palette_entry: "palette {name}"
 func ThemePaletteEntry(name any) string {
@@ -759,6 +769,11 @@ func ThemePaletteNameTaken(file, name any) string {
 // ThemeParse is theme.parse: "themes/{file}: {err}"
 func ThemeParse(file any, err error) string {
 	return get("theme.parse", map[string]any{"file": file, "err": err})
+}
+
+// ThemeRoleNotTable is theme.role_not_table: "themes/{file}: {role} needs a table of settings, like {role} = {{ fg = … }}"
+func ThemeRoleNotTable(file, role any) string {
+	return get("theme.role_not_table", map[string]any{"file": file, "role": role})
 }
 
 // ThemeUnknownField is theme.unknown_field: "themes/{file}: {role}: unknown setting {field:%q}"

@@ -156,9 +156,15 @@ func parse(name string, data []byte) (file, error) {
 			if !ok {
 				return f, errors.New(str.ThemeBadField(name, "extends", "extends", str.ThemeWantTheme()))
 			}
+			if !validName(s) {
+				return f, errors.New(str.ThemeBadExtends(name, s))
+			}
 			f.extends = s
 		case "palette":
-			tbl, _ := v.(map[string]any)
+			tbl, ok := v.(map[string]any)
+			if !ok {
+				return f, errors.New(str.ThemeNotTable(name, k))
+			}
 			for pk, pv := range tbl {
 				s, ok := pv.(string)
 				if !ok {
@@ -167,7 +173,10 @@ func parse(name string, data []byte) (file, error) {
 				f.palette[pk] = s
 			}
 		case "ui":
-			tbl, _ := v.(map[string]any)
+			tbl, ok := v.(map[string]any)
+			if !ok {
+				return f, errors.New(str.ThemeNotTable(name, k))
+			}
 			if err := flatten(name, "", tbl, f.ui); err != nil {
 				return f, err
 			}
@@ -176,6 +185,12 @@ func parse(name string, data []byte) (file, error) {
 		}
 	}
 	return f, nil
+}
+
+// validName reports whether s can name a theme: a bare file name in
+// themes/, without .toml.
+func validName(s string) bool {
+	return s != "" && s != "." && s != ".." && !strings.ContainsAny(s, `/\`) && !strings.HasSuffix(s, ".toml") //str:ok
 }
 
 // flatten reads [ui], written with quoted dotted keys ("sidebar.active"),
@@ -194,7 +209,10 @@ func flatten(name, prefix string, tbl map[string]any, out map[Role]fileStyle) er
 			}
 			continue
 		}
-		if prefix == "" || !slices.Contains(styleFields, k) {
+		if prefix == "" || !slices.Contains(styleFields, k) && slices.Contains(Roles, Role(role)) {
+			return errors.New(str.ThemeRoleNotTable(name, role))
+		}
+		if !slices.Contains(styleFields, k) {
 			return errors.New(str.ThemeUnknownField(name, prefix, k))
 		}
 		hasOwn = true
@@ -228,8 +246,8 @@ func flatten(name, prefix string, tbl map[string]any, out map[Role]fileStyle) er
 			}
 		}
 	}
-	if hasOwn {
-		out[Role(prefix)] = own
+	if hasOwn { // merge: the role may also be spelled the other way
+		out[Role(prefix)] = overlay(out[Role(prefix)], own)
 	}
 	return nil
 }

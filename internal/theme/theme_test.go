@@ -104,3 +104,29 @@ func TestBuildErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestParseErrors(t *testing.T) {
+	for _, c := range []struct{ body, want string }{
+		{"palette = \"x\"\n", str.ThemeNotTable("t.toml", "palette")},
+		{"ui = 5\n", str.ThemeNotTable("t.toml", "ui")},
+		{"[ui]\nsidebar = \"red\"\n", str.ThemeRoleNotTable("t.toml", "sidebar")},
+		{"[ui.sidebar]\nactive = \"red\"\n", str.ThemeRoleNotTable("t.toml", "sidebar.active")},
+		{"extends = \"../x\"\n", str.ThemeBadExtends("t.toml", "../x")},
+		{"extends = \"x.toml\"\n", str.ThemeBadExtends("t.toml", "x.toml")},
+		{"extends = \"\"\n", str.ThemeBadExtends("t.toml", "")},
+	} {
+		_, err := parse("t.toml", []byte(c.body))
+		if err == nil || err.Error() != c.want {
+			t.Errorf("%q: err = %v, want %q", c.body, err, c.want)
+		}
+	}
+}
+
+func TestDottedAndNestedRoleMerge(t *testing.T) {
+	for range 20 { // map order varies; the two spellings must merge whichever comes first
+		th := mustBuild(t, "[ui]\n\"sidebar.active\" = { bold = true }\n[ui.sidebar.active]\nfg = \"red\"\n")
+		if got := th.SGR(SidebarActive); got != "\x1b[1;31m" {
+			t.Fatalf("SGR(sidebar.active) = %q, want both settings", got)
+		}
+	}
+}
