@@ -157,6 +157,37 @@ type Theme struct {
 	chain  []file // what it was built from, base first
 }
 
+// Layer is a world's or character's own [palette] and [tags], drawn over
+// the theme it uses (see Theme.With).
+type Layer struct{ f file }
+
+// ParseLayer reads a layer's tables, as a world or character file gives
+// them. where names the file for messages. Colors are checked when the
+// layer is put on a theme, since they may name the theme's palette.
+func ParseLayer(where string, palette, tags map[string]any) (Layer, error) {
+	raw := map[string]any{}
+	if palette != nil {
+		raw["palette"] = palette
+	}
+	if tags != nil {
+		raw["tags"] = tags
+	}
+	f, err := parseTables(where, raw)
+	return Layer{f}, err
+}
+
+// With is t with layers on top, in order, merged field by field.
+func (t *Theme) With(layers ...Layer) (*Theme, error) {
+	if len(layers) == 0 {
+		return t, nil
+	}
+	chain := slices.Clone(t.chain)
+	for _, l := range layers {
+		chain = append(chain, l.f)
+	}
+	return build(chain)
+}
+
 // Tag is how a line tag is drawn: the style of the most specific styled
 // name up its slashes (page/in, then page), and that name.
 func (t *Theme) Tag(name string) (styled string, ts TagStyle, ok bool) {
@@ -199,11 +230,16 @@ func (t *Theme) CSS(r Role) (fg, bg string) {
 
 // parse reads one theme file. name is its path, for messages.
 func parse(name string, data []byte) (file, error) {
-	f := file{name: name, palette: map[string]string{}, ui: map[Role]fileStyle{}, tags: map[string]tagFileStyle{}}
 	var raw map[string]any
 	if err := toml.Unmarshal(data, &raw); err != nil {
-		return f, errors.New(str.ThemeParse(name, err))
+		return file{name: name}, errors.New(str.ThemeParse(name, err))
 	}
+	return parseTables(name, raw)
+}
+
+// parseTables reads a theme's tables, already decoded.
+func parseTables(name string, raw map[string]any) (file, error) {
+	f := file{name: name, palette: map[string]string{}, ui: map[Role]fileStyle{}, tags: map[string]tagFileStyle{}}
 	for k, v := range raw {
 		switch k {
 		case "extends":

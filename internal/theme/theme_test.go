@@ -230,3 +230,45 @@ func TestEqualSeesTags(t *testing.T) {
 		t.Error("Equal must compare tag styles and scopes")
 	}
 }
+func TestLayersOverTheme(t *testing.T) {
+	base := mustBuild(t, "[palette]\nember = \"#ff9f43\"\n[tags]\npage = { fg = \"ember\", bold = true }\n")
+	world, err := ParseLayer("worlds/fm.toml",
+		map[string]any{"beacon": "#ffd166"},
+		map[string]any{"highlight": map[string]any{"fg": "beacon", "scope": "match"}, "page": map[string]any{"italic": true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	char, err := ParseLayer("kit", nil, map[string]any{"highlight": map[string]any{"fg": "ember"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err := base.With(world, char)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ts, _ := th.Tag("page"); ts.Style.SGR() != "\x1b[1;3;38;2;255;159;67m" {
+		t.Errorf("page = %q, want the theme's color and bold with the world's italic", ts.Style.SGR())
+	}
+	if _, ts, _ := th.Tag("highlight"); ts.Style.SGR() != "\x1b[38;2;255;159;67m" || !ts.Match {
+		t.Errorf("highlight = %q, match %v; want the character's color over the world's, the world's scope", ts.Style.SGR(), ts.Match)
+	}
+	if _, _, ok := base.Tag("highlight"); ok {
+		t.Error("With changed the base theme")
+	}
+	if same, _ := base.With(); same != base {
+		t.Error("With() should return the theme itself")
+	}
+}
+
+func TestLayerErrors(t *testing.T) {
+	if _, err := ParseLayer("worlds/fm.toml", nil, map[string]any{"page": "red"}); err == nil || err.Error() != str.ThemeTagNotTable("worlds/fm.toml", "page") {
+		t.Errorf("err = %v", err)
+	}
+	l, err := ParseLayer("worlds/fm.toml", nil, map[string]any{"page": map[string]any{"fg": "nowhere"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Builtin().With(l); err == nil || err.Error() != str.ThemeBadColor("worlds/fm.toml", str.ThemeTagEntry("page"), "nowhere") {
+		t.Errorf("unknown color: err = %v", err)
+	}
+}
