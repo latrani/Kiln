@@ -108,7 +108,7 @@ Every hard-coded style becomes a role. A first cut, from the code:
 | Sidebar | `sidebar`, `.world`, `.char`, `.active`, `.unread`, `.attention` (the ●), `.connecting`, `.disconnected`, `.add`, `.more` (▲/▼ hints) |
 | Picker | `picker.world`, `.char`, `.selected`, `.add` |
 | Divider | `divider` (the `│`), `rule` (the `─` lines) |
-| Scrollback | `scrollback.day` (day dividers), `.history_end`, `.loading`, `.echo` (your sent lines), `.sys` (`*` lines), `.pill`, `.selection`, `link`, `link.hover` |
+| Scrollback | `scrollback.day` (day dividers), `.history_end`, `.loading`, `.echo` (your sent lines), `.sys` (`*` lines), `.pill`, `.selection`, `.inactive` (the backdrop, below), `link`, `link.hover` |
 | Input | `input`, `.gutter`, `.hint` (dim prompts), `.over_limit`, `.selection` |
 | Statusline | `status`, `.log` (the LOG label), `.error`, `.clock` |
 | Forms | `form.label`, `.hint`, `.error`, `.focus`, `.button`, `.section`, `.title` |
@@ -132,6 +132,23 @@ Painting an area takes three things, and one helper per area does them:
 The scrollback and log body use the same helpers with no background, which
 is where they already are.
 
+## The backdrop
+
+While a modal owns the input area (the Ctrl+O picker, the world and
+character editors, and maybe the save-password question), the scrollback
+turns into a backdrop. Its rows lose their styling (server colors, tag
+styles, links) and are drawn in `scrollback.inactive`, so the eye goes to
+the modal.
+
+- The rows are stripped and repainted, not dimmed with SGR 2. Dim would
+  need re-applying after every server reset, and terminals render it
+  inconsistently (some barely fade truecolor text). A repaint looks the
+  same everywhere.
+- Fading the real colors instead would mean querying the terminal's
+  palette and background (OSC 4 / OSC 11) and blending toward them. That's
+  out of scope.
+- Log mode replaces the pane, so it doesn't apply there.
+
 ## Migration
 
 - Old `[[highlight]]` rules keep working. At load time each becomes its
@@ -150,7 +167,7 @@ is where they already are.
 
 1. **Theme engine and chrome roles.** Theme files, palette, fallback,
    `extends`, live reload. Every hard-coded style becomes a role, drawn by
-   the area helpers. The default theme reproduces today's look closely,
+   the area helpers. The modal backdrop comes with it. The default theme reproduces today's look closely,
    with tests pinning it, so the plumbing lands without a visual change.
 2. **The new default look.** Indi's redesign, on top of phase 1.
 3. **Tags, behavior and migration.** `[tags]` and `[styles]`, `span`,
