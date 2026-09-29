@@ -4,12 +4,14 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // write creates files under dir from a map of relative path → content.
@@ -126,11 +128,9 @@ func TestLoadErrors(t *testing.T) {
 		{"unknown key", "host = \"h\"\nport = 1\nhots = \"typo\"\n", `unknown key "hots"`},
 		{"missing pack", "host = \"h\"\nport = 1\nuse = [\"nope\"]\n", str.ConfigUnknownPack("nope")},
 		{"bad regex", "host = \"h\"\nport = 1\n[[classify]]\ntag = \"x\"\npattern = '('\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", upTo(str.ConfigClassifyBadPattern(1, mark, nil))},
-		{"empty highlight match", "host = \"h\"\nport = 1\n[[highlight]]\nattention = true\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "match needs tags or pattern"},
 		{"bad trust", "host = \"h\"\nport = 1\ntls_trust = \"yolo\"\n", "tls_trust"},
 		{"bad newline mode", "host = \"h\"\nport = 1\nnewline_mode = \"x\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n", "newline_mode"},
 		{"bad char id", "host = \"h\"\nport = 1\n[[characters]]\nid = \"a/b\"\nname = \"X\"\n", "id may only use"},
-		{"bad scope", "host = \"h\"\nport = 1\n[[highlight]]\nmatch = { pattern = 'x' }\nscope = \"word\"\n[[characters]]\nname = \"Kit\"\n", str.ConfigBadHighlightScope(1)},
 		{"name needs an id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Big Kit\"\n", str.ConfigBadCharacterId("")},
 		{"duplicate id", "host = \"h\"\nport = 1\n[[characters]]\nname = \"Kit\"\n[[characters]]\nid = \"kit\"\nname = \"Other\"\n", str.ConfigDuplicateCharacterId("")},
 	}
@@ -197,7 +197,7 @@ func TestStarterPackLoads(t *testing.T) {
 		t.Fatal(err)
 	}
 	kit, _ := cfg.Find("fm", "kit")
-	if len(kit.Rules.Classify) == 0 || len(kit.Rules.Highlight) == 0 {
+	if len(kit.Rules.Classify) == 0 || len(kit.Rules.Attention) == 0 {
 		t.Errorf("fuzzball pack rules missing: %+v", kit.Rules)
 	}
 	if kit.MaxLineBytes != 2047 {
@@ -324,8 +324,9 @@ name = "Zed"
 id = "big-kit"
 name = "Big Kit"
 
-[[characters.highlight]]
-match = { pattern = 'x' }
+[[characters.classify]]
+tag = "x"
+pattern = 'x'
 
 [[characters]]
 name = "Ash"
@@ -341,44 +342,11 @@ name = "Ash"
 	if want := []string{"Zed", "big-kit", "Ash"}; !reflect.DeepEqual(ids, want) {
 		t.Errorf("ids = %q, want %q (id defaults to name; file order kept)", ids, want)
 	}
-	if kit, _ := cfg.Find("w", "big-kit"); len(kit.Rules.Highlight) != 1 {
+	if kit, _ := cfg.Find("w", "big-kit"); len(kit.Rules.Classify) != 1 {
 		t.Errorf("per-character rule missing: %+v", kit.Rules)
 	}
-	if ash, _ := cfg.Find("w", "Ash"); len(ash.Rules.Highlight) != 0 {
+	if ash, _ := cfg.Find("w", "Ash"); len(ash.Rules.Classify) != 0 {
 		t.Errorf("rule leaked to the next character: %+v", ash.Rules)
-	}
-}
-
-func TestHighlightScope(t *testing.T) {
-	dir := t.TempDir()
-	write(t, dir, map[string]string{"worlds/fm.toml": `host = "h"
-port = 1
-
-[[highlight]]
-match = { tags = ["page"] }
-scope = "match"
-
-[[highlight]]
-match = { tags = ["page"] }
-scope = "line"
-
-[[highlight]]
-match = { tags = ["page"] }
-
-[[characters]]
-name = "Kit"
-`})
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	kit, _ := cfg.Find("fm", "Kit")
-	var got []string
-	for _, r := range kit.Rules.Highlight {
-		got = append(got, r.Scope)
-	}
-	if want := []string{"match", "line", ""}; !reflect.DeepEqual(got, want) {
-		t.Errorf("scopes = %q, want %q", got, want)
 	}
 }
 
@@ -514,5 +482,87 @@ func TestNotifyIdleNumberIsFriendly(t *testing.T) {
 	write(t, dir, map[string]string{"config.toml": "notify_idle = 300\n"})
 	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), `notify_idle must be a duration like "5m"`) {
 		t.Errorf("err = %v", err)
+	}
+}
+func TestAttentionAndQuietAddUp(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
+	os.MkdirAll(filepath.Join(dir, "packs"), 0o700)
+	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[defaults]\nattention = [\"self\"]\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "packs", "p.toml"), []byte("attention = [\"page/in\", \"self\"]\nquiet = [\"spam\"]\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte(`host = "h"
+port = 1
+use = ["p"]
+attention = ["whisper/in"]
+
+[[characters]]
+name = "Kit"
+quiet = ["wiki"]
+`), 0o600)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "Kit")
+	if want := []string{"self", "page/in", "whisper/in"}; !slices.Equal(kit.Rules.Attention, want) {
+		t.Errorf("attention = %v, want %v", kit.Rules.Attention, want)
+	}
+	if want := []string{"spam", "wiki"}; !slices.Equal(kit.Rules.Quiet, want) {
+		t.Errorf("quiet = %v, want %v", kit.Rules.Quiet, want)
+	}
+}
+
+func TestWorldAndCharacterLooks(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte(`host = "h"
+port = 1
+
+[palette]
+beacon = "#ffd166"
+
+[tags]
+highlight = { fg = "beacon", scope = "match" }
+
+[[characters]]
+name = "Kit"
+tags = { highlight = { bold = true } }
+
+[[characters]]
+name = "Rook"
+`), 0o600)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "Kit")
+	rook, _ := cfg.Find("fm", "Rook")
+	if len(kit.Looks) != 2 || len(rook.Looks) != 1 {
+		t.Fatalf("looks: kit %d, rook %d; want 2 and 1", len(kit.Looks), len(rook.Looks))
+	}
+	th, err := theme.Builtin().With(kit.Looks...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ts, _ := th.Tag("highlight"); ts.Style.SGR() != "\x1b[1;38;2;255;209;102m" || !ts.Match {
+		t.Errorf("kit's highlight = %q, match %v", ts.Style.SGR(), ts.Match)
+	}
+}
+
+func TestBadWorldTagsFailLoad(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte("host = \"h\"\nport = 1\n[tags]\npage = \"red\"\n"), 0o600)
+	if _, err := Load(dir); err == nil || err.Error() != str.ThemeTagNotTable(filepath.Join("worlds", "fm.toml"), "page") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestHighlightIsGone(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte("host = \"h\"\nport = 1\n[[highlight]]\nmatch = { pattern = 'x' }\n"), 0o600)
+	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), "fm.toml") || !strings.Contains(err.Error(), "highlight") {
+		t.Errorf("err = %v, want the unknown-key error naming fm.toml and highlight", err)
 	}
 }

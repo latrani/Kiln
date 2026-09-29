@@ -271,7 +271,7 @@ func inherited(s settings) Inherited {
 
 // Defaults is what a world gets for settings it leaves unset.
 func Defaults(dir string) (Inherited, error) {
-	_, base, err := loadGlobal(dir)
+	_, base, _, err := loadGlobal(dir)
 	if err != nil {
 		return Inherited{}, err
 	}
@@ -296,7 +296,7 @@ func ReadWorld(dir, world string) (WorldSettings, Inherited, error) {
 	if err := decodeFile(path, &wf, false); err != nil {
 		return WorldSettings{}, Inherited{}, err
 	}
-	_, base, err := loadGlobal(dir)
+	_, base, _, err := loadGlobal(dir)
 	if err != nil {
 		return WorldSettings{}, Inherited{}, err
 	}
@@ -378,7 +378,7 @@ func ReadCharacter(dir, world, id string) (CharacterSettings, Inherited, error) 
 	if err != nil {
 		return CharacterSettings{}, Inherited{}, err
 	}
-	_, base, err := loadGlobal(dir)
+	_, base, _, err := loadGlobal(dir)
 	if err != nil {
 		return CharacterSettings{}, Inherited{}, err
 	}
@@ -503,11 +503,11 @@ func editWorld(dir, path string, edit func(*tomlDoc) ([]span, error)) error {
 		return err
 	}
 	out := d.apply(spans)
-	_, base, err := loadGlobal(dir)
+	_, base, _, err := loadGlobal(dir)
 	if err != nil {
 		return err
 	}
-	if _, err := loadWorldData(dir, path, out, base, map[string]Rules{}); err != nil {
+	if _, err := loadWorldData(dir, path, out, base, Rules{}, map[string]Rules{}); err != nil {
 		return err
 	}
 	return replaceFile(path, out)

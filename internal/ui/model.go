@@ -334,7 +334,7 @@ func (cs *charState) compile() error {
 	if err != nil {
 		return err
 	}
-	cs.cls, cs.hl = cls, rules.New(theme.Active(), nil, nil)
+	cs.cls, cs.hl = cls, rules.New(theme.Active(), cs.ch.Rules.Attention, cs.ch.Rules.Quiet)
 	return nil
 }
 

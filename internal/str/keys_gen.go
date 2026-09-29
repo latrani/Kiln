@@ -153,11 +153,6 @@ func ConfigBadCharacterId(where any) string {
 // ConfigBadExportFormat is config.bad_export_format: "config.toml: export_format must be \"plain\", \"ansi\" or \"html\""
 func ConfigBadExportFormat() string { return get("config.bad_export_format", nil) }
 
-// ConfigBadHighlightScope is config.bad_highlight_scope: "highlight rule {n}: scope must be \"line\" or \"match\""
-func ConfigBadHighlightScope(n int) string {
-	return get("config.bad_highlight_scope", map[string]any{"n": n})
-}
-
 // ConfigBadHost is config.bad_host: "host must be a hostname or address"
 func ConfigBadHost() string { return get("config.bad_host", nil) }
 
@@ -222,16 +217,6 @@ func ConfigClassifyNeedsTag(n int) string {
 // ConfigDuplicateCharacterId is config.duplicate_character_id: "{where}: id already used"
 func ConfigDuplicateCharacterId(where any) string {
 	return get("config.duplicate_character_id", map[string]any{"where": where})
-}
-
-// ConfigHighlightBadPattern is config.highlight_bad_pattern: "highlight rule {n}: {err}"
-func ConfigHighlightBadPattern(n int, err error) string {
-	return get("config.highlight_bad_pattern", map[string]any{"n": n, "err": err})
-}
-
-// ConfigHighlightNeedsMatch is config.highlight_needs_match: "highlight rule {n}: match needs tags or pattern"
-func ConfigHighlightNeedsMatch(n int) string {
-	return get("config.highlight_needs_match", map[string]any{"n": n})
 }
 
 // ConfigHostRequired is config.host_required: "{file}: host is required"

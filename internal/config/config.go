@@ -2,7 +2,7 @@
 //
 //	<dir>/config.toml        [defaults] + global prefs
 //	<dir>/worlds/<id>.toml   one world and its characters
-//	<dir>/packs/<id>.toml    reusable classify/highlight rule sets
+//	<dir>/packs/<id>.toml    reusable classify rules and tag lists
 //
 // and resolves inheritance: defaults → packs (in `use` order) → world →
 // character. Rule lists append along that chain; scalars override.
@@ -24,16 +24,8 @@ import (
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/pathfmt"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
-
-// Style is how a highlighted line is drawn. Empty colors mean "unchanged".
-type Style struct {
-	FG        string `toml:"fg"`
-	BG        string `toml:"bg"`
-	Bold      bool   `toml:"bold"`
-	Italic    bool   `toml:"italic"`
-	Underline bool   `toml:"underline"`
-}
 
 // ClassifyRule tags lines whose plain text matches Pattern with Tag and
 // every one of Tags. By convention a "/" nests a tag under another, as in
@@ -56,30 +48,13 @@ func (r ClassifyRule) AllTags() []string {
 	return out
 }
 
-// Match selects lines for a highlight rule. A line matches when it has at
-// least one of Tags (if any are given) AND matches Pattern (if given).
-type Match struct {
-	Tags    []string `toml:"tags"`
-	Pattern string   `toml:"pattern"`
-}
-
-// HighlightRule styles matching lines and optionally flags them for
-// attention, or the opposite, quiet: they don't count as unread and never
-// ask for attention, even when another rule does. Scope "match" styles
-// only the matched text (see rules.Apply); "" or "line" styles the whole
-// line.
-type HighlightRule struct {
-	Match     Match  `toml:"match"`
-	Style     Style  `toml:"style"`
-	Attention bool   `toml:"attention"`
-	Quiet     bool   `toml:"quiet"`
-	Scope     string `toml:"scope"`
-}
-
-// Rules is the rule set carried by packs, worlds, and characters.
+// Rules is what packs, worlds and characters say about lines: how to tag
+// them, and which tags ask for attention or are quiet. Along the chain
+// the classify rules append, and the tag lists add up.
 type Rules struct {
-	Classify  []ClassifyRule  `toml:"classify"`
-	Highlight []HighlightRule `toml:"highlight"`
+	Classify  []ClassifyRule `toml:"classify"`
+	Attention []string       `toml:"attention"`
+	Quiet     []string       `toml:"quiet"`
 }
 
 // Character is a fully resolved character: everything a session needs.
@@ -100,6 +75,7 @@ type Character struct {
 	Notify       notify.Level // what notifies while you're away
 	LocalEcho    bool         // show sent lines in the scrollback
 	Rules        Rules
+	Looks        []theme.Layer // the world's and then the character's own [palette] and [tags]
 }
 
 // World groups resolved characters under their world id.
@@ -173,34 +149,46 @@ func (s *settings) overlay(o settings) {
 }
 
 type globalFile struct {
-	ExportDir     string   `toml:"export_dir"`
-	ExportName    string   `toml:"export_name"`
-	ExportFormat  string   `toml:"export_format"`
-	LogDir        string   `toml:"log_dir"`
-	LogName       string   `toml:"log_name"`
-	PasswordStore string   `toml:"password_store"`
-	NotifyIdle    any      `toml:"notify_idle"` // a duration string; any so a bare number gets a friendly error
-	NotifyMethod  string   `toml:"notify_method"`
-	Defaults      settings `toml:"defaults"`
+	ExportDir     string       `toml:"export_dir"`
+	ExportName    string       `toml:"export_name"`
+	ExportFormat  string       `toml:"export_format"`
+	LogDir        string       `toml:"log_dir"`
+	LogName       string       `toml:"log_name"`
+	PasswordStore string       `toml:"password_store"`
+	NotifyIdle    any          `toml:"notify_idle"` // a duration string; any so a bare number gets a friendly error
+	NotifyMethod  string       `toml:"notify_method"`
+	Defaults      defaultsFile `toml:"defaults"`
+}
+
+// defaultsFile is config.toml's [defaults]: the inheritable settings, and
+// tag lists every world starts from.
+type defaultsFile struct {
+	settings
+	Attention []string `toml:"attention"`
+	Quiet     []string `toml:"quiet"`
 }
 
 type charFile struct {
 	settings
 	Rules
-	ID      string   `toml:"id"` // defaults to Name
-	Name    string   `toml:"name"`
-	Aliases []string `toml:"aliases"`
+	Palette map[string]any `toml:"palette"`
+	Tags    map[string]any `toml:"tags"`
+	ID      string         `toml:"id"` // defaults to Name
+	Name    string         `toml:"name"`
+	Aliases []string       `toml:"aliases"`
 }
 
 type worldFile struct {
 	settings
 	Rules
-	Host       string     `toml:"host"`
-	Port       int        `toml:"port"`
-	TLS        bool       `toml:"tls"`
-	TLSTrust   string     `toml:"tls_trust"`
-	Use        []string   `toml:"use"`
-	Characters []charFile `toml:"characters"`
+	Palette    map[string]any `toml:"palette"`
+	Tags       map[string]any `toml:"tags"`
+	Host       string         `toml:"host"`
+	Port       int            `toml:"port"`
+	TLS        bool           `toml:"tls"`
+	TLSTrust   string         `toml:"tls_trust"`
+	Use        []string       `toml:"use"`
+	Characters []charFile     `toml:"characters"`
 }
 
 // Built-in defaults, applied beneath config.toml's [defaults].
@@ -218,7 +206,7 @@ var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`) //str:ok
 // Load reads and resolves the config directory. config.toml and the
 // worlds/ and packs/ directories are all optional.
 func Load(dir string) (*Config, error) {
-	g, base, err := loadGlobal(dir)
+	g, base, baseRules, err := loadGlobal(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +275,7 @@ func Load(dir string) (*Config, error) {
 	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store,
 		NotifyIdle: idle, NotifyMethod: method}
 	for _, wp := range worldPaths {
-		w, err := loadWorld(dir, wp, base, packs)
+		w, err := loadWorld(dir, wp, base, baseRules, packs)
 		if err != nil {
 			return nil, err
 		}
@@ -296,25 +284,25 @@ func Load(dir string) (*Config, error) {
 	return cfg, nil
 }
 
-// loadGlobal reads config.toml, and the settings every world starts
-// from: the built-in defaults under its [defaults].
-func loadGlobal(dir string) (globalFile, settings, error) {
+// loadGlobal reads config.toml, and the settings and tag lists every
+// world starts from: the built-in defaults under its [defaults].
+func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	var g globalFile
 	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
-		return g, settings{}, err
+		return g, settings{}, Rules{}, err
 	}
 	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false), Reconnect: ptr(true), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
-	base.overlay(g.Defaults)
-	return g, base, nil
+	base.overlay(g.Defaults.settings)
+	return g, base, Rules{Attention: g.Defaults.Attention, Quiet: g.Defaults.Quiet}, nil
 }
 
-func loadWorld(dir, path string, base settings, packs map[string]Rules) (World, error) {
-	return loadWorldData(dir, path, nil, base, packs)
+func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]Rules) (World, error) {
+	return loadWorldData(dir, path, nil, base, baseRules, packs)
 }
 
 // loadWorldData is loadWorld with the file's contents given as data,
 // or read from path when data is nil.
-func loadWorldData(dir, path string, data []byte, base settings, packs map[string]Rules) (World, error) {
+func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules, packs map[string]Rules) (World, error) {
 	id := strings.TrimSuffix(filepath.Base(path), ".toml")
 	rel := filepath.Join("worlds", filepath.Base(path))
 	if !idRE.MatchString(id) {
@@ -342,7 +330,16 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 		return World{}, errors.New(str.ConfigBadTlsTrust(rel))
 	}
 
-	var worldRules Rules
+	var worldLooks []theme.Layer
+	if wf.Palette != nil || wf.Tags != nil {
+		l, err := theme.ParseLayer(rel, wf.Palette, wf.Tags)
+		if err != nil {
+			return World{}, err
+		}
+		worldLooks = append(worldLooks, l)
+	}
+
+	worldRules := baseRules
 	for _, p := range wf.Use {
 		r, err := loadPack(dir, p, packs)
 		if err != nil {
@@ -374,6 +371,14 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 			return World{}, errors.New(str.ConfigDuplicateCharacterId(where))
 		}
 		seen[strings.ToLower(cid)] = true
+		looks := slices.Clone(worldLooks)
+		if cf.Palette != nil || cf.Tags != nil {
+			l, err := theme.ParseLayer(where, cf.Palette, cf.Tags)
+			if err != nil {
+				return World{}, err
+			}
+			looks = append(looks, l)
+		}
 		cs := ws
 		cs.overlay(cf.settings)
 		ch := Character{
@@ -381,7 +386,7 @@ func loadWorldData(dir, path string, data []byte, base settings, packs map[strin
 			Host: wf.Host, Port: wf.Port, TLS: wf.TLS, TLSTrust: wf.TLSTrust,
 			Login: *cs.Login, MaxLineBytes: *cs.MaxLineBytes, NewlineMode: *cs.NewlineMode, Autoconnect: *cs.Autoconnect,
 			Reconnect: *cs.Reconnect, Notify: notify.Level(*cs.Notify), LocalEcho: *cs.LocalEcho,
-			Rules: appendRules(worldRules, cf.Rules),
+			Rules: appendRules(worldRules, cf.Rules), Looks: looks,
 		}
 		if err := validate(ch); err != nil {
 			return World{}, fmt.Errorf("%s: %w", where, err)
@@ -429,17 +434,6 @@ func validate(ch Character) error {
 			return str.Wrap(str.ConfigClassifyBadPattern(i+1, strings.Join(tags, ", "), err), err)
 		}
 	}
-	for i, r := range ch.Rules.Highlight {
-		if len(r.Match.Tags) == 0 && r.Match.Pattern == "" {
-			return errors.New(str.ConfigHighlightNeedsMatch(i + 1))
-		}
-		if _, err := regexp.Compile(r.Match.Pattern); err != nil {
-			return str.Wrap(str.ConfigHighlightBadPattern(i+1, err), err)
-		}
-		if r.Scope != "" && r.Scope != "line" && r.Scope != "match" {
-			return errors.New(str.ConfigBadHighlightScope(i + 1))
-		}
-	}
 	return nil
 }
 
@@ -461,10 +455,22 @@ func decodeBytes(path string, b []byte, v any) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
-	if und := md.Undecoded(); len(und) > 0 {
-		return errors.New(str.ConfigUnknownKey(filepath.Base(path), und[0].String()))
+	for _, k := range md.Undecoded() {
+		if !inLooks(k) {
+			return errors.New(str.ConfigUnknownKey(filepath.Base(path), k.String()))
+		}
 	}
 	return nil
+}
+
+// inLooks reports whether k is inside a world's or character's [tags]
+// or [palette]. Those decode into maps of any, which the TOML decoder
+// counts as undecoded below their first level; the theme checks them.
+func inLooks(k toml.Key) bool {
+	if len(k) > 1 && k[0] == "characters" {
+		k = k[1:]
+	}
+	return len(k) > 1 && (k[0] == "tags" || k[0] == "palette")
 }
 
 // DefaultExportName is used when config.toml sets no export_name.
@@ -511,8 +517,20 @@ func ExpandHome(p string) (string, error) {
 func appendRules(a, b Rules) Rules {
 	return Rules{
 		Classify:  append(append([]ClassifyRule(nil), a.Classify...), b.Classify...),
-		Highlight: append(append([]HighlightRule(nil), a.Highlight...), b.Highlight...),
+		Attention: union(a.Attention, b.Attention),
+		Quiet:     union(a.Quiet, b.Quiet),
 	}
+}
+
+// union is a then b's new entries, in order.
+func union(a, b []string) []string {
+	out := slices.Clone(a)
+	for _, s := range b {
+		if !slices.Contains(out, s) {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func ptr[T any](v T) *T { return &v }

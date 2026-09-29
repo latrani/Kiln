@@ -1,6 +1,9 @@
 # Starter rules for Fuzzball MUCKs (built-in commands plus the stock
 # cmd-page and cmd-whisper programs). Servers customize these heavily;
-# edit freely.
+# edit freely. The pack says what lines are and which ones ask for your
+# attention; how they look is up to the theme's [tags].
+
+attention = ["page/in", "whisper/in", "self"]
 
 # Whispers, like pages below: "whisper/in" to you, "whisper/out" your own.
 [[classify]]
@@ -13,7 +16,7 @@ pattern = '^You whisper, '
 
 # Pages carry "page" plus "page/in" (to you) or "page/out" (your own,
 # as the server echoes them), so a "page" filter shows both sides of a
-# conversation while the highlight below colors only what you receive.
+# conversation while only what you receive asks for attention.
 [[classify]]
 tags = ["page", "page/in"]
 pattern = '^\S+ pages( from [^:]+)?: '
@@ -33,18 +36,3 @@ pattern = '^You sense that \S+ is paging you'
 [[classify]]
 tags = ["page", "page/out"]
 pattern = '^You page(-pose)?, '
-
-[[highlight]]
-match = { tags = ["page/in"] }
-style = { fg = "#ff9f43", bold = true }
-attention = true
-
-[[highlight]]
-match = { tags = ["whisper/in"] }
-style = { fg = "#c39bd3", italic = true }
-attention = true
-
-[[highlight]]
-match = { tags = ["self"] }
-style = { bold = true }
-attention = true

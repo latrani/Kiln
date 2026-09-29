@@ -437,8 +437,8 @@ func TestHighlightKeepsSpacing(t *testing.T) {
 		t.Fatal(err)
 	}
 	kit, _ := cfg.Find("fm", "kit")
-	rs := kit.Rules.Highlight
-	if len(rs) == 0 || rs[len(rs)-1].Match.Pattern != "(?i)the  old   lighthouse" {
+	rs := kit.Rules.Classify
+	if len(rs) == 0 || rs[len(rs)-1].Pattern != "(?i)the  old   lighthouse" || !slices.Equal(rs[len(rs)-1].AllTags(), []string{config.HighlightTag}) {
 		t.Errorf("rules = %+v", rs)
 	}
 }
@@ -1166,7 +1166,8 @@ func TestTabWithOneCharacterStays(t *testing.T) {
 }
 
 func TestQuietLinesDontCountAsUnread(t *testing.T) {
-	world := fmWorld + "\n[[highlight]]\nmatch = { pattern = '^\\[Wiki\\]' }\nquiet = true\n"
+	world := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nquiet = [\"wiki\"]", 1) +
+		"\n[[classify]]\ntag = \"wiki\"\npattern = '^\\[Wiki\\]'\n"
 	h := newHarness(t, map[string]string{"fm": world})
 	h.open("fm/rook")
 	h.init()

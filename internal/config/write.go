@@ -15,14 +15,14 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// HighlightStyle is the style /highlight gives new rules.
-var HighlightStyle = Style{FG: "#ffd166", Bold: true}
+// HighlightTag is the tag /highlight gives lines; the theme styles it.
+const HighlightTag = "highlight" //str:ok: config vocabulary
 
-// AppendHighlight adds a literal-text, case-insensitive highlight rule to
-// the end of worlds/<world>.toml. Appending is safe because TOML table
-// headers are absolute: "[[highlight]]" always means the world's top-level
-// list, even after a [characters.x] table. The rule uses inline tables so
-// nothing after the header can be mistaken for a sub-table. Existing
+// AppendHighlight adds a literal-text, case-insensitive classify rule,
+// tagging matching lines "highlight", to the end of worlds/<world>.toml.
+// The theme's [tags] say how highlight looks. Appending is safe because
+// TOML table headers are absolute: "[[classify]]" always means the
+// world's top-level list, even after a [characters.x] table. Existing
 // content and comments are kept.
 func AppendHighlight(dir, world, text string) error {
 	text = strings.TrimSpace(text)
@@ -36,8 +36,8 @@ func AppendHighlight(dir, world, text string) error {
 	if err != nil {
 		return err
 	}
-	rule := fmt.Sprintf("\n# %s\n[[highlight]]\nmatch = { pattern = %s }\nstyle = { fg = %q, bold = %t }\n", //str:ok
-		str.ConfigAddedByHighlight(), pattern, HighlightStyle.FG, HighlightStyle.Bold)
+	rule := fmt.Sprintf("\n# %s\n[[classify]]\ntags = [%q]\npattern = %s\n", //str:ok
+		str.ConfigAddedByHighlight(), HighlightTag, pattern)
 	path := filepath.Join(dir, "worlds", world+".toml")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {

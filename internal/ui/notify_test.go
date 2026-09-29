@@ -153,8 +153,8 @@ func TestMouseMotionIsNotPresence(t *testing.T) {
 }
 
 func TestQuietAndSentLinesDontNotify(t *testing.T) {
-	quiet := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnotify = \"all\"", 1) +
-		"\n[[highlight]]\nmatch = { pattern = '^Rook' }\nquiet = true\n"
+	quiet := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnotify = \"all\"\nquiet = [\"chatter\"]", 1) +
+		"\n[[classify]]\ntag = \"chatter\"\npattern = '^Rook'\n"
 	h := newHarness(t, map[string]string{"fm": quiet})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))

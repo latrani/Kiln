@@ -125,7 +125,13 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 	if err != nil {
 		return err
 	}
-	hl := rules.New(theme.Active(), nil, nil)
+	th := theme.Active()
+	if lt, err := th.With(ch.Looks...); err != nil {
+		fmt.Fprintln(os.Stderr, "*", ch.World+"/"+ch.ID+": "+err.Error()) //str:ok: a key and a catalog message
+	} else {
+		th = lt
+	}
+	hl := rules.New(th, ch.Rules.Attention, ch.Rules.Quiet)
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		w, h = 80, 24

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,16 +25,16 @@ func TestAppendHighlightAfterCharacterTable(t *testing.T) {
 		t.Fatalf("appended file no longer loads: %v\n%s", err, b)
 	}
 	kit, _ := cfg.Find("fm", "kit")
-	if len(kit.Rules.Highlight) != 1 {
-		t.Fatalf("rules = %+v (the rule must land at world level, not inside the last [[characters]])", kit.Rules.Highlight)
+	if len(kit.Rules.Classify) != 1 {
+		t.Fatalf("rules = %+v (the rule must land at world level, not inside the last [[characters]])", kit.Rules.Classify)
 	}
-	r := kit.Rules.Highlight[0]
-	re := regexp.MustCompile(r.Match.Pattern)
+	r := kit.Rules.Classify[0]
+	re := regexp.MustCompile(r.Pattern)
 	if !re.MatchString(`I saw THE "LIGHTHOUSE" (OLD) glow`) || re.MatchString("the lighthouse old") {
-		t.Errorf("pattern %q should match the text literally, case-insensitively", r.Match.Pattern)
+		t.Errorf("pattern %q should match the text literally, case-insensitively", r.Pattern)
 	}
-	if r.Style != HighlightStyle {
-		t.Errorf("style = %+v", r.Style)
+	if !slices.Equal(r.AllTags(), []string{HighlightTag}) {
+		t.Errorf("tags = %v, want [%s]", r.AllTags(), HighlightTag)
 	}
 }
 
@@ -48,7 +49,7 @@ func TestAppendHighlightKeepsSpacingAndEscapesDEL(t *testing.T) {
 		t.Fatalf("appended file no longer loads: %v", err)
 	}
 	kit, _ := cfg.Find("fm", "kit")
-	re := regexp.MustCompile(kit.Rules.Highlight[0].Match.Pattern)
+	re := regexp.MustCompile(kit.Rules.Classify[0].Pattern)
 	if !re.MatchString("A  B\x7fC") || re.MatchString("a b\x7fc") {
 		t.Errorf("pattern %q should keep both spaces and the DEL", re)
 	}
@@ -101,7 +102,7 @@ func TestCharID(t *testing.T) {
 
 func TestAddCharacter(t *testing.T) {
 	dir := t.TempDir()
-	world := "# fm\nhost = \"h\"\nport = 1\n\n[[characters]]\nname = \"Kit\"\n\n[[highlight]]\nmatch = { pattern = \"x\" }\n"
+	world := "# fm\nhost = \"h\"\nport = 1\n\n[[characters]]\nname = \"Kit\"\n\n[[classify]]\ntag = \"x\"\npattern = \"x\"\n"
 	write(t, dir, map[string]string{"worlds/fm.toml": world})
 	id, err := AddCharacter(dir, "fm", "O'Brien")
 	if err != nil {
@@ -122,8 +123,8 @@ func TestAddCharacter(t *testing.T) {
 	if !ok || ch.Name != "O'Brien" {
 		t.Fatalf("new character = %+v, %v\n%s", ch, ok, b)
 	}
-	if len(ch.Rules.Highlight) != 1 {
-		t.Errorf("world rules = %+v; the character must not swallow them", ch.Rules.Highlight)
+	if len(ch.Rules.Classify) != 1 {
+		t.Errorf("world rules = %+v; the character must not swallow them", ch.Rules.Classify)
 	}
 
 	// A plain name needs no id line.

@@ -23,18 +23,18 @@ name = "Kit"                # the in-game name
 aliases = ["Kitty",
            "K"]
 
-[[characters.highlight]]
-match = { tags = ["page"] }
-style = { fg = "#ff9f43", bold = true }
+[[characters.classify]]
+tag = "gossip"
+pattern = '^Gossip:'
 
 [[characters]]
 name = "Rook"
 autoconnect = true
 
 # added by /highlight
-[[highlight]]
-match = { pattern = '(?i)lighthouse' }
-style = { fg = "#ffd166", bold = true }
+[[classify]]
+tags = ["highlight"]
+pattern = '(?i)lighthouse'
 ` //str:ok: a file Kiln wrote earlier
 
 func editDir(t *testing.T, world string) string {
@@ -169,7 +169,7 @@ func TestDeleteCharacter(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readWorld(t, dir)
-	if strings.Contains(got, "[[characters") || strings.Contains(got, "Rook") || !strings.Contains(got, "# added by /highlight\n[[highlight]]") { //str:ok: from the fixture
+	if strings.Contains(got, "[[characters") || strings.Contains(got, "Rook") || !strings.Contains(got, "# added by /highlight\n[[classify]]") { //str:ok: from the fixture
 		t.Errorf("deleting the last character took the wrong lines:\n%s", got)
 	}
 }
