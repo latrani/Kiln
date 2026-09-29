@@ -1962,7 +1962,7 @@ link = { fg = "#131415" }`)
 	h := newHarness(t, map[string]string{"fm": goldenWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	h.line("see https://kiln.test/map")
+	h.show("see https://kiln.test/map")
 	h.typeText(":waves.")
 	h.enter()
 	s := h.drawn()
@@ -1970,6 +1970,10 @@ link = { fg = "#131415" }`)
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("scrollback doesn't draw %s", role)
 		}
+	}
+	for i := 0; i < 40; i++ {
+		h.advance(2 * pageGap)
+		h.show(fmt.Sprintf("filler %d", i))
 	}
 	h.press(tea.KeyPgUp, 0)
 	if !strings.Contains(h.drawn(), th.SGR(theme.ScrollbackPill)) {

@@ -25,6 +25,7 @@ import (
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // HistoryLines is how many logged lines are preloaded per character.
@@ -356,7 +357,7 @@ func (m *Model) preload(cs *charState) {
 	for _, l := range cs.renderDays(entries, startsDay) {
 		cs.sb.AppendLine(l)
 	}
-	cs.sb.Append(style.Dim(str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
+	cs.sb.AppendLine(chromeLine(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
 	cs.hist, cs.leftover = hist, leftover
 	cs.sb.SetMore(leftover != nil || !hist.Exhausted())
 }
@@ -404,7 +405,7 @@ func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entr
 		}
 		day := e.Time.Local().Format("2006-01-02")
 		if day != prev && (i > 0 || startsDay) {
-			out = append(out, sbLine{text: style.Dim("── " + dayLabel(day) + " ──")})
+			out = append(out, chromeLine(theme.ScrollbackDay, "── "+dayLabel(day)+" ──"))
 		}
 		prev = day
 		text, _ := renderLine(cls, hl, e)
@@ -431,9 +432,9 @@ func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entr
 	text := ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
-		return style.Dim(gutterMark + text), rules.Result{}
+		return theme.Paint(theme.ScrollbackEcho, gutterMark+text), rules.Result{}
 	case logstore.Sys:
-		return style.Dim("* " + text), rules.Result{}
+		return theme.Paint(theme.ScrollbackSys, "* "+text), rules.Result{}
 	}
 	plain := ansi.Strip(text)
 	res := hl.Apply(plain, cls.Tags(plain))
@@ -930,7 +931,7 @@ func (m *Model) submit() tea.Cmd {
 		}
 		cs.endPassword()
 		if cs.echoes(e) {
-			cs.sb.Append(style.Dim(gutterMark + e.Text))
+			cs.sb.AppendLine(chromeLine(theme.ScrollbackEcho, gutterMark+e.Text))
 		}
 		if m.d.SavePassword != nil && pw != "" && m.passwordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
@@ -977,7 +978,7 @@ func (m *Model) submit() tea.Cmd {
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
 		if cs.echoes(e) {
-			cs.sb.Append(style.Dim(gutterMark + ansi.Sanitize(e.Text)))
+			cs.sb.AppendLine(chromeLine(theme.ScrollbackEcho, gutterMark+ansi.Sanitize(e.Text)))
 		}
 	}
 	if secret {

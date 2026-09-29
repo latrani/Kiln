@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -129,5 +130,33 @@ rule = { fg = "#101112" }`)
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("screen doesn't draw %s", role)
 		}
+	}
+}
+
+func TestScrollbackUsesTheme(t *testing.T) {
+	th := withTheme(t, `[ui]
+"scrollback.sys" = { fg = "#0a0b0c" }
+"scrollback.echo" = { fg = "#0d0e0f" }
+"scrollback.pill" = { fg = "#101112" }
+link = { fg = "#131415" }`)
+	h := newHarness(t, map[string]string{"fm": goldenWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("see https://kiln.test/map")
+	h.typeText(":waves.")
+	h.enter()
+	s := h.drawn()
+	for _, role := range []theme.Role{theme.ScrollbackSys, theme.ScrollbackEcho, theme.Link} {
+		if !strings.Contains(s, th.SGR(role)) {
+			t.Errorf("scrollback doesn't draw %s", role)
+		}
+	}
+	for i := 0; i < 40; i++ {
+		h.advance(2 * pageGap)
+		h.show(fmt.Sprintf("filler %d", i))
+	}
+	h.press(tea.KeyPgUp, 0)
+	if !strings.Contains(h.drawn(), th.SGR(theme.ScrollbackPill)) {
+		t.Error("pill not drawn in scrollback.pill")
 	}
 }

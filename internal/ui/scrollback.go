@@ -4,7 +4,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/str"
-	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // Scrollback holds one character's rendered lines. Lines are stored
@@ -27,6 +27,8 @@ type Scrollback struct {
 type sbLine struct {
 	text  string
 	entry *logstore.Entry // what text was rendered from; nil for dividers and such
+	role  theme.Role      // for a line Kiln wrote: its style, and raw its text
+	raw   string
 	rows  []string
 	wrapW int
 	// Plain text and its rows, for the mouse; see plainRows.
@@ -120,8 +122,14 @@ func (s *Scrollback) append(l sbLine) {
 	}
 }
 
+// chromeLine is a line Kiln wrote, drawn in r (and redrawn when the theme
+// changes).
+func chromeLine(r theme.Role, raw string) sbLine {
+	return sbLine{text: theme.Paint(r, raw), role: r, raw: raw}
+}
+
 // loadingRow sits above the oldest line while more history may exist.
-var loadingRow = style.Dim(str.ScrollbackLoading())
+func loadingRow() string { return theme.Paint(theme.ScrollbackLoading, str.ScrollbackLoading()) }
 
 // SetMore records whether lines older than the first one exist. The
 // scrollback never reads them itself: RequestOlder says when the view
@@ -177,13 +185,17 @@ func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
 	}
 }
 
-// Rerender redraws every line rendered from a log entry with render,
-// for when the rules that styled them change. The view keeps its offset;
-// a selection is dropped, since its byte positions may no longer fit.
+// Rerender redraws every line from the current rules and theme: lines
+// rendered from a log entry with render, and Kiln's own lines in their
+// roles. The view keeps its offset; a selection is dropped, since its
+// byte positions may no longer fit.
 func (s *Scrollback) Rerender(render func(logstore.Entry) string) {
 	for i, l := range s.lines {
-		if l.entry != nil {
+		switch {
+		case l.entry != nil:
 			s.lines[i] = sbLine{text: render(*l.entry), entry: l.entry}
+		case l.role != "":
+			s.lines[i] = chromeLine(l.role, l.raw)
 		}
 	}
 	s.sel, s.hover = nil, nil
@@ -289,7 +301,7 @@ func (s *Scrollback) View(h int) []string {
 		if s.more {
 			// Older lines are on their way: show the top with a loading
 			// row, but keep the offset so the scroll lands once they arrive.
-			tail = append(tail, loadingRow)
+			tail = append(tail, loadingRow())
 			refs = append(refs, sbRef{line: -1})
 			start = max(0, len(tail)-h)
 		} else { // hit the very top: clamp the offset

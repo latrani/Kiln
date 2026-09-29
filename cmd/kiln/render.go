@@ -5,6 +5,7 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // render formats one entry for plain terminal output. Highlighted lines
@@ -15,9 +16,9 @@ func render(e logstore.Entry, res rules.Result) string {
 	e.Text = ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
-		return style.Dim("> " + e.Text)
+		return theme.Paint(theme.ScrollbackEcho, "> "+e.Text)
 	case logstore.Sys:
-		return style.Dim("* " + e.Text)
+		return theme.Paint(theme.ScrollbackSys, "* "+e.Text)
 	}
 	marker := ""
 	if res.Attention {

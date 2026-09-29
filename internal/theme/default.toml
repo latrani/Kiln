@@ -28,6 +28,7 @@
 "scrollback.pill"        = { reverse = true }
 "scrollback.selection"   = { reverse = true }
 "scrollback.inactive"    = { faint = true }
+"scrollback.empty"       = { faint = true }
 "link"                   = { underline = true }
 "link.hover"             = { fg = "bright-blue" }
 

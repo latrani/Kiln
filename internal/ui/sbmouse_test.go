@@ -10,6 +10,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 func TestTrimURL(t *testing.T) {
@@ -203,23 +204,23 @@ func TestLinksUnderlinedAndLitOnHover(t *testing.T) {
 	// Red text with a link that wraps: "go", " https://e", " xample.co", " m now".
 	s := sbWith(10, 4, "\x1b[31mgo https://example.com now\x1b[0m")
 	rows := s.View(4)
-	if !strings.Contains(rows[1], style.Reset+linkSGR+"https://e"+style.Reset) ||
-		!strings.Contains(rows[2], style.Reset+linkSGR+"xample.co"+style.Reset) ||
-		!strings.Contains(rows[3], style.Reset+linkSGR+"m"+style.Reset) {
+	if !strings.Contains(rows[1], style.Reset+theme.SGR(theme.Link)+"https://e"+style.Reset) ||
+		!strings.Contains(rows[2], style.Reset+theme.SGR(theme.Link)+"xample.co"+style.Reset) ||
+		!strings.Contains(rows[3], style.Reset+theme.SGR(theme.Link)+"m"+style.Reset) {
 		t.Fatalf("link not underlined on every row (over the line's red): %q", rows)
 	}
-	if strings.Contains(rows[0], linkSGR) || strings.Contains(rows[3], linkSGR+"m now") {
+	if strings.Contains(rows[0], theme.SGR(theme.Link)) || strings.Contains(rows[3], theme.SGR(theme.Link)+"m now") {
 		t.Errorf("text outside the link underlined: %q", rows)
 	}
 	p, _ := s.At(2, 2)
 	s.Hover(&p)
 	rows = s.View(4)
-	if !strings.Contains(rows[1], hoverSGR+"https://e") || !strings.Contains(rows[2], hoverSGR+"xample.co") {
+	if !strings.Contains(rows[1], theme.SGR(theme.LinkHover)+"https://e") || !strings.Contains(rows[2], theme.SGR(theme.LinkHover)+"xample.co") {
 		t.Errorf("hovered link not blue on every row: %q", rows)
 	}
 	q, _ := s.At(3, 3)
 	s.Hover(&q) // off the link
-	if rows = s.View(4); strings.Contains(strings.Join(rows, ""), hoverSGR) {
+	if rows = s.View(4); strings.Contains(strings.Join(rows, ""), theme.SGR(theme.LinkHover)) {
 		t.Errorf("link still lit after the pointer left: %q", rows)
 	}
 }
@@ -233,11 +234,11 @@ func TestHoverTracksPointer(t *testing.T) {
 	l := h.m.layout()
 	col := strings.Index(line, "kiln")
 	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + col, Y: l.sbH - 1})
-	if !strings.Contains(h.m.View().Content, hoverSGR+"https://kiln.test/map") {
+	if !strings.Contains(h.m.View().Content, theme.SGR(theme.LinkHover)+"https://kiln.test/map") {
 		t.Error("link under the pointer isn't lit")
 	}
 	h.m.Update(tea.MouseMotionMsg{X: 2, Y: 0}) // over the sidebar
-	if strings.Contains(h.m.View().Content, hoverSGR) {
+	if strings.Contains(h.m.View().Content, theme.SGR(theme.LinkHover)) {
 		t.Error("link stayed lit after the pointer left the scrollback")
 	}
 }

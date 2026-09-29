@@ -38,6 +38,7 @@ const (
 	ScrollbackPill       Role = "scrollback.pill"
 	ScrollbackSelection  Role = "scrollback.selection"
 	ScrollbackInactive   Role = "scrollback.inactive"
+	ScrollbackEmpty      Role = "scrollback.empty" // the hint in an empty pane
 	Link                 Role = "link"
 	LinkHover            Role = "link.hover"
 
@@ -84,7 +85,7 @@ var Roles = []Role{
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd,
 	Divider, Rule,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
-	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, Link, LinkHover,
+	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	Status, StatusLog, StatusError, StatusClock,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle,

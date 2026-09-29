@@ -208,7 +208,7 @@ func (m *Model) View() tea.View {
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
 		if len(m.allChars()) == 0 {
-			right[0] = style.Dim(str.ViewNoCharacters())
+			right[0] = theme.Paint(theme.ScrollbackEmpty, str.ViewNoCharacters())
 		}
 	} else {
 		cs.sb.SetWidth(l.rw)
@@ -216,7 +216,7 @@ func (m *Model) View() tea.View {
 		if cs.sb.Scrolled() {
 			pill := pillText(cs)
 			last := len(rows) - 1
-			rows[last] = fit(rows[last], l.rw-xansi.StringWidth(pill)) + style.Reset + reverse + pill + style.Reset
+			rows[last] = fit(rows[last], l.rw-xansi.StringWidth(pill)) + theme.Reset + theme.Paint(theme.ScrollbackPill, pill) + theme.Reset
 		}
 		right = append(right, rows...)
 	}

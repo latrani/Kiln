@@ -9,6 +9,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // Mouse support for the scrollback: positions under the pointer, links,
@@ -132,12 +133,6 @@ func (s *Scrollback) URLAt(p sbPos) string {
 // the link there is drawn lit.
 func (s *Scrollback) Hover(p *sbPos) { s.hover = p }
 
-// Link styles. They replace the line's own styling across the link.
-const (
-	linkSGR  = "\x1b[4m"    // underlined
-	hoverSGR = "\x1b[4;94m" // underlined, bright blue: under the pointer
-)
-
 // linkRow draws the links in one row underlined, and the one under the
 // pointer blue as well, whatever the line's own colors.
 func (s *Scrollback) linkRow(row string, ref sbRef) string {
@@ -155,9 +150,9 @@ func (s *Scrollback) linkRow(row string, ref sbRef) string {
 		if a >= z {
 			continue
 		}
-		sgr := linkSGR
+		sgr := theme.SGR(theme.Link)
 		if hoverOK && lk == hovered {
-			sgr = hoverSGR
+			sgr = theme.SGR(theme.LinkHover)
 		}
 		c1, c2 := rowIndent(ref.row)+xansi.StringWidth(pr[:a]), rowIndent(ref.row)+xansi.StringWidth(pr[:z])
 		row = xansi.Cut(row, 0, c1) + style.Reset + sgr + pr[a:z] + style.Reset + xansi.Cut(row, c2, 1<<30)
@@ -262,5 +257,5 @@ func (s *Scrollback) highlightRow(row string, ref sbRef) string {
 		return row
 	}
 	c1, c2 := rowIndent(ref.row)+xansi.StringWidth(pr[:a]), rowIndent(ref.row)+xansi.StringWidth(pr[:z])
-	return xansi.Cut(row, 0, c1) + style.Reset + reverse + pr[a:z] + style.Reset + xansi.Cut(row, c2, 1<<30)
+	return xansi.Cut(row, 0, c1) + theme.Reset + theme.Paint(theme.ScrollbackSelection, pr[a:z]) + theme.Reset + xansi.Cut(row, c2, 1<<30)
 }
