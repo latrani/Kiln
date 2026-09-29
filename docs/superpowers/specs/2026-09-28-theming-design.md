@@ -90,8 +90,10 @@ panel  = "#1f2029"
 - Roles fall back up their dots (`sidebar.active` → `sidebar`), and tags
   fall back up their slashes (`page/in` → `page`). A role with no style
   anywhere draws plainly.
-- Several tags on one line fold in theme order, as highlight rules do now:
-  later colors win, attributes add up.
+- Several tags on one line fold together: whole-line styles first, then
+  match-scope styles on top of the text they cover. Within each, a
+  world's or character's `[tags]` come after the theme's, and later colors
+  win while attributes add up, as highlight rules do now.
 - Themes are live. Editing one reloads it like the rest of the config, and
   the scrollback restyles (the #79 plumbing).
 
@@ -121,6 +123,101 @@ mode's body), and a color picked for dark can wash out on light.
   OSC 11) and goes by `IsDark`. Some setups may not answer (mosh or tmux,
   to be checked), so the setting can pin it, and with no answer Kiln
   assumes dark.
+
+## A full example
+
+One world, `fm`, using a theme called `ember`. Here's every file involved,
+then what three incoming lines look like.
+
+**The pack** (`packs/fuzzball.toml`) says what lines are and how they
+behave. No colors:
+
+```toml
+[[classify]]
+tags = ["page", "page/in"]
+pattern = '^\S+ pages( from [^:]+)?: '
+
+attention = ["page/in", "whisper/in", "self"]
+```
+
+**The theme** (`themes/ember.toml`) says how things look, with a palette
+for each appearance:
+
+```toml
+extends = "default"
+
+[palette]
+ember = "#ff9f43"
+panel = "#1f2029"
+
+[palette.light]
+ember = "#b35900"           # darker, to read on a light background
+
+[ui]
+"sidebar" = { fg = "#9aa0ad", bg = "panel" }
+
+[tags]
+"page/in" = { fg = "ember", bold = true }       # scope "line": the whole line
+"self"    = { bold = true }
+```
+
+**The world** (`worlds/fm.toml`) picks the theme and adds its own bits.
+The classify rule is what `/highlight lighthouse` writes; the `[tags]`
+entry could just as well live in the theme:
+
+```toml
+host = "furrymuck.com"
+port = 8899
+use = ["fuzzball"]
+theme = "ember"
+
+[[classify]]                # added by /highlight
+tags = ["highlight"]
+pattern = '(?i)lighthouse'
+
+[palette]
+beacon = "#ffd166"          # a color only this world uses
+
+[tags]
+"highlight" = { fg = "beacon", bold = true, scope = "match" }
+```
+
+**What arrives, and how it's drawn:**
+
+```
+Rook pages: the lighthouse is dark
+└─────────── ember, bold ─────────┘     page/in, scope "line": the whole line
+                ^^^^^^^^^^              highlight, scope "match": just this, beacon on top
+
+Sable waves a paw.                       no tags: the server's text, as sent
+
+Ash says, "Kit, over here."
+└──────────── bold ─────────┘           self (Kiln tags lines that mention Kit)
+```
+
+- The page gets three tags: `page` and `page/in` from the pack, and
+  `highlight` from the world. `page` has no style, so it falls back to
+  nothing; `page/in` styles the line; `highlight` styles only the word.
+  The whole line is orange and bold, and "lighthouse" is yellow and bold.
+- It's an attention line, because `page/in` is in `attention`. So is the
+  last line, through `self`. Neither has anything to do with color: the
+  theme can change without touching behavior, and the other way round.
+- On a light terminal, `ember` becomes `#b35900` and nothing else changes.
+
+**The same thing today**, for comparison: one `[[highlight]]` rule does
+all three jobs at once, colors in raw hex:
+
+```toml
+[[highlight]]
+match = { tags = ["page/in"] }
+style = { fg = "#ff9f43", bold = true }
+attention = true
+
+[[highlight]]
+match = { pattern = '(?i)lighthouse' }
+style = { fg = "#ffd166", bold = true }
+scope = "match"
+```
 
 ## Roles
 
