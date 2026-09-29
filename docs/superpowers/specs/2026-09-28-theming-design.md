@@ -99,30 +99,38 @@ panel  = "#1f2029"
 
 ## Choosing a theme
 
-`theme = "name"` is an inheritable setting: config.toml's `[defaults]`,
-then the world, then the character. Different worlds can look different,
-and a character can differ from its world.
+`theme = "name"` is a global setting in config.toml (default `"default"`).
+The chrome is one frame around every world, so the theme is global too: it
+never changes when you switch characters.
 
-Worlds and characters can also carry a theme's own tables (`[palette]`,
-`[tags]`, even `[ui]`), layered over the theme they use: a character's
-over its world's, over the theme. A world can name its own colors and
-style its own special tags, in the same format as a theme file.
+Worlds and characters shape how their own lines look with a theme's line
+tables, `[palette]` and `[tags]`, layered over the theme: a character's over
+its world's, over the theme. A world can name its own colors and style its
+own special tags, in the same format as a theme file. They never carry
+`[ui]`.
 
 ## Light and dark
 
-The painted areas bring their own backgrounds, so they look the same
-whatever the terminal's background is. Everything else sits on the
-terminal's background (tag styles, links, the scrollback's roles, log
-mode's body), and a color picked for dark can wash out on light.
+The painted parts (chips, the over-limit mark) bring their own backgrounds,
+but everything else sits on the terminal's background (the chrome's text and
+lines, tag styles, links, the scrollback's roles, log mode's body), and a
+color picked for dark can wash out on light.
 
 - A theme can give a palette for each appearance: `[palette.dark]` and
   `[palette.light]` on top of `[palette]`. Tags and roles refer to palette
-  names, so they follow along.
-- `appearance = "auto"` (the default), `"dark"` or `"light"`. Auto asks
-  the terminal for its background (Bubble Tea's `RequestBackgroundColor`,
-  OSC 11) and goes by `IsDark`. Some setups may not answer (mosh or tmux,
-  to be checked), so the setting can pin it, and with no answer Kiln
-  assumes dark.
+  names, so they follow along. Along `extends`, each file adds its
+  `[palette]` and then its entry for the current appearance; later files
+  win. A world's or character's `[palette]` can do the same.
+- `appearance = "auto"` (the default), `"dark"` or `"light"`, global in
+  config.toml. Auto asks the terminal for its background (Bubble Tea's
+  `RequestBackgroundColor`, OSC 11) at startup and each time the window
+  gets focus back (Bubble Tea has no color-scheme-change event), and goes
+  by `IsDark`. Until an answer comes, or if none does, Kiln assumes dark.
+- Checked: eternal terminal (through tmux) answers; mosh doesn't, so over
+  mosh a light terminal needs `appearance = "light"`. `kiln tail` doesn't
+  ask; it uses `appearance`, with auto meaning dark.
+- The default theme's light palette keeps each glaze's hue: pale tints for
+  chips, dark inks for text, and darker tag colors for paper.
 
 ## A full example
 
@@ -161,7 +169,9 @@ ember = "#b35900"           # darker, to read on a light background
 "self"    = { bold = true }
 ```
 
-**The world** (`worlds/fm.toml`) picks the theme and adds its own bits.
+**config.toml** picks the theme: `theme = "ember"`.
+
+**The world** (`worlds/fm.toml`) adds its own bits.
 The classify rule is what `/highlight lighthouse` writes; the `[tags]`
 entry could just as well live in the theme:
 
@@ -169,7 +179,6 @@ entry could just as well live in the theme:
 host = "furrymuck.com"
 port = 8899
 use = ["fuzzball"]
-theme = "ember"
 
 [[classify]]                # added by /highlight
 tags = ["highlight"]
@@ -293,8 +302,9 @@ the modal.
    tables, `scope`,
    the attention/quiet lists, dropping `[[highlight]]`, the fuzzball pack,
    and `/highlight`.
-4. **Choosing themes.** The inheritable `theme` setting, light and dark
-   (`appearance`, palettes per appearance), and restyling on change.
+4. **Choosing themes.** The global `theme` setting, light and dark
+   (`appearance`, palettes per appearance, detection), the default theme's
+   light palette, and restyling on change.
 5. **Later:** importing palettes from other tools (base16/base24 YAML,
    Ghostty and kitty theme files), and maybe ANSI remapping.
 
