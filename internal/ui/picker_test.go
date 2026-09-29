@@ -35,7 +35,7 @@ func TestPickerOpensAndConnects(t *testing.T) {
 	if got := strings.Join(sideRows(h), "|"); got != "fm|Rook|"+addCharLabel+"|sp|Ash|"+addCharLabel+"|"+addWorldLabel {
 		t.Errorf("picker rows = %q, want unopened characters only", got)
 	}
-	if s := h.screen(); !strings.Contains(s, "│Filter:   · Enter to connect · Esc to close") {
+	if s := h.screen(); !strings.Contains(s, "│"+str.PickerFilter()+":  "+str.Separator()+pickerHint) {
 		t.Errorf("no filter prompt:\n%s", s)
 	}
 	h.enter()
@@ -324,7 +324,7 @@ func TestPickerAddWorldErrorKeepsEditor(t *testing.T) {
 	h.press(tea.KeyDown, 0)
 	h.press(tea.KeyDown, 0) // to [ Save ]
 	h.enter()
-	if h.m.picker.edit == nil || !strings.Contains(h.screen(), "already exists") {
+	if h.m.picker.edit == nil || !strings.Contains(h.screen(), str.ConfigWorldExists("fm")) {
 		t.Errorf("a taken id should keep the editor open and say why:\n%s", h.screen())
 	}
 	h.press(tea.KeyEscape, 0)
@@ -424,7 +424,7 @@ func TestOpenCommand(t *testing.T) {
 
 func TestOpenConnectionLabel(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	if s := h.screen(); !strings.Contains(s, "+ Open connection") || strings.Contains(s, "Add connection") {
+	if s := h.screen(); !strings.Contains(s, addLabel) || strings.Contains(s, "Add connection") {
 		t.Errorf("sidebar CTA:\n%s", s)
 	}
 }

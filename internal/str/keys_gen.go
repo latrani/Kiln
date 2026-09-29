@@ -298,7 +298,7 @@ func ConfigUnknownPack(id any) string { return get("config.unknown_pack", map[st
 // ConfigWorldExists is config.world_exists: "world {id:%q} already exists"
 func ConfigWorldExists(id any) string { return get("config.world_exists", map[string]any{"id": id}) }
 
-// ConfigWorldHasCharacters is config.world_has_characters: "{world}: can't delete a world with characters defined."
+// ConfigWorldHasCharacters is config.world_has_characters: "{world} still has characters"
 func ConfigWorldHasCharacters(world any) string {
 	return get("config.world_has_characters", map[string]any{"world": world})
 }
@@ -496,7 +496,7 @@ func NotifyHeldMore(msg any, n int) string {
 // NotifyLevel is notify.level: "notify level: {level}"
 func NotifyLevel(level any) string { return get("notify.level", map[string]any{"level": level}) }
 
-// NotifyLevelOverride is notify.level_override: "{level} (overridden from  {config})"
+// NotifyLevelOverride is notify.level_override: "{level} (overridden from {config})"
 func NotifyLevelOverride(level, config any) string {
 	return get("notify.level_override", map[string]any{"level": level, "config": config})
 }
@@ -601,7 +601,7 @@ func SessionSentNotLogged(err error) string {
 	return get("session.sent_not_logged", map[string]any{"err": err})
 }
 
-// SidebarOpenConnection is sidebar.open_connection: "+ Open connection"
+// SidebarOpenConnection is sidebar.open_connection: "+ Connection"
 func SidebarOpenConnection() string { return get("sidebar.open_connection", nil) }
 
 // StateConnected is state.connected: "connected"

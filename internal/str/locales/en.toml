@@ -36,7 +36,7 @@ reading = "logstore: reading {file}: {err}"
 bad_level = 'notify must be "all", "first", "attention" or "none"'
 bad_method = 'notify_method must be "osc", "bell" or "both"'
 held_more = "{msg} (+{n} more)"
-level_override = "{level} (overridden from  {config})"
+level_override = "{level} (overridden from {config})"
 level = "notify level: {level}"
 level_until_quit = "{name} notify level set to {level} for this session"
 
@@ -93,7 +93,7 @@ bad_highlight_scope = 'highlight rule {n}: scope must be "line" or "match"'
 unknown_key = "{file}: unknown key {key:%q}"
 no_character_in_world = "{world} has no character {id:%q}"
 missing_character_table = "{file}: can't find character {id:%q}'s table"
-world_has_characters = "{world}: can't delete a world with characters defined."
+world_has_characters = "{world} still has characters"
 nothing_to_highlight = "nothing to highlight"
 added_by_highlight = "added by /highlight"
 added_by_kiln = "added by Kiln"
@@ -216,7 +216,7 @@ history_ends = "─── history ends {when} ───"
 loading = "─── loading older history… ───"
 
 [sidebar]
-open_connection = "+ Open connection"
+open_connection = "+ Connection"
 
 # Log mode (browse, in the code).
 [browse]

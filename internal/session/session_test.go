@@ -17,6 +17,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/telnet"
 )
 
@@ -152,7 +153,7 @@ func TestMissingPasswordSkipsLogin(t *testing.T) {
 	if sent := fc.Sent(); len(sent) != 0 {
 		t.Errorf("sent %q, want nothing", sent)
 	}
-	if !containsPrefix(log.Texts(), "* no saved password for fm/kit") {
+	if !containsPrefix(log.Texts(), "* "+str.SessionNoSavedPassword("fm", "kit")) {
 		t.Errorf("log = %q", log.Texts())
 	}
 }
@@ -292,7 +293,7 @@ func TestReconnectsWithBackoffAfterDrop(t *testing.T) {
 	defer cancel()
 	go s.Run(ctx)
 	waitFor(t, s, func(e Event) bool { return e.Kind == EventLine && e.Entry.Text == "two" })
-	if !containsPrefix(log.Texts(), "* disconnected (connection reset); retrying in") {
+	if !containsPrefix(log.Texts(), "* "+upTo(str.SessionDisconnectedRetrying("connection reset", mark))) {
 		t.Errorf("log = %q", log.Texts())
 	}
 	// Each connection starts a new log session, just before "connected".
@@ -304,7 +305,7 @@ func TestReconnectsWithBackoffAfterDrop(t *testing.T) {
 		t.Fatalf("NewSession at %v, want once per connection", sessions)
 	}
 	for _, i := range sessions {
-		if !strings.HasPrefix(texts[i], "* connected to") {
+		if !strings.HasPrefix(texts[i], "* "+upTo(str.SessionConnected(mark, mark))) {
 			t.Errorf("session starts at %q, want the connected line", texts[i])
 		}
 	}
@@ -388,7 +389,7 @@ func TestReconnectOffStaysDownAfterDrop(t *testing.T) {
 		t.Errorf("redialed %d times with reconnect off", calls-1)
 	}
 	mu.Unlock()
-	if !contains(log.Texts(), "* disconnected (connection reset)") {
+	if !contains(log.Texts(), "* "+str.SessionDisconnected("connection reset")) {
 		t.Errorf("log = %q", log.Texts())
 	}
 	s.Reconnect()
@@ -426,7 +427,7 @@ func TestReconnectOffStaysDownAfterDialFailure(t *testing.T) {
 		t.Errorf("redialed %d times with reconnect off", calls-1)
 	}
 	mu.Unlock()
-	if !contains(log.Texts(), "* connect failed: refused") {
+	if !contains(log.Texts(), "* "+str.SessionConnectFailed(errors.New("refused"))) {
 		t.Errorf("log = %q", log.Texts())
 	}
 	s.Reconnect()
@@ -469,7 +470,7 @@ func TestQuitDoesNotReconnect(t *testing.T) {
 		t.Errorf("redialed %d times after QUIT", calls-1)
 	}
 	mu.Unlock()
-	if !contains(log.Texts(), "* disconnected (quit)") {
+	if !contains(log.Texts(), "* "+str.SessionQuit()) {
 		t.Errorf("log = %q", log.Texts())
 	}
 	s.Reconnect()
@@ -680,7 +681,7 @@ func TestDisconnectStaysDown(t *testing.T) {
 		t.Errorf("dialed %d times", calls)
 	}
 	mu.Unlock()
-	if !contains(log.Texts(), "* disconnected (quit)") {
+	if !contains(log.Texts(), "* "+str.SessionQuit()) {
 		t.Errorf("log = %q", log.Texts())
 	}
 	s.Reconnect()
@@ -788,7 +789,7 @@ func TestDisconnectDuringBackoffStops(t *testing.T) {
 	go s.Run(ctx)
 	waitFor(t, s, isState(Disconnected)) // first dial failed; now in a 1h backoff
 	s.Disconnect()
-	waitFor(t, s, func(e Event) bool { return e.Kind == EventLine && e.Entry.Text == "disconnected (quit)" })
+	waitFor(t, s, func(e Event) bool { return e.Kind == EventLine && e.Entry.Text == str.SessionQuit() })
 	time.Sleep(50 * time.Millisecond)
 	mu.Lock()
 	if calls != 1 {

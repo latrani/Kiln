@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 var day24 = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
@@ -96,7 +98,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	s := h.screen()
-	for _, want := range []string{"LOG Kit · Thu Sep 24 → today", "── Thu Sep 24 ──", "21:00", "Rook says", "21:06", "m mark"} {
+	for _, want := range []string{str.BrowseLog() + " Kit" + str.Separator() + str.BrowseToToday("Thu Sep 24"), "── Thu Sep 24 ──", "21:00", "Rook says", "21:06", firstPart(str.BrowseHints())} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -118,22 +120,24 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 	if len(rows) != 24 {
 		t.Fatalf("screen has %d rows, want 24", len(rows))
 	}
+	sep := str.Separator()
 	last := func() string {
 		rows := strings.Split(h.screen(), "\n")
 		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); !strings.HasPrefix(got, "LOG · 0 selected · fm/Kit · disconnected ") || !strings.HasSuffix(got, " 21:14") {
+	if got := last(); !strings.HasPrefix(got, str.BrowseLog()+sep+str.ViewSelected(0)+sep+"fm/Kit"+sep+str.StateDisconnected()+" ") || !strings.HasSuffix(got, " 21:14") {
 		t.Errorf("statusline = %q", got)
 	}
-	if !strings.Contains(rows[len(rows)-2], "m mark") {
+	if !strings.Contains(rows[len(rows)-2], firstPart(str.BrowseHints())) {
 		t.Errorf("action bar should sit just above the statusline:\n%s", h.screen())
 	}
 	h.keys("m", "up", "m")
-	if got := last(); !strings.HasPrefix(got, "LOG · 2 selected · ") {
+	if got := last(); !strings.HasPrefix(got, str.BrowseLog()+sep+str.ViewSelected(2)+sep) {
 		t.Errorf("statusline = %q", got)
 	}
-	h.m.setStatus(true, "Rook: log write failed: disk full") // e.g. another character's event
-	if got := last(); !strings.Contains(got, "log write failed") {
+	msg := str.StatusLogWriteFailed("R", errors.New("x")) // e.g. another character's event
+	h.m.setStatus(true, msg)
+	if got := last(); !strings.Contains(got, msg) {
 		t.Errorf("status message hidden in browse: %q", got)
 	}
 	// The body still ends above the action bar: the newest line is visible.
@@ -168,7 +172,7 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	}
 
 	h.keys("e", "h")
-	if !strings.Contains(h.screen(), "save as: ") || !strings.Contains(h.screen(), "fm Kit.html") {
+	if !strings.Contains(h.screen(), str.BrowseSavePrompt()) || !strings.Contains(h.screen(), "fm Kit.html") {
 		t.Fatalf("filename prompt missing:\n%s", h.screen())
 	}
 	h.key("enter")
@@ -181,7 +185,7 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 		t.Errorf("export content wrong:\n%s", b2)
 	}
 	h.keys("e", "h", "enter")
-	if !strings.Contains(h.screen(), "exists; pick another name") {
+	if !strings.Contains(h.screen(), str.BrowseFileExists(filepath.Base(path))) {
 		t.Errorf("overwrite not refused:\n%s", h.screen())
 	}
 }
@@ -327,7 +331,7 @@ func TestBrowseLoadsOlderDaysOffTheUIGoroutine(t *testing.T) {
 	if len(b.lines) != 300 || b.cursor.e.Text != "day 23 line 0" {
 		t.Errorf("Update must not load synchronously: %d lines, cursor %q", len(b.lines), b.cursor.e.Text)
 	}
-	if s := h.screen(); !strings.Contains(s, "loading older history…") || strings.Contains(s, "⋯") {
+	if s := h.screen(); !strings.Contains(s, str.BrowseLoading()) || strings.Contains(s, "⋯") {
 		t.Errorf("no loading row:\n%s", h.screen())
 	}
 	// A second Home while loading doesn't start another read.
@@ -381,7 +385,7 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 	if len(b.lines) != 300 {
 		t.Errorf("initially loaded %d lines, want 300 (two days)", len(b.lines))
 	}
-	if !strings.Contains(h.screen(), "…Wed Sep 23 → today") {
+	if !strings.Contains(h.screen(), "…"+str.BrowseToToday("Wed Sep 23")) {
 		t.Errorf("header should show more history exists:\n%s", h.screen())
 	}
 	h.key("g")
@@ -390,7 +394,7 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 	if b.cursor.e.Text != "day 21 line 0" {
 		t.Errorf("date jump landed on %q", b.cursor.e.Text)
 	}
-	if !strings.Contains(h.screen(), "Mon Sep 21 → today") || strings.Contains(h.screen(), "…Mon") {
+	if !strings.Contains(h.screen(), str.BrowseToToday("Mon Sep 21")) || strings.Contains(h.screen(), "…Mon") {
 		t.Errorf("header after loading everything:\n%s", h.screen())
 	}
 	h.key("g")
@@ -522,7 +526,7 @@ func TestHighlightCommand(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("/highlight the lighthouse")
 	h.enter()
-	if !strings.Contains(h.screen(), `added highlight for "the lighthouse"`) {
+	if !strings.Contains(h.screen(), str.StatusHighlightAdded("the lighthouse")) {
 		t.Fatalf("screen:\n%s", h.screen())
 	}
 	h.m.Update(reloadMsg{})
@@ -533,7 +537,7 @@ func TestHighlightCommand(t *testing.T) {
 	}
 	h.typeText("/highlight")
 	h.enter()
-	if !strings.Contains(h.screen(), "nothing to highlight") {
+	if !strings.Contains(h.screen(), str.ConfigNothingToHighlight()) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 }
@@ -543,7 +547,7 @@ func TestBrowseCommandAndSwitching(t *testing.T) {
 	h.open("fm/rook")
 	h.typeText("/log")
 	h.enter()
-	if h.br() == nil || !strings.Contains(h.screen(), "no logs yet") {
+	if h.br() == nil || !strings.Contains(h.screen(), str.BrowseNoLogs()) {
 		t.Fatalf("screen:\n%s", h.screen())
 	}
 	h.press(tea.KeyDown, tea.ModCtrl) // switch to Rook: normal view

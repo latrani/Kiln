@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -159,7 +160,7 @@ func TestMouseSelectAndLinks(t *testing.T) {
 	if got := clipboard(mouse(tea.MouseReleaseMsg{X: x0 + 3, Y: y, Button: tea.MouseLeft})); got != "Mira" {
 		t.Errorf("clipboard = %q", got)
 	}
-	if !strings.Contains(h.screen(), "copied to clipboard") {
+	if !strings.Contains(h.screen(), str.StatusCopied()) {
 		t.Errorf("no status:\n%s", h.screen())
 	}
 	h.typeText("x") // a key drops the highlight

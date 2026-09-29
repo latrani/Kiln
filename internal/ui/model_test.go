@@ -21,6 +21,7 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 )
 
@@ -274,7 +275,7 @@ func (h *harness) openAll() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"× Kit", "+ Open connection", "│fm/Kit · disconnected ", "21:14", "│Disconnected · Enter to connect"} {
+	for _, want := range []string{"× Kit", addLabel, "│fm/Kit" + str.Separator() + str.StateDisconnected() + " ", "21:14", "│" + str.ViewDisconnected()} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -290,7 +291,7 @@ func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 func TestTooSmall(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.m.Update(tea.WindowSizeMsg{Width: 20, Height: 5})
-	if !strings.Contains(h.screen(), "Kiln needs at least") {
+	if !strings.Contains(h.screen(), upTo(str.ViewTooSmall(mark, 0, 0, 0))) {
 		t.Errorf("screen = %q", h.screen())
 	}
 }
@@ -305,7 +306,7 @@ func TestAutoconnectOnlyFlaggedCharacters(t *testing.T) {
 	if got := h.conn("fm/kit").Sent(); len(got) != 1 || got[0] != "connect Kit hunter2" {
 		t.Errorf("auto-login sent %q", got)
 	}
-	if s := h.screen(); strings.Contains(s, "× Kit") || strings.Contains(s, "○") || !strings.Contains(s, "connected to muck.test:8888") {
+	if s := h.screen(); strings.Contains(s, "× Kit") || strings.Contains(s, "○") || !strings.Contains(s, str.SessionConnected("muck.test", 8888)) {
 		t.Errorf("screen:\n%s", s)
 	}
 }
@@ -414,7 +415,7 @@ func TestSlashCommandsAndEscape(t *testing.T) {
 	}
 	h.typeText("/bogus")
 	h.enter()
-	if !strings.Contains(h.screen(), "unknown command /bogus") {
+	if !strings.Contains(h.screen(), str.StatusUnknownCommand("/bogus")) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	h.typeText("/disconnect")
@@ -445,7 +446,7 @@ func TestNotConnectedStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("hello")
 	h.enter()
-	if !strings.Contains(h.screen(), "Kit is not connected (/connect)") {
+	if !strings.Contains(h.screen(), str.StatusNotConnected("Kit")) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	if h.m.chars["fm/kit"].in.Value() != "hello" {
@@ -487,7 +488,7 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
 	s := h.screen()
-	if !strings.Contains(s, "│Password for Kit: ••••••   Enter to log in") || strings.Contains(s, "s3cret") || strings.Contains(s, "> ") {
+	if !strings.Contains(s, "│"+str.ViewPasswordLabel("Kit")+"••••••"+str.ViewPasswordKeys()) || strings.Contains(s, "s3cret") || strings.Contains(s, "> ") {
 		t.Errorf("password not masked:\n%s", s)
 	}
 	h.enter()
@@ -650,7 +651,7 @@ func TestSidebarScrolls(t *testing.T) {
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(22) != "× C29" || side(23) != "+ Open connection" || side(0) != "▲ 9 more" {
+	if side(22) != "× C29" || side(23) != addLabel || side(0) != "▲ 9 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -680,12 +681,13 @@ func TestSidebarNoHintsWhenItFits(t *testing.T) {
 }
 
 func TestResizeIsDebouncedAndReported(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld}) // 80×24: right pane 62 wide
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // 80×24
+	pane := func(w int) int { return w - SidebarWidth(w) - 1 }
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	c := h.conn("fm/kit")
-	if got := c.Sizes(); len(got) != 1 || got[0] != [2]int{62, 24} {
-		t.Fatalf("sizes at connect = %v, want [[62 24]]", got)
+	if got := c.Sizes(); len(got) != 1 || got[0] != [2]int{pane(80), 24} {
+		t.Fatalf("sizes at connect = %v, want [[%d 24]]", got, pane(80))
 	}
 	// A drag: three sizes in quick succession. Every tick fires, but only
 	// the last one reports.
@@ -697,8 +699,8 @@ func TestResizeIsDebouncedAndReported(t *testing.T) {
 	for _, cmd := range cmds {
 		h.m.Update(cmd())
 	}
-	if got := c.Sizes(); len(got) != 2 || got[1] != [2]int{120 - 22 - 1, 40} {
-		t.Errorf("sizes = %v, want one more report of [97 40]", got)
+	if got := c.Sizes(); len(got) != 2 || got[1] != [2]int{pane(120), 40} {
+		t.Errorf("sizes = %v, want one more report of [%d 40]", got, pane(120))
 	}
 }
 
@@ -712,7 +714,7 @@ func TestScrollPill(t *testing.T) {
 	}
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].sb.Len() >= 61 })
 	h.press(tea.KeyPgUp, 0)
-	if !strings.Contains(h.screen(), "▼ more") {
+	if !strings.Contains(h.screen(), str.ViewPillMore()) {
 		t.Errorf("no pill:\n%s", h.screen())
 	}
 	c.lines <- "fresh"
@@ -771,7 +773,7 @@ func TestCtrlCClearsThenQuits(t *testing.T) {
 	if h.quits(h.press('c', tea.ModCtrl)) {
 		t.Fatal("one ctrl+c on empty input quit")
 	}
-	if !strings.Contains(h.screen(), "Press Ctrl+C again to quit") {
+	if !strings.Contains(h.screen(), str.StatusQuitHint("C")) {
 		t.Errorf("no hint:\n%s", h.screen())
 	}
 	if !h.quits(h.press('c', tea.ModCtrl)) {
@@ -787,7 +789,7 @@ func TestCtrlDQuitsOnEmptyInputOnly(t *testing.T) {
 		t.Fatalf("ctrl+d with text should delete forward, got %q", h.m.chars["fm/kit"].in.Value())
 	}
 	h.press(tea.KeyBackspace, 0)
-	if h.quits(h.press('d', tea.ModCtrl)) || !strings.Contains(h.screen(), "Press Ctrl+D again to quit") {
+	if h.quits(h.press('d', tea.ModCtrl)) || !strings.Contains(h.screen(), str.StatusQuitHint("D")) {
 		t.Fatalf("first ctrl+d should arm:\n%s", h.screen())
 	}
 	if !h.quits(h.press('d', tea.ModCtrl)) {
@@ -802,7 +804,7 @@ func TestQuitKeyDisarms(t *testing.T) {
 		t.Error("ctrl+c then ctrl+d quit; the keys should have to match")
 	}
 	h.typeText("x") // another key disarms, and takes the hint with it
-	if strings.Contains(h.screen(), "again to quit") {
+	if strings.Contains(h.screen(), after(str.StatusQuitHint(mark))) {
 		t.Errorf("hint outlived the arming:\n%s", h.screen())
 	}
 	h.press(tea.KeyBackspace, 0)
@@ -812,7 +814,7 @@ func TestQuitKeyDisarms(t *testing.T) {
 		t.Fatal("stale expiry disarmed")
 	}
 	h.m.Update(quitExpiredMsg(h.m.quitGen))
-	if strings.Contains(h.screen(), "again to quit") || h.quits(h.press('c', tea.ModCtrl)) {
+	if strings.Contains(h.screen(), after(str.StatusQuitHint(mark))) || h.quits(h.press('c', tea.ModCtrl)) {
 		t.Error("ctrl+c after the window expired should arm again, not quit")
 	}
 }
@@ -947,7 +949,7 @@ func TestSavePasswordPromptDefaultsToYes(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
 	h.enter()
-	if s := h.screen(); !strings.Contains(s, "│Save password for Kit in the keychain? [Y/n]") {
+	if s := h.screen(); !strings.Contains(s, "│"+str.ViewSavePassword("Kit", str.ViewStoreKeychain())) {
 		t.Errorf("no save prompt:\n%s", s)
 	}
 	h.typeText("q") // not an answer; the question stays
@@ -1028,8 +1030,8 @@ func TestConnectHintFollowsState(t *testing.T) {
 		state session.State
 		want  string
 	}{
-		{session.Connecting, "│Connecting…"},
-		{session.Failed, "│Connection failed · Enter to retry"},
+		{session.Connecting, "│" + str.ViewConnecting()},
+		{session.Failed, "│" + str.ViewConnectFailed()},
 	} {
 		cs.state = c.state
 		if s := h.screen(); !strings.Contains(s, c.want) {

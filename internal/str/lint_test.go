@@ -1,6 +1,7 @@
 package str
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -130,5 +131,106 @@ func strayIn(t *testing.T, path string) []string {
 	return out
 }
 
-// isOK reports whether c is a //str:ok directive, alone or after a comment.
-func isOK(c *ast.Comment) bool { return strings.HasSuffix(c.Text, "str:ok") }
+// isOK reports whether c carries //str:ok, alone or with a reason.
+func isOK(c *ast.Comment) bool { return strings.Contains(c.Text, "str:ok") }
+
+// TestTestsReadTheCatalog keeps tests from copying catalog text: a test
+// that expects "copied to clipboard" breaks the day that's reworded. It
+// flags string literals in tests that contain a phrase from en.toml (the
+// literal text between placeholders, when it's two or more words). Build
+// the expected text with the str function instead, or mark the line
+// //str:ok (a fixture that has to be literal). Failure messages
+// (t.Errorf("…")) don't count.
+func TestTestsReadTheCatalog(t *testing.T) {
+	var phrases []string
+	for _, e := range fallback {
+		for _, tmpl := range e.Forms {
+			for _, s := range tmpl {
+				if p := strings.TrimSpace(s.Text); s.Name == "" && len(p) >= 8 && strings.Contains(p, " ") {
+					phrases = append(phrases, p)
+				}
+			}
+		}
+	}
+	root := filepath.Join("..", "..")
+	var copied []string
+	for _, top := range []string{"cmd", "internal"} {
+		err := filepath.WalkDir(filepath.Join(root, top), func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() && path == filepath.Join(root, "internal", "str") {
+				return filepath.SkipDir
+			}
+			if strings.HasSuffix(path, "_test.go") {
+				copied = append(copied, copiesIn(t, path, phrases)...)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(copied) > 0 {
+		t.Errorf("%d test string(s) copy catalog text, so rewording it breaks them. Build the "+
+			"expected text with the str function (str.StatusCopied(), str.Separator(), …) instead.\n%s",
+			len(copied), strings.Join(copied, "\n"))
+	}
+}
+
+// failureFuncs are testing methods whose string arguments are messages
+// about the test, not expectations.
+var failureFuncs = map[string]bool{"Error": true, "Errorf": true, "Fatal": true, "Fatalf": true,
+	"Log": true, "Logf": true, "Skip": true, "Skipf": true}
+
+func copiesIn(t *testing.T, path string, phrases []string) []string {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	okLines := map[int]bool{}
+	for _, cg := range f.Comments {
+		for _, c := range cg.List {
+			if isOK(c) {
+				okLines[fset.Position(c.Pos()).Line] = true
+			}
+		}
+	}
+	skip := map[ast.Node]bool{}
+	var out []string
+	ast.Inspect(f, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok {
+			if sel, ok := call.Fun.(*ast.SelectorExpr); ok && failureFuncs[sel.Sel.Name] {
+				for _, a := range call.Args {
+					skip[a] = true
+				}
+			}
+		}
+		bl, ok := n.(*ast.BasicLit)
+		if !ok || bl.Kind != token.STRING || skip[bl] {
+			return true
+		}
+		start, end := fset.Position(bl.Pos()), fset.Position(bl.End())
+		if okLines[start.Line] || okLines[end.Line] {
+			return true
+		}
+		s, err := strconv.Unquote(bl.Value)
+		if err != nil {
+			return true
+		}
+		for _, p := range phrases {
+			if strings.Contains(s, p) {
+				rel, _ := filepath.Rel(filepath.Join("..", ".."), start.Filename)
+				lit, _, more := strings.Cut(bl.Value, "\n")
+				if more {
+					lit += "…"
+				}
+				out = append(out, fmt.Sprintf("%s:%d: %s (%q)", rel, start.Line, lit, p))
+				break
+			}
+		}
+		return true
+	})
+	return out
+}

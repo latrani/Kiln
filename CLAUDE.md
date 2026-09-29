@@ -26,3 +26,8 @@ output) lives in `internal/str/locales/en.toml`, not in Go source.
   a `Strings:` trailer listing the keys, e.g.
   `Strings: browse.saved, browse.copied (new)`. The PR description repeats
   the list and says briefly why each string exists.
+- Tests build expected text from the catalog too (`str.StatusCopied()`,
+  `str.Separator()`, labels like `maxBytesLabel`), never a copy of it, so
+  rewording a string never breaks a test. For part of a message, fill a
+  placeholder with `mark` and cut with `upTo`/`after` (in each package's
+  `catalog_test.go`). `TestTestsReadTheCatalog` flags copied phrases.

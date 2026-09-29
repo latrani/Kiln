@@ -35,7 +35,7 @@ autoconnect = true
 [[highlight]]
 match = { pattern = '(?i)lighthouse' }
 style = { fg = "#ffd166", bold = true }
-`
+` //str:ok: a file Kiln wrote earlier
 
 func editDir(t *testing.T, world string) string {
 	t.Helper()
@@ -169,7 +169,7 @@ func TestDeleteCharacter(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readWorld(t, dir)
-	if strings.Contains(got, "[[characters") || strings.Contains(got, "Rook") || !strings.Contains(got, "# added by /highlight\n[[highlight]]") {
+	if strings.Contains(got, "[[characters") || strings.Contains(got, "Rook") || !strings.Contains(got, "# added by /highlight\n[[highlight]]") { //str:ok: from the fixture
 		t.Errorf("deleting the last character took the wrong lines:\n%s", got)
 	}
 }
