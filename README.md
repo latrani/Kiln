@@ -302,7 +302,7 @@ name = "Kit"
 "self" = { fg = "#ffd166", bold = true }   # just Kit
 ```
 
-A tag style takes the same settings as a theme role, plus `scope`. By default it styles the whole line; with `scope = "match"` it styles only the text the tag's classify rules matched, so a server that prefixes pages with `PAGE:` can color just the prefix. A tag with no style uses the one up its slashes (`page/in` falls back to `page`). When a line has several tags, whole-line styles go first and match styles on top; later colors win and attributes add up.
+A tag style takes the same settings as a theme role, plus `scope`. By default it styles the whole line; with `scope = "match"` it styles only the text the tag's classify rules matched, so a server that prefixes pages with `PAGE:` can color just the prefix. A tag inherits from the one up its slashes, the way a role does up its dots: `page/in` starts from `page` and changes only what it sets, and `fg = "default"` clears a color it would inherit. When a line has several tags, whole-line styles go first and match styles on top; later colors win and attributes add up.
 
 `/highlight <text>` adds a classify rule to the world's file that gives every line containing *text* the tag `highlight`. The theme styles that tag once for all your highlights: by default, just the matching text, in bold yellow.
 

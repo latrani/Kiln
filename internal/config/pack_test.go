@@ -14,8 +14,7 @@ import (
 )
 
 // The starter fuzzball pack tags both sides of a page or whisper
-// conversation, and only the side you receive asks for attention and
-// takes the default theme's color.
+// conversation, and only the side you receive asks for attention.
 func TestStarterPackPages(t *testing.T) {
 	dir := t.TempDir()
 	if err := config.EnsureDefaults(dir); err != nil {
@@ -52,8 +51,10 @@ func TestStarterPackPages(t *testing.T) {
 			t.Errorf("%q: tags %v, want %s and %s", c.line, tags, kind, c.dir)
 		}
 		res := hl.Apply(c.line, cls.Tags(c.line))
-		if res.Attention != c.in || (res.Runs != nil) != c.in {
-			t.Errorf("%q: attention %v, styled %v; want both %v", c.line, res.Attention, res.Runs != nil, c.in)
+		// Only pages and whispers to you ask for attention; the built-in
+		// theme styles both ways alike.
+		if res.Attention != c.in || res.Runs == nil {
+			t.Errorf("%q: attention %v, styled %v; want attention %v, styled", c.line, res.Attention, res.Runs != nil, c.in)
 		}
 	}
 }

@@ -160,6 +160,8 @@ ember = "#ff9f43"
 [tags]
 page = { fg = "ember", bold = true }
 "page/in" = { italic = true }
+"page/out" = { fg = "default", scope = "match" }
+"page/out/x/y" = { underline = true }
 highlight = { fg = "#ffd166", scope = "match" }
 `)
 	for _, c := range []struct {
@@ -167,9 +169,11 @@ highlight = { fg = "#ffd166", scope = "match" }
 		match            bool
 	}{
 		{"page", "page", "\x1b[1;38;2;255;159;67m", false},
-		{"page/in", "page/in", "\x1b[3m", false}, // a tag's own style; parents don't cascade into it
-		{"page/out", "page", "\x1b[1;38;2;255;159;67m", false},
-		{"page/out/x", "page", "\x1b[1;38;2;255;159;67m", false},
+		{"page/in", "page/in", "\x1b[1;3;38;2;255;159;67m", false}, // page's, then its own
+		{"page/in/x", "page/in", "\x1b[1;3;38;2;255;159;67m", false},
+		{"page/out", "page/out", "\x1b[1m", true}, // default clears the color it inherits
+		{"page/out/x", "page/out", "\x1b[1m", true},
+		{"page/out/x/y", "page/out/x/y", "\x1b[1;4m", true}, // past an unstyled page/out/x
 		{"highlight", "highlight", "\x1b[38;2;255;209;102m", true},
 	} {
 		styled, ts, ok := th.Tag(c.tag)
@@ -189,6 +193,15 @@ func TestTagsMergeAlongExtends(t *testing.T) {
 	_, ts, _ := th.Tag("page")
 	if ts.Style.SGR() != "\x1b[1;31m" || !ts.Match {
 		t.Errorf("page = %q, match %v; want bold red, match kept", ts.Style.SGR(), ts.Match)
+	}
+}
+
+// A later file's parent tag reaches an earlier file's child, field by
+// field, the way roles do.
+func TestTagsInheritAcrossFiles(t *testing.T) {
+	th := mustBuild(t, "[tags]\n\"page/out\" = { faint = true }\n", "[tags]\npage = { fg = \"red\", scope = \"match\" }\n")
+	if _, ts, _ := th.Tag("page/out"); ts.Style.SGR() != "\x1b[2;31m" || !ts.Match {
+		t.Errorf("page/out = %q, match %v; want faint red, match", ts.Style.SGR(), ts.Match)
 	}
 }
 

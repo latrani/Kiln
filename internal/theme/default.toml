@@ -138,11 +138,13 @@ alarm-deep = "#f9dcdc"
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
 
-# How lines with classify tags are drawn. A tag falls back up its
-# slashes: whisper/in uses whisper's style if it has none of its own.
+# How lines with classify tags are drawn. A tag inherits up its slashes,
+# as a role does up its dots: whisper/in starts from whisper. This theme
+# styles only top-level tags, so a theme that extends it can restyle page
+# without page/in or page/out keeping the old look.
 # scope = "match" styles only the text the tag's pattern matched.
 [tags]
-"page/in"    = { fg = "ember", bold = true }
-"whisper/in" = { fg = "lavender", italic = true }
+"page"       = { fg = "ember", bold = true }
+"whisper"    = { fg = "lavender", italic = true }
 "self"       = { bold = true }
 "highlight"  = { fg = "beacon", bold = true, scope = "match" }

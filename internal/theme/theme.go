@@ -205,7 +205,8 @@ func (t *Theme) With(layers ...Layer) (*Theme, error) {
 }
 
 // Tag is how a line tag is drawn: the style of the most specific styled
-// name up its slashes (page/in, then page), and that name.
+// name up its slashes (page/in, then page), and that name. A styled tag
+// has already inherited what it doesn't set from the ones above it.
 func (t *Theme) Tag(name string) (styled string, ts TagStyle, ok bool) {
 	for n := name; ; {
 		if ts, ok := t.tags[n]; ok {
@@ -469,13 +470,23 @@ func build(chain []file, ap Appearance) (*Theme, error) {
 		}
 		t.styles[r], t.sgr[r] = s, s.sgr()
 	}
+	// A tag inherits from the nearest styled one up its slashes, as a role
+	// does from its parent. Sorted, a tag comes after all of those.
 	for _, tag := range slices.Sorted(maps.Keys(mergedTags)) {
 		fs := mergedTags[tag]
-		s, err := resolveStyle(style{}, fs.fileStyle, palette, tagOrigin[tag], str.ThemeTagEntry(tag))
+		var up TagStyle
+		if i := strings.LastIndexByte(tag, '/'); i >= 0 {
+			_, up, _ = t.Tag(tag[:i])
+		}
+		s, err := resolveStyle(up.Style.s, fs.fileStyle, palette, tagOrigin[tag], str.ThemeTagEntry(tag))
 		if err != nil {
 			return nil, err
 		}
-		t.tags[tag] = TagStyle{Style: Style{s}, Match: fs.scope != nil && *fs.scope == "match"}
+		match := up.Match
+		if fs.scope != nil {
+			match = *fs.scope == "match"
+		}
+		t.tags[tag] = TagStyle{Style: Style{s}, Match: match}
 	}
 	return t, nil
 }
