@@ -552,7 +552,7 @@ func TestPreloadsHistory(t *testing.T) {
 	h.m.d.LogRoot = root
 	h.m.preload(h.m.chars["fm/kit"])
 	s := h.screen()
-	if !strings.Contains(s, "yesterday's news") || !strings.Contains(s, "history ends Wed Sep 23 20:00") {
+	if !strings.Contains(s, "yesterday's news") || !strings.Contains(s, str.ScrollbackHistoryEnds("Wed Sep 23 20:00")) {
 		t.Errorf("screen:\n%s", s)
 	}
 }
