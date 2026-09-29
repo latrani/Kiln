@@ -93,6 +93,7 @@ type Model struct {
 	lastHere        time.Time               // latest focus-in or input; see here
 	awayNow         bool                    // set by /away until the next input; see away
 	themed          bool                    // a theme has been loaded; see loadTheme
+	themeErr        error                   // why the theme didn't load, to report once the update is done
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
@@ -192,6 +193,10 @@ func New(d Deps, cfg *config.Config) *Model {
 	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
 	m.loadTheme() // at start a broken theme falls back to the built-in, and says so
+	if m.themeErr != nil {
+		m.setStatus(true, str.StatusThemeNotLoaded(m.themeErr))
+		m.themeErr = nil
+	}
 	for _, ch := range m.allChars() {
 		if ch.Autoconnect {
 			m.open(key(ch.World, ch.ID))
@@ -237,7 +242,7 @@ func waitEvent(k string, s *session.Session) tea.Cmd {
 }
 
 // reloadNow loads the config and theme and applies them, reporting whether
-// it could.
+// the config could be.
 func (m *Model) reloadNow() bool {
 	cfg, err := m.d.Load(m.d.ConfigDir)
 	if err != nil {
@@ -245,24 +250,24 @@ func (m *Model) reloadNow() bool {
 		return false
 	}
 	m.applyConfig(cfg)
-	return m.loadTheme() // a broken theme keeps its message up
+	m.loadTheme() // a broken theme doesn't stop the config; see themeErr
+	return true
 }
 
 // loadTheme reads the theme from the config folder and draws with it,
-// restyling what's on screen, and reports whether it could. A broken
-// theme is reported and changes nothing, except at start, when the
-// built-in theme stands in.
-func (m *Model) loadTheme() bool {
+// restyling what's on screen. A broken theme changes nothing, except at
+// start, when the built-in theme stands in; either way its error is
+// reported when the update ends (see Update), after any message the
+// caller shows for what it did.
+func (m *Model) loadTheme() {
 	th, err := theme.Load(m.d.ConfigDir)
-	if err != nil {
-		m.setStatus(true, str.StatusThemeNotLoaded(err))
-		if m.themed {
-			return false // keep the theme we have
-		}
+	m.themeErr = err
+	if err != nil && m.themed {
+		return // keep the theme we have
 	}
 	m.themed = true
 	if th == theme.Active() {
-		return err == nil
+		return
 	}
 	theme.SetActive(th)
 	for _, cs := range m.chars {
@@ -272,7 +277,6 @@ func (m *Model) loadTheme() bool {
 			cs.browse.restyle(render)
 		}
 	}
-	return err == nil
 }
 
 // applyConfig keeps cfg for the picker and updates open characters to
@@ -531,6 +535,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, cmd := m.update(msg)
 	if older := m.pageOlder(); older != nil {
 		cmd = tea.Batch(cmd, older)
+	}
+	if m.themeErr != nil { // last, so it isn't covered by what the update said
+		m.setStatus(true, str.StatusThemeNotLoaded(m.themeErr))
+		m.themeErr = nil
 	}
 	if m.statusGen != m.statusTimed { // a new status: time it out
 		m.statusTimed = m.statusGen

@@ -293,3 +293,22 @@ func TestThemeReloadKeepsScroll(t *testing.T) {
 	}
 	h.screen() // must not panic with the selection dropped
 }
+
+// A broken theme is only a theme problem: adding a character still opens
+// and connects it, and the theme's error stays up over any success message.
+func TestBrokenThemeDoesNotBlockAddingACharacter(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	writeUserTheme(t, h, "[ui]\n\"status.eror\" = { fg = \"red\" }\n")
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.enter()
+	h.typeText("Ash")
+	h.enter()
+	if cs := h.m.chars["fm/Ash"]; cs == nil || cs.sess == nil || h.m.active != "fm/Ash" {
+		t.Fatalf("a broken theme stopped Ash from opening:\n%s", h.screen())
+	}
+	if !strings.Contains(h.screen(), upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
+		t.Errorf("the theme's error should stay up:\n%s", h.screen())
+	}
+}
