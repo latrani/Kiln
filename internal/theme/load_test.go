@@ -43,6 +43,19 @@ func TestBuiltinLook(t *testing.T) {
 			t.Errorf("builtin %s = %q, want %q", c.role, got, c.want)
 		}
 	}
+	for _, c := range []struct {
+		tag, want string
+		match     bool
+	}{
+		{"page/in", "\x1b[1;38;2;255;159;67m", false},
+		{"whisper/in", "\x1b[3;38;2;195;155;211m", false},
+		{"self", "\x1b[1m", false},
+		{"highlight", "\x1b[1;38;2;255;209;102m", true},
+	} {
+		if _, ts, _ := b.Tag(c.tag); ts.Style.SGR() != c.want || ts.Match != c.match {
+			t.Errorf("builtin tag %s = %q, match %v; want %q, match %v", c.tag, ts.Style.SGR(), ts.Match, c.want, c.match)
+		}
+	}
 }
 
 func TestLoadWithoutAFileIsBuiltin(t *testing.T) {
@@ -80,7 +93,7 @@ func TestExtendsCycle(t *testing.T) {
 	writeTheme(t, dir, "a", "extends = \"b\"\n")
 	writeTheme(t, dir, "b", "extends = \"a\"\n")
 	_, err := Load(dir)
-	if err == nil || !strings.Contains(err.Error(), str.ThemeExtendsLoop("b.toml", "a")) {
+	if err == nil || !strings.Contains(err.Error(), str.ThemeExtendsLoop("themes/b.toml", "a")) {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -89,7 +102,7 @@ func TestLoadErrors(t *testing.T) {
 	for _, c := range []struct{ body, want string }{
 		{"extends = \"nope\"\n", str.ThemeNoTheme("nope")},
 		{"[ui\n", "themes/default.toml"},
-		{"[ui]\n\"sidebar.nope\" = { bold = true }\n", str.ThemeUnknownRole("default.toml", "sidebar.nope")},
+		{"[ui]\n\"sidebar.nope\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "sidebar.nope")},
 	} {
 		dir := t.TempDir()
 		writeTheme(t, dir, "default", c.body)

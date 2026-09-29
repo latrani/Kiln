@@ -153,3 +153,80 @@ func TestDefaultColorClearsInherited(t *testing.T) {
 		t.Errorf("a palette name default: err = %v", err)
 	}
 }
+func TestTags(t *testing.T) {
+	th := mustBuild(t, `
+[palette]
+ember = "#ff9f43"
+[tags]
+page = { fg = "ember", bold = true }
+"page/in" = { italic = true }
+highlight = { fg = "#ffd166", scope = "match" }
+`)
+	for _, c := range []struct {
+		tag, styled, sgr string
+		match            bool
+	}{
+		{"page", "page", "\x1b[1;38;2;255;159;67m", false},
+		{"page/in", "page/in", "\x1b[3m", false}, // a tag's own style; parents don't cascade into it
+		{"page/out", "page", "\x1b[1;38;2;255;159;67m", false},
+		{"page/out/x", "page", "\x1b[1;38;2;255;159;67m", false},
+		{"highlight", "highlight", "\x1b[38;2;255;209;102m", true},
+	} {
+		styled, ts, ok := th.Tag(c.tag)
+		if !ok || styled != c.styled || ts.Style.SGR() != c.sgr || ts.Match != c.match {
+			t.Errorf("Tag(%q) = %q, %q, match %v, %v; want %q, %q, match %v", c.tag, styled, ts.Style.SGR(), ts.Match, ok, c.styled, c.sgr, c.match)
+		}
+	}
+	for _, tag := range []string{"pages", "whisper", "self"} {
+		if _, _, ok := th.Tag(tag); ok {
+			t.Errorf("Tag(%q) found a style; want none", tag)
+		}
+	}
+}
+
+func TestTagsMergeAlongExtends(t *testing.T) {
+	th := mustBuild(t, "[tags]\npage = { bold = true, scope = \"match\" }\n", "[tags]\npage = { fg = \"red\" }\n")
+	_, ts, _ := th.Tag("page")
+	if ts.Style.SGR() != "\x1b[1;31m" || !ts.Match {
+		t.Errorf("page = %q, match %v; want bold red, match kept", ts.Style.SGR(), ts.Match)
+	}
+}
+
+func TestTagErrors(t *testing.T) {
+	for _, c := range []struct{ body, want string }{
+		{"tags = 1\n", str.ThemeNotTable("t.toml", "tags")},
+		{"[tags]\npage = \"red\"\n", str.ThemeTagNotTable("t.toml", "page")},
+		{"[tags]\npage = { scope = \"word\" }\n", str.ThemeBadScope("t.toml", "page")},
+		{"[tags]\npage = { size = 3 }\n", str.ThemeUnknownField("t.toml", str.ThemeTagEntry("page"), "size")},
+		{"[tags]\npage = { bold = \"yes\" }\n", str.ThemeBadField("t.toml", str.ThemeTagEntry("page"), "bold", str.ThemeWantBool())},
+	} {
+		_, err := parse("t.toml", []byte(c.body))
+		if err == nil || err.Error() != c.want {
+			t.Errorf("%q: err = %v, want %q", c.body, err, c.want)
+		}
+	}
+	f, _ := parse("t.toml", []byte("[tags]\npage = { fg = \"nope\" }\n"))
+	if _, err := build([]file{f}); err == nil || err.Error() != str.ThemeBadColor("t.toml", str.ThemeTagEntry("page"), "nope") {
+		t.Errorf("unknown color: err = %v", err)
+	}
+}
+
+func TestStyleOver(t *testing.T) {
+	th := mustBuild(t, "[tags]\na = { fg = \"red\", bold = true }\nb = { fg = \"blue\", italic = true }\n")
+	_, a, _ := th.Tag("a")
+	_, b, _ := th.Tag("b")
+	if got := a.Style.Over(b.Style).SGR(); got != "\x1b[1;3;34m" {
+		t.Errorf("a.Over(b) = %q, want b's color and both attributes", got)
+	}
+	if got := (Style{}).Over(a.Style).SGR(); got != a.Style.SGR() {
+		t.Errorf("zero.Over(a) = %q", got)
+	}
+}
+
+func TestEqualSeesTags(t *testing.T) {
+	a := mustBuild(t, "[tags]\npage = { bold = true }\n")
+	b := mustBuild(t, "[tags]\npage = { bold = true, scope = \"match\" }\n")
+	if a.Equal(b) || !a.Equal(mustBuild(t, "[tags]\npage = { bold = true }\n")) {
+		t.Error("Equal must compare tag styles and scopes")
+	}
+}

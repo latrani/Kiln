@@ -15,7 +15,7 @@ import (
 var builtinSrc []byte
 
 var builtin = func() *Theme {
-	f, err := parse("default.toml", builtinSrc)
+	f, err := parse(themePath("default"), builtinSrc)
 	if err != nil {
 		panic(err)
 	}
@@ -52,14 +52,14 @@ func chainFor(dir, name string, seen []string) ([]file, error) {
 		if name != "default" {
 			return nil, errors.New(str.ThemeNoTheme(name))
 		}
-		f, _ := parse("default.toml", builtinSrc)
+		f, _ := parse(themePath("default"), builtinSrc)
 		return []file{f}, nil
 	}
 	if slices.Contains(seen, name) {
 		if name == "default" { // the user's default.toml is on the chain: this means the built-in
 			return builtinFile()
 		}
-		return nil, errors.New(str.ThemeExtendsLoop(seen[len(seen)-1]+".toml", name))
+		return nil, errors.New(str.ThemeExtendsLoop(themePath(seen[len(seen)-1]), name))
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "themes", name+".toml"))
 	if errors.Is(err, os.ErrNotExist) {
@@ -68,7 +68,7 @@ func chainFor(dir, name string, seen []string) ([]file, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := parse(name+".toml", data)
+	f, err := parse(themePath(name), data)
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +81,9 @@ func chainFor(dir, name string, seen []string) ([]file, error) {
 	}
 	return append(base, f), nil
 }
+
+// themePath is theme name's file, as messages name it.
+func themePath(name string) string { return "themes/" + name + ".toml" } //str:ok: a path
 
 var active atomic.Pointer[Theme]
 
@@ -101,8 +104,8 @@ func SGR(r Role) string { return Active().SGR(r) }
 // FromTOML builds a theme from src on top of the built-in, for tests and
 // tools.
 func FromTOML(src string) (*Theme, error) {
-	base, _ := parse("default.toml", builtinSrc)
-	f, err := parse("test.toml", []byte(src))
+	base, _ := parse(themePath("default"), builtinSrc)
+	f, err := parse(themePath("test"), []byte(src))
 	if err != nil {
 		return nil, err
 	}

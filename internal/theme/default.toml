@@ -32,11 +32,15 @@ kaki-line   = "#cdb5a2"
 kaki-ink    = "#e3bda0"
 kaki-bright = "#edd3c0"
 
+ember    = "#ff9f43"
+lavender = "#c39bd3"
+beacon   = "#ffd166"
+
 [ui]
 "sidebar"           = { fg = "celadon-ink" }
 "sidebar.world"     = { bold = true }
 "sidebar.active"    = { reverse = true }
-"sidebar.attention" = { fg = "#ffd166", bold = true }
+"sidebar.attention" = { fg = "beacon", bold = true }
 "sidebar.add"       = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
 "sidebar.more"      = { fg = "celadon-mid" }
 
@@ -96,3 +100,12 @@ kaki-bright = "#edd3c0"
 "log.bar.error"      = { fg = "red" }
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
+
+# How lines with classify tags are drawn. A tag falls back up its
+# slashes: whisper/in uses whisper's style if it has none of its own.
+# scope = "match" styles only the text the tag's pattern matched.
+[tags]
+"page/in"    = { fg = "ember", bold = true }
+"whisper/in" = { fg = "lavender", italic = true }
+"self"       = { bold = true }
+"highlight"  = { fg = "beacon", bold = true, scope = "match" }

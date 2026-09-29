@@ -728,22 +728,27 @@ func StatusUnknownCommand(command any) string {
 	return get("status.unknown_command", map[string]any{"command": command})
 }
 
-// ThemeBadColor is theme.bad_color: "themes/{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, a terminal color like bright-blue, or default)"
+// ThemeBadColor is theme.bad_color: "{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, a terminal color like bright-blue, or default)"
 func ThemeBadColor(file, where, color any) string {
 	return get("theme.bad_color", map[string]any{"file": file, "where": where, "color": color})
 }
 
-// ThemeBadExtends is theme.bad_extends: "themes/{file}: extends {name:%q} isn't a theme name (a file name in themes/, without .toml)"
+// ThemeBadExtends is theme.bad_extends: "{file}: extends {name:%q} isn't a theme name (a file name in themes/, without .toml)"
 func ThemeBadExtends(file, name any) string {
 	return get("theme.bad_extends", map[string]any{"file": file, "name": name})
 }
 
-// ThemeBadField is theme.bad_field: "themes/{file}: {role}: {field} must be {want}"
+// ThemeBadField is theme.bad_field: "{file}: {role}: {field} must be {want}"
 func ThemeBadField(file, role, field, want any) string {
 	return get("theme.bad_field", map[string]any{"file": file, "role": role, "field": field, "want": want})
 }
 
-// ThemeExtendsLoop is theme.extends_loop: "themes/{file}: extends loops back to {name:%q}"
+// ThemeBadScope is theme.bad_scope: "{file}: tag {tag:%q}: scope must be \"line\" or \"match\""
+func ThemeBadScope(file, tag any) string {
+	return get("theme.bad_scope", map[string]any{"file": file, "tag": tag})
+}
+
+// ThemeExtendsLoop is theme.extends_loop: "{file}: extends loops back to {name:%q}"
 func ThemeExtendsLoop(file, name any) string {
 	return get("theme.extends_loop", map[string]any{"file": file, "name": name})
 }
@@ -751,7 +756,7 @@ func ThemeExtendsLoop(file, name any) string {
 // ThemeNoTheme is theme.no_theme: "no theme {name:%q} (no themes/{name}.toml)"
 func ThemeNoTheme(name any) string { return get("theme.no_theme", map[string]any{"name": name}) }
 
-// ThemeNotTable is theme.not_table: "themes/{file}: {key} must be a table, like [{key}]"
+// ThemeNotTable is theme.not_table: "{file}: {key} must be a table, like [{key}]"
 func ThemeNotTable(file, key any) string {
 	return get("theme.not_table", map[string]any{"file": file, "key": key})
 }
@@ -761,32 +766,40 @@ func ThemePaletteEntry(name any) string {
 	return get("theme.palette_entry", map[string]any{"name": name})
 }
 
-// ThemePaletteNameTaken is theme.palette_name_taken: "themes/{file}: palette name {name:%q} is a terminal color"
+// ThemePaletteNameTaken is theme.palette_name_taken: "{file}: palette name {name:%q} is a terminal color"
 func ThemePaletteNameTaken(file, name any) string {
 	return get("theme.palette_name_taken", map[string]any{"file": file, "name": name})
 }
 
-// ThemeParse is theme.parse: "themes/{file}: {err}"
+// ThemeParse is theme.parse: "{file}: {err}"
 func ThemeParse(file any, err error) string {
 	return get("theme.parse", map[string]any{"file": file, "err": err})
 }
 
-// ThemeRoleNotTable is theme.role_not_table: "themes/{file}: {role} needs a table of settings, like {role} = {{ fg = … }}"
+// ThemeRoleNotTable is theme.role_not_table: "{file}: {role} needs a table of settings, like {role} = {{ fg = … }}"
 func ThemeRoleNotTable(file, role any) string {
 	return get("theme.role_not_table", map[string]any{"file": file, "role": role})
 }
 
-// ThemeUnknownField is theme.unknown_field: "themes/{file}: {role}: unknown setting {field:%q}"
+// ThemeTagEntry is theme.tag_entry: "tag {name}"
+func ThemeTagEntry(name any) string { return get("theme.tag_entry", map[string]any{"name": name}) }
+
+// ThemeTagNotTable is theme.tag_not_table: "{file}: tag {tag:%q} needs a table of settings, like {{ fg = … }}"
+func ThemeTagNotTable(file, tag any) string {
+	return get("theme.tag_not_table", map[string]any{"file": file, "tag": tag})
+}
+
+// ThemeUnknownField is theme.unknown_field: "{file}: {role}: unknown setting {field:%q}"
 func ThemeUnknownField(file, role, field any) string {
 	return get("theme.unknown_field", map[string]any{"file": file, "role": role, "field": field})
 }
 
-// ThemeUnknownKey is theme.unknown_key: "themes/{file}: unknown key {key:%q} (a theme has extends, palette and ui)"
+// ThemeUnknownKey is theme.unknown_key: "{file}: unknown key {key:%q} (a theme has extends, palette, ui and tags)"
 func ThemeUnknownKey(file, key any) string {
 	return get("theme.unknown_key", map[string]any{"file": file, "key": key})
 }
 
-// ThemeUnknownRole is theme.unknown_role: "themes/{file}: unknown role {role:%q}"
+// ThemeUnknownRole is theme.unknown_role: "{file}: unknown role {role:%q}"
 func ThemeUnknownRole(file, role any) string {
 	return get("theme.unknown_role", map[string]any{"file": file, "role": role})
 }
