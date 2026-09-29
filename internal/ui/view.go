@@ -18,12 +18,6 @@ const (
 	MinHeight = 10
 )
 
-const (
-	reverse = "\x1b[7m"
-	red     = "\x1b[31m"
-	bold    = "\x1b[1m"
-)
-
 type layout struct {
 	sw, rw int // sidebar width; right pane width
 	sbH    int // scrollback rows

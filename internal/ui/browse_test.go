@@ -16,6 +16,7 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 var day24 = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
@@ -305,7 +306,7 @@ func TestBrowseFind(t *testing.T) {
 	if b.cursor.e.Text != scene1[0] {
 		t.Errorf("N went to %q", b.cursor.e.Text)
 	}
-	if !strings.Contains(h.m.View().Content, reverse+"Rook") {
+	if !strings.Contains(h.m.View().Content, theme.SGR(theme.LogFind)+"Rook") {
 		t.Error("matches not highlighted")
 	}
 	if !strings.Contains(h.screen(), "Sable") {
@@ -595,7 +596,7 @@ func TestHighlightFindSurvivesCaseFolding(t *testing.T) {
 		if ansi.Strip(got) != c.plain {
 			t.Errorf("highlightFind(%q, %q) changed the text: %q", c.plain, c.needle, ansi.Strip(got))
 		}
-		if !strings.Contains(got, reverse+c.needle) {
+		if !strings.Contains(got, theme.SGR(theme.LogFind)+c.needle) {
 			t.Errorf("highlightFind(%q, %q) = %q: match not highlighted", c.plain, c.needle, got)
 		}
 	}

@@ -2131,7 +2131,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 	}
 	h.key("1")
 	h.key("/")
-	h.typeText("Rook")
+	h.typeText("Mira") // the chip shows only pages
 	h.key("enter")
 	s = h.drawn()
 	for _, role := range []theme.Role{theme.LogChipOn, theme.LogFind} {

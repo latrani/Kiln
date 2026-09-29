@@ -22,7 +22,7 @@ import (
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
-	"github.com/latrani/Kiln/internal/style"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // browseInitialLines is how much history browse loads up front (whole
@@ -762,7 +762,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			span = "…" + span
 		}
 	}
-	head := bold + str.BrowseLog() + " " + b.cs.ch.Name + style.Reset + str.Separator() + span
+	head := theme.Paint(theme.LogTitle, str.BrowseLog()+" "+b.cs.ch.Name) + str.Separator() + span
 	if b.find != "" {
 		i, n := b.matchPos()
 		head += "   " + str.BrowseFindStatus(b.find, i, n)
@@ -782,24 +782,26 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		from := xansi.StringWidth(chipRow) + 1
 		chipRow += chip
 		b.chipSpans = append(b.chipSpans, chipSpan{tag: t, from: from, to: xansi.StringWidth(chipRow)})
+		role := theme.LogChip
 		if b.chips[t] != scene.Neutral {
-			chipRow = chipRow[:len(chipRow)-len(chip)] + " " + reverse + chip[1:] + style.Reset
+			role = theme.LogChipOn
 		}
+		chipRow = chipRow[:len(chipRow)-len(chip)] + " " + theme.Paint(role, chip[1:])
 	}
-	rows = []string{head, chipRow, style.Dim(strings.Repeat("─", w))}
+	rows = []string{theme.Fill(theme.LogHeader, head, w), theme.Fill(theme.LogHeader, chipRow, w), theme.Paint(theme.Rule, strings.Repeat("─", w))}
 
 	// Body.
 	b.rowLines = b.rowLines[:0]
 	ms := b.matches()
 	start := slices.Index(v, b.top)
 	if b.loading && start <= 0 { // the oldest loaded line is at the top
-		rows = append(rows, style.Dim(str.BrowseLoading()))
+		rows = append(rows, theme.Paint(theme.LogLoading, str.BrowseLoading()))
 		b.rowLines = append(b.rowLines, nil)
 	}
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
 		if i == 0 || v[i-1].day != l.day {
-			rows = append(rows, style.Dim("── "+dayLabel(l.day)+" ──"))
+			rows = append(rows, theme.Paint(theme.LogDay, "── "+dayLabel(l.day)+" ──"))
 			b.rowLines = append(b.rowLines, nil)
 			if len(b.rowLines) >= bodyH {
 				break
@@ -807,15 +809,15 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		}
 		ts := l.e.Time.Local().Format("15:04")
 		if l == b.cursor {
-			ts = reverse + ts + style.Reset
+			ts = theme.Paint(theme.LogCursor, ts)
 		} else {
-			ts = style.Dim(ts)
+			ts = theme.Paint(theme.LogTime, ts)
 		}
 		gutter := " "
 		if b.inRange(l) {
-			gutter = glyphSelected
+			gutter = theme.Paint(theme.LogSelected, glyphSelected)
 			if b.excluded[l] {
-				gutter = glyphExcluded
+				gutter = theme.Paint(theme.LogExcluded, glyphExcluded)
 			}
 		}
 		text := l.text
@@ -840,23 +842,23 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	}
 
 	// Action bar.
-	rows = append(rows, style.Dim(strings.Repeat("─", w)))
+	rows = append(rows, theme.Paint(theme.Rule, strings.Repeat("─", w)))
 	switch {
 	case b.prompt == promptFormat:
-		rows = append(rows, b.promptLabel())
+		rows = append(rows, theme.Fill(theme.LogBar, b.promptLabel(), w))
 	case b.prompt != promptNone:
 		label := b.promptLabel()
 		text, x := promptWindow([]rune(b.pin.Value()), b.pin.col, w-xansi.StringWidth(label)-1)
-		rows = append(rows, label+text)
+		rows = append(rows, theme.Fill(theme.LogBar, label+text, w))
 		curX, curY, showCur = xansi.StringWidth(label)+x, h-1, true
 	case b.status != "":
 		msg := b.status
 		if b.statusErr {
-			msg = red + msg + style.Reset
+			msg = theme.Paint(theme.LogError, msg)
 		}
-		rows = append(rows, msg)
+		rows = append(rows, theme.Fill(theme.LogBar, msg, w))
 	default:
-		rows = append(rows, style.Dim(str.BrowseHints()))
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, str.BrowseHints()), w))
 	}
 	return rows, curX, curY, showCur
 }
@@ -878,7 +880,7 @@ func highlightFind(plain, needle string) string {
 	var out strings.Builder
 	last := 0
 	for _, m := range findRE(needle).FindAllStringIndex(plain, -1) {
-		out.WriteString(plain[last:m[0]] + reverse + plain[m[0]:m[1]] + style.Reset)
+		out.WriteString(plain[last:m[0]] + theme.Paint(theme.LogFind, plain[m[0]:m[1]]))
 		last = m[1]
 	}
 	out.WriteString(plain[last:])

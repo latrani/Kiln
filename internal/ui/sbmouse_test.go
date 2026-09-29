@@ -76,7 +76,7 @@ func TestScrollbackSelectionCopiesLogicalLines(t *testing.T) {
 		t.Errorf("selection = %q; soft wraps must not become newlines", text)
 	}
 	rows := s.View(3)
-	if !strings.Contains(rows[0], reverse+"two") || !strings.Contains(rows[2], reverse+"red") {
+	if !strings.Contains(rows[0], theme.SGR(theme.ScrollbackSelection)+"two") || !strings.Contains(rows[2], theme.SGR(theme.ScrollbackSelection)+"red") {
 		t.Errorf("selection not highlighted: %q", rows)
 	}
 	s.StartSelect(a) // a click without moving selects nothing
@@ -104,7 +104,7 @@ func TestInputSelectionIgnoresSoftWraps(t *testing.T) {
 	in.StartSelect(2, 0)
 	in.DragTo(1, 2)
 	rows, _, _ := in.Render(5, 0, false, false)
-	if !strings.Contains(rows[0], reverse+"c") || strings.Contains(rows[2], reverse+"z") {
+	if !strings.Contains(rows[0], theme.SGR(theme.ScrollbackSelection)+"c") || strings.Contains(rows[2], theme.SGR(theme.ScrollbackSelection)+"z") {
 		t.Errorf("highlight wrong: %q", rows)
 	}
 	if got := in.EndSelect(); got != "cdefgh\nxy" {

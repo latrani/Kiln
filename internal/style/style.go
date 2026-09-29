@@ -46,9 +46,6 @@ func Apply(text string, s config.Style) string {
 		{Start: 0, End: len(text), Style: s, Styled: true}}})
 }
 
-// Dim renders text faint, for client-generated and sent lines.
-func Dim(text string) string { return "\x1b[2m" + text + Reset }
-
 // hexRGB parses "#rrggbb".
 func hexRGB(h string) (r, g, b uint8, ok bool) {
 	if len(h) != 7 || h[0] != '#' {

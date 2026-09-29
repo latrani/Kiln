@@ -160,3 +160,35 @@ link = { fg = "#131415" }`)
 		t.Error("pill not drawn in scrollback.pill")
 	}
 }
+
+func TestLogModeUsesTheme(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	th := withTheme(t, `[ui]
+"log.header" = { bg = "#010203" }
+"log.header.title" = { fg = "#0a0b0c" }
+"log.header.chip.on" = { fg = "#0d0e0f" }
+"log.time" = { fg = "#101112" }
+"log.cursor" = { fg = "#131415" }
+"log.find" = { fg = "#161718" }
+"log.day" = { fg = "#191a1b" }
+"log.bar" = { bg = "#1c1d1e" }
+"log.bar.hints" = { fg = "#1f2021" }`)
+	h.key("ctrl+l")
+	s := h.drawn()
+	for _, role := range []theme.Role{theme.LogHeader, theme.LogTitle, theme.LogTime, theme.LogCursor, theme.LogDay, theme.LogBar, theme.LogHints} {
+		if !strings.Contains(s, th.SGR(role)) {
+			t.Errorf("log mode doesn't draw %s", role)
+		}
+	}
+	h.key("1")
+	h.key("/")
+	h.typeText("Mira") // the chip shows only pages
+	h.key("enter")
+	s = h.drawn()
+	for _, role := range []theme.Role{theme.LogChipOn, theme.LogFind} {
+		if !strings.Contains(s, th.SGR(role)) {
+			t.Errorf("log mode doesn't draw %s", role)
+		}
+	}
+}
