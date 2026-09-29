@@ -197,12 +197,24 @@ the modal.
 5. **Later:** importing palettes from other tools (base16/base24 YAML,
    Ghostty and kitty theme files), and maybe ANSI remapping.
 
-## Open questions
+## Core tags
 
-- **A shared tag vocabulary.** A theme that styles `page/in` assumes the
-  pack emits it. Packs should agree on standard tags (say, `pose`, `say`,
-  `page`, `whisper`, `self`, `sys`), so themes carry between worlds. A
-  world's own special tags are styled in the world (see Choosing a theme).
+Themes can count on these. Packs emit them where their server makes that
+possible, and are free to add their own (a world's special tags are
+styled in the world; see Choosing a theme).
+
+| Tag | Lines |
+|---|---|
+| `page`, `page/in`, `page/out` | pages to you, and your own |
+| `whisper`, `whisper/in`, `whisper/out` | whispers to you, and your own |
+| `watchfor`, `watchfor/connect`, `watchfor/disconnect` | watchfor notices of people connecting and disconnecting |
+| `ooc` | out-of-character talk |
+| `system` | messages from the MUCK itself (not Kiln's own `*` lines, which are the `scrollback.sys` role) |
+| `self` | lines that mention you (Kiln tags these from the character's name and aliases) |
+
+`say` and `pose` aren't core: on a MUCK they're the bulk of ordinary
+scene text, not something to set apart. The fuzzball pack's `say` tag can
+stay as its own.
 
 ## Decided against
 
