@@ -271,7 +271,11 @@ func (m *Model) loadTheme() {
 		return // restyling would drop a selection for nothing
 	}
 	theme.SetActive(th)
-	for _, cs := range m.chars {
+	for _, k := range m.order { // in order, so which error shows is settled
+		cs := m.chars[k]
+		if err := cs.compile(); err != nil { // each highlighter holds the theme it was built on
+			m.setStatus(true, k+": "+err.Error())
+		}
 		render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
 		cs.sb.Rerender(render)
 		if cs.browse != nil {
@@ -320,22 +324,31 @@ func (m *Model) applyConfig(cfg *config.Config) {
 }
 
 // styleInputs is what a character's scrollback styling depends on: the
-// rules, and the name and aliases that classify its own lines.
+// rules, its looks, and the name and aliases that classify its own lines.
 func styleInputs(ch config.Character) any {
 	return struct {
 		rules   config.Rules
+		looks   []theme.Layer
 		name    string
 		aliases []string
-	}{ch.Rules, ch.Name, ch.Aliases}
+	}{ch.Rules, ch.Looks, ch.Name, ch.Aliases}
 }
 
+// compile builds cs's classifier, and its highlighter from the active
+// theme with the character's own looks on top. Looks that don't resolve
+// (a color nobody defines) leave the theme's own tag styles in use; the
+// error is returned for the caller to show.
 func (cs *charState) compile() error {
 	cls, err := classify.New(cs.ch.Rules.Classify, cs.ch.Name, cs.ch.Aliases)
 	if err != nil {
 		return err
 	}
-	cs.cls, cs.hl = cls, rules.New(theme.Active(), cs.ch.Rules.Attention, cs.ch.Rules.Quiet)
-	return nil
+	th, lookErr := theme.Active().With(cs.ch.Looks...)
+	if lookErr != nil {
+		th = theme.Active()
+	}
+	cs.cls, cs.hl = cls, rules.New(th, cs.ch.Rules.Attention, cs.ch.Rules.Quiet)
+	return lookErr
 }
 
 // logLayout is where ch's logs go; ok is false when there's nowhere.

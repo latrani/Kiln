@@ -501,3 +501,34 @@ func TestSecondaryButtons(t *testing.T) {
 		}
 	}
 }
+// Editing the theme's [tags] restyles lines already on screen.
+func TestThemeTagChangeRestyles(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("Mira pages: you around?")
+	writeUserTheme(t, h, "extends = \"default\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	if !strings.Contains(h.drawn(), "\x1b[1;38;2;10;11;12m") {
+		t.Error("the page wasn't restyled with the theme's new page/in color (bold from the built-in)")
+	}
+}
+
+// A world's look naming a color nobody defines is reported, and the
+// character still draws with the theme's own tag styles.
+func TestBadWorldLookFallsBackToTheme(t *testing.T) {
+	world := fmWorld + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
+	h := newHarness(t, map[string]string{"fm": world})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	want := "fm/kit: " + str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere")
+	if !strings.Contains(h.m.status, want) {
+		t.Errorf("status = %q, want the bad color reported", h.m.status)
+	}
+	h.show("Mira pages: you around?")
+	_, ts, _ := theme.Active().Tag("page/in")
+	if !strings.Contains(h.drawn(), ts.Style.SGR()+"Mira pages") {
+		t.Error("the page should draw in the theme's own page/in style")
+	}
+}
