@@ -1,0 +1,48 @@
+fm              │                                                               
+  @0-15 bold; @16-16 faint
+ Rook           │                                                               
+  @0-15 reverse; @16-16 faint
+ + Character    │                                                               
+  @0-16 faint
++ World         │                                                               
+  @0-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │* connected to muck.test:8888                                  
+  @16-45 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │Editing fm                                                     
+  @16-16 faint; @17-26 bold
+                │Host: muck.test                                                
+  @16-22 faint
+                │Port: 8888                                                     
+  @16-22 faint
+                │TLS:  [x]                                                      
+  @16-22 faint
+                │► More settings                                                
+  @16-16 faint
+                │[ Save ]                                                       
+  @16-16 faint
+                │[ Delete world ]  · Use enter or arrows to move between fields 
+  @16-16 faint; @33-79 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │fm/Kit · connected                                        21:15
+  @16-16 faint

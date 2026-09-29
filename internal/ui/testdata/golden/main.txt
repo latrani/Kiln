@@ -1,0 +1,48 @@
+fm              │                                                               
+  @0-15 bold; @16-16 faint
+ Kit            │                                                               
+  @0-15 reverse; @16-16 faint
+ × Rook      ● 3│                                                               
+  @13-13 bold,fg=#ffd166; @16-16 faint
++ Connection    │                                                               
+  @0-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │* connected to muck.test:8888                                  
+  @16-45 faint
+                │›connect Kit ***                                               
+  @16-32 faint
+                │Rook says, "Evening, Kit."                                     
+  @16-16 faint; @17-42 bold
+                │See https://kiln.test/map for the way                          
+  @16-16 faint; @21-41 underline
+                │›:waves.                                                       
+  @16-24 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │›                                                              
+  @16-16 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │fm/Kit · connected                                        21:15
+  @16-16 faint

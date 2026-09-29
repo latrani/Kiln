@@ -1,0 +1,48 @@
+fm              │                                                               
+  @0-15 bold; @16-16 faint
+ Rook           │                                                               
+  @0-15 reverse; @16-16 faint
+ + Character    │                                                               
+  @0-16 faint
++ World         │                                                               
+  @0-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │* connected to muck.test:8888                                  
+  @16-45 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │Filter:   · Enter to connect · Esc to close                    
+  @16-59 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │fm/Kit · connected                                        21:15
+  @16-16 faint

@@ -212,7 +212,7 @@ func assertGolden(t *testing.T, name, content string) {
 	}
 }
 
-func (h *harness) raw() string { return h.m.View().Content }
+func (h *harness) drawn() string { return h.m.View().Content }
 
 func TestGoldenCellsSeeThroughBytes(t *testing.T) {
 	a := cells("\x1b[7m\x1b[1mhi\x1b[0m")
@@ -247,23 +247,23 @@ func TestGoldenMain(t *testing.T) {
 	h.typeText(":waves.")
 	h.enter()
 	h.m.chars["fm/rook"].unread, h.m.chars["fm/rook"].attention = 3, true
-	assertGolden(t, "main", h.raw())
+	assertGolden(t, "main", h.drawn())
 }
 
 func TestGoldenPicker(t *testing.T) {
 	h := goldenHarness(t)
 	h.press('o', tea.ModCtrl)
-	assertGolden(t, "picker", h.raw())
+	assertGolden(t, "picker", h.drawn())
 }
 
 func TestGoldenEditor(t *testing.T) {
 	h := goldenHarness(t)
 	h.typeText("/edit world")
 	h.enter()
-	assertGolden(t, "editor", h.raw())
+	assertGolden(t, "editor", h.drawn())
 	h.focusOn(portLabel)
 	h.typeText("x") // rejected: shows the field's error
-	assertGolden(t, "editor-error", h.raw())
+	assertGolden(t, "editor-error", h.drawn())
 }
 
 func TestGoldenLog(t *testing.T) {
@@ -275,7 +275,7 @@ func TestGoldenLog(t *testing.T) {
 	h.key("/")
 	h.typeText("Rook")
 	h.key("enter") // find
-	assertGolden(t, "log", h.raw())
+	assertGolden(t, "log", h.drawn())
 }
 
 func TestGoldenInput(t *testing.T) {
@@ -285,7 +285,7 @@ func TestGoldenInput(t *testing.T) {
 	in.StartSelect(gutterWidth, 0) // select the first four cells, as a mouse drag would
 	in.DragTo(gutterWidth+4, 0)
 	h.m.setStatus(true, str.StatusNotSent(errors.New("x")))
-	assertGolden(t, "input", h.raw())
+	assertGolden(t, "input", h.drawn())
 }
 
 func TestGoldenScrolled(t *testing.T) {
@@ -297,7 +297,7 @@ func TestGoldenScrolled(t *testing.T) {
 	h.press(tea.KeyPgUp, 0)
 	l := h.m.layout()
 	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + len("line 30 h"), Y: l.sbH - 1})
-	assertGolden(t, "scrolled", h.raw())
+	assertGolden(t, "scrolled", h.drawn())
 }
 
 func TestGoldenPassword(t *testing.T) {
@@ -306,7 +306,7 @@ func TestGoldenPassword(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
 	h.typeText("s3cret")
-	assertGolden(t, "password", h.raw())
+	assertGolden(t, "password", h.drawn())
 }
 ```
 
@@ -1536,7 +1536,7 @@ sidebar = { bg = "#010203" }
 "sidebar.active" = { fg = "#0d0e0f" }
 "sidebar.attention" = { fg = "#101112" }
 divider = { fg = "#131415" }`)
-	s := h.raw()
+	s := h.drawn()
 	for _, role := range []theme.Role{theme.Sidebar, theme.SidebarWorld, theme.SidebarActive, theme.SidebarAttention, theme.Divider} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("screen doesn't draw %s", role)
@@ -1551,7 +1551,7 @@ func TestPickerUsesTheme(t *testing.T) {
 "picker.selected" = { fg = "#0d0e0f" }
 "picker.add" = { fg = "#101112" }`)
 	h.press('o', tea.ModCtrl)
-	s := h.raw()
+	s := h.drawn()
 	for _, role := range []theme.Role{theme.PickerWorld, theme.PickerSelected, theme.PickerAdd} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("picker doesn't draw %s", role)
@@ -1691,12 +1691,12 @@ func TestInputAreaUsesTheme(t *testing.T) {
 input = { bg = "#010203" }
 "input.over_limit" = { fg = "#0a0b0c" }
 "input.hint" = { fg = "#0d0e0f" }`)
-	s := h.raw() // disconnected: the input area shows a hint
+	s := h.drawn() // disconnected: the input area shows a hint
 	if !strings.Contains(s, th.SGR(theme.InputHint)) {
 		t.Error("hint not drawn in input.hint")
 	}
 	h.typeText("this line runs past twenty bytes")
-	if !strings.Contains(h.raw(), th.SGR(theme.InputOverLimit)) {
+	if !strings.Contains(h.drawn(), th.SGR(theme.InputOverLimit)) {
 		t.Error("over-limit text not drawn in input.over_limit")
 	}
 }
@@ -1710,7 +1710,7 @@ func TestInputAreaHasNoHoles(t *testing.T) {
 	h.typeText("this line runs past twenty bytes")
 	base := th.SGR(theme.Input)
 	l := h.m.layout()
-	row := strings.Split(h.raw(), "\n")[l.sbH+1]
+	row := strings.Split(h.drawn(), "\n")[l.sbH+1]
 	_, right, _ := strings.Cut(row, "│")
 	right = strings.TrimPrefix(right, theme.Reset) // the divider's own reset
 	if !strings.HasPrefix(right, base) {
@@ -1733,7 +1733,7 @@ func TestFormUsesTheme(t *testing.T) {
 "form.error" = { fg = "#131415" }`)
 	h.typeText("/edit world")
 	h.enter()
-	s := h.raw()
+	s := h.drawn()
 	for _, role := range []theme.Role{theme.FormLabel, theme.FormFocus, theme.FormTitle} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("editor doesn't draw %s", role)
@@ -1741,7 +1741,7 @@ func TestFormUsesTheme(t *testing.T) {
 	}
 	h.focusOn(portLabel)
 	h.typeText("x")
-	if !strings.Contains(h.raw(), th.SGR(theme.FormError)) {
+	if !strings.Contains(h.drawn(), th.SGR(theme.FormError)) {
 		t.Error("field error not drawn in form.error")
 	}
 }
@@ -1865,7 +1865,7 @@ status = { bg = "#010203" }
 "status.clock" = { fg = "#0d0e0f" }
 rule = { fg = "#101112" }`)
 	h.m.setStatus(true, "x")
-	s := h.raw()
+	s := h.drawn()
 	for _, role := range []theme.Role{theme.Status, theme.StatusError, theme.StatusClock, theme.Rule} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("screen doesn't draw %s", role)
@@ -1964,14 +1964,14 @@ link = { fg = "#131415" }`)
 	h.line("see https://kiln.test/map")
 	h.typeText(":waves.")
 	h.enter()
-	s := h.raw()
+	s := h.drawn()
 	for _, role := range []theme.Role{theme.ScrollbackSys, theme.ScrollbackEcho, theme.Link} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("scrollback doesn't draw %s", role)
 		}
 	}
 	h.press(tea.KeyPgUp, 0)
-	if !strings.Contains(h.raw(), th.SGR(theme.ScrollbackPill)) {
+	if !strings.Contains(h.drawn(), th.SGR(theme.ScrollbackPill)) {
 		t.Error("pill not drawn in scrollback.pill")
 	}
 }
@@ -2118,7 +2118,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 "log.bar" = { bg = "#1c1d1e" }
 "log.bar.hints" = { fg = "#1f2021" }`)
 	h.key("ctrl+l")
-	s := h.raw()
+	s := h.drawn()
 	for _, role := range []theme.Role{theme.LogHeader, theme.LogTitle, theme.LogTime, theme.LogCursor, theme.LogDay, theme.LogBar, theme.LogHints} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("log mode doesn't draw %s", role)
@@ -2128,7 +2128,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 	h.key("/")
 	h.typeText("Rook")
 	h.key("enter")
-	s = h.raw()
+	s = h.drawn()
 	for _, role := range []theme.Role{theme.LogChipOn, theme.LogFind} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("log mode doesn't draw %s", role)
@@ -2200,16 +2200,16 @@ func TestBackdropBehindModals(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.line("Rook pages: see https://kiln.test/map")
 	inactive := th.SGR(theme.ScrollbackInactive)
-	if strings.Contains(h.raw(), inactive) {
+	if strings.Contains(h.drawn(), inactive) {
 		t.Fatal("backdrop drawn with no modal open")
 	}
 	h.press('o', tea.ModCtrl)
-	s := h.raw()
+	s := h.drawn()
 	if !strings.Contains(s, inactive) || strings.Contains(s, th.SGR(theme.Link)) {
 		t.Errorf("behind the picker, the scrollback should be one plain inactive color:\n%q", s)
 	}
 	h.press(tea.KeyEscape, 0)
-	if strings.Contains(h.raw(), inactive) {
+	if strings.Contains(h.drawn(), inactive) {
 		t.Error("backdrop outlived the picker")
 	}
 }
@@ -2302,7 +2302,7 @@ func TestThemeReloads(t *testing.T) {
 	if want != "\x1b[2;38;2;10;11;12m" {
 		t.Fatalf("theme not reloaded: %q", want)
 	}
-	if !strings.Contains(h.raw(), want) {
+	if !strings.Contains(h.drawn(), want) {
 		t.Error("an echo line already on screen wasn't restyled")
 	}
 }

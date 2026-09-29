@@ -1,0 +1,48 @@
+fm              │                                                               
+  @0-15 bold; @16-16 faint
+ Kit            │                                                               
+  @0-15 reverse; @16-16 faint
++ Connection    │                                                               
+  @0-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │                                                               
+  @16-16 faint
+                │* connected to muck.test:8888                                  
+  @16-45 faint
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │›this line runs past twenty bytes                              
+  @16-16 faint; @18-22 reverse; @38-49 fg=ansi15,bg=ansi1
+                │───────────────────────────────────────────────────────────────
+  @16-79 faint
+                │fm/Kit · not sent: x                                      21:15
+  @16-16 faint; @26-36 fg=ansi1
