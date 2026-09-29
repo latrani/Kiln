@@ -160,7 +160,7 @@ func (m *Model) statusLine(w int) string {
 	if cs != nil {
 		name = cs.ch.World + "/" + cs.ch.Name
 		if cs.browse != nil {
-			name = bold + str.BrowseLog() + style.Reset + sep + str.ViewSelected(len(cs.browse.selection())) + sep + name
+			name = theme.Paint(theme.StatusLog, str.BrowseLog()) + sep + str.ViewSelected(len(cs.browse.selection())) + sep + name
 		}
 	}
 	var parts []string
@@ -170,7 +170,7 @@ func (m *Model) statusLine(w int) string {
 	if m.status != "" {
 		msg := m.status
 		if m.statusErr {
-			msg = red + msg + style.Reset
+			msg = theme.Paint(theme.StatusError, msg)
 		}
 		parts = append(parts, msg)
 	} else if cs != nil {
@@ -181,6 +181,7 @@ func (m *Model) statusLine(w int) string {
 		right = m.d.Version + sep + right
 	}
 	rw := xansi.StringWidth(right)
+	right = theme.Paint(theme.StatusClock, right)
 	if w <= rw {
 		return fit(right, w)
 	}
@@ -200,7 +201,7 @@ func (m *Model) View() tea.View {
 	var cursor *tea.Cursor
 	if cs != nil && cs.browse != nil {
 		rows, x, y, show := cs.browse.view(l.rw, m.height-1)
-		right = append(rows, m.statusLine(l.rw))
+		right = append(rows, theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
 		if show {
 			cursor = tea.NewCursor(l.sw+1+x, y)
 		}
@@ -220,12 +221,12 @@ func (m *Model) View() tea.View {
 		right = append(right, rows...)
 	}
 	if cs == nil || cs.browse == nil {
-		rule := style.Dim(strings.Repeat("─", l.rw))
+		rule := theme.Paint(theme.Rule, strings.Repeat("─", l.rw))
 		right = append(right, rule)
 		for _, r := range l.inRows {
 			right = append(right, theme.Fill(theme.Input, r, l.rw))
 		}
-		right = append(right, rule, m.statusLine(l.rw))
+		right = append(right, rule, theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
 	}
 
