@@ -111,7 +111,7 @@ func TestPickerClicks(t *testing.T) {
 		_, cmd := h.m.Update(tea.MouseClickMsg{X: 4, Y: y, Button: tea.MouseLeft})
 		return cmd
 	}
-	click(2) // rows: fm, Kit, + Open connection
+	click(3) // rows: fm, Kit, a gap, + Connection
 	if h.m.picker == nil {
 		t.Fatalf("clicking %s didn't open the picker:\n%s", addLabel, h.screen())
 	}
@@ -223,7 +223,7 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 		t.Errorf("Ctrl+O: picker opened or no status:\n%s", h.screen())
 	}
 	h.m.status = ""
-	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft}) // rows: fm, Kit, + Open connection
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: 3, Button: tea.MouseLeft}) // rows: fm, Kit, a gap, + Connection
 	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
 		t.Errorf("click: picker opened or no status:\n%s", h.screen())
 	}

@@ -74,12 +74,14 @@ alarm      = "#a51d1d"
 alarm-deep = "#f9dcdc"
 
 [ui]
-"sidebar"           = { fg = "celadon-ink" }
-"sidebar.world"     = { bold = true }
-"sidebar.active"    = { reverse = true }
-"sidebar.attention" = { fg = "beacon", bold = true }
-"sidebar.add"       = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
-"sidebar.more"      = { fg = "celadon-mid" }
+"sidebar"              = { fg = "celadon-ink" }
+"sidebar.char"         = { bold = true }
+"sidebar.connecting"   = { bold = true }
+"sidebar.disconnected" = { bold = true }
+"sidebar.active"       = { reverse = true, bold = true }
+"sidebar.attention"    = { fg = "beacon", bold = true }
+"sidebar.add"          = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
+"sidebar.more"         = { fg = "celadon-mid" }
 
 "picker"                = { fg = "kaki-ink" }
 "picker.world"          = { bold = true }

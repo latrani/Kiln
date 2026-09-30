@@ -27,7 +27,7 @@ func TestBuiltinLook(t *testing.T) {
 	}{
 		{ScrollbackEcho, "\x1b[2m"},
 		{Sidebar, "\x1b[38;2;160;227;225m"},
-		{SidebarActive, "\x1b[7;38;2;160;227;225m"},
+		{SidebarActive, "\x1b[1;7;38;2;160;227;225m"},
 		{SidebarAdd, "\x1b[1;38;2;192;237;235;48;2;11;61;59m"},
 		{RuleForm, "\x1b[38;2;205;181;162m"},
 		{FormButton, "\x1b[1;38;2;237;211;192;48;2;61;32;11m"},

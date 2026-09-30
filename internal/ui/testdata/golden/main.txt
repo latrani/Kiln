@@ -1,13 +1,13 @@
 fm              │                                                               
-  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
  Kit            │                                                               
-  @0-15 reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
  × Rook      ● 3│                                                               
-  @0-12 fg=#a0e3e1; @13-13 bold,fg=#ffd166; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
- + Connection   │                                                               
-  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+  @0-11 bold,fg=#a0e3e1; @12-12 fg=#a0e3e1; @13-13 bold,fg=#ffd166; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+ + Connection   │                                                               
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               

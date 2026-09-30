@@ -1219,7 +1219,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 			}
 		case r.kind == rowAdd:
 			m.openPicker()
-		case r.kind == rowWorld: // headers do nothing
+		case r.kind == rowWorld, r.kind == rowGap: // headers and gaps do nothing
 		case msg.X == badgeX && closable(m.chars[r.char]):
 			m.close(r.char)
 		default:

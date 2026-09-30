@@ -630,11 +630,11 @@ func manyChars(n int) string {
 }
 
 func TestSidebarScrolls(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 31 rows, 24 high
+	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 33 rows, 24 high
 	h.openAll()
 	rows := func() []string { return strings.Split(h.screen(), "\n") }
 	side := func(y int) string { return strings.TrimSpace(strings.SplitN(rows()[y], "│", 2)[0]) }
-	if side(0) != "big" || side(22) != "× C21" || side(23) != "▼ 9 more" {
+	if side(0) != "big" || side(22) != "× C21" || side(23) != "▼ 10 more" {
 		t.Fatalf("top of list:\n%s", h.screen())
 	}
 
@@ -645,14 +645,14 @@ func TestSidebarScrolls(t *testing.T) {
 	if h.m.active != "big/c25" || side(22) != "× C25" || side(0) != "▲ 5 more" {
 		t.Fatalf("active %s not in view:\n%s", h.m.active, h.screen())
 	}
-	if side(23) != "▼ 5 more" {
+	if side(23) != "▼ 6 more" {
 		t.Errorf("bottom row = %q", side(23))
 	}
 
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(22) != "× C29" || side(23) != addLabel || side(0) != "▲ 9 more" {
+	if side(21) != "× C29" || side(22) != "" || side(23) != addLabel || side(0) != "▲ 10 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -674,9 +674,9 @@ func TestSidebarScrolls(t *testing.T) {
 }
 
 func TestSidebarNoHintsWhenItFits(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(22)}) // 24 rows, 24 high
+	h := newHarness(t, map[string]string{"big": manyChars(21)}) // 24 rows, 24 high
 	h.openAll()
-	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C21") {
+	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C20") {
 		t.Errorf("screen:\n%s", s)
 	}
 }

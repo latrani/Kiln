@@ -1,11 +1,11 @@
 fm              │line 1 https://kiln.test/1                                     
-  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
- Kit            │line 2 https://kiln.test/2                                     
-  @0-15 reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
- + Connection   │line 3 https://kiln.test/3                                     
-  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
-                │line 4 https://kiln.test/4                                     
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
+ Kit            │line 2 https://kiln.test/2                                     
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
+                │line 3 https://kiln.test/3                                     
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
+ + Connection   │line 4 https://kiln.test/4                                     
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 5 https://kiln.test/5                                     
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 6 https://kiln.test/6                                     

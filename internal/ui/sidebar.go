@@ -112,7 +112,8 @@ type rowKind int
 const (
 	rowWorld    rowKind = iota // a world header
 	rowChar                    // a character
-	rowAdd                     // "+ Open connection"
+	rowGap                     // the blank row above rowAdd
+	rowAdd                     // "+ Connection"
 	rowAddChar                 // the picker's "+ Character", ending a world
 	rowAddWorld                // the picker's "+ World", ending the list
 )
@@ -133,8 +134,8 @@ const badgeX = 1
 // attentionMark prefixes the unread count when a line needed attention.
 func attentionMark() string { return theme.Paint(theme.SidebarAttention, "●") }
 
-// sidebarRows lists the open characters under their worlds, then the
-// open-connection row.
+// sidebarRows lists the open characters under their worlds, then a blank
+// row and the open-connection row.
 func (m *Model) sidebarRows() []sidebarRow {
 	var rows []sidebarRow
 	lastWorld := ""
@@ -145,6 +146,9 @@ func (m *Model) sidebarRows() []sidebarRow {
 			rows = append(rows, sidebarRow{kind: rowWorld, world: w})
 		}
 		rows = append(rows, sidebarRow{kind: rowChar, world: w, char: k})
+	}
+	if len(rows) > 0 {
+		rows = append(rows, sidebarRow{kind: rowGap})
 	}
 	return append(rows, sidebarRow{kind: rowAdd})
 }
@@ -244,6 +248,8 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	switch r.kind {
 	case rowWorld:
 		return theme.Paint(theme.SidebarWorld, fitName(r.world, w))
+	case rowGap:
+		return fit("", w)
 	case rowAdd:
 		return fit(chip(theme.SidebarAdd, addLabel), w)
 	}
