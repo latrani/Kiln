@@ -128,8 +128,6 @@ type charState struct {
 	sentGen     int              // hereGen when the last notification went out; -1: none yet
 	connectedAt time.Time        // when the current connection came up
 	lastSent    time.Time        // when the last notification went out
-	lastLine    time.Time        // when the last line arrived; see pageGap
-	lineAway    bool             // whether you were away when it did
 	held        string           // first notification held while you still counted as here; "" if none
 	heldMore    int              // how many more were held after it
 }
@@ -767,14 +765,6 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	ev := msg.ev
 	switch ev.Kind {
 	case session.EventLine:
-		// The pager: whatever was on screen before a new burst, or before
-		// you went away, counts as seen. While you're away, or looking at
-		// another character, nothing new does.
-		now, away, shown := m.d.Now(), m.away(), msg.key == m.active && cs.browse == nil
-		if shown && (!away && now.Sub(cs.lastLine) > pageGap || away && !cs.lineAway) {
-			cs.sb.MarkSeen()
-		}
-		cs.lastLine, cs.lineAway = now, away
 		text, res := cs.render(ev.Entry)
 		switch {
 		case !cs.echoes(ev.Entry):
@@ -946,11 +936,6 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// pageGap is how long a pause between incoming lines ends a burst: lines
-// closer together than this are one burst, and the pager stops a burst
-// that won't fit on the screen at its first line.
-const pageGap = time.Second
-
 // quitWindow is how long a first Ctrl+C or Ctrl+D waits for its second.
 const quitWindow = 2 * time.Second
 
@@ -1106,7 +1091,7 @@ func (m *Model) submit() tea.Cmd {
 	if cs.ch.NewlineMode == "flatten" {
 		lines = []string{strings.Join(lines, " ")}
 	}
-	secret := false
+	secret, echoed := false, false
 	for _, line := range lines {
 		e, err := cs.sess.Send(line)
 		if err != nil && !isLogErr(err) {
@@ -1117,7 +1102,8 @@ func (m *Model) submit() tea.Cmd {
 			m.setStatus(true, err.Error())
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
-		if cs.echoes(e) {
+		echoed = cs.echoes(e)
+		if echoed {
 			cs.sb.AppendLine(chromeLine(theme.ScrollbackEcho, gutterMark+ansi.Sanitize(e.Text)))
 		}
 	}
@@ -1126,7 +1112,7 @@ func (m *Model) submit() tea.Cmd {
 	} else {
 		cs.in.Commit()
 	}
-	cs.sb.ToBottom()
+	cs.sb.ToBottomKeeping(echoed) // what you send is where the pager picks up
 	return nil
 }
 

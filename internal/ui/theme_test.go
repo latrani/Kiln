@@ -161,7 +161,7 @@ link = { fg = "#131415" }`)
 		}
 	}
 	for i := 0; i < 40; i++ {
-		h.advance(2 * pageGap)
+		h.advance(2 * time.Second)
 		h.show(fmt.Sprintf("filler %d", i))
 	}
 	h.press(tea.KeyPgUp, 0)
@@ -281,7 +281,7 @@ func TestThemeReloadKeepsScroll(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	for i := 0; i < 40; i++ {
-		h.advance(2 * pageGap)
+		h.advance(2 * time.Second)
 		h.show(fmt.Sprintf("line %d", i))
 	}
 	h.press(tea.KeyPgUp, 0)

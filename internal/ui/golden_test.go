@@ -253,8 +253,9 @@ func TestGoldenInput(t *testing.T) {
 func TestGoldenScrolled(t *testing.T) {
 	h := goldenHarness(t)
 	for i := 0; i < 40; i++ {
-		h.advance(2 * pageGap)
+		h.advance(2 * time.Second)
 		h.show(fmt.Sprintf("line %d https://kiln.test/%d", i, i))
+		h.m.cur().sb.MarkSeen() // read as it comes, so the pager holds nothing
 	}
 	h.press(tea.KeyPgUp, 0)
 	h.drawn() // hover reads what the last View put on screen

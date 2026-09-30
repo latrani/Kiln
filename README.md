@@ -126,7 +126,7 @@ The sidebar lists the characters you have open. Click one to switch to it, doubl
 | `/open` | Open a connection (same as `Ctrl+O`) |
 | `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file as a `highlight` tag) |
-| `/away` | Count as away right now: output is held and notifications go out, until your next key or click |
+| `/away` | Count as away right now: notifications go out, until your next key or click |
 | `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |
 | `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see below) |
@@ -136,7 +136,7 @@ To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
 
 ### Paging
 
-Kiln never scrolls text past you unread. When a burst of output (a long room description, a `WHO` list) is taller than the screen, the view stops with its first line at the top, and the rest waits below behind the `▼ new` pill. The same happens with everything that arrives while you're away (see [Notifications](#notifications), or say `/away`), and when you switch to a character that piled up more than a screen while you were elsewhere. `PgDn` shows the next screenful, and `Esc`, clicking the pill, or sending a line jumps to live. Lines that trickle in (less than a second apart counts as one burst) scroll normally while you're here.
+Kiln never scrolls text past you unread. It counts what you've read up to the last line you sent (and up to wherever you've paged to). Once more has arrived since then than fits on the screen, the view stops with the first unread line at the top, and everything after it waits below behind the `▼ new` pill. With `local_echo` on, that first line is your own last sent line, so you can see what the new output answers. The time between lines and whether you're away make no difference, so room chatter piles up the same way a long room description or a `WHO` list does. `PgDn` shows the next screenful, and `Esc` or clicking the pill jumps to live. Sending a line starts over from there. Switching to a character that piled up more than a screen while you were elsewhere opens it at the first line you missed.
 
 ### Log mode
 

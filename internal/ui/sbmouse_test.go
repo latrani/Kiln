@@ -128,7 +128,16 @@ func clipboard(cmd tea.Cmd) string {
 	if cmd == nil {
 		return ""
 	}
-	msg := cmd()
+	// A timer (the status's expiry) would block for its whole wait, so the
+	// command gets a moment, and a clipboard write is quick.
+	res := make(chan tea.Msg, 1)
+	go func() { res <- cmd() }()
+	var msg tea.Msg
+	select {
+	case msg = <-res:
+	case <-time.After(100 * time.Millisecond):
+		return ""
+	}
 	if batch, ok := msg.(tea.BatchMsg); ok {
 		// Timers in the batch (the status's expiry) would block, so each
 		// command gets a moment and the clipboard is taken from whichever

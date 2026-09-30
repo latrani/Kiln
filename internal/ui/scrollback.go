@@ -234,6 +234,16 @@ func (s *Scrollback) ScrollDown(n int) {
 // ToBottom returns to the live view, where everything has been seen.
 func (s *Scrollback) ToBottom() { s.offset, s.unseen, s.seen = 0, 0, len(s.lines) }
 
+// ToBottomKeeping is ToBottom, except that with keep the last line stays
+// unseen: if new lines then fill the screen, the view stops with it (your
+// last sent line, echoed) at the top and the new ones below.
+func (s *Scrollback) ToBottomKeeping(keep bool) {
+	s.ToBottom()
+	if keep && s.seen > 0 {
+		s.seen--
+	}
+}
+
 // MarkSeen counts every line as seen, when the view is live: the next
 // Pause measures from the next line to arrive.
 func (s *Scrollback) MarkSeen() {
@@ -245,7 +255,8 @@ func (s *Scrollback) MarkSeen() {
 // Pause is the pager: when the lines not yet seen wrap to more than h
 // rows, it stops the live view with the first of them at the top, as if
 // scrolled up. Later lines pile up below as unseen; paging down (which
-// ends at the live view) shows them.
+// ends at the live view) shows them. Lines count as seen when you send
+// one, page to the end, or switch away (see the model).
 func (s *Scrollback) Pause(h int) {
 	if s.offset > 0 || h < 1 || s.seen >= len(s.lines) {
 		return
