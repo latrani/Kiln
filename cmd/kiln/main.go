@@ -1,6 +1,6 @@
 // Command kiln is a terminal MUCK client.
 //
-//	kiln                              the full-screen client
+//	kiln [--no-autoconnect]           the full-screen client, optionally with nothing opened at start
 //	kiln tail <world> <char>          connect, print output, send stdin lines
 //	kiln passwd <world> <char>        save a character's password (see password_store)
 //	kiln trust <world> <fingerprint>  accept a changed server certificate
@@ -49,7 +49,15 @@ func main() {
 // stdout is where commands print; tests swap it.
 var stdout io.Writer = os.Stdout
 
+// noAutoconnectFlag starts the full-screen client without opening any
+// character, whatever their autoconnect says.
+const noAutoconnectFlag = "--no-autoconnect" //str:ok: a flag
+
 func run(args []string) error {
+	noAuto := false
+	if len(args) == 1 && args[0] == noAutoconnectFlag {
+		noAuto, args = true, nil
+	}
 	if len(args) == 1 && (args[0] == "version" || args[0] == "--version") { //str:ok
 		_, err := fmt.Fprintln(stdout, version.String())
 		return err
@@ -73,7 +81,7 @@ func run(args []string) error {
 		return err
 	}
 	if len(args) == 0 {
-		return tui(cfgDir, dataDir, cfg)
+		return tui(cfgDir, dataDir, cfg, noAuto)
 	}
 	switch args[0] {
 	case "tail":
@@ -115,10 +123,26 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Print(out)
-		return nil
+		if isTerminal(stdout) && os.Getenv("NO_COLOR") == "" { //str:ok: an environment variable
+			ap := theme.Dark
+			if cfg.Appearance == "light" {
+				ap = theme.Light
+			}
+			if t, err := theme.Load(cfgDir, args[2], ap); err == nil {
+				out = theme.Swatches(out, t)
+			}
+		}
+		_, err = fmt.Fprint(stdout, out)
+		return err
 	}
 	return errors.New(str.CliUsage())
+}
+
+// isTerminal reports whether w is a terminal, where escape codes are for
+// people rather than a file.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(int(f.Fd()))
 }
 
 func findWorld(cfg *config.Config, id string) *config.World {
@@ -210,7 +234,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 	return nil
 }
 
-func tui(cfgDir, dataDir string, cfg *config.Config) error {
+func tui(cfgDir, dataDir string, cfg *config.Config, noAutoconnect bool) error {
 	watcher, err := config.Watch(cfgDir)
 	if err != nil {
 		return err
@@ -225,11 +249,12 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 		}
 	}()
 	m := ui.New(ui.Deps{
-		Tmux:       os.Getenv("TMUX") != "",
-		ConfigDir:  cfgDir,
-		LogRoot:    logRoot,
-		KnownHosts: knownHosts(dataDir),
-		Load:       config.Load,
+		Tmux:          os.Getenv("TMUX") != "",
+		NoAutoconnect: noAutoconnect,
+		ConfigDir:     cfgDir,
+		LogRoot:       logRoot,
+		KnownHosts:    knownHosts(dataDir),
+		Load:          config.Load,
 		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {
 			w, h, err := term.GetSize(int(os.Stdout.Fd()))
 			if err != nil {

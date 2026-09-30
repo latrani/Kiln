@@ -48,6 +48,7 @@ type Deps struct {
 	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
 	Tmux           bool                                            // inside tmux: wrap notifications for passthrough
+	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
 	Raw            func(seq string) tea.Cmd                        // writes straight to the terminal; default tea.Raw
 	Now            func() time.Time
 }
@@ -204,7 +205,7 @@ func New(d Deps, cfg *config.Config) *Model {
 		m.themeErr = nil
 	}
 	for _, ch := range m.allChars() {
-		if ch.Autoconnect {
+		if ch.Autoconnect && !d.NoAutoconnect {
 			m.open(key(ch.World, ch.ID))
 		}
 	}
@@ -215,7 +216,7 @@ func New(d Deps, cfg *config.Config) *Model {
 func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{tick(m.d.Now()), m.watch(), m.askBackground()}
 	for _, k := range m.order {
-		if m.chars[k].ch.Autoconnect {
+		if m.chars[k].ch.Autoconnect && !m.d.NoAutoconnect {
 			cmds = append(cmds, m.connect(m.chars[k]))
 		}
 	}

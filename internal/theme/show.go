@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -176,4 +177,66 @@ func tomlString(s string) string {
 	}
 	b.WriteByte('"')
 	return b.String()
+}
+
+// swatchGap is the space between a swatch and its line.
+const swatchGap = 2
+
+// Swatches is Show's text for the theme it was made from, with a swatch
+// in front of each line that sets a color: a block of it for a palette
+// entry, and for a role or tag the word "Sample" drawn in its style.
+// Every line moves over by the same amount, so the text lines up. It is
+// for a terminal; the escape codes aren't valid TOML, so the text to
+// save stays plain.
+func Swatches(text string, t *Theme) string {
+	sample := str.ThemeSwatchSample()
+	gutter := max(utf8.RuneCountInString(sample), blockWidth) + swatchGap
+	lines := strings.Split(text, "\n")
+	table := ""
+	for i, l := range lines {
+		if strings.HasPrefix(l, "[") { //str:ok: a TOML table header
+			table = strings.Trim(l, "[]")
+		}
+		if l == "" {
+			continue
+		}
+		sw, w := swatch(table, l, t, sample)
+		lines[i] = sw + strings.Repeat(" ", gutter-w) + l
+	}
+	return strings.Join(lines, "\n")
+}
+
+// blockWidth is the width of a palette entry's swatch.
+const blockWidth = 3
+
+// swatch is the swatch for one line of table, and its width; "" and 0
+// if the line sets no color.
+func swatch(table, line string, t *Theme, sample string) (string, int) {
+	key, val, ok := strings.Cut(line, " = ")
+	if !ok || strings.HasPrefix(line, "#") { //str:ok: a TOML comment
+		return "", 0
+	}
+	key = strings.Trim(key, `" `) //str:ok: TOML quotes
+	sampleW := utf8.RuneCountInString(sample)
+	switch {
+	case table == "palette" || strings.HasPrefix(table, "palette."): //str:ok: TOML tables
+		c, ok := resolve(strings.Trim(val, `"`), t.palette) //str:ok: TOML quotes
+		if !ok {
+			return "", 0
+		}
+		return "\x1b[" + c.code(true) + "m" + strings.Repeat(" ", blockWidth) + Reset, blockWidth
+	case table == "ui": //str:ok: TOML table
+		r := Role(key)
+		if s, ok := t.styles[r]; !ok || (s.fg == nil && s.bg == nil && !s.reverse) {
+			return "", 0
+		}
+		return t.Paint(r, sample), sampleW
+	case table == "tags": //str:ok: TOML table
+		if _, ts, ok := t.Tag(key); ok {
+			if sgr := ts.Style.SGR(); sgr != "" {
+				return sgr + sample + Reset, sampleW
+			}
+		}
+	}
+	return "", 0
 }

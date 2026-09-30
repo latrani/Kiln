@@ -51,7 +51,7 @@ store_none = 'password_store is "none"'
 [cli]
 usage = """
 usage:
-  kiln
+  kiln [--no-autoconnect]
   kiln tail <world> <char>
   kiln passwd <world> <char>
   kiln trust <world> <fingerprint>
@@ -310,6 +310,7 @@ bad_appearance_palette = "{file}: [palette.{name}] isn't an appearance (a palett
 bad_name = "theme {name:%q} isn't a theme name (a file name in themes/, without .toml)"
 palette_not_color = '{file}: palette {name:%q} must be a color written in quotes, like "#rrggbb"'
 builtin = "the built-in theme"
+swatch_sample = "Sample"
 show_merged = """
 {name}, with the themes it extends merged in. It looks the same saved
 as a file of its own. A role inherits from the one before its last dot."""

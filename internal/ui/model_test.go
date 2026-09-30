@@ -81,6 +81,8 @@ type harness struct {
 	pw      map[string]string
 	now     time.Time // what Deps.Now returns; tests may move it
 	raw     []string  // sequences written with Deps.Raw
+	deps    Deps      // what New was given, for tests that start another model
+	cfg     *config.Config
 }
 
 const fmWorld = `host = "muck.test"
@@ -167,6 +169,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 			return nil
 		},
 	}
+	h.deps, h.cfg = d, cfg
 	h.m = New(d, cfg)
 	h.m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	return h
@@ -309,6 +312,20 @@ func TestAutoconnectOnlyFlaggedCharacters(t *testing.T) {
 	}
 	if s := h.screen(); strings.Contains(s, "× Kit") || strings.Contains(s, "○") || !strings.Contains(s, str.SessionConnected("muck.test", 8888)) {
 		t.Errorf("screen:\n%s", s)
+	}
+}
+
+func TestNoAutoconnectOpensNothing(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	d := h.deps
+	d.NoAutoconnect = true
+	m := New(d, h.cfg)
+	if len(m.order) != 0 || len(m.chars) != 0 {
+		t.Errorf("opened %q at start", m.order)
+	}
+	m.Init() // the returned commands would dial; none should exist for kit
+	if len(h.conns) != 0 {
+		t.Errorf("dialed %d connections", len(h.conns))
 	}
 }
 

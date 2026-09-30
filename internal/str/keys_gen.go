@@ -141,7 +141,7 @@ func CliTrustHint(world, fingerprint any) string {
 	return get("cli.trust_hint", map[string]any{"world": world, "fingerprint": fingerprint})
 }
 
-// CliUsage is cli.usage: "usage:\n  kiln\n  kiln tail <world> <char>\n  kiln passwd <world> <char>\n  kiln trust <world> <fingerprint>\n  kiln theme show <theme>\n  kiln version"
+// CliUsage is cli.usage: "usage:\n  kiln [--no-autoconnect]\n  kiln tail <world> <char>\n  kiln passwd <world> <char>\n  kiln trust <world> <fingerprint>\n  kiln theme show <theme>\n  kiln version"
 func CliUsage() string { return get("cli.usage", nil) }
 
 // ConfigAddedByHighlight is config.added_by_highlight: "added by /highlight"
@@ -818,6 +818,9 @@ func ThemeRoleNotTable(file, role any) string {
 
 // ThemeShowMerged is theme.show_merged: "{name}, with the themes it extends merged in. It looks the same saved\nas a file of its own. A role inherits from the one before its last dot."
 func ThemeShowMerged(name any) string { return get("theme.show_merged", map[string]any{"name": name}) }
+
+// ThemeSwatchSample is theme.swatch_sample: "Sample"
+func ThemeSwatchSample() string { return get("theme.swatch_sample", nil) }
 
 // ThemeTagEntry is theme.tag_entry: "tag {name}"
 func ThemeTagEntry(name any) string { return get("theme.tag_entry", map[string]any{"name": name}) }

@@ -1,8 +1,11 @@
 package theme
 
 import (
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // sameLook reports the first role or tag where a and b draw differently.
@@ -74,5 +77,47 @@ func TestShowErrors(t *testing.T) {
 		if _, err := Show(dir, name); err == nil {
 			t.Errorf("Show(%s): no error", name)
 		}
+	}
+}
+
+func TestSwatchesDrawColorsAndLeavePlainTextPlain(t *testing.T) {
+	src := `# a comment = "#123456"
+
+[palette]
+gold = "#cdc1a2"
+odd  = "red"
+
+[ui]
+"input" = { fg = "gold" }
+"link"  = { bold = true }
+`
+	th, err := FromTOML(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(Swatches(src, th), "\n")
+	gold := "\x1b[48;2;205;193;162m"
+	for _, c := range []struct {
+		line int
+		want string // "" means no swatch
+	}{{0, ""}, {3, gold}, {4, "\x1b[41m"}, {7, th.SGR(Input)}, {8, ""}} {
+		has := strings.Contains(lines[c.line], "\x1b[")
+		if (c.want == "") == has || !strings.Contains(lines[c.line], c.want) {
+			t.Errorf("line %d = %q, want swatch %q", c.line, lines[c.line], c.want)
+		}
+	}
+	esc := regexp.MustCompile("\x1b\\[[0-9;]*m")
+	if a, b := esc.ReplaceAllString(lines[3], ""), esc.ReplaceAllString(lines[8], ""); strings.Index(a, "gold") != strings.Index(b, `"link"`) {
+		t.Errorf("text doesn't line up:\n%q\n%q", a, b)
+	}
+	// Take the swatches off again and the text is what went in.
+	plain := esc.ReplaceAllString(strings.Join(lines, "\n"), "")
+	plain = strings.ReplaceAll(plain, str.ThemeSwatchSample(), "")
+	var got []string
+	for _, l := range strings.Split(plain, "\n") {
+		got = append(got, strings.TrimSpace(l)) // the gutter; the test's lines start at column 0
+	}
+	if strings.Join(got, "\n") != src {
+		t.Errorf("text changed:\n%s", strings.Join(got, "\n"))
 	}
 }

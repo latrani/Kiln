@@ -83,7 +83,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 3. **Save the password** (optional). Run `kiln passwd furrymuck Kit`. If you skip this, Kiln asks for the password when it connects and offers to save it.
 
-4. **Run `kiln`.** Characters with `autoconnect = true` open and log in. Press `Ctrl+O` (or click `+ Open connection`, or type `/open`) to open another.
+4. **Run `kiln`.** Characters with `autoconnect = true` open and log in (`kiln --no-autoconnect` skips that for one run). Press `Ctrl+O` (or click `+ Open connection`, or type `/open`) to open another.
 
 You can also edit worlds and characters from inside Kiln (`Ctrl+T` or `/edit` for the active character, or `Ctrl+T` on anything in the `Ctrl+O` list): a world's server and settings, a character's aliases and settings, and forgetting a saved password or deleting a character (logs are kept) or an empty world. Kiln changes only the lines it has to, so your comments and layout stay put.
 
@@ -391,11 +391,11 @@ Every file looks like this:
 ## Other commands
 
 ```
-kiln                               the full-screen client
+kiln [--no-autoconnect]            the full-screen client (with the flag, nothing opens at start)
 kiln tail <world> <char>           connect, print output, send lines typed on stdin
 kiln passwd <world> <char>         save a character's password (see password_store)
 kiln trust <world> <fingerprint>   accept a changed server certificate
-kiln theme show <theme>            print a theme, merged into one file
+kiln theme show <theme>            print a theme, merged into one file (swatches after each color on a terminal)
 kiln version                       print Kiln's version (also --version)
 ```
 
