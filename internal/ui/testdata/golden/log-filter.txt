@@ -1,27 +1,27 @@
  Untagged       │fm · Kit                                        Filter  ·  Log 
   @0-0 fg=#a0b7e3; @1-8 bold,fg=#a0b7e3; @9-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-63 fg=#a0b7e3; @64-71 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @72-74 fg=#a0b7e3; @75-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
   Hide Only     │───────────────────────────────────────────────────────────────
-  @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+  @0-1 fg=#a0b7e3; @2-5 fg=#8b98b1; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │── Thu Sep 24 ──                                               
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-32 faint
- ▼ page         │21:04   Kit grins.                                             
-  @0-0 fg=#a0b7e3; @1-6 bold,fg=#a0b7e3; @7-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 reverse; @25-34 bold
-  Hide Only     │                                                               
-  @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-   in           │                                                               
-  @0-2 fg=#a0b7e3; @3-4 bold,fg=#a0b7e3; @5-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-    Hide Only   │                                                               
-  @0-3 fg=#a0b7e3; @4-7 bold,fg=#c0cfed,bg=#0b1b3d; @8-8 fg=#a0b7e3; @9-12 fg=#8b98b1; @13-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
- self           │                                                               
-  @0-0 fg=#a0b7e3; @1-4 reverse,fg=#a0b7e3; @5-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-  Hide Only     │                                                               
-  @0-1 fg=#a0b7e3; @2-5 fg=#8b98b1; @6-6 fg=#a0b7e3; @7-10 bold,fg=#c0cfed,bg=#0b1b3d; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
+ ► page         │21:00   Rook says, "Evening!"                                  
+  @0-0 fg=#a0b7e3; @1-6 bold,fg=#a0b7e3; @7-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint
+  Hide Only     │21:01   Sable waves a paw.                                     
+  @0-1 fg=#a0b7e3; @2-5 fg=#8b98b1; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint
+                │21:02   Mira pages: you around?                                
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint; @25-47 bold,fg=#ff9f43
+ self           │21:03   ›:grins.                                               
+  @0-0 fg=#a0b7e3; @1-4 bold,fg=#a0b7e3; @5-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint; @25-32 faint
+  Hide Only     │21:05   Rook says, "The lighthouse is dark."                   
+  @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint
+                │21:06   Rook yawns.                                            
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 reverse
  + Text         │                                                               
   @0-0 fg=#a0b7e3; @1-6 bold,fg=#c0cfed,bg=#0b1b3d; @7-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │                                                               

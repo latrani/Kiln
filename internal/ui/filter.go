@@ -68,6 +68,7 @@ func (b *browse) entries() []panelEntry { return b.entriesOf(b.items()) }
 
 // entriesOf is entries for items already in hand.
 func (b *browse) entriesOf(items []scene.Item) []panelEntry {
+	b.foldNew(items)
 	var out []panelEntry
 	for i, it := range items {
 		if !it.Text && b.foldedAway(it.Name) {
@@ -81,6 +82,29 @@ func (b *browse) entriesOf(items []scene.Item) []panelEntry {
 		out = append(out, e)
 	}
 	return append(out, panelEntry{add: true})
+}
+
+// foldNew folds each parent tag, at any depth, the first time the panel
+// sees it; after that it stays as the reader left it.
+func (b *browse) foldNew(items []scene.Item) {
+	cs := b.cs
+	for i, it := range items {
+		if it.Text || i+1 >= len(items) || items[i+1].Text || !strings.HasPrefix(items[i+1].Name, it.Name+"/") || cs.foldSeen[it.Name] {
+			continue
+		}
+		if cs.foldSeen == nil {
+			cs.foldSeen, cs.collapsed = map[string]bool{}, nilToEmpty(cs.collapsed)
+		}
+		cs.foldSeen[it.Name] = true
+		cs.collapsed[it.Name] = true
+	}
+}
+
+func nilToEmpty(m map[string]bool) map[string]bool {
+	if m == nil {
+		return map[string]bool{}
+	}
+	return m
 }
 
 // hasChildren reports whether any loaded tag sits under tag.

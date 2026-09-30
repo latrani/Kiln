@@ -121,6 +121,7 @@ type charState struct {
 	browse      *browse          // non-nil while browse mode is open
 	filter      scene.Filter     // log mode's filter; outlasts a log-mode session
 	collapsed   map[string]bool  // filter panel parents folded shut, by tag
+	foldSeen    map[string]bool  // parents the panel has already met; a new one starts folded
 	hist        *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
 	sentGen     int              // hereGen when the last notification went out; -1: none yet

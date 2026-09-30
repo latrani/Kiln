@@ -24,6 +24,13 @@ func panelSide(h *harness) []string {
 	return out
 }
 
+// unfold opens every parent the panel has met, for tests that aren't
+// about folding: parents start folded.
+func unfold(h *harness) {
+	h.br().entries()
+	clear(h.m.chars["fm/kit"].collapsed)
+}
+
 func buttons() string { return str.FilterHide() + " " + str.FilterOnly() }
 
 func TestPanelOpensAndCloses(t *testing.T) {
@@ -32,10 +39,18 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side := panelSide(h)
-	want := []string{str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	// Parents start folded; → opens one.
+	want := []string{str.FilterUntagged(), buttons(), "", glyphCollapsed + " page", buttons(), "", "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
+		}
+	}
+	h.keys("down", "right")
+	want = []string{str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	for i, w := range want {
+		if side := panelSide(h); side[i] != w {
+			t.Fatalf("opened: panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.key("f")
@@ -55,6 +70,7 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
+	unfold(h)
 	h.kitFilter().PressOnly(scene.Item{Name: "self"}, h.br().items())
 	s := h.drawn()
 	on := func(label string) string { return theme.Paint(theme.FilterButtonOn, label) }
@@ -68,6 +84,7 @@ func TestPanelKeys(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
+	unfold(h)
 	b, f := h.br(), h.kitFilter()
 	page, in, self := scene.Item{Name: "page"}, scene.Item{Name: "page/in"}, scene.Item{Name: "self"}
 	h.key("down") // past Untagged
@@ -106,6 +123,7 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
+	unfold(h)
 	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
 	if got := panelSide(h)[3]; got != glyphCollapsed+" page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
@@ -117,6 +135,7 @@ func TestPanelClicks(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
+	unfold(h)
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
 	// Rows: 0 Untagged, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
@@ -320,6 +339,7 @@ func TestPanelLogModeKeys(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
+	unfold(h)
 	h.keys("down", "j") // past Untagged, then j
 	if h.br().panel.sel.item != (scene.Item{Name: "page/in"}) {
 		t.Errorf("j should move down: %v", h.br().panel.sel)
@@ -374,6 +394,7 @@ func TestPanelListsFilteredTagsNotLoaded(t *testing.T) {
 	h.key("ctrl+l")
 	h.kitFilter().PressOnly(scene.Item{Name: "whisper/in"}, h.br().items())
 	h.key("f")
+	unfold(h)
 	side := panelSide(h)
 	if !slices.Contains(side, glyphOpen+" whisper") || !slices.Contains(side, "in") {
 		t.Errorf("whisper/in (Only, no lines loaded) not listed:\n%s", h.screen())
@@ -412,5 +433,33 @@ func TestPanelTextRowRemovesWithClickOnX(t *testing.T) {
 	b.panelClick(1, y, 100) // the × (one space in)
 	if n := len(h.kitFilter().Texts()); n != 0 {
 		t.Errorf("clicking × left %d text rows", n)
+	}
+}
+
+// Every parent folds the first time the panel sees it, however deep, and
+// stays as the reader leaves it.
+func TestNestedParentsStartFolded(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b, cs := h.br(), h.m.chars["fm/kit"]
+	items := []scene.Item{{Name: "a"}, {Name: "a/b"}, {Name: "a/b/c"}, {Name: "z"}}
+	b.entriesOf(items)
+	if !cs.collapsed["a"] || !cs.collapsed["a/b"] || cs.collapsed["a/b/c"] || cs.collapsed["z"] {
+		t.Errorf("collapsed = %v, want a and a/b only", cs.collapsed)
+	}
+	var names []string
+	for _, e := range b.entriesOf(items) {
+		if !e.add {
+			names = append(names, e.item.Name)
+		}
+	}
+	if strings.Join(names, " ") != "a z" {
+		t.Errorf("listed %v, want just a and z", names)
+	}
+	delete(cs.collapsed, "a") // the reader opens a
+	b.entriesOf(items)
+	if cs.collapsed["a"] || !cs.collapsed["a/b"] {
+		t.Errorf("after opening a: %v, a should stay open", cs.collapsed)
 	}
 }
