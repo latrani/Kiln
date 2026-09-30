@@ -68,8 +68,8 @@ Log mode's body loses one, to the hint row's new bottom rule.
 - With no active character the bar is painted and empty.
 - Gone from log mode: the `LOG Kit` title and the date range
   (`Thu Sep 24 → today`). The empty log body says "no logs yet"
-  (`browse.no_logs`) instead, as the main pane says when there are no
-  characters.
+  (`browse.no_logs`, styled `log.loading` like the body's other notice)
+  instead.
 
 ## The bottom bar
 
@@ -78,7 +78,8 @@ Left-aligned, nothing on the right: no clock, no version.
 - **Normal mode:** the connection state.
   - Connected: `Connected since 19:41`, local 24-hour time of when the
     current connection came up (`charState.connectedAt`). For a
-    connection that came up before today: `Connected since Mon 19:41`.
+    connection that came up before today, the day goes first in the
+    log's day format (`str.DateDay`): `Connected since Mon Sep 28 19:41`.
     The text changes only when the connection changes, and once at
     midnight.
   - Otherwise the state as now: connecting, disconnected, failed.
@@ -86,7 +87,8 @@ Left-aligned, nothing on the right: no clock, no version.
 - A **status message** takes the bar's place while it shows, in either
   mode, as normal mode's messages do now. Log mode's own messages
   ("copied 3 lines", "2 lines in range", errors), which today replace the
-  hints in the action bar, move here.
+  hints in the action bar, move here; errors paint in `status.error` like
+  any other.
 - With no active character, the bar shows messages only.
 
 ## Log mode's hint row
@@ -118,6 +120,7 @@ Gone from the screen. `kiln version` and `kiln --version` print
 | `status.filter`, `status.filter.on` | **new**, the Filter chip; the built-in styles them like `status.log` and `.on` |
 | `status.clock` | **removed** |
 | `log.header`, `log.header.title`, `log.header.chip`, `log.header.chip.on` | **removed** |
+| `log.bar.error` | **removed** (log mode's errors now show in the bottom bar as `status.error`) |
 
 A theme naming a removed role fails to load like any unknown role
 (`theme.unknown_role`); no alias, no warning.
@@ -131,7 +134,7 @@ change to match.
   `view.connected_since_day` (`Connected since {day} {time}`). `kiln
   version` prints the bare version string, like `version.String()`
   returns it, so it needs no catalog entry beyond a `//str:ok`.
-- Removed: `browse.to_today`, `filter.title` (the panel title; the chip
+- Removed: `browse.to_today`, `browse.log` (the `LOG` title), `filter.title` (the panel title; the chip
   label moves to a new `view.filter_button`, like `view.log_button`).
 - `browse.no_logs` moves from the header to the empty body.
 
@@ -150,7 +153,7 @@ Commits list the keys in a `Strings:` trailer.
   hints.
 - Nothing in the view depends on the minute: the same state drawn at two
   times a minute apart is the same screen (with a connection from today).
-- A theme naming `status.clock` or `log.header` fails with
+- A theme naming `status.clock`, `log.header` or `log.bar.error` fails with
   `unknown_role`.
 - `kiln version` / `--version`.
 - Golden screens: every one changes, on purpose.
