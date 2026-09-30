@@ -59,15 +59,14 @@ either.)
 
 Away covers every character, including the active one.
 
-**Holding.** A line that would notify, but arrives while you still count
-as here (focused, idle under `notify_idle`), is held instead of dropped,
-so something sent just after you look away isn't missed. Per character,
-the first held line is kept and later ones counted. A timer fires at
-`lastHere + notify_idle`; if you haven't come back since (`hereGen`
-unchanged), each character with something held sends one notification:
-`Name: line (+N more)`. Coming back drops everything held. Blur doesn't
-flush early (you'd be notified about what you'd just read); held lines
-wait for their deadline. With `notify_idle = "0"` nothing is held.
+**No holding.** Only a line that arrives while you're away notifies. An
+earlier version held lines that arrived while you still counted as here and
+sent them if `notify_idle` passed without you coming back, so that
+something sent just after you looked away wasn't missed. With blur
+detection that only produced notifications for lines you'd already read, so
+it's gone: what arrived while you were here, you saw. Where focus events
+don't reach Kiln (mosh, tmux without `focus-events`), idle is the only
+signal, so the first `notify_idle` after you leave isn't covered.
 
 System lines (connect, disconnect) never notify.
 

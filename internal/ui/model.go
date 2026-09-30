@@ -128,8 +128,6 @@ type charState struct {
 	sentGen     int              // hereGen when the last notification went out; -1: none yet
 	connectedAt time.Time        // when the current connection came up
 	lastSent    time.Time        // when the last notification went out
-	held        string           // first notification held while you still counted as here; "" if none
-	heldMore    int              // how many more were held after it
 }
 
 // sbOlderMsg carries older scrollback lines, read and rendered off the UI
@@ -180,9 +178,6 @@ type (
 	// statusExpiredMsg fires statusTimeout after a status is set; it
 	// carries that status's generation, and only the latest clears.
 	statusExpiredMsg int
-	// notifyDueMsg fires notify_idle after you were last here; it
-	// carries that hereGen, and is stale once you've come back.
-	notifyDueMsg int
 )
 
 // New builds the model from an already-loaded config and opens the
@@ -650,10 +645,6 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.BlurMsg:
 		m.focused = false
-	case notifyDueMsg:
-		if int(msg) == m.hereGen { // you haven't come back since
-			return m, m.flushHeld()
-		}
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
 			if msg.theme != theme.Active() { // rendered in a theme since replaced
@@ -1128,7 +1119,7 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 	if args[0] == "/away" {
 		m.awayNow = true
 		m.setStatus(false, str.StatusAway())
-		return m.flushHeld()
+		return nil
 	}
 	if cs == nil && args[0] != "/quit" && args[0] != "/open" {
 		m.setStatus(true, str.StatusNeedsCharacter(args[0]))

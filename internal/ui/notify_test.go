@@ -8,8 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/latrani/Kiln/internal/logstore"
-	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -331,97 +329,33 @@ func TestBurstNotifiesOnce(t *testing.T) {
 	}
 }
 
-func TestHeldLineSentAfterIdle(t *testing.T) {
+// Only what arrives while you're away notifies. A line you saw while
+// here is never sent later, however long you then stay away.
+func TestLineSeenWhileHereNeverNotifiesLater(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
-	h.line("Rook says, \"you there?\"") // you just looked away, but still count as here
-	if got := h.notified(); len(got) != 0 {
-		t.Fatalf("sent before idle: %q", got)
-	}
-	h.advance(5 * time.Minute)
-	h.m.Update(notifyDueMsg(h.m.hereGen))
-	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Rook says, \"you there?\"")}) {
-		t.Errorf("got %q", got)
-	}
-	h.m.Update(notifyDueMsg(h.m.hereGen)) // a second timer finds nothing held
-	if got := h.notified(); len(got) != 0 {
-		t.Errorf("sent twice: %q", got)
-	}
-}
-
-func TestHeldLinesCountMore(t *testing.T) {
-	h := notifyHarness(t, "all", nil)
-	h.line("Rook says, \"one\"")
-	h.advance(time.Second)
-	h.line("Rook says, \"two\"")
-	h.advance(time.Second)
-	h.line("Rook says, \"three\"")
-	h.m.Update(notifyDueMsg(h.m.hereGen))
-	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Rook says, \"one\" (+2 more)")}) {
-		t.Errorf("got %q", got)
-	}
-}
-
-func TestComingBackDropsHeld(t *testing.T) {
-	h := notifyHarness(t, "all", nil)
-	h.line("Rook says, \"hi\"")
-	gen := h.m.hereGen
-	h.typeText("x") // you saw it
-	h.m.Update(notifyDueMsg(gen))
-	h.m.Update(notifyDueMsg(h.m.hereGen))
-	if got := h.notified(); len(got) != 0 {
-		t.Errorf("sent after you came back: %q", got)
-	}
-}
-
-func TestBlurDoesntFlushHeld(t *testing.T) {
-	h := notifyHarness(t, "all", nil)
-	h.line("Rook says, \"hi\"")
+	h.line("Rook says, \"you there?\"") // here: focused, just typed
 	h.m.Update(tea.BlurMsg{})
+	h.advance(10 * time.Minute)
+	h.m.Update(tea.FocusMsg{})
+	h.m.Update(tea.BlurMsg{})
+	h.advance(10 * time.Minute)
 	if got := h.notified(); len(got) != 0 {
-		t.Errorf("blur flushed a line you'd just seen: %q", got)
+		t.Errorf("notified about a line you saw: %q", got)
 	}
-	h.m.Update(notifyDueMsg(h.m.hereGen))
-	if got := h.notified(); len(got) != 1 {
-		t.Errorf("held line lost after blur: %q", got)
-	}
-}
-
-func TestNoHoldingWithIdleOff(t *testing.T) {
-	h := notifyHarness(t, "all", nil)
-	h.m.cfg.NotifyIdle = 0
-	h.line("Rook says, \"hi\"")
-	h.m.Update(notifyDueMsg(h.m.hereGen))
-	if got := h.notified(); len(got) != 0 {
-		t.Errorf("held with notify_idle off: %q", got)
-	}
-}
-
-func TestHeldRespectsLevel(t *testing.T) {
-	h := notifyHarness(t, "attention", nil)
-	h.line("Rook says, \"hi\"")
-	h.advance(time.Second)
-	h.line("Mira pages: you around?")
-	h.m.Update(notifyDueMsg(h.m.hereGen))
-	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Mira pages: you around?")}) {
+	h.line("Rook says, \"hello?\"") // now you're away
+	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Rook says, \"hello?\"")}) {
 		t.Errorf("got %q", got)
 	}
 }
 
-func TestHoldingSchedulesTheDeadline(t *testing.T) {
+// Idle counts as away for a line that arrives after notify_idle, which
+// is the way to tell when focus events don't reach Kiln.
+func TestIdleNotifiesOnlyWhatArrivesAfterIt(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
-	h.m.cfg.NotifyIdle = 20 * time.Millisecond
-	h.m.here()
-	cs := h.m.chars["fm/kit"]
-	cmd := h.m.notifyCmd(cs, logstore.Entry{Dir: logstore.In, Text: "Rook says, \"hi\""}, rules.Result{})
-	if cmd == nil {
-		t.Fatal("nothing scheduled")
-	}
-	start := time.Now()
-	msg, ok := cmd().(notifyDueMsg)
-	if !ok || int(msg) != h.m.hereGen {
-		t.Fatalf("got %#v, want notifyDueMsg(%d)", msg, h.m.hereGen)
-	}
-	if waited := time.Since(start); waited < 15*time.Millisecond {
-		t.Errorf("fired after %v, before notify_idle", waited)
+	h.line("Rook says, \"early\"") // here: input within notify_idle
+	h.advance(6 * time.Minute)     // no focus events, and no input since
+	h.line("Rook says, \"late\"")
+	if got := h.notified(); !slices.Equal(got, []string{osc("Kit: Rook says, \"late\"")}) {
+		t.Errorf("got %q", got)
 	}
 }

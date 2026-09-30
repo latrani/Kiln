@@ -502,11 +502,6 @@ func NotifyBadLevel() string { return get("notify.bad_level", nil) }
 // NotifyBadMethod is notify.bad_method: "notify_method must be \"osc\", \"bell\" or \"both\""
 func NotifyBadMethod() string { return get("notify.bad_method", nil) }
 
-// NotifyHeldMore is notify.held_more: "{msg} (+{n} more)"
-func NotifyHeldMore(msg any, n int) string {
-	return get("notify.held_more", map[string]any{"msg": msg, "n": n})
-}
-
 // NotifyLevel is notify.level: "notify level: {level}"
 func NotifyLevel(level any) string { return get("notify.level", map[string]any{"level": level}) }
 
