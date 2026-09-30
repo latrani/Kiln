@@ -232,12 +232,13 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 		}
 		return nil
 	}
-	f := newForm(str.EditorHint(), sectionField(extraLabel),
-		asExtra(aliases),
-		asExtra(inheritChoice(autoconnLabel, onOff(inh.Autoconnect), "on", "off")),
-		asExtra(inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off")),
-		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none")),
-		asExtra(inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off")),
+	// Every character setting is an extra one, so none hide behind a
+	// section header.
+	f := newForm(str.EditorHint(), aliases,
+		inheritChoice(autoconnLabel, onOff(inh.Autoconnect), "on", "off"),
+		inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off"),
+		inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none"),
+		inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off"),
 		primaryButton(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
 	f.title = str.EditorEditing(name)
 	f.fields[f.field(aliasesLabel)].in.SetValue(strings.Join(s.Aliases, ", "))

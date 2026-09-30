@@ -107,8 +107,6 @@ func TestEditCharacterCommand(t *testing.T) {
 	if !strings.Contains(h.screen(), "│Editing fm/Kit") {
 		t.Errorf("the editor doesn't say whose it is:\n%s", h.screen())
 	}
-	h.focusOn(extraLabel)
-	h.enter()
 	h.focusOn("Aliases")
 	h.typeText("Kitty, K")
 	h.focusOn("Autoconnect")
@@ -227,8 +225,6 @@ func TestTallFormScrolls(t *testing.T) {
 func TestEditCharacterNotify(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("/edit")
-	h.enter()
-	h.focusOn(extraLabel)
 	h.enter()
 	h.focusOn(notifyLabel)
 	if !strings.Contains(h.screen(), str.EditorDefault("first")) {
