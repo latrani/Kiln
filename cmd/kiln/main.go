@@ -226,7 +226,6 @@ func tui(cfgDir, dataDir string, cfg *config.Config) error {
 	}()
 	m := ui.New(ui.Deps{
 		Tmux:       os.Getenv("TMUX") != "",
-		Version:    version.String(),
 		ConfigDir:  cfgDir,
 		LogRoot:    logRoot,
 		KnownHosts: knownHosts(dataDir),

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -100,5 +101,35 @@ func TestCursorBelowTheTopBar(t *testing.T) {
 	l := h.m.layout()
 	if c := h.m.View().Cursor; c == nil || c.Y != l.top+l.sbH+1 {
 		t.Errorf("input cursor at %v, want row %d", c, l.top+l.sbH+1)
+	}
+}
+
+// When the name leaves too little room, Filter goes before Log does, and
+// a chip that isn't drawn has no columns to click.
+func TestTopBarDropsFilterFirst(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	lw := len(chipText(str.ViewLogButton()))
+	fw := len(chipText(str.ViewFilterButton()))
+	w := lw + fw + 1 // no room for a name beside both
+	line, logc, filt := h.m.topBar(w)
+	if filt != [2]int{} || logc != [2]int{w - lw, w} || !strings.HasSuffix(ansi.Strip(line), chipText(str.ViewLogButton())) {
+		t.Errorf("topBar(%d) = %q, log %v, filter %v; want Log alone", w, ansi.Strip(line), logc, filt)
+	}
+	if _, logc, filt := h.m.topBar(lw + 1); logc != [2]int{} || filt != [2]int{} {
+		t.Errorf("too narrow for any chip: log %v, filter %v", logc, filt)
+	}
+}
+
+// "no logs yet" only once there's nothing left to load.
+func TestNoLogsYetWaitsForHistory(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.key("ctrl+l")
+	b := h.br()
+	b.histDone, b.loading = false, true // an older day on its way
+	rows, _, _, _ := b.view(60, 20)
+	if strings.Contains(ansi.Strip(strings.Join(rows, "\n")), str.BrowseNoLogs()) {
+		t.Error("no logs yet shown while history is still loading")
 	}
 }

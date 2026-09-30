@@ -209,7 +209,10 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
 	logc := chip(logRole, str.ViewLogButton())
 	fw, lw := xansi.StringWidth(filt), xansi.StringWidth(logc)
 	start := w - fw - lw
-	if start < 2 { // no room for the chips beside a name
+	if start < 2 { // too tight for both beside a name: Filter goes first
+		filt, fw, start = "", 0, w-lw
+	}
+	if start < 2 { // no room for a chip at all
 		return fitName(left, w), logChip, filterChip
 	}
 	if fw > 0 {

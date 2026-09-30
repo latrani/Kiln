@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/version"
 )
 
 func TestStatusTimesOut(t *testing.T) {
@@ -64,8 +65,7 @@ func TestBottomBarConnectedSince(t *testing.T) {
 
 func TestBottomBarHasNoClockOrVersion(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.d.Version = "v0.2.1"
-	if s := h.screen(); strings.Contains(s, "v0.2.1") || strings.Contains(s, "21:14") {
+	if s := h.screen(); strings.Contains(s, version.String()) || strings.Contains(s, "21:14") {
 		t.Errorf("clock or version on screen:\n%s", s)
 	}
 }

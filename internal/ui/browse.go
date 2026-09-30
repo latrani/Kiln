@@ -817,7 +817,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 
 	// Body.
 	b.rowLines = b.rowLines[:0]
-	if len(b.lines) == 0 {
+	if len(b.lines) == 0 && b.histDone {
 		rows = append(rows, theme.Paint(theme.LogLoading, str.BrowseNoLogs()))
 		b.rowLines = append(b.rowLines, nil)
 	}
