@@ -1184,6 +1184,15 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		return nil
 	}
 	if msg.X < l.sw {
+		if cs != nil && cs.browse != nil && cs.browse.panel != nil {
+			switch msg.Button {
+			case tea.MouseWheelUp:
+				cs.browse.panelScroll(-3, m.height)
+			case tea.MouseWheelDown:
+				cs.browse.panelScroll(3, m.height)
+			}
+			return nil
+		}
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			m.scrollSidebar(-3)
@@ -1213,6 +1222,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
+		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.panel != nil {
+			cs.browse.panelClick(msg.X, msg.Y, m.height)
+			return nil
+		}
 		if m.picker != nil && !m.listing() {
 			m.closePicker() // leave /edit's editor for the sidebar
 		}

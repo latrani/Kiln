@@ -265,6 +265,7 @@ only = "Only"
 add_text = "+ Text"
 # A text row's name in the panel.
 text_item = "\"{term}\""
+hints = "↑↓ move · h hide · o only · ←→ fold · x remove · f close"
 
 # The open-connection picker.
 [picker]

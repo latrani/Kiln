@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
@@ -218,9 +219,108 @@ func (b *browse) panelWindow(total, h, sel int) (top int, above, below bool, ava
 
 // panelKey handles a key while the filter panel is open.
 func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
+	f := &b.cs.filter
+	sel := b.panel.sel
 	switch k.String() {
 	case "esc", openFilterKey:
 		b.panel = nil
+		return nil
+	case "up":
+		b.movePanel(-1)
+	case "down":
+		b.movePanel(1)
+	case "h":
+		if !sel.add {
+			f.ToggleHide(sel.item, b.items())
+		}
+	case "o":
+		if !sel.add {
+			f.PressOnly(sel.item, b.items())
+		}
+	case "left":
+		b.setCollapsed(sel, true)
+	case "right":
+		b.setCollapsed(sel, false)
 	}
+	b.refilter()
 	return nil
+}
+
+// movePanel moves the highlight by delta entries, stopping at the ends.
+func (b *browse) movePanel(delta int) {
+	es := b.entries()
+	i := 0
+	for j, e := range es {
+		if e.sel() == b.panel.sel {
+			i = j
+		}
+	}
+	b.panel.sel = es[min(max(0, i+delta), len(es)-1)].sel()
+}
+
+// setCollapsed folds a parent tag shut or open.
+func (b *browse) setCollapsed(sel filterSel, shut bool) {
+	if sel.add || sel.item.Text {
+		return
+	}
+	if b.cs.collapsed == nil {
+		b.cs.collapsed = map[string]bool{}
+	}
+	if shut {
+		b.cs.collapsed[sel.item.Name] = true
+	} else {
+		delete(b.cs.collapsed, sel.item.Name)
+	}
+}
+
+// panelClick handles a click at (x, y) in the sidebar column, h rows
+// tall: a button presses it, a disclosure glyph folds, a name selects.
+func (b *browse) panelClick(x, y, h int) {
+	if b.prompt != promptNone {
+		return
+	}
+	rows := b.panelRows(0)
+	top, above, _, _ := b.panelWindow(len(rows), h, -1)
+	if above {
+		if y == 0 {
+			b.panelScroll(-max(1, h-2), h)
+			return
+		}
+		y--
+	}
+	i := top + y
+	if i < 0 || i >= len(rows) || rows[i].entry < 0 {
+		return
+	}
+	es := b.entries()
+	e := es[rows[i].entry]
+	f := &b.cs.filter
+	indent := 1 + 2*e.depth
+	switch rows[i].kind {
+	case prAdd:
+		b.panel.sel = e.sel()
+		// Task 5: + Text asks for a term.
+	case prName:
+		if e.parent && x >= indent && x < indent+1 {
+			b.setCollapsed(e.sel(), !b.cs.collapsed[e.item.Name])
+		}
+		b.panel.sel = e.sel()
+	case prButtons:
+		hx := indent + 1
+		ox := hx + xansi.StringWidth(str.FilterHide()) + 1
+		switch {
+		case x >= hx && x < ox-1:
+			f.ToggleHide(e.item, b.items())
+		case x >= ox && x < ox+xansi.StringWidth(str.FilterOnly()):
+			f.PressOnly(e.item, b.items())
+		}
+		b.panel.sel = e.sel()
+	}
+	b.refilter()
+}
+
+// panelScroll moves the panel's view by delta rows.
+func (b *browse) panelScroll(delta, h int) {
+	rows := b.panelRows(0)
+	b.panel.top = min(max(0, b.panel.top+delta), max(0, len(rows)-h+1))
 }

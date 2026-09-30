@@ -58,6 +58,12 @@ func (h *harness) key(s string) tea.Cmd {
 		k = tea.KeyPressMsg{Code: tea.KeyEnd}
 	case "space":
 		k = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
+	case "left":
+		k = tea.KeyPressMsg{Code: tea.KeyLeft}
+	case "right":
+		k = tea.KeyPressMsg{Code: tea.KeyRight}
+	case "delete":
+		k = tea.KeyPressMsg{Code: tea.KeyDelete}
 	case "ctrl+l":
 		k = tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl}
 	default:

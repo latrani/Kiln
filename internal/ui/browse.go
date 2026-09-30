@@ -869,7 +869,11 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		}
 		rows = append(rows, theme.Fill(theme.LogBar, msg, w))
 	default:
-		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, str.BrowseHints()), w))
+		hints := str.BrowseHints()
+		if b.panel != nil {
+			hints = str.FilterHints()
+		}
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, hints), w))
 	}
 	return rows, curX, curY, showCur
 }

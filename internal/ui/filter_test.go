@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -67,4 +69,135 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 	if strings.Count(s, on(str.FilterHide())) != 2 || strings.Count(s, on(str.FilterOnly())) != 1 {
 		t.Errorf("want Hide lit on page and page/in, Only on self:\n%q", s)
 	}
+}
+
+func TestPanelKeys(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	b, f := h.br(), h.kitFilter()
+	page, in, self := scene.Item{Name: "page"}, scene.Item{Name: "page/in"}, scene.Item{Name: "self"}
+	if b.panel.sel.item != page {
+		t.Fatalf("starts on %v", b.panel.sel)
+	}
+	h.key("h")
+	if !f.Hidden(page) || !f.Hidden(in) || strings.Contains(h.screen(), "Mira pages") {
+		t.Errorf("h on page should hide it and page/in:\n%s", h.screen())
+	}
+	h.keys("down", "h") // page/in: unhide clears page, keeps nothing else hidden
+	if f.Hidden(page) || f.Hidden(in) {
+		t.Errorf("unhiding page/in: page %v, page/in %v", f.Hidden(page), f.Hidden(in))
+	}
+	h.keys("down", "o") // self: Only
+	if o, _ := f.Only(); o != self || !f.Hidden(page) {
+		t.Errorf("o on self: Only %v, page hidden %v", o, f.Hidden(page))
+	}
+	h.key("h") // Hide on the Only item: just self hidden
+	if _, ok := f.Only(); ok || !f.Hidden(self) || f.Hidden(page) {
+		t.Errorf("h on the Only item should hide just it")
+	}
+	h.keys("up", "up") // back to page
+	h.key("left")      // collapse
+	if !h.m.chars["fm/kit"].collapsed["page"] || slices.Contains(panelSide(h), "in") {
+		t.Errorf("← should collapse page:\n%s", h.screen())
+	}
+	h.key("right")
+	if h.m.chars["fm/kit"].collapsed["page"] {
+		t.Error("→ should expand page")
+	}
+}
+
+func TestCollapsedParentMarksFilterBelow(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.keys("down", "h", "up", "left") // hide page/in, collapse page
+	if got := panelSide(h)[2]; got != glyphCollapsed+" page "+glyphFiltered {
+		t.Errorf("collapsed page row = %q", got)
+	}
+}
+
+func TestPanelClicks(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	f := h.kitFilter()
+	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
+	// Rows: 0 Filter, 1 blank, 2 ▼ page, 3 buttons, 4 in, 5 buttons, 6 blank, 7 self, 8 buttons.
+	// Buttons for depth 0 start at column 2: "  Hide Only".
+	hideX, onlyX := 2, 2+len(str.FilterHide())+1
+	click(hideX, 8)
+	if !f.Hidden(scene.Item{Name: "self"}) {
+		t.Error("clicking self's Hide")
+	}
+	click(onlyX, 3)
+	if o, _ := f.Only(); o != (scene.Item{Name: "page"}) {
+		t.Error("clicking page's Only")
+	}
+	click(1, 2) // the ▼
+	if !h.m.chars["fm/kit"].collapsed["page"] {
+		t.Error("clicking ▼ should collapse page")
+	}
+	click(4, 7-2) // rows moved up two: self's name is now row 5
+	if h.br().panel.sel.item != (scene.Item{Name: "self"}) {
+		t.Errorf("clicking a name selects it: %v", h.br().panel.sel)
+	}
+}
+
+func TestPanelClicksIgnoredDuringPrompt(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.keys("up", "m", "up", "up", "m", "f") // a range, then the panel
+	h.key("esc")                            // close the panel
+	h.key("e")                              // export's format prompt
+	h.br().togglePanel()                    // panel open under the prompt
+	h.screen()
+	h.m.Update(tea.MouseClickMsg{X: 2, Y: 3, Button: tea.MouseLeft}) // page's Hide
+	h.key("p")                                                       // must not panic
+	if h.kitFilter().Active() {
+		t.Error("clicks should be ignored while a prompt is open")
+	}
+}
+
+func TestPanelScrolls(t *testing.T) {
+	var lines []string
+	for i := range 12 {
+		lines = append(lines, fmt.Sprintf("[t%02d] note", i))
+	}
+	h := newHarness(t, map[string]string{"fm": fmWorld + manyTags(12)})
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	h.key("f")
+	side := panelSide(h)
+	// 12 tags × 3 rows + title and blank + "+ Text" = 39 rows; 23 show above the hint.
+	if want := str.ViewMoreBelow(39 - 23); side[len(side)-1] != want {
+		t.Fatalf("last row = %q, want %q:\n%s", side[len(side)-1], want, h.screen())
+	}
+	for range 40 {
+		h.key("down")
+	}
+	if !h.br().panel.sel.add {
+		t.Fatalf("down should reach + Text: %v", h.br().panel.sel)
+	}
+	if !slices.Contains(panelSide(h), str.FilterAddText()) {
+		t.Errorf("+ Text not scrolled into view:\n%s", h.screen())
+	}
+	before := h.br().panel.top
+	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
+	if h.br().panel.top >= before {
+		t.Errorf("wheel up: top %d, was %d", h.br().panel.top, before)
+	}
+}
+
+// manyTags adds n classify rules to a world: "[tNN] …" gets tag tNN.
+func manyTags(n int) string {
+	var b strings.Builder
+	for i := range n {
+		fmt.Fprintf(&b, "\n[[classify]]\ntag = \"t%02d\"\npattern = '^\\[t%02d\\]'\n", i, i)
+	}
+	return b.String()
 }
