@@ -214,3 +214,26 @@ func TestActive(t *testing.T) {
 		t.Error("a hide should make it active")
 	}
 }
+
+// A new log-mode session sees its items afresh: one known from before
+// takes the filter set since, so its button lights.
+func TestSyncAfterResetSeenRelights(t *testing.T) {
+	var f Filter
+	withWhisper := append(TagItems([]string{"self", "whisper"}), text("lighthouse"))
+	f.Sync(withWhisper)
+	f.PressOnly(tag("self"), TagItems([]string{"self"})) // whisper not loaded now
+	f.ResetSeen()
+	f.Sync(withWhisper)
+	if !f.Hidden(tag("whisper")) {
+		t.Error("whisper should light under Only self once seen again")
+	}
+}
+
+func TestUnhideParentClearsUnloadedChildren(t *testing.T) {
+	var f Filter
+	f.ToggleHide(tag("page"), TagItems([]string{"page/in", "page/x"}))
+	f.ToggleHide(tag("page"), TagItems([]string{"page/in"})) // page/x not loaded now
+	if f.Hidden(tag("page/x")) {
+		t.Error("unhiding page should clear page/x too")
+	}
+}

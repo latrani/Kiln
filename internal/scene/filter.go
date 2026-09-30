@@ -65,7 +65,10 @@ type Filter struct {
 
 func (f *Filter) init() {
 	if f.hidden == nil {
-		f.hidden, f.known = map[Item]bool{}, map[Item]bool{}
+		f.hidden = map[Item]bool{}
+	}
+	if f.known == nil {
+		f.known = map[Item]bool{}
 	}
 }
 
@@ -86,6 +89,11 @@ func (f *Filter) Texts() []Item {
 
 // Active reports whether anything is hidden or has Only.
 func (f *Filter) Active() bool { return len(f.hidden) > 0 || f.hasOnly }
+
+// ResetSeen forgets which items Sync has seen, so a new log-mode
+// session, which loads its lines afresh, lights each item by the filter
+// as it stands now.
+func (f *Filter) ResetSeen() { f.known = nil }
 
 // Sync takes the current items. One it hasn't seen before is hidden when
 // an ancestor is, or when an Only of its kind is set that it isn't
@@ -136,7 +144,7 @@ func (f *Filter) ToggleHide(it Item, items []Item) {
 		f.hide(it, items)
 	case f.hidden[it]:
 		f.hasOnly = false
-		for _, o := range items {
+		for o := range f.hidden { // loaded or not
 			if under(it, o) {
 				delete(f.hidden, o)
 			}

@@ -69,7 +69,9 @@ type browse struct {
 	rowLines     []*bline     // body row → line (nil for dividers), from the last draw
 	filterChip   [2]int       // columns [from, to) of the Filter chip on header row 0
 	panel        *filterPanel // non-nil while the filter panel is open
-	loadedTo     time.Time    // newest logged time at open, at log (millisecond) precision
+	tagItems     []scene.Item // tags of lines[:tagItemsN] and their parents; see items
+	tagItemsN    int
+	loadedTo     time.Time // newest logged time at open, at log (millisecond) precision
 	exportDir    string
 	exportName   string         // file name template; see config.ExportNameVars
 	exportFormat string         // preselected format; "" asks
@@ -104,6 +106,7 @@ func newBrowse(cs *charState, l logstore.Layout, hasLogs bool) *browse {
 	if l := b.last(); l != nil {
 		b.loadedTo = l.e.Time
 	}
+	cs.filter.ResetSeen() // this session's items light by the filter as it stands
 	return b
 }
 
@@ -266,12 +269,15 @@ func (b *browse) inRange(l *bline) bool {
 // parents, then the text rows. It syncs the filter, so a tag seen for
 // the first time obeys the filter already set.
 func (b *browse) items() []scene.Item {
-	var tags []string
-	for _, l := range b.lines {
-		tags = append(tags, l.tags...)
+	if b.tagItemsN != len(b.lines) { // lines are only ever added
+		var tags []string
+		for _, l := range b.lines {
+			tags = append(tags, l.tags...)
+		}
+		b.tagItems, b.tagItemsN = scene.TagItems(tags), len(b.lines)
 	}
 	f := &b.cs.filter
-	items := append(scene.TagItems(tags), f.Texts()...)
+	items := append(slices.Clone(b.tagItems), f.Texts()...)
 	f.Sync(items)
 	return items
 }
@@ -674,6 +680,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptFilterText:
 			if b.cs.filter.AddText(v, b.items()) && b.panel != nil {
 				b.panel.sel = filterSel{item: scene.Item{Name: v, Text: true}}
+				b.panel.follow = true
 			}
 			b.refilter()
 		}

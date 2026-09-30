@@ -5,9 +5,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
@@ -241,5 +243,81 @@ func TestPanelTextRows(t *testing.T) {
 	}
 	if !strings.Contains(h.screen(), "Sable") {
 		t.Errorf("removing the Only text row should show lines again:\n%s", h.screen())
+	}
+}
+
+// manyTagsHarness opens log mode on 12 tags and the filter panel.
+func manyTagsHarness(t *testing.T) *harness {
+	var lines []string
+	for i := range 12 {
+		lines = append(lines, fmt.Sprintf("[t%02d] note", i))
+	}
+	h := newHarness(t, map[string]string{"fm": fmWorld + manyTags(12)})
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.screen()
+	return h
+}
+
+func TestPanelWheelScrollsAndStays(t *testing.T) {
+	h := manyTagsHarness(t)
+	for range 3 {
+		h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
+		h.screen() // a redraw must not pull the view back to the selection
+	}
+	if top := h.br().panel.top; top != 9 {
+		t.Errorf("three wheel-downs of 3: top = %d, want 9", top)
+	}
+}
+
+func TestPanelClickOnBottomHintScrolls(t *testing.T) {
+	h := manyTagsHarness(t)
+	sel := h.br().panel.sel
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: h.m.height - 1, Button: tea.MouseLeft})
+	h.screen()
+	if h.br().panel.top == 0 || h.br().panel.sel != sel || h.kitFilter().Active() {
+		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().panel.top, h.br().panel.sel, h.kitFilter().Active())
+	}
+}
+
+// A tag first seen in an earlier log-mode session lights under a filter
+// set since.
+func TestFilterRelightsAcrossSessions(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.screen() // session 1 sees self
+	h.key("esc")
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, scene.TagItems([]string{"page"})) // self not in the list
+	h.key("ctrl+l")
+	h.screen()
+	if !h.kitFilter().Hidden(scene.Item{Name: "self"}) {
+		t.Error("self should light under Only page in a new session")
+	}
+}
+
+func TestPanelIsFastOnLargeHistories(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.key("ctrl+l")
+	b := h.br()
+	for i := range 50000 {
+		tag := fmt.Sprintf("p%d/c%d", i%10, i%4)
+		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, tags: []string{tag}, text: "x", lower: "x", day: "2026-09-24"})
+	}
+	b.cursor = b.lines[len(b.lines)-1]
+	h.key("f")
+	for i := range 5 {
+		h.br().setCollapsed(filterSel{item: scene.Item{Name: fmt.Sprintf("p%d", i)}}, true)
+	}
+	for range 60 {
+		h.key("down") // to + Text
+	}
+	start := time.Now()
+	for range 20 {
+		h.screen()
+	}
+	if d := time.Since(start); d > 400*time.Millisecond {
+		t.Errorf("20 frames with the panel open on 50k lines took %v", d)
 	}
 }
