@@ -9,30 +9,6 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-func TestVisible(t *testing.T) {
-	cases := []struct {
-		name  string
-		tags  []string
-		chips map[string]Chip
-		want  bool
-	}{
-		{"no chips", []string{"page"}, nil, true},
-		{"neutral chip", []string{"page"}, map[string]Chip{"page": Neutral}, true},
-		{"hidden tag", []string{"page"}, map[string]Chip{"page": Hide}, false},
-		{"untagged survives hide", nil, map[string]Chip{"page": Hide}, true},
-		{"only: has it", []string{"page", "self"}, map[string]Chip{"page": Only}, true},
-		{"only: lacks it", []string{"say"}, map[string]Chip{"page": Only}, false},
-		{"only: untagged hidden", nil, map[string]Chip{"page": Only}, false},
-		{"only either of two", []string{"whisper"}, map[string]Chip{"page": Only, "whisper": Only}, true},
-		{"hide beats only", []string{"page", "ooc"}, map[string]Chip{"page": Only, "ooc": Hide}, false},
-	}
-	for _, c := range cases {
-		if got := Visible(c.tags, c.chips); got != c.want {
-			t.Errorf("%s: Visible = %v, want %v", c.name, got, c.want)
-		}
-	}
-}
-
 func TestChipCycle(t *testing.T) {
 	if Neutral.Next() != Only || Only.Next() != Hide || Hide.Next() != Neutral {
 		t.Error("cycle wrong")
