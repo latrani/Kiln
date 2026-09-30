@@ -73,3 +73,12 @@ func TestEncode(t *testing.T) {
 		}
 	}
 }
+
+func TestClipboard(t *testing.T) {
+	if got, want := Clipboard("hi", false), "\x1b]52;c;aGk=\a"; got != want {
+		t.Errorf("Clipboard = %q, want %q", got, want)
+	}
+	if got, want := Clipboard("hi", true), "\x1bPtmux;\x1b\x1b]52;c;aGk=\a\x1b\\"; got != want {
+		t.Errorf("in tmux = %q, want %q", got, want)
+	}
+}

@@ -4,6 +4,7 @@
 package notify
 
 import (
+	"encoding/base64"
 	"errors"
 	"strings"
 
@@ -75,14 +76,25 @@ func Message(name, line string) string {
 func Encode(msg string, m Method, tmux bool) string {
 	var b strings.Builder
 	if m == OSC || m == Both {
-		osc := "\x1b]9;" + msg + "\a"
-		if tmux {
-			osc = "\x1bPtmux;" + strings.ReplaceAll(osc, "\x1b", "\x1b\x1b") + "\x1b\\" //str:ok
-		}
-		b.WriteString(osc)
+		b.WriteString(passthrough("\x1b]9;"+msg+"\a", tmux))
 	}
 	if m == Bell || m == Both {
 		b.WriteByte('\a')
 	}
 	return b.String()
+}
+
+// Clipboard returns the bytes that put text on the clipboard of the
+// terminal you're looking at, over ssh too: OSC 52. Inside tmux it's
+// wrapped like a notification is.
+func Clipboard(text string, tmux bool) string {
+	return passthrough("\x1b]52;c;"+base64.StdEncoding.EncodeToString([]byte(text))+"\a", tmux)
+}
+
+// passthrough wraps seq in tmux's DCS passthrough when inside tmux.
+func passthrough(seq string, tmux bool) string {
+	if !tmux {
+		return seq
+	}
+	return "\x1bPtmux;" + strings.ReplaceAll(seq, "\x1b", "\x1b\x1b") + "\x1b\\" //str:ok
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
@@ -240,5 +242,62 @@ func TestHoverTracksPointer(t *testing.T) {
 	h.m.Update(tea.MouseMotionMsg{X: 2, Y: 0}) // over the sidebar
 	if strings.Contains(h.m.View().Content, theme.SGR(theme.LinkHover)) {
 		t.Error("link stayed lit after the pointer left the scrollback")
+	}
+}
+
+// A click on a link opens it at your own machine; where that can't be
+// done (over ssh, or the opener fails) the link goes to the clipboard.
+func TestLinkClickFallsBackToTheClipboard(t *testing.T) {
+	const line = "Mira pages: look at https://kiln.test/map please"
+	click := func(h *harness) tea.Cmd {
+		h.m.chars["fm/kit"].sb.Append(line)
+		h.screen()
+		l := h.m.layout()
+		x, y := l.sw+1+strings.Index(line, "kiln"), l.top+l.sbH-1
+		h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+		_, cmd := h.m.Update(tea.MouseReleaseMsg{X: x, Y: y, Button: tea.MouseLeft})
+		return cmd
+	}
+	opener := func(h *harness, err error) *int {
+		n := new(int)
+		h.m.d.OpenURL = func(string) error { *n++; return err }
+		return n
+	}
+
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.Remote = true
+	n := opener(h, nil)
+	if got := clipboard(click(h)); got != "https://kiln.test/map" || *n != 0 {
+		t.Errorf("over ssh: clipboard %q, opener run %d times", got, *n)
+	}
+	if !strings.Contains(h.screen(), str.StatusLinkCopied("https://kiln.test/map")) {
+		t.Errorf("no copied-link status:\n%s", h.screen())
+	}
+
+	h = newHarness(t, map[string]string{"fm": fmWorld})
+	n = opener(h, errors.New("no xdg-open"))
+	if got := clipboard(click(h)); got != "https://kiln.test/map" || *n != 1 {
+		t.Errorf("failed opener: clipboard %q, opener run %d times", got, *n)
+	}
+	if !strings.Contains(h.screen(), str.StatusLinkFailed(errors.New("no xdg-open"))) {
+		t.Errorf("no failure status:\n%s", h.screen())
+	}
+
+	h = newHarness(t, map[string]string{"fm": fmWorld})
+	n = opener(h, nil)
+	if got := clipboard(click(h)); got != "" || *n != 1 {
+		t.Errorf("working opener: clipboard %q, opener run %d times", got, *n)
+	}
+}
+
+// In tmux a copy is also written wrapped for passthrough.
+func TestCopyInTmuxAlsoWritesPassthrough(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.Tmux = true
+	if got := clipboard(h.m.copyCmd("hello")); got != "hello" {
+		t.Errorf("plain clipboard = %q", got)
+	}
+	if got := h.notified(); len(got) != 1 || got[0] != notify.Clipboard("hello", true) {
+		t.Errorf("raw writes = %q", got)
 	}
 }

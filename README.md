@@ -112,7 +112,7 @@ Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps t
 | `Ctrl+C` | Clear the input; on an empty input, press twice to quit |
 | `Ctrl+D` | Delete the character after the cursor; on an empty input, press twice to quit |
 
-Links (`http://` or `https://`) in the scrollback are underlined and turn blue under the pointer; click one to open it in your browser. Drag across text in the scrollback or the input box to select it; it's copied to the clipboard when you let go, with line breaks only where the lines really break, not where they wrap. (Your terminal's own selection usually still works with `Shift` or `Option` held.) Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
+Links (`http://` or `https://`) in the scrollback are underlined and turn blue under the pointer; click one to open it in your browser (over ssh it copies the link instead; see [Over ssh](#over-ssh)). Drag across text in the scrollback or the input box to select it; it's copied to the clipboard when you let go, with line breaks only where the lines really break, not where they wrap. (Your terminal's own selection usually still works with `Shift` or `Option` held.) Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
 The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
 
@@ -212,6 +212,12 @@ Notifications work in iTerm2, kitty, Ghostty, WezTerm, foot and Blink, locally o
 Then run `tmux source-file ~/.tmux.conf` and detach and reattach: tmux asks your terminal for focus events only when you attach.
 
 Mosh drops notifications, but it passes on the bell: set `notify_method = "both"` and turn on Blink's "Notification on background shell" to get an alert (without the line).
+
+### Over ssh
+
+Copying and links work through your terminal, not the remote machine: Kiln writes the text to your clipboard with OSC 52, which goes back down the ssh connection to the terminal you're looking at. A click on a link can't open a browser on your screen, so over ssh (Kiln checks `SSH_CONNECTION`) it copies the link instead, and does the same anywhere the system's opener fails.
+
+Your terminal has to allow it. iTerm2: Settings → General → Selection → "Applications in terminal may access clipboard". kitty, Ghostty, WezTerm and Blink allow it by default. Inside tmux, the `allow-passthrough on` above is what lets it through (`set -g set-clipboard on` also works).
 
 ## Where Kiln keeps things
 

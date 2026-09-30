@@ -63,6 +63,7 @@ type browse struct {
 	find         string
 	prompt       promptKind
 	pin          *Input
+	copy         func(text string) tea.Cmd // the model's clipboard write; nil: plain OSC 52
 	format       string
 	status       string
 	statusErr    bool
@@ -226,6 +227,14 @@ func (b *browse) last() *bline {
 		return nil
 	}
 	return b.lines[len(b.lines)-1]
+}
+
+// copyCmd puts text on the clipboard, by the model's way of doing it.
+func (b *browse) copyCmd(text string) tea.Cmd {
+	if b.copy == nil {
+		return tea.SetClipboard(text)
+	}
+	return b.copy(text)
 }
 
 func (b *browse) setStatus(isErr bool, msg string) {
@@ -612,7 +621,7 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 			break
 		}
 		b.setStatus(false, str.BrowseCopied(len(sel)))
-		return tea.SetClipboard(scene.Plain(sel)), false
+		return b.copyCmd(scene.Plain(sel)), false
 	case actTags:
 		if b.cursor != nil {
 			b.setStatus(false, b.lineTags(b.cursor))

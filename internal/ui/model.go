@@ -47,7 +47,8 @@ type Deps struct {
 	DeletePassword func(store, world, char string) error           // nil: passwords can't be forgotten
 	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
-	Tmux           bool                                            // inside tmux: wrap notifications for passthrough
+	Tmux           bool                                            // inside tmux: wrap notifications and clipboard writes for passthrough
+	Remote         bool                                            // over ssh: links can't open on your screen, so a click copies them
 	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
 	Raw            func(seq string) tea.Cmd                        // writes straight to the terminal; default tea.Raw
 	Now            func() time.Time
@@ -1201,6 +1202,7 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 func (m *Model) openBrowse(cs *charState) {
 	l, ok := m.logLayout(cs.ch)
 	cs.browse = newBrowse(cs, l, ok)
+	cs.browse.copy = m.copyCmd
 	cs.browse.setExport(m.cfg)
 	m.status = ""
 }
@@ -1361,16 +1363,33 @@ func (m *Model) handleDrag(msg tea.Mouse) {
 	}
 }
 
-// openLink opens u, if it's a link and links can be opened.
-func (m *Model) openLink(u string) {
+// openLink opens u, if it's a link and links can be opened. Over ssh an
+// opener would run on the wrong machine, and where it fails, the link
+// goes to the clipboard instead, which reaches your screen either way.
+func (m *Model) openLink(u string) tea.Cmd {
 	if u == "" || m.d.OpenURL == nil {
-		return
+		return nil
+	}
+	if m.d.Remote {
+		m.setStatus(false, str.StatusLinkCopied(u))
+		return m.copyCmd(u)
 	}
 	if err := m.d.OpenURL(u); err != nil {
 		m.setStatus(true, str.StatusLinkFailed(err))
-	} else {
-		m.setStatus(false, str.StatusLinkOpened(u))
+		return m.copyCmd(u)
 	}
+	m.setStatus(false, str.StatusLinkOpened(u))
+	return nil
+}
+
+// copyCmd puts text on the clipboard of the terminal Kiln draws on (OSC
+// 52). tmux only passes it on when it's told to, so there it's sent
+// twice: plain, for set-clipboard on, and wrapped, for allow-passthrough.
+func (m *Model) copyCmd(text string) tea.Cmd {
+	if !m.d.Tmux {
+		return tea.SetClipboard(text)
+	}
+	return tea.Batch(tea.SetClipboard(text), m.d.Raw(notify.Clipboard(text, true)))
 }
 
 // handleRelease ends a drag: a selection is copied to the clipboard, and
@@ -1382,8 +1401,7 @@ func (m *Model) handleRelease() tea.Cmd {
 		var clicked bool
 		text, click, clicked = cs.sb.EndSelect()
 		if clicked {
-			m.openLink(cs.sb.URLAt(click))
-			return nil
+			return m.openLink(cs.sb.URLAt(click))
 		}
 	} else if in := m.input(); in.Dragging() {
 		text = in.EndSelect()
@@ -1392,5 +1410,5 @@ func (m *Model) handleRelease() tea.Cmd {
 		return nil
 	}
 	m.setStatus(false, str.StatusCopied())
-	return tea.SetClipboard(text)
+	return m.copyCmd(text)
 }
