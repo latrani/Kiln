@@ -75,10 +75,10 @@ arrive while an Only is set, are hidden without any special case.
   - On a nested tag, "every other tag" leaves out its ancestors and
     descendants: hiding `page` would hide `page/in` with it. Only on
     `page/in` hides `page/out` and the rest; `page` stays shown.
-- **Only on the item that has it** clears the Only and every Hide: a
-  clean slate.
+- **Only on the item that has it** clears the Only and every Hide of its
+  kind: a clean slate for tags (or for text rows).
 - **Hide on the item that has Only** flips it: clears the Only and every
-  other Hide, then hides just that item (and, as for any hidden parent,
+  other Hide of its kind, then hides just that item (and, as for any hidden parent,
   its descendants). Everything else shows again.
 - **Unhiding any item** while an Only is set clears the Only. The Hide
   flags it set stay, as plain hides.
