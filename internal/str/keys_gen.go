@@ -906,6 +906,15 @@ func ViewPillMore() string { return get("view.pill_more", nil) }
 // ViewPillNew is view.pill_new: "▼ {n} new"
 func ViewPillNew(n int) string { return get("view.pill_new", map[string]any{"n": n}) }
 
+// ViewPresenceAway is view.presence_away: "○ away"
+func ViewPresenceAway() string { return get("view.presence_away", nil) }
+
+// ViewPresenceHere is view.presence_here: "● here"
+func ViewPresenceHere() string { return get("view.presence_here", nil) }
+
+// ViewPresenceUnknown is view.presence_unknown: "? focus"
+func ViewPresenceUnknown() string { return get("view.presence_unknown", nil) }
+
 // ViewSavePassword is view.save_password: "Save password for {name} in {store}? [Y/n]"
 func ViewSavePassword(name, store any) string {
 	return get("view.save_password", map[string]any{"name": name, "store": store})

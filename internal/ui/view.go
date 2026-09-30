@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -185,16 +186,35 @@ func (m *Model) connectedSince(cs *charState) string {
 const topH = 2
 
 // topBar draws the top status bar: the character and, in log mode, its
-// find status on the left; the Filter chip (log mode) and the Log chip
-// pinned right, Log at the far right, a spaced dot between them. It says which columns each chip
-// takes, [from, to); zero when it isn't drawn whole.
-func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
+// find status on the left; on the right, pinned, the presence chip, the
+// Filter chip (log mode) and the Log chip at the far right, a spaced dot
+// between each. It says which columns each chip takes, [from, to); zero
+// when it isn't drawn whole.
+func (m *Model) topBar(w int) (line string, logChip, filterChip, presenceChip [2]int) {
+	return m.topBarFor(w, m.presence())
+}
+
+// topBarFor is topBar with the presence chip as it is for p, which
+// decides the chip's width; a click lands on the layout it was made on.
+func (m *Model) topBarFor(w int, p presenceState) (line string, logChip, filterChip, presenceChip [2]int) {
 	cs := m.cur()
 	if cs == nil {
-		return "", logChip, filterChip
+		return "", logChip, filterChip, presenceChip
 	}
 	left := cs.ch.World + str.Separator() + cs.ch.Name
-	logRole, filt, sep := theme.StatusLog, "", ""
+	logRole := theme.StatusLog
+	type part struct {
+		text string
+		span *[2]int
+	}
+	presLabel, presRole := str.ViewPresenceUnknown(), theme.StatusPresenceUnknown
+	switch p {
+	case presenceHere:
+		presLabel, presRole = str.ViewPresenceHere(), theme.StatusPresenceHere
+	case presenceAway:
+		presLabel, presRole = str.ViewPresenceAway(), theme.StatusPresenceAway
+	}
+	parts := []part{{chip(presRole, presLabel), &presenceChip}}
 	if b := cs.browse; b != nil {
 		logRole = theme.StatusLogOn
 		if f := b.findStatus(); f != "" {
@@ -204,32 +224,56 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
 		if b.panel != nil {
 			role = theme.StatusFilterOn
 		}
-		filt, sep = chip(role, str.ViewFilterButton()), str.Separator()
+		parts = append(parts, part{chip(role, str.ViewFilterButton()), &filterChip})
 	}
-	logc := chip(logRole, str.ViewLogButton())
-	fw, sw, lw := xansi.StringWidth(filt), xansi.StringWidth(sep), xansi.StringWidth(logc)
-	start := w - fw - sw - lw
-	if start < 2 { // too tight for both beside a name: Filter goes first
-		filt, sep, fw, sw, start = "", "", 0, 0, w-lw
+	parts = append(parts, part{chip(logRole, str.ViewLogButton()), &logChip})
+
+	sep := str.Separator()
+	width := func() int {
+		n := xansi.StringWidth(sep) * (len(parts) - 1)
+		for _, pt := range parts {
+			n += xansi.StringWidth(pt.text)
+		}
+		return n
 	}
+	// Too tight beside a name: Filter goes first, then presence; Log stays.
+	for len(parts) > 1 && w-width() < 2 {
+		drop := 0 // presence
+		if len(parts) == 3 {
+			drop = 1 // Filter
+		}
+		parts = slices.Delete(parts, drop, drop+1)
+	}
+	start := w - width()
 	if start < 2 { // no room for a chip at all
-		return fitName(left, w), logChip, filterChip
+		return fitName(left, w), [2]int{}, [2]int{}, [2]int{}
 	}
-	if fw > 0 {
-		filterChip = [2]int{start, start + fw}
+	x := start
+	texts := make([]string, len(parts))
+	for i, pt := range parts {
+		texts[i] = pt.text
+		*pt.span = [2]int{x, x + xansi.StringWidth(pt.text)}
+		x += xansi.StringWidth(pt.text) + xansi.StringWidth(sep)
 	}
-	logChip = [2]int{start + fw + sw, w}
-	return fitName(left, start-1) + " " + filt + sep + logc, logChip, filterChip
+	return fitName(left, start-1) + " " + strings.Join(texts, sep), logChip, filterChip, presenceChip
 }
 
-// topClick handles a click at column x of the top bar.
-func (m *Model) topClick(x int) {
+// topClick handles a click at column x of the top bar. was is the
+// presence before the click counted as you being here: clicking the
+// presence chip sets Away unless you already were, and then it's the
+// click itself that ended it.
+func (m *Model) topClick(x int, was presenceState) {
 	cs := m.cur()
 	if cs == nil {
 		return
 	}
-	_, logc, filt := m.topBar(m.layout().rw)
+	_, logc, filt, pres := m.topBarFor(m.layout().rw, was)
 	switch {
+	case x >= pres[0] && x < pres[1]:
+		if was != presenceAway {
+			m.awayNow = true
+			m.setStatus(false, str.StatusAway())
+		}
 	case x >= logc[0] && x < logc[1]:
 		if cs.browse != nil {
 			cs.browse = nil // as Esc does
@@ -266,7 +310,7 @@ func (m *Model) View() tea.View {
 	right := make([]string, 0, m.height)
 	cs := m.cur()
 	var cursor *tea.Cursor
-	top, _, _ := m.topBar(l.rw)
+	top, _, _, _ := m.topBar(l.rw)
 	rule := strings.Repeat("─", l.rw)
 	right = append(right, theme.Fill(theme.Status, top, l.rw), theme.Paint(theme.RuleStatus, rule))
 	if cs != nil && cs.browse != nil {

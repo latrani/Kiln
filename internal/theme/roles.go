@@ -56,6 +56,11 @@ const (
 	StatusFilter   Role = "status.filter" // the Filter chip, in log mode
 	StatusFilterOn Role = "status.filter.on"
 	StatusError    Role = "status.error"
+	// The presence chip: here, away, or can't tell (no focus events seen).
+	StatusPresence        Role = "status.presence"
+	StatusPresenceHere    Role = "status.presence.here"
+	StatusPresenceAway    Role = "status.presence.away"
+	StatusPresenceUnknown Role = "status.presence.unknown"
 
 	Form                Role = "form" // area, in place of input while it's up
 	FormLabel           Role = "form.label"
@@ -97,7 +102,7 @@ var Roles = []Role{
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
-	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError,
+	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,

@@ -44,6 +44,28 @@ func (m *Model) notifyIdle() time.Duration {
 	return config.DefaultNotifyIdle
 }
 
+// presenceState is what the top bar's presence chip shows.
+type presenceState int
+
+const (
+	presenceUnknown presenceState = iota // not away, and no focus event has ever arrived
+	presenceHere                         // not away, and the terminal reports focus
+	presenceAway
+)
+
+// presence is whether you're away, here, or Kiln can't tell: a terminal
+// only reports focus when it changes, so until the first event a
+// terminal that reports it looks the same as one that never will.
+func (m *Model) presence() presenceState {
+	switch {
+	case m.away():
+		return presenceAway
+	case !m.focusSeen:
+		return presenceUnknown
+	}
+	return presenceHere
+}
+
 // away reports whether you've switched away, said /away, or been idle
 // past notify_idle.
 func (m *Model) away() bool {

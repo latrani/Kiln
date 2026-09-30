@@ -118,6 +118,11 @@ alarm-deep = "#f9dcdc"
 "status.filter.on" = { reverse = true }
 "status.error"     = { fg = "red" }
 
+"status.presence"         = { fg = "cobalt-ink" }
+"status.presence.here"    = { fg = "cobalt-mid" }
+"status.presence.away"    = { fg = "beacon", bold = true }
+"status.presence.unknown" = { italic = true }
+
 "form"        = { fg = "kaki-ink" }
 "form.label"  = { fg = "kaki-mid" }
 "form.hint"   = { fg = "kaki-mid" }

@@ -44,12 +44,12 @@ func TestTopBarChipsToggle(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	l := h.m.layout()
 	click := func(x int) { h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + x, Y: 0, Button: tea.MouseLeft}) }
-	_, logc, _ := h.m.topBar(l.rw)
+	_, logc, _, _ := h.m.topBar(l.rw)
 	click(logc[0] + 1)
 	if h.br() == nil {
 		t.Fatal("clicking Log should open log mode")
 	}
-	_, _, filt := h.m.topBar(l.rw)
+	_, _, filt, _ := h.m.topBar(l.rw)
 	click(filt[0] + 1)
 	if h.br().panel == nil {
 		t.Fatal("clicking Filter should open the panel")
@@ -58,7 +58,7 @@ func TestTopBarChipsToggle(t *testing.T) {
 	if h.br().panel != nil {
 		t.Error("clicking Filter again should close it")
 	}
-	_, logc, _ = h.m.topBar(l.rw)
+	_, logc, _, _ = h.m.topBar(l.rw)
 	click(logc[0] + 1)
 	if h.br() != nil {
 		t.Error("clicking Log in log mode should close it")
@@ -113,12 +113,12 @@ func TestTopBarDropsFilterFirst(t *testing.T) {
 	lw := len(chipText(str.ViewLogButton()))
 	fw := len(chipText(str.ViewFilterButton()))
 	w := lw + fw + 1 // no room for a name beside both
-	line, logc, filt := h.m.topBar(w)
-	if filt != [2]int{} || logc != [2]int{w - lw, w} || !strings.HasSuffix(ansi.Strip(line), chipText(str.ViewLogButton())) {
-		t.Errorf("topBar(%d) = %q, log %v, filter %v; want Log alone", w, ansi.Strip(line), logc, filt)
+	line, logc, filt, pres := h.m.topBar(w)
+	if filt != [2]int{} || pres != [2]int{} || logc != [2]int{w - lw, w} || !strings.HasSuffix(ansi.Strip(line), chipText(str.ViewLogButton())) {
+		t.Errorf("topBar(%d) = %q, log %v, filter %v, presence %v; want Log alone", w, ansi.Strip(line), logc, filt, pres)
 	}
-	if _, logc, filt := h.m.topBar(lw + 1); logc != [2]int{} || filt != [2]int{} {
-		t.Errorf("too narrow for any chip: log %v, filter %v", logc, filt)
+	if _, logc, filt, pres := h.m.topBar(lw + 1); logc != [2]int{} || filt != [2]int{} || pres != [2]int{} {
+		t.Errorf("too narrow for any chip: log %v, filter %v, presence %v", logc, filt, pres)
 	}
 }
 
@@ -131,5 +131,81 @@ func TestNoLogsYetWaitsForHistory(t *testing.T) {
 	rows, _, _, _ := b.view(60, 20)
 	if strings.Contains(ansi.Strip(strings.Join(rows, "\n")), str.BrowseNoLogs()) {
 		t.Error("no logs yet shown while history is still loading")
+	}
+}
+
+// presenceWidth is the presence chip's width in state label.
+func presenceWidth(label string) int { return ansi.StringWidth(chipText(label)) }
+
+// The presence chip sits left of Filter and Log, a spaced dot between each.
+func TestTopBarPresenceChip(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	want := chipText(str.ViewPresenceUnknown()) + str.Separator() + chipText(str.ViewLogButton())
+	if top := rightRow(h, 0); !strings.HasSuffix(top+" ", want) {
+		t.Errorf("top bar = %q, want it to end with %q", top, want)
+	}
+	h.key("ctrl+l")
+	want = chipText(str.ViewPresenceUnknown()) + str.Separator() + chipText(str.ViewFilterButton()) + str.Separator() + chipText(str.ViewLogButton())
+	if top := rightRow(h, 0); !strings.HasSuffix(top+" ", want) {
+		t.Errorf("log top bar = %q, want it to end with %q", top, want)
+	}
+	h.m.Update(tea.FocusMsg{})
+	if top := rightRow(h, 0); !strings.Contains(top, str.ViewPresenceHere()) {
+		t.Errorf("after focus-in: %q", top)
+	}
+	h.m.Update(tea.BlurMsg{})
+	if top := rightRow(h, 0); !strings.Contains(top, str.ViewPresenceAway()) {
+		t.Errorf("after blur: %q", top)
+	}
+}
+
+// Filter drops first, then presence, and Log stays; dropped chips have no
+// columns to click.
+func TestTopBarDropsPresenceAfterFilter(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	lw := presenceWidth(str.ViewLogButton())
+	pw := presenceWidth(str.ViewPresenceUnknown())
+	sw := ansi.StringWidth(str.Separator())
+	w := pw + sw + lw + 2 // room for presence and Log beside a two-column name, not Filter too
+	_, logc, filt, pres := h.m.topBar(w)
+	if filt != [2]int{} || pres != [2]int{w - lw - sw - pw, w - lw - sw} || logc != [2]int{w - lw, w} {
+		t.Errorf("topBar(%d): log %v, filter %v, presence %v; want presence and Log", w, logc, filt, pres)
+	}
+	if _, logc, filt, pres := h.m.topBar(w - 1); pres != [2]int{} || filt != [2]int{} || logc != [2]int{w - 1 - lw, w - 1} {
+		t.Errorf("topBar(%d): log %v, filter %v, presence %v; want Log alone", w-1, logc, filt, pres)
+	}
+}
+
+// Clicking the chip sets Away from here or can't-tell, and ends it from
+// away; the click itself counts as you being back.
+func TestPresenceChipClickTogglesAway(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	l := h.m.layout()
+	click := func() {
+		_, _, _, pres := h.m.topBar(l.rw)
+		h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + pres[0] + 1, Y: 0, Button: tea.MouseLeft})
+	}
+	if h.m.presence() != presenceUnknown {
+		t.Fatalf("starts as %v", h.m.presence())
+	}
+	click()
+	if h.m.presence() != presenceAway || !strings.Contains(h.screen(), str.StatusAway()) {
+		t.Errorf("clicking in can't-tell should set Away:\n%s", h.screen())
+	}
+	click()
+	if h.m.presence() == presenceAway {
+		t.Error("clicking while away should end it")
+	}
+	h.m.Update(tea.FocusMsg{})
+	click()
+	if h.m.presence() != presenceAway {
+		t.Error("clicking while here should set Away")
+	}
+	click()
+	if h.m.presence() != presenceHere {
+		t.Errorf("after ending it: %v", h.m.presence())
 	}
 }

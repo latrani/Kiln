@@ -198,7 +198,7 @@ A theme can give different colors for light and dark terminals: `[palette.light]
 
 With `appearance = "auto"` (the default), Kiln asks the terminal what its background is when it starts and whenever its window comes back into focus, and assumes dark until it hears back. The built-in theme has a light palette of its own. Over mosh the terminal can't be asked (eternal terminal and tmux pass the question on), so on a light terminal set `appearance = "light"`.
 
-The roles are: `sidebar` (`.world`, `.char`, `.active`, `.unread`, `.attention`, `.connecting`, `.disconnected`, `.add`, `.more`), `picker` (`.world`, `.world.selected`, `.selected`, `.add`), `divider`, `rule` (`.input`, `.form`: the rule above that area; `.status`: the rules that border the status bars, under the top one and above the bottom one), `scrollback` (`.day`, `.history_end`, `.loading`, `.echo`, `.sys`, `.pill`, `.selection`, `.inactive`, `.empty`), `link` (`.hover`), `input` (`.hint`, `.over_limit`, `.selection`), `status` (`.log`, `.log.on`, `.filter`, `.filter.on`, `.error`), `form` (`.label`, `.hint`, `.error`, `.focus`, `.title`, `.button`, `.button.secondary`), `log` (`.time`, `.cursor`, `.selected`, `.excluded`, `.find`, `.day`, `.loading`, `.bar`, `.bar.hints`), `filter` (`.item`, `.selected`, `.button`, `.button.on`, `.add`, `.more`), and `export` (the HTML export's page).
+The roles are: `sidebar` (`.world`, `.char`, `.active`, `.unread`, `.attention`, `.connecting`, `.disconnected`, `.add`, `.more`), `picker` (`.world`, `.world.selected`, `.selected`, `.add`), `divider`, `rule` (`.input`, `.form`: the rule above that area; `.status`: the rules that border the status bars, under the top one and above the bottom one), `scrollback` (`.day`, `.history_end`, `.loading`, `.echo`, `.sys`, `.pill`, `.selection`, `.inactive`, `.empty`), `link` (`.hover`), `input` (`.hint`, `.over_limit`, `.selection`), `status` (`.log`, `.log.on`, `.filter`, `.filter.on`, `.error`, `.presence` with `.here`, `.away` and `.unknown`), `form` (`.label`, `.hint`, `.error`, `.focus`, `.title`, `.button`, `.button.secondary`), `log` (`.time`, `.cursor`, `.selected`, `.excluded`, `.find`, `.day`, `.loading`, `.bar`, `.bar.hints`), `filter` (`.item`, `.selected`, `.button`, `.button.on`, `.add`, `.more`), and `export` (the HTML export's page).
 
 ### Notifications
 
@@ -210,6 +210,8 @@ Notifications work in iTerm2, kitty, Ghostty, WezTerm, foot and Blink, locally o
     set -g focus-events on
 
 Then run `tmux source-file ~/.tmux.conf` and detach and reattach: tmux asks your terminal for focus events only when you attach.
+
+The top bar shows what Kiln thinks about you: `● here`, `○ away`, or `? focus`. `? focus` means it has never heard a focus change from your terminal, which is either because you haven't switched windows yet (terminals only report when focus changes) or because your terminal doesn't report it at all (Blink on iOS, mosh, tmux without `focus-events on`). Switch windows once to find out: if it then says `○ away` and back to `● here`, focus works. If it doesn't, click the chip to set Away yourself, as `/away` does, and notifications go out until your next key or click. Idle time still counts as away either way. Clicking the chip while away ends it.
 
 Mosh drops notifications, but it passes on the bell: set `notify_method = "both"` and turn on Blink's "Notification on background shell" to get an alert (without the line).
 

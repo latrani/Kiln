@@ -359,3 +359,38 @@ func TestIdleNotifiesOnlyWhatArrivesAfterIt(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestPresenceStates(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	m := h.m
+	if m.presence() != presenceUnknown {
+		t.Errorf("before any focus event: %v, want can't tell", m.presence())
+	}
+	m.Update(tea.FocusMsg{})
+	if m.presence() != presenceHere {
+		t.Errorf("after focus-in: %v", m.presence())
+	}
+	m.Update(tea.BlurMsg{})
+	if m.presence() != presenceAway {
+		t.Errorf("after blur: %v", m.presence())
+	}
+	h.typeText("x") // input implies focus, and events have been seen
+	if m.presence() != presenceHere {
+		t.Errorf("typing after a blur: %v", m.presence())
+	}
+	h.key("backspace")
+	h.typeText("/away")
+	h.enter()
+	if m.presence() != presenceAway {
+		t.Errorf("/away: %v", m.presence())
+	}
+}
+
+// With no focus events, idle still counts as away, and shows it.
+func TestPresenceIdleWithoutFocusEvents(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.advance(6 * time.Minute)
+	if h.m.presence() != presenceAway {
+		t.Errorf("idle past notify_idle: %v", h.m.presence())
+	}
+}

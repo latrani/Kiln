@@ -1,5 +1,5 @@
-fm              │fm · Kit                                                   Log 
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+fm              │fm · Kit                                       ? focus  ·  Log 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
  Kit            │───────────────────────────────────────────────────────────────
   @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │                                                               

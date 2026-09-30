@@ -93,6 +93,7 @@ type Model struct {
 		at   time.Time
 	}
 	focused         bool                    // the terminal has focus, as far as we know
+	focusSeen       bool                    // the terminal has sent a focus-in or focus-out, so it reports focus
 	lastHere        time.Time               // latest focus-in or input; see here
 	awayNow         bool                    // set by /away until the next input; see away
 	themed          bool                    // a theme has been loaded; see loadTheme
@@ -629,7 +630,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case eventMsg:
 		return m, m.handleEvent(msg)
 	case tea.FocusMsg:
-		m.focused = true
+		m.focused, m.focusSeen = true, true
 		m.here()
 		return m, m.askBackground() // the terminal may have gone light or dark meanwhile
 	case tea.BackgroundColorMsg:
@@ -644,7 +645,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.BlurMsg:
-		m.focused = false
+		m.focused, m.focusSeen = false, true
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
 			if msg.theme != theme.Active() { // rendered in a theme since replaced
@@ -691,9 +692,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
+		was := m.presence() // before here() clears an Away that a click on the chip toggles
 		m.focused = true
 		m.here()
-		return m, m.handleClick(msg)
+		return m, m.handleClick(msg, was)
 	case tea.MouseMotionMsg:
 		m.handleDrag(msg.Mouse())
 	case tea.MouseReleaseMsg:
@@ -1233,7 +1235,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 // doubleClick is the longest gap between the clicks of a double-click.
 const doubleClick = 400 * time.Millisecond
 
-func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
+func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 	if msg.Button != tea.MouseLeft {
 		return nil
 	}
@@ -1278,7 +1280,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 	}
 	if msg.Y < l.top {
 		if msg.Y == 0 {
-			m.topClick(msg.X - l.sw - 1)
+			m.topClick(msg.X-l.sw-1, was)
 		}
 		return nil
 	}
