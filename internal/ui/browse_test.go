@@ -163,7 +163,7 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 }
 
 func TestBrowseMarkExcludeExport(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	exportDir := t.TempDir()
 	h.m.cfg.ExportDir = exportDir
@@ -233,7 +233,7 @@ func TestBrowseCopy(t *testing.T) {
 
 // t says which tags the cursor's line has, and which style each takes.
 func TestBrowseLineTags(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("t") // Rook yawns.
@@ -430,7 +430,7 @@ func TestBrowseMouse(t *testing.T) {
 }
 
 func TestBrowseMouseSelectsLikeFinder(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.screen()
@@ -742,7 +742,7 @@ func TestBrowseFilterHidesAndOnly(t *testing.T) {
 }
 
 func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.keys("home", "down", "down") // Mira pages
@@ -790,5 +790,34 @@ func TestFilterOutlastsLogMode(t *testing.T) {
 	h.key("ctrl+l")
 	if strings.Contains(h.screen(), "Mira pages") {
 		t.Errorf("filter lost on leaving log mode:\n%s", h.screen())
+	}
+}
+
+// With local_echo off, the log view leaves out what you sent, like the
+// scrollback does; the lines stay loaded, so turning it on brings them back.
+func TestBrowseRespectsLocalEcho(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	if s := h.screen(); strings.Contains(s, "21:03") { // the sent line's time
+		t.Errorf("sent line shown with local_echo off:\n%s", s)
+	}
+	b := h.br()
+	for _, l := range b.visible() {
+		if l.e.Dir == logstore.Out {
+			t.Errorf("visible sent line %q", l.e.Text)
+		}
+	}
+	b.cursor = b.lastVisible()
+	for range scene1 {
+		h.key("up")
+	}
+	if b.cursor.e.Dir == logstore.Out {
+		t.Error("cursor landed on a sent line")
+	}
+
+	h.m.chars["fm/kit"].ch.LocalEcho = true
+	if s := h.screen(); !strings.Contains(s, "21:03") {
+		t.Errorf("sent line missing with local_echo on:\n%s", s)
 	}
 }

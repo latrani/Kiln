@@ -102,7 +102,7 @@ func newBrowse(cs *charState, l logstore.Layout, hasLogs bool) *browse {
 	b.histDone = b.hist == nil || b.hist.Exhausted()
 	for len(b.lines) < browseInitialLines && b.loadOlder() {
 	}
-	b.cursor = b.last()
+	b.cursor = b.lastVisible()
 	if l := b.last(); l != nil {
 		b.loadedTo = l.e.Time
 	}
@@ -309,8 +309,12 @@ func (b *browse) findStatus() string {
 	return str.BrowseFindStatus(b.find, i, n)
 }
 
-// shows reports whether the filter lets l through.
-func (b *browse) shows(l *bline) bool { return b.cs.filter.Visible(l.tags, l.lower) }
+// shows reports whether l is drawn: sent lines only with local_echo on
+// (they're logged either way), and whatever the filter lets through. The
+// lines stay loaded, so turning local_echo on brings them back.
+func (b *browse) shows(l *bline) bool {
+	return b.cs.echoes(l.e) && b.cs.filter.Visible(l.tags, l.lower)
+}
 
 // moveCursor moves by delta visible lines. Moving up past the oldest
 // loaded line stops there and pages in older history; the rest of the
