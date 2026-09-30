@@ -119,3 +119,59 @@ func TestNewestMessageWins(t *testing.T) {
 		t.Errorf("bottom bar = %q, want the newer message", got)
 	}
 }
+
+// Where daylight saving starts at midnight, the next midnight doesn't
+// exist; the tick must still land after now, not spin.
+func TestNextMidnightSkipsADSTGap(t *testing.T) {
+	loc, err := time.LoadLocation("America/Santiago")
+	if err != nil {
+		t.Skip("no zoneinfo:", err)
+	}
+	now := time.Date(2026, 9, 5, 23, 30, 0, 0, loc)
+	if next := nextMidnight(now); !next.After(now) || next.Sub(now) > 2*time.Hour {
+		t.Errorf("nextMidnight(%v) = %v", now, next)
+	}
+	now = time.Date(2026, 9, 29, 21, 0, 0, 0, loc)
+	if next := nextMidnight(now); next != time.Date(2026, 9, 30, 0, 0, 0, 0, loc) {
+		t.Errorf("ordinary day: nextMidnight = %v", next)
+	}
+}
+
+// Log mode's messages time out like any other, and a click that changes
+// the selection clears one, so the count shows again.
+func TestLogMessagesExpireAndClear(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.screen()
+	b := h.br()
+	l := h.m.layout()
+	rowOf := func(i int) int {
+		for row, bl := range b.rowLines {
+			if bl == b.lines[i] {
+				return l.top + row
+			}
+		}
+		t.Fatalf("line %d not on screen", i)
+		return 0
+	}
+	x := l.sw + 11
+	bar := func() string { return strings.TrimSpace(ansi.Strip(h.m.statusLine(60))) }
+	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(0), Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(4), Button: tea.MouseLeft, Mod: tea.ModShift})
+	if got := bar(); got != str.BrowseLinesInRange(5) {
+		t.Fatalf("bar = %q", got)
+	}
+	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(2), Button: tea.MouseLeft, Mod: tea.ModShift}) // leave line 2 out
+	if got, want := bar(), str.ViewSelected(len(b.selection())); got != want {
+		t.Errorf("after excluding a line the bar = %q, want %q", got, want)
+	}
+	h.key("c") // "copied N lines"
+	if bar() == str.ViewSelected(len(b.selection())) {
+		t.Fatal("copy set no message")
+	}
+	h.m.Update(statusExpiredMsg(h.m.statusGen))
+	if got, want := bar(), str.ViewSelected(len(b.selection())); got != want {
+		t.Errorf("after the message timed out the bar = %q, want %q", got, want)
+	}
+}

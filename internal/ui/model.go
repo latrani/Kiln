@@ -85,6 +85,7 @@ type Model struct {
 	quitKey     string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
 	quitGen     int                    // bumped per arming; see quitExpiredMsg
 	statusGen   int                    // bumped by each setStatus; see statusExpiredMsg
+	statusOfLog bool                   // status came from log mode; its next key or click clears it
 	statusTimed int                    // the statusGen whose expiry is scheduled
 	lastClick   struct {               // for spotting a double-click in the sidebar
 		char string
@@ -225,9 +226,21 @@ func (m *Model) Init() tea.Cmd {
 // tick wakes the model at the next local midnight, when "Connected
 // since" gains its day.
 func tick(now time.Time) tea.Cmd {
-	y, mo, d := now.Local().Date()
-	next := time.Date(y, mo, d+1, 0, 0, 0, 0, time.Local)
+	next := nextMidnight(now.Local())
 	return tea.Tick(next.Sub(now), func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+// nextMidnight is the start of the day after now's, in now's zone.
+// Where daylight saving starts at midnight that instant doesn't exist
+// and time.Date lands before now, so it steps on to the first hour that
+// comes after.
+func nextMidnight(now time.Time) time.Time {
+	y, mo, d := now.Date()
+	next := time.Date(y, mo, d+1, 0, 0, 0, 0, now.Location())
+	for !next.After(now) {
+		next = next.Add(time.Hour)
+	}
+	return next
 }
 
 func (m *Model) watch() tea.Cmd {
@@ -576,6 +589,7 @@ func (m *Model) reportSize() {
 // view has run past it.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, cmd := m.update(msg)
+	m.takeLogStatus()
 	if older := m.pageOlder(); older != nil {
 		cmd = tea.Batch(cmd, older)
 	}
@@ -722,8 +736,24 @@ const statusTimeout = 30 * time.Second
 func (m *Model) setStatus(isErr bool, msg string) {
 	m.status, m.statusErr = msg, isErr
 	m.statusGen++
-	if cs := m.cur(); cs != nil && cs.browse != nil {
-		cs.browse.status = "" // the bottom bar shows the newest message
+	m.statusOfLog = false
+}
+
+// takeLogStatus moves a message log mode just set into the bottom bar's
+// status, so it times out like any other and the newest message wins.
+func (m *Model) takeLogStatus() {
+	if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.status != "" {
+		m.setStatus(cs.browse.statusErr, cs.browse.status)
+		m.statusOfLog = true
+		cs.browse.status = ""
+	}
+}
+
+// clearLogStatus drops a message from log mode when you act in it again,
+// as log mode always has.
+func (m *Model) clearLogStatus() {
+	if m.statusOfLog {
+		m.status, m.statusOfLog = "", false
 	}
 }
 
@@ -853,6 +883,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return m.pickerKey(k)
 	}
 	if cs != nil && cs.browse != nil {
+		m.clearLogStatus()
 		cmd, closed := cs.browse.key(k, m.browseBodyH())
 		if closed {
 			cs.browse = nil
@@ -1273,6 +1304,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 	}
 	msg.Y -= l.top // body rows from here on
 	if cs := m.cur(); cs != nil && cs.browse != nil {
+		m.clearLogStatus()
 		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
 		return nil
 	}

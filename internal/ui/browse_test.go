@@ -213,8 +213,8 @@ func TestBrowseExportNeedsRange(t *testing.T) {
 	if !strings.Contains(h.screen(), "mark a range with m") {
 		t.Errorf("screen:\n%s", h.screen())
 	}
-	if cmd := h.key("c"); cmd != nil {
-		t.Error("copy without range should do nothing")
+	if cmd, _ := h.br().key(tea.KeyPressMsg{Code: 'c', Text: "c"}, h.m.browseBodyH()); cmd != nil {
+		t.Error("copy without range should do nothing") // no clipboard write; the message's timer is the model's
 	}
 }
 

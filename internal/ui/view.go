@@ -148,15 +148,13 @@ func fit(s string, w int) string {
 	return s
 }
 
-// statusLine is the bottom bar: a status message while there is one (log
-// mode's first), else in log mode how many lines are selected, else the
-// connection. Nothing in it changes by the minute.
+// statusLine is the bottom bar: a status message while there is one
+// (log mode's included; see takeLogStatus), else in log mode how many
+// lines are selected, else the connection. Nothing in it changes by the
+// minute.
 func (m *Model) statusLine(w int) string {
 	cs := m.cur()
 	msg, isErr := m.status, m.statusErr
-	if cs != nil && cs.browse != nil && cs.browse.status != "" {
-		msg, isErr = cs.browse.status, cs.browse.statusErr
-	}
 	switch {
 	case msg != "" && isErr:
 		msg = theme.Paint(theme.StatusError, msg)
@@ -176,7 +174,7 @@ func (m *Model) statusLine(w int) string {
 // first if that wasn't today.
 func (m *Model) connectedSince(cs *charState) string {
 	at, now := cs.connectedAt.Local(), m.d.Now().Local()
-	t := at.Format("15:04") //str:ok
+	t := at.Format("15:04")                                  //str:ok
 	if at.Format("2006-01-02") != now.Format("2006-01-02") { //str:ok
 		return str.ViewConnectedSinceDay(at.Format(str.DateDay()), t)
 	}
