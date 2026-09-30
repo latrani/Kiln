@@ -38,7 +38,8 @@ Nesting works the way Only does, through real flags rather than
 inherited looks:
 
 - **Hiding a parent** sets Hide on all its descendants too. Their
-  buttons light, since they really are hidden.
+  buttons light, since they really are hidden. **Unhiding a parent**
+  clears them all again.
 - **Unhiding a child** of a hidden parent clears the parent's Hide (and
   any hidden ancestor's). The child's siblings keep theirs, so "hide
   `page`, then unhide `page/in`" leaves `page/out` hidden and `page/in`
@@ -66,9 +67,12 @@ arrive while an Only is set, are hidden without any special case.
 
 - **Hide** toggles the item, as above.
 - **Only** on an item: clears any other item's Only, gives this one Only,
-  clears its Hide, and sets Hide on every other item. The panel then
-  shows exactly what is hidden.
-  - On a nested tag, "every other item" leaves out its ancestors and
+  clears its Hide, and sets Hide on every other item **of its kind**:
+  Only on a tag hides the other tags, Only on a text row hides the other
+  text rows. Tag hides and text hides are different axes, so Only on
+  `"lighthouse"` shows every line saying lighthouse, less any tags you
+  hid yourself. The panel shows exactly what is hidden.
+  - On a nested tag, "every other tag" leaves out its ancestors and
     descendants: hiding `page` would hide `page/in` with it. Only on
     `page/in` hides `page/out` and the rest; `page` stays shown.
 - **Only on the item that has it** clears the Only and every Hide: a
@@ -185,8 +189,10 @@ is all still there; quitting Kiln clears it. Nothing is saved to disk.
 - `ui`:
   - The panel opens and closes by `f`, the chip and `Esc`.
   - Hiding a parent lights its descendants; unhiding one clears the
-    parent and leaves its siblings hidden.
-  - Only lights Hide on the others (not ancestors or descendants);
+    parent and leaves its siblings hidden; unhiding the parent clears
+    them all.
+  - Only lights Hide on the others of its kind (not ancestors or
+    descendants, not the other kind);
     unhiding one clears the Only; Only on a second item moves it; Only on
     the item that has it clears everything; Hide on it clears the rest and
     hides just it.
