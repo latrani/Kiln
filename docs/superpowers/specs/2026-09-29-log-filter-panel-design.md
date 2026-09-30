@@ -73,6 +73,9 @@ arrive while an Only is set, are hidden without any special case.
     `page/in` hides `page/out` and the rest; `page` stays shown.
 - **Only on the item that has it** clears the Only and every Hide: a
   clean slate.
+- **Hide on the item that has Only** flips it: clears the Only and every
+  other Hide, then hides just that item (and, as for any hidden parent,
+  its descendants). Everything else shows again.
 - **Unhiding any item** while an Only is set clears the Only. The Hide
   flags it set stay, as plain hides.
 
@@ -185,7 +188,8 @@ is all still there; quitting Kiln clears it. Nothing is saved to disk.
     parent and leaves its siblings hidden.
   - Only lights Hide on the others (not ancestors or descendants);
     unhiding one clears the Only; Only on a second item moves it; Only on
-    the item that has it clears everything.
+    the item that has it clears everything; Hide on it clears the rest and
+    hides just it.
   - Collapse and expand by key and click; `•` on a collapsed parent with
     state under it.
   - Adding text (starts with Only), duplicates and empty terms ignored,
