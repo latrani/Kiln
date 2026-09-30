@@ -42,7 +42,7 @@
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-                │↑↓ move · h hide · o only · ←→ fold · x remove · f close       
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-72 fg=#b1a68b; @73-79 fg=#e3d0a0
+                │h hide · o only · ←→ fold · enter add · x remove · f close     
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-74 fg=#b1a68b; @75-79 fg=#e3d0a0
                 │fm/Kit  Log  · connected · 0 selected                     21:15
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-23 fg=#a0b7e3; @24-28 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @29-74 fg=#a0b7e3; @75-79 fg=#8b98b1

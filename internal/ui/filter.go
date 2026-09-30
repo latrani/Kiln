@@ -84,6 +84,16 @@ func (b *browse) entriesOf(items []scene.Item) []panelEntry {
 	return append(out, panelEntry{add: true})
 }
 
+// hasChildren reports whether any loaded tag sits under tag.
+func (b *browse) hasChildren(tag string) bool {
+	for _, it := range b.items() {
+		if !it.Text && strings.HasPrefix(it.Name, tag+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // foldedAway reports whether tag sits under a collapsed parent.
 func (b *browse) foldedAway(tag string) bool {
 	for p := scene.Parent(tag); p != ""; p = scene.Parent(p) {
@@ -230,12 +240,12 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 	f := &b.cs.filter
 	sel := b.panel.sel
 	switch k.String() {
-	case "esc", openFilterKey:
+	case "esc", "ctrl+c", openFilterKey: // as they back out of log mode
 		b.panel = nil
 		return nil
-	case "up":
+	case "up", "k":
 		b.movePanel(-1)
-	case "down":
+	case "down", "j":
 		b.movePanel(1)
 	case "h":
 		if !sel.add {
@@ -279,7 +289,7 @@ func (b *browse) movePanel(delta int) {
 
 // setCollapsed folds a parent tag shut or open.
 func (b *browse) setCollapsed(sel filterSel, shut bool) {
-	if sel.add || sel.item.Text {
+	if sel.add || sel.item.Text || !b.hasChildren(sel.item.Name) {
 		return
 	}
 	if b.cs.collapsed == nil {

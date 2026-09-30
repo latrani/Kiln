@@ -32,7 +32,7 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side := panelSide(h)
-	want := []string{str.FilterTitle(), "", "▼ page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want := []string{str.FilterTitle(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -319,5 +319,38 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	}
 	if d := time.Since(start); d > 400*time.Millisecond {
 		t.Errorf("20 frames with the panel open on 50k lines took %v", d)
+	}
+}
+
+// The panel takes log mode's own keys: Ctrl+C backs out of it, j/k move.
+func TestPanelLogModeKeys(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.key("j")
+	if h.br().panel.sel.item != (scene.Item{Name: "page/in"}) {
+		t.Errorf("j should move down: %v", h.br().panel.sel)
+	}
+	h.key("k")
+	if h.br().panel.sel.item != (scene.Item{Name: "page"}) {
+		t.Errorf("k should move up: %v", h.br().panel.sel)
+	}
+	h.key("ctrl+c")
+	if h.br() == nil || h.br().panel != nil {
+		t.Error("Ctrl+C should close the panel and stay in log mode")
+	}
+}
+
+// Only a parent folds: ← on a leaf leaves nothing behind for children
+// that arrive later.
+func TestLeftOnLeafDoesNotFold(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.keys("down", "down", "left") // self
+	if h.m.chars["fm/kit"].collapsed["self"] {
+		t.Error("← on self (no children) recorded a fold")
 	}
 }

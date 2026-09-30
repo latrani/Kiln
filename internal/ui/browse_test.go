@@ -66,6 +66,8 @@ func (h *harness) key(s string) tea.Cmd {
 		k = tea.KeyPressMsg{Code: tea.KeyDelete}
 	case "ctrl+l":
 		k = tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl}
+	case "ctrl+c":
+		k = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	default:
 		r := []rune(s)[0]
 		k = tea.KeyPressMsg{Code: r, Text: s}

@@ -463,7 +463,7 @@ func FilterAddText() string { return get("filter.add_text", nil) }
 // FilterHide is filter.hide: "Hide"
 func FilterHide() string { return get("filter.hide", nil) }
 
-// FilterHints is filter.hints: "↑↓ move · h hide · o only · ←→ fold · x remove · f close"
+// FilterHints is filter.hints: "h hide · o only · ←→ fold · enter add · x remove · f close"
 func FilterHints() string { return get("filter.hints", nil) }
 
 // FilterOnly is filter.only: "Only"
