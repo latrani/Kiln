@@ -44,5 +44,5 @@ fm              │
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │fm/Kit · connected                                        21:15
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1
+                │fm/Kit  Log  · connected                                  21:15
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-23 fg=#a0b7e3; @24-28 bold,fg=#c0cfed,bg=#0b1b3d; @29-74 fg=#a0b7e3; @75-79 fg=#8b98b1

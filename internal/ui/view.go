@@ -147,24 +147,33 @@ func fit(s string, w int) string {
 	return s
 }
 
-// statusLine shows the active character and its connection, or, while
-// there is a status message, the character and the message. In log mode
-// it starts with "LOG · N selected". The version and clock are pinned to
-// the right; when space runs out, the left side is cut first.
+// statusLine shows the active character, the Log chip (on in log mode),
+// and its connection, or, while there is a status message, the message;
+// in log mode then "N selected". The version and clock are pinned to the
+// right; when space runs out, the left side is cut first.
 func (m *Model) statusLine(w int) string {
+	line, _, _ := m.statusLayout(w)
+	return line
+}
+
+// statusLayout draws the statusline and says which columns the Log chip
+// takes, [x0, x1); x1 is 0 when the chip isn't there to click, all of it.
+func (m *Model) statusLayout(w int) (line string, x0, x1 int) {
 	sep := str.Separator()
 	cs := m.cur()
-	name := ""
+	left := ""
 	if cs != nil {
-		name = cs.ch.World + "/" + cs.ch.Name
+		name := cs.ch.World + "/" + cs.ch.Name
+		role := theme.StatusLog
 		if cs.browse != nil {
-			name = theme.Paint(theme.StatusLog, str.BrowseLog()) + sep + str.ViewSelected(len(cs.browse.selection())) + sep + name
+			role = theme.StatusLogOn
 		}
+		c := chip(role, str.ViewLogButton())
+		x0 = xansi.StringWidth(name) + 1
+		x1 = x0 + xansi.StringWidth(c)
+		left = name + " " + c
 	}
 	var parts []string
-	if name != "" {
-		parts = append(parts, name)
-	}
 	if m.status != "" {
 		msg := m.status
 		if m.statusErr {
@@ -174,6 +183,16 @@ func (m *Model) statusLine(w int) string {
 	} else if cs != nil {
 		parts = append(parts, stateName(cs.state))
 	}
+	if cs != nil && cs.browse != nil {
+		parts = append(parts, str.ViewSelected(len(cs.browse.selection())))
+	}
+	if len(parts) > 0 {
+		rest := strings.Join(parts, sep)
+		if left != "" {
+			rest = sep + rest
+		}
+		left += rest
+	}
 	right := m.d.Now().Format("15:04")
 	if m.d.Version != "" {
 		right = m.d.Version + sep + right
@@ -181,9 +200,12 @@ func (m *Model) statusLine(w int) string {
 	rw := xansi.StringWidth(right)
 	right = theme.Paint(theme.StatusClock, right)
 	if w <= rw {
-		return fit(right, w)
+		return fit(right, w), 0, 0
 	}
-	return fitName(strings.Join(parts, sep), w-rw-1) + " " + right
+	if x1 > w-rw-1 {
+		x0, x1 = 0, 0 // cut off
+	}
+	return fitName(left, w-rw-1) + " " + right, x0, x1
 }
 
 // chip draws something you can click: its label with a space either

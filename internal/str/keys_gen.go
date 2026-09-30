@@ -851,6 +851,9 @@ func ViewConnecting() string { return get("view.connecting", nil) }
 // ViewDisconnected is view.disconnected: "Disconnected · Enter to connect"
 func ViewDisconnected() string { return get("view.disconnected", nil) }
 
+// ViewLogButton is view.log_button: "Log"
+func ViewLogButton() string { return get("view.log_button", nil) }
+
 // ViewMoreAbove is view.more_above: "▲ {n} more"
 func ViewMoreAbove(n int) string { return get("view.more_above", map[string]any{"n": n}) }
 

@@ -51,7 +51,8 @@ const (
 	InputSelection Role = "input.selection"
 
 	Status      Role = "status" // area
-	StatusLog   Role = "status.log"
+	StatusLog   Role = "status.log" // the Log chip
+	StatusLogOn Role = "status.log.on"
 	StatusError Role = "status.error"
 	StatusClock Role = "status.clock"
 
@@ -92,7 +93,7 @@ var Roles = []Role{
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
-	Status, StatusLog, StatusError, StatusClock,
+	Status, StatusLog, StatusLogOn, StatusError, StatusClock,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogHeader, LogTitle, LogChip, LogChipOn, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogError,

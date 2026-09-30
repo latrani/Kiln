@@ -1243,6 +1243,16 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if cs := m.cur(); cs != nil && msg.Y == m.height-1 {
+		if _, x0, x1 := m.statusLayout(l.rw); x0 <= msg.X-l.sw-1 && msg.X-l.sw-1 < x1 {
+			if cs.browse != nil {
+				cs.browse = nil // as Esc does
+			} else {
+				m.openBrowse(cs)
+			}
+		}
+		return nil
+	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
 		return nil

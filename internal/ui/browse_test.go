@@ -128,14 +128,14 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 		rows := strings.Split(h.screen(), "\n")
 		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); !strings.HasPrefix(got, str.BrowseLog()+sep+str.ViewSelected(0)+sep+"fm/Kit"+sep+str.StateDisconnected()+" ") || !strings.HasSuffix(got, " 21:14") {
+	if got := last(); !strings.HasPrefix(got, "fm/Kit  "+str.ViewLogButton()+" "+sep+str.StateDisconnected()+sep+str.ViewSelected(0)+" ") || !strings.HasSuffix(got, " 21:14") {
 		t.Errorf("statusline = %q", got)
 	}
 	if !strings.Contains(rows[len(rows)-2], firstPart(str.BrowseHints())) {
 		t.Errorf("action bar should sit just above the statusline:\n%s", h.screen())
 	}
 	h.keys("m", "up", "m")
-	if got := last(); !strings.HasPrefix(got, str.BrowseLog()+sep+str.ViewSelected(2)+sep) {
+	if got := last(); !strings.Contains(got, sep+str.ViewSelected(2)+" ") {
 		t.Errorf("statusline = %q", got)
 	}
 	msg := str.StatusLogWriteFailed("R", errors.New("x")) // e.g. another character's event
@@ -795,5 +795,37 @@ func TestLogDirAndNameSettings(t *testing.T) {
 	h.key("ctrl+l")
 	if !strings.Contains(h.screen(), "from my own log folder") {
 		t.Errorf("browse didn't read it back:\n%s", h.screen())
+	}
+}
+
+// The statusline's Log chip sits after the character's name in both
+// modes: clicking it opens log mode, and in log mode goes back.
+func TestStatusLogChip(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	l := h.m.layout()
+	chipX := l.sw + 1 + len("fm/Kit ") + 1 // on the label, past the chip's leading space
+	click := func(x int) {
+		h.m.Update(tea.MouseClickMsg{X: x, Y: h.m.height - 1, Button: tea.MouseLeft})
+	}
+	click(chipX - 2) // the name: nothing
+	if h.m.cur().browse != nil {
+		t.Fatal("clicking the name opened log mode")
+	}
+	click(chipX)
+	if h.m.cur().browse == nil {
+		t.Fatalf("clicking %s didn't open log mode:\n%s", str.ViewLogButton(), h.screen())
+	}
+	click(chipX)
+	if h.m.cur().browse != nil {
+		t.Fatalf("clicking %s in log mode didn't go back:\n%s", str.ViewLogButton(), h.screen())
+	}
+
+	// A name too long to leave room for the chip: nothing to click.
+	h.m.chars["fm/kit"].ch.Name = strings.Repeat("K", h.m.width)
+	for x := l.sw + 1; x < h.m.width; x++ {
+		click(x)
+		if h.m.cur().browse != nil {
+			t.Fatalf("a click at %d opened log mode with the chip cut off:\n%s", x, h.screen())
+		}
 	}
 }
