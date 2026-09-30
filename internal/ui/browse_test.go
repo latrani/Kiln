@@ -111,7 +111,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	s := h.screen()
-	if top := rightRow(h, 0); !strings.HasPrefix(top, "fm/Kit") {
+	if top := rightRow(h, 0); !strings.HasPrefix(top, "fm"+str.Separator()+"Kit") {
 		t.Errorf("top bar = %q", top)
 	}
 	for _, want := range []string{"── Thu Sep 24 ──", "21:00", "Rook says", "21:06", firstPart(str.BrowseHints())} {

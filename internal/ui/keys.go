@@ -62,12 +62,13 @@ var browseKeys = map[string]browseAction{
 // openFilterKey opens and closes log mode's filter panel.
 const openFilterKey = "f"
 
-// Filter panel glyphs: a parent's disclosure, and the mark on a
-// collapsed parent with a filter set under it.
+// Filter panel glyphs: a parent's disclosure, the mark on a collapsed
+// parent with a filter set under it, and the × that removes a text row.
 const (
 	glyphOpen      = "▼"
 	glyphCollapsed = "►"
 	glyphFiltered  = "•"
+	glyphRemove    = "×"
 )
 
 // Export format keys, pressed after actExport.

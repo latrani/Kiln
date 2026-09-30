@@ -1,4 +1,4 @@
-fm              │fm/Kit                                                     Log 
+fm              │fm · Kit                                                   Log 
   @0-15 bold,fg=#e3bda0; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
  Rook           │───────────────────────────────────────────────────────────────
   @0-15 reverse,fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd

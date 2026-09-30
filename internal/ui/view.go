@@ -186,15 +186,15 @@ const topH = 2
 
 // topBar draws the top status bar: the character and, in log mode, its
 // find status on the left; the Filter chip (log mode) and the Log chip
-// pinned right, Log at the far right. It says which columns each chip
+// pinned right, Log at the far right, a spaced dot between them. It says which columns each chip
 // takes, [from, to); zero when it isn't drawn whole.
 func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
 	cs := m.cur()
 	if cs == nil {
 		return "", logChip, filterChip
 	}
-	left := cs.ch.World + "/" + cs.ch.Name
-	logRole, filt := theme.StatusLog, ""
+	left := cs.ch.World + str.Separator() + cs.ch.Name
+	logRole, filt, sep := theme.StatusLog, "", ""
 	if b := cs.browse; b != nil {
 		logRole = theme.StatusLogOn
 		if f := b.findStatus(); f != "" {
@@ -204,13 +204,13 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
 		if b.panel != nil {
 			role = theme.StatusFilterOn
 		}
-		filt = chip(role, str.ViewFilterButton())
+		filt, sep = chip(role, str.ViewFilterButton()), str.Separator()
 	}
 	logc := chip(logRole, str.ViewLogButton())
-	fw, lw := xansi.StringWidth(filt), xansi.StringWidth(logc)
-	start := w - fw - lw
+	fw, sw, lw := xansi.StringWidth(filt), xansi.StringWidth(sep), xansi.StringWidth(logc)
+	start := w - fw - sw - lw
 	if start < 2 { // too tight for both beside a name: Filter goes first
-		filt, fw, start = "", 0, w-lw
+		filt, sep, fw, sw, start = "", "", 0, 0, w-lw
 	}
 	if start < 2 { // no room for a chip at all
 		return fitName(left, w), logChip, filterChip
@@ -218,8 +218,8 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
 	if fw > 0 {
 		filterChip = [2]int{start, start + fw}
 	}
-	logChip = [2]int{start + fw, w}
-	return fitName(left, start-1) + " " + filt + logc, logChip, filterChip
+	logChip = [2]int{start + fw + sw, w}
+	return fitName(left, start-1) + " " + filt + sep + logc, logChip, filterChip
 }
 
 // topClick handles a click at column x of the top bar.

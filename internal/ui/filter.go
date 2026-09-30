@@ -134,7 +134,7 @@ func (b *browse) panelRows(w int) []panelRow {
 		if e.item.Untagged {
 			name = str.FilterUntagged()
 		} else if e.item.Text {
-			name = str.FilterTextItem(name)
+			name = glyphRemove + " " + str.FilterTextItem(name)
 		} else if i := strings.LastIndex(name, "/"); i >= 0 {
 			name = name[i+1:]
 		}
@@ -266,13 +266,19 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 			b.pin.SetValue("")
 		}
 	case "x", "delete":
-		if sel.item.Text {
-			b.movePanel(1) // keep a highlight when the row goes
-			f.RemoveText(sel.item.Name)
-		}
+		b.removeText(sel)
 	}
 	b.refilter()
 	return nil
+}
+
+// removeText drops sel if it's a text row.
+func (b *browse) removeText(sel filterSel) {
+	if !sel.item.Text {
+		return
+	}
+	b.movePanel(1) // keep a highlight when the row goes
+	b.cs.filter.RemoveText(sel.item.Name)
 }
 
 // movePanel moves the highlight by delta entries, stopping at the ends.
@@ -304,7 +310,8 @@ func (b *browse) setCollapsed(sel filterSel, shut bool) {
 }
 
 // panelClick handles a click at (x, y) in the sidebar column, h rows
-// tall: a button presses it, a disclosure glyph folds, a name selects.
+// tall: a button presses it, a disclosure glyph folds, a text row's ×
+// removes it, a name selects.
 func (b *browse) panelClick(x, y, h int) {
 	if b.prompt != promptNone {
 		return
@@ -336,7 +343,14 @@ func (b *browse) panelClick(x, y, h int) {
 		b.prompt = promptFilterText
 		b.pin.SetValue("")
 	case prName:
-		if e.parent && x >= indent && x < indent+1 {
+		onGlyph := x >= indent && x < indent+1
+		switch {
+		case e.item.Text && onGlyph:
+			b.panel.sel = e.sel()
+			b.removeText(e.sel())
+			b.refilter()
+			return
+		case e.parent && onGlyph:
 			b.setCollapsed(e.sel(), !b.cs.collapsed[e.item.Name])
 		}
 		b.panel.sel = e.sel()

@@ -1,5 +1,5 @@
-fm              │fm/Kit   find: Mira 1/1                            Filter  Log 
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-66 fg=#a0b7e3; @67-74 bold,fg=#c0cfed,bg=#0b1b3d; @75-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
+fm              │fm · Kit   find: Mira 1/1                       Filter  ·  Log 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-63 fg=#a0b7e3; @64-71 bold,fg=#c0cfed,bg=#0b1b3d; @72-74 fg=#a0b7e3; @75-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
  Kit            │───────────────────────────────────────────────────────────────
   @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │── Thu Sep 24 ──                                               

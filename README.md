@@ -163,7 +163,7 @@ Exports contain only received lines: no timestamps, your own commands (the serve
 
 - **Hide** hides lines with that tag (or text). Hiding a parent hides its children too; unhiding one child brings its parent back and leaves the other children hidden.
 - **Only** shows just lines with that tag (or text), and lights Hide on every other tag (or text) so you can see what's hidden. Unhide any of them and Only lets go; press Only again to clear the tag (or text) filters; press Hide on it to flip it, showing everything but that. Tags and text are separate: Only on a text hides the other texts, not your tags.
-- **+ Text** adds text to filter on, matched like `/` find. It starts on Only. `x` or `Delete` removes it.
+- **+ Text** adds text to filter on, matched like `/` find. It starts on Only. The `×` in front of it, `x` or `Delete` removes it.
 
 `↑`/`↓` move, `h`/`o` press Hide/Only, `←`/`→` fold a parent (a folded parent with a filter inside shows `•`), and `f` or `Esc` closes the panel. The log updates as you go. Filters stay set until you quit Kiln.
 

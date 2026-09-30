@@ -21,7 +21,7 @@ func TestTopBar(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	top := rightRow(h, 0)
-	if !strings.HasPrefix(top, "fm/Kit") || !strings.HasSuffix(top, strings.TrimSpace(chipText(str.ViewLogButton()))) {
+	if !strings.HasPrefix(top, "fm"+str.Separator()+"Kit") || !strings.HasSuffix(top, strings.TrimSpace(chipText(str.ViewLogButton()))) {
 		t.Errorf("normal top bar = %q", top)
 	}
 	h.key("ctrl+l")
@@ -29,8 +29,8 @@ func TestTopBar(t *testing.T) {
 	h.typeText("Mira")
 	h.key("enter")
 	top = rightRow(h, 0)
-	want := chipText(str.ViewFilterButton()) + chipText(str.ViewLogButton())
-	if !strings.HasPrefix(top, "fm/Kit") || !strings.Contains(top, str.BrowseFindStatus("Mira", 1, 1)) ||
+	want := chipText(str.ViewFilterButton()) + str.Separator() + chipText(str.ViewLogButton())
+	if !strings.HasPrefix(top, "fm"+str.Separator()+"Kit") || !strings.Contains(top, str.BrowseFindStatus("Mira", 1, 1)) ||
 		!strings.HasSuffix(top+" ", want) {
 		t.Errorf("log top bar = %q, want name, find status, then %q", top, want)
 	}

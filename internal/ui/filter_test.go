@@ -214,7 +214,7 @@ func TestPanelTextRows(t *testing.T) {
 	if !strings.Contains(s, "The lighthouse is dark") || strings.Contains(s, "Sable") {
 		t.Errorf("a new text row takes Only:\n%s", s)
 	}
-	if !slices.Contains(panelSide(h), str.FilterTextItem("lighthouse")) {
+	if !slices.Contains(panelSide(h), glyphRemove+" "+str.FilterTextItem("lighthouse")) {
 		t.Errorf("no text row:\n%s", s)
 	}
 	// An exact repeat adds nothing; a different term is a second row.
@@ -377,5 +377,40 @@ func TestPanelListsFilteredTagsNotLoaded(t *testing.T) {
 	side := panelSide(h)
 	if !slices.Contains(side, glyphOpen+" whisper") || !slices.Contains(side, "in") {
 		t.Errorf("whisper/in (Only, no lines loaded) not listed:\n%s", h.screen())
+	}
+}
+
+// A text row starts with a ×, and clicking it removes the row.
+func TestPanelTextRowRemovesWithClickOnX(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	b := h.br()
+	for range 10 {
+		h.key("down") // to + Text
+	}
+	h.key("enter")
+	h.typeText("Rook")
+	h.key("enter")
+	if !slices.Contains(panelSide(h), glyphRemove+" "+str.FilterTextItem("Rook")) {
+		t.Fatalf("no × on the text row:\n%s", h.screen())
+	}
+	rowOf := func() int {
+		for i, r := range b.panelRows(0) {
+			if r.kind == prName && r.sel.item.Text {
+				return i
+			}
+		}
+		return -1
+	}
+	y := rowOf()
+	b.panelClick(3, y, 100) // on the name, not the ×: selects it, removes nothing
+	if len(h.kitFilter().Texts()) != 1 {
+		t.Error("clicking a text row's name removed it")
+	}
+	b.panelClick(1, y, 100) // the × (one space in)
+	if n := len(h.kitFilter().Texts()); n != 0 {
+		t.Errorf("clicking × left %d text rows", n)
 	}
 }

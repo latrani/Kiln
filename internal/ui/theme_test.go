@@ -331,7 +331,7 @@ sidebar = { fg = "#6b6f7a", bg = "#1f2029" }
 "sidebar.active" = { fg = "#ffffff", bold = true }`)
 	row := strings.Split(cells(h.drawn()), "\n")
 	for i, r := range row {
-		if strings.Contains(r, " Rook") && i+1 < len(row) {
+		if i > 0 && strings.Contains(r, " Rook") && i+1 < len(row) { // not the top bar, which names the character too
 			runs := row[i+1]
 			if strings.Contains(runs, "fg=#0a0b0c") || strings.Contains(runs, "fg=#0d0e0f") {
 				t.Errorf("a child role drew over the active row: %s\n%s", r, runs)

@@ -1,5 +1,5 @@
- Untagged       │fm/Kit                                             Filter  Log 
-  @0-0 fg=#a0b7e3; @1-8 bold,fg=#a0b7e3; @9-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-66 fg=#a0b7e3; @67-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
+ Untagged       │fm · Kit                                        Filter  ·  Log 
+  @0-0 fg=#a0b7e3; @1-8 bold,fg=#a0b7e3; @9-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-63 fg=#a0b7e3; @64-71 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @72-74 fg=#a0b7e3; @75-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
   Hide Only     │───────────────────────────────────────────────────────────────
   @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │── Thu Sep 24 ──                                               
