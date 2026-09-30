@@ -271,3 +271,12 @@ func TestGoldenPassword(t *testing.T) {
 	h.typeText("s3cret")
 	assertGolden(t, "password", h.drawn())
 }
+
+func TestGoldenLogFilter(t *testing.T) {
+	h := goldenHarness(t)
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.keys("down", "h", "down", "o") // hide page/in, then Only on self
+	assertGolden(t, "log-filter", h.drawn())
+}

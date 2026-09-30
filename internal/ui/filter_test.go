@@ -201,3 +201,45 @@ func manyTags(n int) string {
 	}
 	return b.String()
 }
+
+func TestPanelTextRows(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	for range 10 {
+		h.key("down") // to + Text
+	}
+	h.key("enter")
+	if h.br().prompt != promptFilterText {
+		t.Fatalf("Enter on + Text should ask for a term:\n%s", h.screen())
+	}
+	h.typeText("lighthouse")
+	h.key("enter")
+	s := h.screen()
+	if !strings.Contains(s, "The lighthouse is dark") || strings.Contains(s, "Sable") {
+		t.Errorf("a new text row takes Only:\n%s", s)
+	}
+	if !slices.Contains(panelSide(h), str.FilterTextItem("lighthouse")) {
+		t.Errorf("no text row:\n%s", s)
+	}
+	// An exact repeat adds nothing; a different term is a second row.
+	h.keys("down", "enter") // + Text
+	h.typeText("lighthouse")
+	h.key("enter")
+	h.keys("down", "enter")
+	h.typeText("Rook")
+	h.key("enter")
+	if got := h.kitFilter().Texts(); len(got) != 2 {
+		t.Errorf("texts = %v, want lighthouse and Rook", got)
+	}
+	h.key("up")     // Rook (the new row is highlighted) → lighthouse
+	h.key("x")      // removes lighthouse; the highlight moves down onto Rook
+	h.key("delete") // removes Rook
+	if n := len(h.kitFilter().Texts()); n != 0 {
+		t.Errorf("x and Delete should remove text rows, %d left", n)
+	}
+	if !strings.Contains(h.screen(), "Sable") {
+		t.Errorf("removing the Only text row should show lines again:\n%s", h.screen())
+	}
+}

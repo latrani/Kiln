@@ -469,6 +469,9 @@ func FilterHints() string { return get("filter.hints", nil) }
 // FilterOnly is filter.only: "Only"
 func FilterOnly() string { return get("filter.only", nil) }
 
+// FilterPrompt is filter.prompt: "filter text: "
+func FilterPrompt() string { return get("filter.prompt", nil) }
+
 // FilterTextItem is filter.text_item: "\"{term}\""
 func FilterTextItem(term any) string { return get("filter.text_item", map[string]any{"term": term}) }
 

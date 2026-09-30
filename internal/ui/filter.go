@@ -241,6 +241,16 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 		b.setCollapsed(sel, true)
 	case "right":
 		b.setCollapsed(sel, false)
+	case "enter":
+		if sel.add {
+			b.prompt = promptFilterText
+			b.pin.SetValue("")
+		}
+	case "x", "delete":
+		if sel.item.Text {
+			b.movePanel(1) // keep a highlight when the row goes
+			f.RemoveText(sel.item.Name)
+		}
 	}
 	b.refilter()
 	return nil
@@ -299,7 +309,8 @@ func (b *browse) panelClick(x, y, h int) {
 	switch rows[i].kind {
 	case prAdd:
 		b.panel.sel = e.sel()
-		// Task 5: + Text asks for a term.
+		b.prompt = promptFilterText
+		b.pin.SetValue("")
 	case prName:
 		if e.parent && x >= indent && x < indent+1 {
 			b.setCollapsed(e.sel(), !b.cs.collapsed[e.item.Name])

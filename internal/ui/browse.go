@@ -46,6 +46,7 @@ const (
 	promptDate
 	promptFormat
 	promptFilename
+	promptFilterText
 )
 
 // browse is one character's browse-mode state. Lines are referenced by
@@ -670,6 +671,11 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			return b.gotoDate(v)
 		case promptFilename:
 			b.save(v)
+		case promptFilterText:
+			if b.cs.filter.AddText(v, b.items()) && b.panel != nil {
+				b.panel.sel = filterSel{item: scene.Item{Name: v, Text: true}}
+			}
+			b.refilter()
 		}
 	case "backspace":
 		b.pin.Backspace()
@@ -703,6 +709,8 @@ func (b *browse) promptLabel() string {
 		return str.BrowseFormatPrompt()
 	case promptFilename:
 		return str.BrowseSavePrompt()
+	case promptFilterText:
+		return str.FilterPrompt()
 	}
 	return ""
 }

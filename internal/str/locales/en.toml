@@ -266,6 +266,7 @@ add_text = "+ Text"
 # A text row's name in the panel.
 text_item = "\"{term}\""
 hints = "↑↓ move · h hide · o only · ←→ fold · x remove · f close"
+prompt = "filter text: "
 
 # The open-connection picker.
 [picker]

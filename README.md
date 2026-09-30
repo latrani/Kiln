@@ -20,7 +20,7 @@ A modern terminal MUCK client in the spirit of TinyFugue, built for social and r
 - **Many worlds, many characters, all at once.** The sidebar shows the characters you have open, grouped under their worlds; everything else is a Ctrl+O away. Each one has its own scrollback, draft and history.
 - **Knows what a page is.** Lines are tagged (page, whisper, and `self` when they mention you) by rules you can edit. The theme colors tags, and tags drive the attention badge.
 - **Everything is logged** to plain, greppable text, one file per session, in whatever folder you like.
-- **Log mode** pages back through all of a character's logs. You can filter by tag, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
+- **Log mode** pages back through all of a character's logs. You can filter by tag or text, search, mark a range, drop stray lines, and export the scene as plain text, ANSI or HTML.
 - **Safe input.** The input box shows exactly where the server would cut an over-long line, so you can break it before sending.
 - **Secure by default.** Passwords live in your OS keychain, never in config (or, if you opt in, a file only you can read). TLS certificates are pinned on first use, so self-signed MUCK certificates just work.
 
@@ -156,6 +156,16 @@ Kiln never scrolls text past you unread. When a burst of output (a long room des
 | `c` | Copy the range as plain text |
 
 Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
+
+#### Filter
+
+`f`, or the ` Filter ` chip at the top right, opens the filter panel in the sidebar. It lists every tag in the loaded logs, children indented under their parents (`page/in` under `page`), then any text you've added, each with **Hide** and **Only**:
+
+- **Hide** hides lines with that tag (or text). Hiding a parent hides its children too; unhiding one child brings its parent back and leaves the other children hidden.
+- **Only** shows just lines with that tag (or text), and lights Hide on every other tag (or text) so you can see what's hidden. Unhide any of them and Only lets go; press Only again to clear the tag (or text) filters; press Hide on it to flip it, showing everything but that. Tags and text are separate: Only on a text hides the other texts, not your tags.
+- **+ Text** adds text to filter on, matched like `/` find. It starts on Only. `x` or `Delete` removes it.
+
+`↑`/`↓` move, `h`/`o` press Hide/Only, `←`/`→` fold a parent (a folded parent with a filter inside shows `•`), and `f` or `Esc` closes the panel. The log updates as you go. Filters stay set until you quit Kiln.
 
 ### Themes
 
