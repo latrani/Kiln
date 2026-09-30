@@ -31,9 +31,10 @@ const openBrowseKey = "ctrl+l"
 // openPickerKey opens the open-connection picker (like /open).
 const openPickerKey = "ctrl+o"
 
-// editKey opens the editor for the world or character highlighted in the
-// picker.
-const openEditorKey = "ctrl+e"
+// openEditorKey opens the editor for the world or character highlighted
+// in the picker, or from the main view for the active character (like
+// /edit). Ctrl+E is the input's end of line.
+const openEditorKey = "ctrl+t"
 
 var browseKeys = map[string]browseAction{
 	"esc":    actBack,

@@ -41,7 +41,7 @@ func TestEditWorldFromPicker(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.press('o', tea.ModCtrl)
 	h.press(tea.KeyUp, 0) // fm's header
-	h.press('e', tea.ModCtrl)
+	h.press('t', tea.ModCtrl)
 	e := h.m.picker.edit
 	if e == nil || e.kind != editWorld {
 		t.Fatalf("no world editor:\n%s", h.screen())
@@ -93,6 +93,27 @@ func TestAddWorldWithExtras(t *testing.T) {
 	h.enter()
 	if got := h.worldFile("sp"); !strings.Contains(got, "host = \"sp.test\"") || !strings.Contains(got, "autoconnect = false\n") {
 		t.Errorf("file:\n%s", got)
+	}
+}
+
+// Ctrl+T edits the active character from the main view, as /edit does,
+// and leaves Ctrl+E to the input's end of line.
+func TestEditKeyFromMainView(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('t', tea.ModCtrl)
+	if p := h.m.picker; p == nil || p.edit == nil || p.edit.kind != editChar || p.edit.char != "kit" {
+		t.Fatalf("Ctrl+T should edit the active character:\n%s", h.screen())
+	}
+	h.press(tea.KeyEscape, 0)
+	if h.m.picker != nil {
+		t.Errorf("Esc should close the picker it came with:\n%s", h.screen())
+	}
+	h.typeText("abc")
+	h.press(tea.KeyHome, 0)
+	h.press('e', tea.ModCtrl)
+	h.typeText("d")
+	if h.m.picker != nil || h.m.input().Value() != "abcd" {
+		t.Errorf("Ctrl+E should go to the end of the line, input = %q", h.m.input().Value())
 	}
 }
 
@@ -179,7 +200,7 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 
 	h.press('o', tea.ModCtrl)
 	h.m.picker.sel = worldSel("fm")
-	h.press('e', tea.ModCtrl)
+	h.press('t', tea.ModCtrl)
 	h.focusOn(delWorldLabel)
 	h.enter()
 	h.enter()
@@ -188,12 +209,12 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 	}
 	h.press(tea.KeyEscape, 0)
 	h.m.picker.sel = "fm/rook"
-	h.press('e', tea.ModCtrl)
+	h.press('t', tea.ModCtrl)
 	h.focusOn(delCharLabel)
 	h.enter()
 	h.enter()
 	h.m.picker.sel = worldSel("fm")
-	h.press('e', tea.ModCtrl)
+	h.press('t', tea.ModCtrl)
 	h.focusOn(delWorldLabel)
 	h.enter()
 	h.enter()

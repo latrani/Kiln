@@ -856,6 +856,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			m.openBrowse(cs)
 		}
 		return nil
+	case openEditorKey:
+		if cs != nil {
+			m.editCommand(cs, "")
+		}
+		return nil
 	case "ctrl+c", "ctrl+d": // Ctrl+D with text deletes forward, below
 		if m.input().Empty() {
 			return m.armQuit(k.String(), armed)
