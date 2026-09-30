@@ -187,7 +187,7 @@ func (sv sideView) at(y int) (*sidebarRow, int) {
 // position the mouse wheel left.
 func (m *Model) sidebarView() sideView {
 	rows, focus := m.sidebarRows(), m.active
-	if m.picker != nil {
+	if m.listing() {
 		rows, focus = m.pickerRows(), m.picker.sel
 	}
 	sv := sideView{rows: rows}
@@ -216,7 +216,7 @@ func (m *Model) sidebarView() sideView {
 	if focus != m.sideShown {
 		m.sideShown = focus
 		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool {
-			return r.kind == rowChar && r.char == focus || m.picker != nil && selKey(r) == focus
+			return r.kind == rowChar && r.char == focus || m.listing() && selKey(r) == focus
 		}); a >= 0 {
 			if a < sv.top {
 				sv = fit(a - 1) // show the row above too (often its world header)

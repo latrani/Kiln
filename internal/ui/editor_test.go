@@ -117,6 +117,28 @@ func TestEditKeyFromMainView(t *testing.T) {
 	}
 }
 
+// Editing from the main view keeps the sidebar: the open characters,
+// the edited one highlighted, not the picker's list of ones to open.
+// A click there closes the editor and does what it does.
+func TestEditKeepsSidebar(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.press('t', tea.ModCtrl)
+	if h.m.picker == nil || h.m.picker.edit == nil {
+		t.Fatalf("no editor:\n%s", h.screen())
+	}
+	want := []string{"fm", "× Kit", "× Rook", "", addLabel}
+	for y, w := range want {
+		if got := strings.TrimSpace(sideRow(h, y)); got != w {
+			t.Errorf("sidebar row %d = %q, want %q:\n%s", y, got, w, h.screen())
+		}
+	}
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft})
+	if h.m.picker != nil || h.m.active != "fm/rook" {
+		t.Errorf("click on Rook: picker open %v, active %s", h.m.picker != nil, h.m.active)
+	}
+}
+
 func TestEditCharacterCommand(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("/edit")

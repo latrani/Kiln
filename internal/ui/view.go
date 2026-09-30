@@ -194,6 +194,12 @@ func chip(r theme.Role, label string) string { return theme.Paint(r, " "+label+"
 // scrollback is then a backdrop.
 func (m *Model) modal() bool { return m.picker != nil }
 
+// listing reports whether the sidebar shows the picker's list. An editor
+// opened by /edit leaves the open characters there instead.
+func (m *Model) listing() bool {
+	return m.picker != nil && (m.picker.edit == nil || !m.picker.edit.closeAll)
+}
+
 // View draws the whole screen.
 func (m *Model) View() tea.View {
 	v := tea.View{AltScreen: true, MouseMode: tea.MouseModeAllMotion, ReportFocus: true} // all motion: links light up on hover; focus: notifications
@@ -247,7 +253,7 @@ func (m *Model) View() tea.View {
 	}
 
 	side := theme.Sidebar
-	if m.picker != nil {
+	if m.listing() {
 		side = theme.Picker
 	}
 	sv := m.sidebarView()
@@ -261,7 +267,7 @@ func (m *Model) View() tea.View {
 			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
 		case hint > 0:
 			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)), l.sw))
-		case r != nil && m.picker != nil:
+		case r != nil && m.listing():
 			b.WriteString(theme.Fill(side, m.pickerLine(*r, l.sw), l.sw))
 		case r != nil:
 			b.WriteString(theme.Fill(side, m.sidebarLine(*r, l.sw), l.sw))

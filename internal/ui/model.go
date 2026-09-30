@@ -1210,6 +1210,9 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
+		if m.picker != nil && !m.listing() {
+			m.closePicker() // leave /edit's editor for the sidebar
+		}
 		sv := m.sidebarView()
 		r, hint := sv.at(msg.Y)
 		switch {
