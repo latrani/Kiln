@@ -32,7 +32,7 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side := panelSide(h)
-	want := []string{str.FilterTitle(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want := []string{str.FilterTitle(), "", str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -68,8 +68,8 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 	h.kitFilter().PressOnly(scene.Item{Name: "self"}, h.br().items())
 	s := h.drawn()
 	on := func(label string) string { return theme.Paint(theme.FilterButtonOn, label) }
-	if strings.Count(s, on(str.FilterHide())) != 2 || strings.Count(s, on(str.FilterOnly())) != 1 {
-		t.Errorf("want Hide lit on page and page/in, Only on self:\n%q", s)
+	if strings.Count(s, on(str.FilterHide())) != 3 || strings.Count(s, on(str.FilterOnly())) != 1 {
+		t.Errorf("want Hide lit on Untagged, page and page/in, Only on self:\n%q", s)
 	}
 }
 
@@ -80,6 +80,7 @@ func TestPanelKeys(t *testing.T) {
 	h.key("f")
 	b, f := h.br(), h.kitFilter()
 	page, in, self := scene.Item{Name: "page"}, scene.Item{Name: "page/in"}, scene.Item{Name: "self"}
+	h.key("down") // past Untagged
 	if b.panel.sel.item != page {
 		t.Fatalf("starts on %v", b.panel.sel)
 	}
@@ -115,8 +116,8 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	h.keys("down", "h", "up", "left") // hide page/in, collapse page
-	if got := panelSide(h)[2]; got != glyphCollapsed+" page "+glyphFiltered {
+	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
+	if got := panelSide(h)[5]; got != glyphCollapsed+" page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
 	}
 }
@@ -128,22 +129,23 @@ func TestPanelClicks(t *testing.T) {
 	h.key("f")
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
-	// Rows: 0 Filter, 1 blank, 2 ▼ page, 3 buttons, 4 in, 5 buttons, 6 blank, 7 self, 8 buttons.
+	// Rows: 0 Filter, 1 blank, 2 Untagged, 3 buttons, 4 blank, 5 ▼ page, 6 buttons,
+	// 7 in, 8 buttons, 9 blank, 10 self, 11 buttons.
 	// Buttons for depth 0 start at column 2: "  Hide Only".
 	hideX, onlyX := 2, 2+len(str.FilterHide())+1
-	click(hideX, 8)
+	click(hideX, 11)
 	if !f.Hidden(scene.Item{Name: "self"}) {
 		t.Error("clicking self's Hide")
 	}
-	click(onlyX, 3)
+	click(onlyX, 6)
 	if o, _ := f.Only(); o != (scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
-	click(1, 2) // the ▼
+	click(1, 5) // the ▼
 	if !h.m.chars["fm/kit"].collapsed["page"] {
 		t.Error("clicking ▼ should collapse page")
 	}
-	click(4, 7-2) // rows moved up two: self's name is now row 5
+	click(4, 10-2) // rows moved up two: self's name is now row 8
 	if h.br().panel.sel.item != (scene.Item{Name: "self"}) {
 		t.Errorf("clicking a name selects it: %v", h.br().panel.sel)
 	}
@@ -328,7 +330,7 @@ func TestPanelLogModeKeys(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	h.key("j")
+	h.keys("down", "j") // past Untagged, then j
 	if h.br().panel.sel.item != (scene.Item{Name: "page/in"}) {
 		t.Errorf("j should move down: %v", h.br().panel.sel)
 	}
@@ -352,5 +354,38 @@ func TestLeftOnLeafDoesNotFold(t *testing.T) {
 	h.keys("down", "down", "left") // self
 	if h.m.chars["fm/kit"].collapsed["self"] {
 		t.Error("← on self (no children) recorded a fold")
+	}
+}
+
+// Untagged is the panel's first row, with its own Hide and Only.
+func TestPanelUntaggedRow(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	if side := panelSide(h); side[2] != str.FilterUntagged() || side[3] != buttons() {
+		t.Fatalf("first rows = %q, %q:\n%s", side[2], side[3], h.screen())
+	}
+	if h.br().panel.sel.item != (scene.Item{Untagged: true}) {
+		t.Errorf("the panel should open on Untagged: %v", h.br().panel.sel)
+	}
+	h.key("o")
+	s := h.screen()
+	if !strings.Contains(s, "Sable waves a paw.") || strings.Contains(s, "Mira pages") {
+		t.Errorf("Only on Untagged should show just untagged lines:\n%s", s)
+	}
+}
+
+// A tag with a filter set is listed even when none of its lines is
+// loaded, so what hides the log is always on screen.
+func TestPanelListsFilteredTagsNotLoaded(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.kitFilter().PressOnly(scene.Item{Name: "whisper/in"}, h.br().items())
+	h.key("f")
+	side := panelSide(h)
+	if !slices.Contains(side, glyphOpen+" whisper") || !slices.Contains(side, "in") {
+		t.Errorf("whisper/in (Only, no lines loaded) not listed:\n%s", h.screen())
 	}
 }

@@ -159,7 +159,7 @@ Exports contain only received lines: no timestamps, your own commands (the serve
 
 #### Filter
 
-`f`, or the ` Filter ` chip at the top right, opens the filter panel in the sidebar. It lists every tag in the loaded logs, children indented under their parents (`page/in` under `page`), then any text you've added, each with **Hide** and **Only**:
+`f`, or the ` Filter ` chip at the top right, opens the filter panel in the sidebar. It lists **Untagged** (lines with no tags, including your own commands), every tag in the loaded logs or with a filter set, children indented under their parents (`page/in` under `page`), then any text you've added, each with **Hide** and **Only**:
 
 - **Hide** hides lines with that tag (or text). Hiding a parent hides its children too; unhiding one child brings its parent back and leaves the other children hidden.
 - **Only** shows just lines with that tag (or text), and lights Hide on every other tag (or text) so you can see what's hidden. Unhide any of them and Only lets go; press Only again to clear the tag (or text) filters; press Hide on it to flip it, showing everything but that. Tags and text are separate: Only on a text hides the other texts, not your tags.

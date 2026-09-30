@@ -263,6 +263,8 @@ title = "Filter"
 hide = "Hide"
 only = "Only"
 add_text = "+ Text"
+# The row for lines with no tags.
+untagged = "Untagged"
 # A text row's name in the panel.
 text_item = "\"{term}\""
 hints = "h hide · o only · ←→ fold · enter add · x remove · f close"

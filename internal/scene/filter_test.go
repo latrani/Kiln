@@ -237,3 +237,65 @@ func TestUnhideParentClearsUnloadedChildren(t *testing.T) {
 		t.Error("unhiding page should clear page/x too")
 	}
 }
+
+var untagged = Item{Untagged: true}
+
+func TestUntagged(t *testing.T) {
+	its := append([]Item{untagged}, items()...)
+	cases := []struct {
+		name string
+		set  func(f *Filter)
+		tags []string
+		want bool
+	}{
+		{"hide untagged: untagged line", func(f *Filter) { f.ToggleHide(untagged, its) }, nil, false},
+		{"hide untagged: tagged line", func(f *Filter) { f.ToggleHide(untagged, its) }, []string{"self"}, true},
+		{"only untagged: untagged line", func(f *Filter) { f.PressOnly(untagged, its) }, nil, true},
+		{"only untagged: tagged line", func(f *Filter) { f.PressOnly(untagged, its) }, []string{"page/in"}, false},
+	}
+	for _, c := range cases {
+		var f Filter
+		c.set(&f)
+		if got := f.Visible(c.tags, "x"); got != c.want {
+			t.Errorf("%s: Visible = %v, want %v", c.name, got, c.want)
+		}
+	}
+	var f Filter
+	f.PressOnly(tag("self"), its)
+	if !f.Hidden(untagged) || f.Hidden(text("lighthouse")) {
+		t.Errorf("Only on a tag lights Untagged (a tag-kind item) but not text rows")
+	}
+	var g Filter
+	g.PressOnly(untagged, its)
+	if !g.Hidden(tag("page")) || !g.Hidden(tag("self")) {
+		t.Errorf("Only on Untagged hides every tag")
+	}
+}
+
+// Hiding Untagged isn't hiding a parent: a top-level tag seen later
+// arrives shown.
+func TestHiddenUntaggedIsNoOnesParent(t *testing.T) {
+	var f Filter
+	f.Sync([]Item{untagged})
+	f.ToggleHide(untagged, []Item{untagged})
+	f.Sync([]Item{untagged, tag("say")})
+	if f.Hidden(tag("say")) {
+		t.Error("say arrived hidden under Untagged")
+	}
+}
+
+func TestTagsListsFilteredTags(t *testing.T) {
+	var f Filter
+	its := append([]Item{untagged}, items()...)
+	f.ToggleHide(tag("page"), its)
+	f.PressOnly(tag("self"), its)
+	f.PressOnly(tag("self"), its) // clears; now only whisper is filtered
+	f.ToggleHide(tag("whisper/in"), its)
+	if got := f.Tags(); !slices.Equal(got, []string{"whisper/in"}) {
+		t.Errorf("Tags = %v", got)
+	}
+	f.ToggleHide(untagged, its)
+	if got := f.Tags(); !slices.Equal(got, []string{"whisper/in"}) || !f.Hidden(untagged) {
+		t.Errorf("Tags lists only named tags: %v", got)
+	}
+}

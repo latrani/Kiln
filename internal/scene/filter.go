@@ -5,11 +5,13 @@ import (
 	"strings"
 )
 
-// Item is a row in log mode's filter panel: a tag, or a term a line's
-// text must contain.
+// Item is a row in log mode's filter panel: a tag, a term a line's text
+// must contain, or Untagged (lines with no tags), which counts as a tag
+// for Only.
 type Item struct {
-	Name string // the tag, or the term as typed
-	Text bool
+	Name     string // the tag, or the term as typed; "" for Untagged
+	Text     bool
+	Untagged bool
 }
 
 // Parent is tag's parent up its slashes, or "" at the top.
@@ -42,9 +44,9 @@ func TagItems(tags []string) []Item {
 	return out
 }
 
-// under reports whether b is a descendant of a (tags only).
+// under reports whether b is a descendant of a (named tags only).
 func under(a, b Item) bool {
-	return !a.Text && !b.Text && strings.HasPrefix(b.Name, a.Name+"/")
+	return !a.Text && !b.Text && !a.Untagged && !b.Untagged && strings.HasPrefix(b.Name, a.Name+"/")
 }
 
 // related reports whether a and b are the same item, or one is under
@@ -87,6 +89,22 @@ func (f *Filter) Texts() []Item {
 	return out
 }
 
+// Tags is every named tag with Hide or Only, sorted, so the panel can
+// list them even when none of their lines is loaded.
+func (f *Filter) Tags() []string {
+	var out []string
+	for it := range f.hidden {
+		if !it.Text && !it.Untagged {
+			out = append(out, it.Name)
+		}
+	}
+	if f.hasOnly && !f.only.Text && !f.only.Untagged && !f.hidden[f.only] {
+		out = append(out, f.only.Name)
+	}
+	slices.Sort(out)
+	return out
+}
+
 // Active reports whether anything is hidden or has Only.
 func (f *Filter) Active() bool { return len(f.hidden) > 0 || f.hasOnly }
 
@@ -105,7 +123,7 @@ func (f *Filter) Sync(items []Item) {
 			continue
 		}
 		f.known[it] = true
-		if !it.Text && f.hidden[Item{Name: Parent(it.Name)}] {
+		if p := Parent(it.Name); !it.Text && p != "" && f.hidden[Item{Name: p}] {
 			f.hidden[it] = true
 		} else if f.hasOnly && f.only.Text == it.Text && !related(f.only, it) {
 			f.hidden[it] = true
@@ -211,6 +229,9 @@ func (f *Filter) RemoveText(term string) {
 // set, it carries that tag (or one under it) or matches that text. lower
 // is the line's plain text, lowercased.
 func (f *Filter) Visible(tags []string, lower string) bool {
+	if len(tags) == 0 && f.hidden[Item{Untagged: true}] {
+		return false
+	}
 	for _, t := range tags {
 		for n := t; n != ""; n = Parent(n) {
 			if f.hidden[Item{Name: n}] {
@@ -228,6 +249,9 @@ func (f *Filter) Visible(tags []string, lower string) bool {
 	}
 	if f.only.Text {
 		return strings.Contains(lower, strings.ToLower(f.only.Name))
+	}
+	if f.only.Untagged {
+		return len(tags) == 0
 	}
 	for _, t := range tags {
 		if t == f.only.Name || strings.HasPrefix(t, f.only.Name+"/") {

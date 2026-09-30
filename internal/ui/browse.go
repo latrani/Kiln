@@ -69,8 +69,9 @@ type browse struct {
 	rowLines     []*bline     // body row → line (nil for dividers), from the last draw
 	filterChip   [2]int       // columns [from, to) of the Filter chip on header row 0
 	panel        *filterPanel // non-nil while the filter panel is open
-	tagItems     []scene.Item // tags of lines[:tagItemsN] and their parents; see items
-	tagItemsN    int
+	tagNames     []string     // the distinct tags on lines[:tagNamesN]; see items
+	tagNamesN    int
+	anyUntagged  bool      // some line in lines[:tagNamesN] has no tags
 	loadedTo     time.Time // newest logged time at open, at log (millisecond) precision
 	exportDir    string
 	exportName   string         // file name template; see config.ExportNameVars
@@ -265,19 +266,36 @@ func (b *browse) inRange(l *bline) bool {
 	return i >= b.index(b.start) && i <= b.index(b.end)
 }
 
-// items is the filter panel's list: every tag on a loaded line with its
-// parents, then the text rows. It syncs the filter, so a tag seen for
-// the first time obeys the filter already set.
+// items is the filter panel's list: Untagged, every tag on a loaded line
+// or with a filter set (with their parents), then the text rows. It
+// syncs the filter, so a tag seen for the first time obeys the filter
+// already set.
 func (b *browse) items() []scene.Item {
-	if b.tagItemsN != len(b.lines) { // lines are only ever added
-		var tags []string
+	if b.tagNamesN != len(b.lines) { // lines are only ever added
+		seen := map[string]bool{}
+		b.tagNames, b.anyUntagged = nil, false
 		for _, l := range b.lines {
-			tags = append(tags, l.tags...)
+			if len(l.tags) == 0 {
+				b.anyUntagged = true
+			}
+			for _, t := range l.tags {
+				if !seen[t] {
+					seen[t] = true
+					b.tagNames = append(b.tagNames, t)
+				}
+			}
 		}
-		b.tagItems, b.tagItemsN = scene.TagItems(tags), len(b.lines)
+		b.tagNamesN = len(b.lines)
 	}
 	f := &b.cs.filter
-	items := append(slices.Clone(b.tagItems), f.Texts()...)
+	untagged := scene.Item{Untagged: true}
+	only, hasOnly := f.Only()
+	var items []scene.Item
+	if b.anyUntagged || f.Hidden(untagged) || hasOnly && only == untagged {
+		items = append(items, untagged)
+	}
+	items = append(items, scene.TagItems(append(slices.Clone(b.tagNames), f.Tags()...))...)
+	items = append(items, f.Texts()...)
 	f.Sync(items)
 	return items
 }

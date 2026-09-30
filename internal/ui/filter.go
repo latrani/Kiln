@@ -132,7 +132,9 @@ func (b *browse) panelRows(w int) []panelRow {
 		}
 		indent := strings.Repeat(" ", 1+2*e.depth)
 		name := e.item.Name
-		if e.item.Text {
+		if e.item.Untagged {
+			name = str.FilterUntagged()
+		} else if e.item.Text {
 			name = str.FilterTextItem(name)
 		} else if i := strings.LastIndex(name, "/"); i >= 0 {
 			name = name[i+1:]

@@ -478,6 +478,9 @@ func FilterTextItem(term any) string { return get("filter.text_item", map[string
 // FilterTitle is filter.title: "Filter"
 func FilterTitle() string { return get("filter.title", nil) }
 
+// FilterUntagged is filter.untagged: "Untagged"
+func FilterUntagged() string { return get("filter.untagged", nil) }
+
 // FormNextField is form.next_field: "Use enter or arrows to move between fields · {hint}"
 func FormNextField(hint any) string { return get("form.next_field", map[string]any{"hint": hint}) }
 
