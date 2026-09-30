@@ -1167,9 +1167,9 @@ func (m *Model) openBrowse(cs *charState) {
 	m.status = ""
 }
 
-// browseBodyH is the number of line rows in browse mode: the pane less
-// the header row, two rules, the action bar and the statusline.
-func (m *Model) browseBodyH() int { return max(1, m.height-5) }
+// browseBodyH is the number of line rows in browse mode: the screen less
+// the top bar and its rule, the rule and action bar, and the bottom bar.
+func (m *Model) browseBodyH() int { return max(1, m.height-topH-3) }
 
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()
@@ -1201,7 +1201,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if cs == nil || msg.X <= l.sw || msg.Y >= l.sbH {
+	if cs == nil || msg.X <= l.sw || msg.Y < l.top || msg.Y-l.top >= l.sbH {
 		return nil
 	}
 	switch msg.Button {
@@ -1259,16 +1259,13 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if cs := m.cur(); cs != nil && msg.Y == m.height-1 {
-		if _, x0, x1 := m.statusLayout(l.rw); x0 <= msg.X-l.sw-1 && msg.X-l.sw-1 < x1 {
-			if cs.browse != nil {
-				cs.browse = nil // as Esc does
-			} else {
-				m.openBrowse(cs)
-			}
+	if msg.Y < l.top {
+		if msg.Y == 0 {
+			m.topClick(msg.X - l.sw - 1)
 		}
 		return nil
 	}
+	msg.Y -= l.top // body rows from here on
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
 		return nil
@@ -1299,6 +1296,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg) tea.Cmd {
 // tracks what the pointer is over, so links light up.
 func (m *Model) handleDrag(msg tea.Mouse) {
 	l := m.layout()
+	msg.Y -= l.top // body rows
 	x := max(0, msg.X-l.sw-1)
 	if cs := m.cur(); cs != nil && msg.Button == tea.MouseNone {
 		cs.sb.Hover(nil)

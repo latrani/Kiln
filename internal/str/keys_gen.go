@@ -53,9 +53,6 @@ func BrowseLinesInRange(n int) string {
 // BrowseLoading is browse.loading: "loading older history…"
 func BrowseLoading() string { return get("browse.loading", nil) }
 
-// BrowseLog is browse.log: "LOG"
-func BrowseLog() string { return get("browse.log", nil) }
-
 // BrowseMarkRange is browse.mark_range: "mark a range with m (only received lines export)"
 func BrowseMarkRange() string { return get("browse.mark_range", nil) }
 
@@ -106,9 +103,6 @@ func BrowseTagAs(tag, styled any) string {
 
 // BrowseTagUnstyled is browse.tag_unstyled: "{tag} (unstyled)"
 func BrowseTagUnstyled(tag any) string { return get("browse.tag_unstyled", map[string]any{"tag": tag}) }
-
-// BrowseToToday is browse.to_today: "{first} → today"
-func BrowseToToday(first any) string { return get("browse.to_today", map[string]any{"first": first}) }
 
 // CliError is cli.error: "kiln: {err}"
 func CliError(err error) string { return get("cli.error", map[string]any{"err": err}) }
@@ -474,9 +468,6 @@ func FilterPrompt() string { return get("filter.prompt", nil) }
 
 // FilterTextItem is filter.text_item: "\"{term}\""
 func FilterTextItem(term any) string { return get("filter.text_item", map[string]any{"term": term}) }
-
-// FilterTitle is filter.title: "Filter"
-func FilterTitle() string { return get("filter.title", nil) }
 
 // FilterUntagged is filter.untagged: "Untagged"
 func FilterUntagged() string { return get("filter.untagged", nil) }
@@ -871,6 +862,9 @@ func ViewConnecting() string { return get("view.connecting", nil) }
 
 // ViewDisconnected is view.disconnected: "Disconnected · Enter to connect"
 func ViewDisconnected() string { return get("view.disconnected", nil) }
+
+// ViewFilterButton is view.filter_button: "Filter"
+func ViewFilterButton() string { return get("view.filter_button", nil) }
 
 // ViewLogButton is view.log_button: "Log"
 func ViewLogButton() string { return get("view.log_button", nil) }

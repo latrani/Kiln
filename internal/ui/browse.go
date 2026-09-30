@@ -67,7 +67,6 @@ type browse struct {
 	status       string
 	statusErr    bool
 	rowLines     []*bline     // body row → line (nil for dividers), from the last draw
-	filterChip   [2]int       // columns [from, to) of the Filter chip on header row 0
 	panel        *filterPanel // non-nil while the filter panel is open
 	tagNames     []string     // the distinct tags on lines[:tagNamesN]; see items
 	tagNamesN    int
@@ -298,6 +297,16 @@ func (b *browse) items() []scene.Item {
 	items = append(items, f.Texts()...)
 	f.Sync(items)
 	return items
+}
+
+// findStatus is the find term and match position, for the top bar; ""
+// without a find.
+func (b *browse) findStatus() string {
+	if b.find == "" {
+		return ""
+	}
+	i, n := b.matchPos()
+	return str.BrowseFindStatus(b.find, i, n)
 }
 
 // shows reports whether the filter lets l through.
@@ -803,39 +812,15 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	b.items() // new tags take the filter already set
 	v := b.visible()
-	bodyH := max(1, h-4)
+	bodyH := max(1, h-2)
 	b.scrollToCursor(v, bodyH, w)
-
-	// Header: title and span, the Filter chip at the right end.
-	span := str.BrowseNoLogs()
-	if len(b.lines) > 0 {
-		span = str.BrowseToToday(dayLabel(b.lines[0].day))
-		if !b.histDone {
-			span = "…" + span
-		}
-	}
-	head := theme.Paint(theme.LogTitle, str.BrowseLog()+" "+b.cs.ch.Name) + str.Separator() + span
-	if b.find != "" {
-		i, n := b.matchPos()
-		head += "   " + str.BrowseFindStatus(b.find, i, n)
-	}
-	role := theme.LogChip
-	if b.cs.filter.Active() {
-		role = theme.LogChipOn
-	}
-	chipText := chip(role, str.FilterTitle())
-	cw := xansi.StringWidth(chipText)
-	b.filterChip = [2]int{w - cw, w}
-	if w-cw-1 < 1 {
-		b.filterChip = [2]int{}
-		cw = 0
-		chipText = ""
-	}
-	head = fitName(head, w-cw-1) + " " + chipText
-	rows = []string{theme.Fill(theme.LogHeader, head, w), theme.Paint(theme.Rule, strings.Repeat("─", w))}
 
 	// Body.
 	b.rowLines = b.rowLines[:0]
+	if len(b.lines) == 0 {
+		rows = append(rows, theme.Paint(theme.LogLoading, str.BrowseNoLogs()))
+		b.rowLines = append(b.rowLines, nil)
+	}
 	ms := b.matches()
 	start := slices.Index(v, b.top)
 	if b.loading && start <= 0 { // the oldest loaded line is at the top
@@ -880,7 +865,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			}
 		}
 	}
-	for len(rows) < 2+bodyH {
+	for len(rows) < bodyH {
 		rows = append(rows, "")
 		b.rowLines = append(b.rowLines, nil)
 	}
@@ -948,13 +933,7 @@ func (b *browse) click(x, y int, shift bool) {
 	if b.prompt != promptNone {
 		return
 	}
-	if y == 0 {
-		if x >= b.filterChip[0] && x < b.filterChip[1] {
-			b.togglePanel()
-		}
-		return
-	}
-	row := y - 2
+	row := y
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return
 	}

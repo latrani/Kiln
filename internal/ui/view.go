@@ -21,6 +21,7 @@ const (
 
 type layout struct {
 	sw, rw int // sidebar width; right pane width
+	top    int // rows above the body: the top bar and its rule
 	sbH    int // scrollback rows
 	inRows []string
 	inTop  int  // input row shown first, when it's too tall to fit
@@ -38,7 +39,7 @@ func SidebarWidth(w int) int {
 }
 
 func (m *Model) layout() layout {
-	l := layout{sw: SidebarWidth(m.width)}
+	l := layout{sw: SidebarWidth(m.width), top: topH}
 	l.rw = max(1, m.width-l.sw-1)
 	cs := m.cur()
 	if rows, row, col, ok := m.prompt(cs); ok {
@@ -66,7 +67,7 @@ func (m *Model) layout() layout {
 		l.inRows = rows[top:min(len(rows), top+maxIn)]
 		l.inTop, l.curRow, l.curCol = top, r-top, c
 	}
-	l.sbH = max(1, m.height-len(l.inRows)-3) // two rules + statusline
+	l.sbH = max(1, m.height-l.top-len(l.inRows)-3) // top bar and rule; two rules + statusline
 	if cs != nil && cs.sb.Scrolled() {
 		l.pillW = xansi.StringWidth(pillText(cs))
 	}
@@ -147,32 +148,13 @@ func fit(s string, w int) string {
 	return s
 }
 
-// statusLine shows the active character, the Log chip (on in log mode),
-// and its connection, or, while there is a status message, the message;
-// in log mode then "N selected". The version and clock are pinned to the
-// right; when space runs out, the left side is cut first.
+// statusLine is the bottom bar: the connection, or while there is a
+// status message, the message; in log mode then "N selected". The
+// version and clock are pinned to the right; when space runs out, the
+// left side is cut first.
 func (m *Model) statusLine(w int) string {
-	line, _, _ := m.statusLayout(w)
-	return line
-}
-
-// statusLayout draws the statusline and says which columns the Log chip
-// takes, [x0, x1); x1 is 0 when the chip isn't there to click, all of it.
-func (m *Model) statusLayout(w int) (line string, x0, x1 int) {
 	sep := str.Separator()
 	cs := m.cur()
-	left := ""
-	if cs != nil {
-		name := cs.ch.World + "/" + cs.ch.Name
-		role := theme.StatusLog
-		if cs.browse != nil {
-			role = theme.StatusLogOn
-		}
-		c := chip(role, str.ViewLogButton())
-		x0 = xansi.StringWidth(name) + 1
-		x1 = x0 + xansi.StringWidth(c)
-		left = name + " " + c
-	}
 	var parts []string
 	if m.status != "" {
 		msg := m.status
@@ -186,13 +168,7 @@ func (m *Model) statusLayout(w int) (line string, x0, x1 int) {
 	if cs != nil && cs.browse != nil {
 		parts = append(parts, str.ViewSelected(len(cs.browse.selection())))
 	}
-	if len(parts) > 0 {
-		rest := strings.Join(parts, sep)
-		if left != "" {
-			rest = sep + rest
-		}
-		left += rest
-	}
+	left := strings.Join(parts, sep)
 	right := m.d.Now().Format("15:04")
 	if m.d.Version != "" {
 		right = m.d.Version + sep + right
@@ -200,12 +176,66 @@ func (m *Model) statusLayout(w int) (line string, x0, x1 int) {
 	rw := xansi.StringWidth(right)
 	right = theme.Paint(theme.StatusClock, right)
 	if w <= rw {
-		return fit(right, w), 0, 0
+		return fit(right, w)
 	}
-	if x1 > w-rw-1 {
-		x0, x1 = 0, 0 // cut off
+	return fitName(left, w-rw-1) + " " + right
+}
+
+// topH is the rows above the body: the top bar and its rule.
+const topH = 2
+
+// topBar draws the top status bar: the character and, in log mode, its
+// find status on the left; the Filter chip (log mode) and the Log chip
+// pinned right, Log at the far right. It says which columns each chip
+// takes, [from, to); zero when it isn't drawn whole.
+func (m *Model) topBar(w int) (line string, logChip, filterChip [2]int) {
+	cs := m.cur()
+	if cs == nil {
+		return "", logChip, filterChip
 	}
-	return fitName(left, w-rw-1) + " " + right, x0, x1
+	left := cs.ch.World + "/" + cs.ch.Name
+	logRole, filt := theme.StatusLog, ""
+	if b := cs.browse; b != nil {
+		logRole = theme.StatusLogOn
+		if f := b.findStatus(); f != "" {
+			left += "   " + f
+		}
+		role := theme.StatusFilter
+		if b.panel != nil {
+			role = theme.StatusFilterOn
+		}
+		filt = chip(role, str.ViewFilterButton())
+	}
+	logc := chip(logRole, str.ViewLogButton())
+	fw, lw := xansi.StringWidth(filt), xansi.StringWidth(logc)
+	start := w - fw - lw
+	if start < 2 { // no room for the chips beside a name
+		return fitName(left, w), logChip, filterChip
+	}
+	if fw > 0 {
+		filterChip = [2]int{start, start + fw}
+	}
+	logChip = [2]int{start + fw, w}
+	return fitName(left, start-1) + " " + filt + logc, logChip, filterChip
+}
+
+// topClick handles a click at column x of the top bar.
+func (m *Model) topClick(x int) {
+	cs := m.cur()
+	if cs == nil {
+		return
+	}
+	_, logc, filt := m.topBar(m.layout().rw)
+	switch {
+	case x >= logc[0] && x < logc[1]:
+		if cs.browse != nil {
+			cs.browse = nil // as Esc does
+		} else {
+			m.openBrowse(cs)
+		}
+	case x >= filt[0] && x < filt[1] && cs.browse != nil && cs.browse.prompt == promptNone:
+		cs.browse.togglePanel()
+	}
 }
 
 // chip draws something you can click: its label with a space either
@@ -233,16 +263,20 @@ func (m *Model) View() tea.View {
 	right := make([]string, 0, m.height)
 	cs := m.cur()
 	var cursor *tea.Cursor
+	top, _, _ := m.topBar(l.rw)
+	rule := strings.Repeat("─", l.rw)
+	right = append(right, theme.Fill(theme.Status, top, l.rw), theme.Paint(theme.RuleStatus, rule))
 	if cs != nil && cs.browse != nil {
-		rows, x, y, show := cs.browse.view(l.rw, m.height-1)
-		right = append(rows, theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
+		rows, x, y, show := cs.browse.view(l.rw, m.height-l.top-1)
+		right = append(right, rows...)
+		right = append(right, theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
 		if show {
-			cursor = tea.NewCursor(l.sw+1+x, y)
+			cursor = tea.NewCursor(l.sw+1+x, l.top+y)
 		}
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
 		if len(m.allChars()) == 0 {
-			right[0] = theme.Paint(theme.ScrollbackEmpty, str.ViewNoCharacters())
+			right[l.top] = theme.Paint(theme.ScrollbackEmpty, str.ViewNoCharacters())
 		}
 	} else {
 		cs.sb.SetWidth(l.rw)
@@ -261,17 +295,16 @@ func (m *Model) View() tea.View {
 	}
 	if cs == nil || cs.browse == nil {
 		// Each rule takes the color of the area below it.
-		area, top := theme.Input, theme.RuleInput
+		area, topRule := theme.Input, theme.RuleInput
 		if m.modal() {
-			area, top = theme.Form, theme.RuleForm
+			area, topRule = theme.Form, theme.RuleForm
 		}
-		rule := strings.Repeat("─", l.rw)
-		right = append(right, theme.Paint(top, rule))
+		right = append(right, theme.Paint(topRule, rule))
 		for _, r := range l.inRows {
 			right = append(right, theme.Fill(area, r, l.rw))
 		}
 		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
-		cursor = tea.NewCursor(l.sw+1+l.curCol, l.sbH+1+l.curRow)
+		cursor = tea.NewCursor(l.sw+1+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 
 	side := theme.Sidebar

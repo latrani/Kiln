@@ -130,6 +130,7 @@ pill_new = "▼ {n} new"
 pill_more = "▼ more"
 selected = "{n} selected"
 log_button = "Log"
+filter_button = "Filter"
 too_small = "Kiln needs at least {min_w}x{min_h} (now {w}x{h})"
 more_above = "▲ {n} more"
 more_below = "▼ {n} more"
@@ -223,7 +224,6 @@ open_connection = "+ Connection"
 
 # Log mode (browse, in the code).
 [browse]
-log = "LOG"
 reading_logs = "reading logs: {err}"
 range_start = "range start marked; m again at the end"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
@@ -246,7 +246,6 @@ format_prompt = "export as (p)lain · (a)nsi · (h)tml   esc cancel"
 format_prompt_default = "export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel"
 save_prompt = "save as: "
 no_logs = "no logs yet"
-to_today = "{first} → today"
 find_status = "find: {find} {i}/{n}"
 loading = "loading older history…"
 hints = "m mark · space exclude · / find · n/N · g date · f filter · t tags · e export · c copy · esc back"
@@ -259,7 +258,6 @@ tag_unstyled = "{tag} (unstyled)"
 
 # Log mode's filter panel, in the sidebar.
 [filter]
-title = "Filter"
 hide = "Hide"
 only = "Only"
 add_text = "+ Text"

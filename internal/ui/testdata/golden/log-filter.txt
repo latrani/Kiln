@@ -1,15 +1,11 @@
- Filter         │LOG Kit · Thu Sep 24 → today                            Filter 
-  @0-6 bold,fg=#a0b7e3; @7-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-23 bold,fg=#a0b7e3; @24-71 fg=#a0b7e3; @72-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
-                │───────────────────────────────────────────────────────────────
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
- Untagged       │── Thu Sep 24 ──                                               
-  @0-0 fg=#a0b7e3; @1-8 bold,fg=#a0b7e3; @9-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-32 faint
-  Hide Only     │21:04   Kit grins.                                             
-  @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 reverse; @25-34 bold
-                │                                                               
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
- ▼ page         │                                                               
-  @0-0 fg=#a0b7e3; @1-6 bold,fg=#a0b7e3; @7-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
+ Untagged       │fm/Kit                                             Filter  Log 
+  @0-0 fg=#a0b7e3; @1-8 bold,fg=#a0b7e3; @9-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-66 fg=#a0b7e3; @67-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
+  Hide Only     │───────────────────────────────────────────────────────────────
+  @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │── Thu Sep 24 ──                                               
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-32 faint
+ ▼ page         │21:04   Kit grins.                                             
+  @0-0 fg=#a0b7e3; @1-6 bold,fg=#a0b7e3; @7-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 reverse; @25-34 bold
   Hide Only     │                                                               
   @0-1 fg=#a0b7e3; @2-5 bold,fg=#c0cfed,bg=#0b1b3d; @6-6 fg=#a0b7e3; @7-10 fg=#8b98b1; @11-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
    in           │                                                               
@@ -40,9 +36,13 @@
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │h hide · o only · ←→ fold · enter add · x remove · f close     
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-74 fg=#b1a68b; @75-79 fg=#e3d0a0
-                │fm/Kit  Log  · connected · 0 selected                     21:15
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-23 fg=#a0b7e3; @24-28 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @29-74 fg=#a0b7e3; @75-79 fg=#8b98b1
+                │connected · 0 selected                                    21:15
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1

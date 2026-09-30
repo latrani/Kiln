@@ -10,9 +10,6 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// kitChip is the statusline's start for fm/Kit: the name and the Log chip.
-func kitChip() string { return "fm/Kit  " + str.ViewLogButton() + " " }
-
 func TestStatusPinsVersionAndTimeRight(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.m.d.Version = "v0.2.1"
@@ -20,7 +17,7 @@ func TestStatusPinsVersionAndTimeRight(t *testing.T) {
 	if ansi.StringWidth(got) != 60 {
 		t.Errorf("width %d, want 60: %q", ansi.StringWidth(got), got)
 	}
-	if !strings.HasPrefix(got, kitChip()+str.Separator()+str.StateDisconnected()+" ") || !strings.HasSuffix(got, " v0.2.1"+str.Separator()+"21:14") {
+	if !strings.HasPrefix(got, str.StateDisconnected()+" ") || !strings.HasSuffix(got, " v0.2.1"+str.Separator()+"21:14") {
 		t.Errorf("statusline = %q", got)
 	}
 }
@@ -30,7 +27,7 @@ func TestStatusMessageKeepsClock(t *testing.T) {
 	h.m.d.Version = "v0.2.1"
 	h.m.setStatus(false, str.StatusConfigReloaded())
 	got := ansi.Strip(h.m.statusLine(60))
-	if !strings.HasPrefix(got, kitChip()+str.Separator()+str.StatusConfigReloaded()+" ") || !strings.HasSuffix(got, " v0.2.1"+str.Separator()+"21:14") {
+	if !strings.HasPrefix(got, str.StatusConfigReloaded()+" ") || !strings.HasSuffix(got, " v0.2.1"+str.Separator()+"21:14") {
 		t.Errorf("statusline = %q", got)
 	}
 }
@@ -40,7 +37,7 @@ func TestNarrowStatusCutsLeftFirst(t *testing.T) {
 	h.m.d.Version = "v0.2.1"
 	h.m.setStatus(true, "a very long status message that cannot possibly fit")
 	got := ansi.Strip(h.m.statusLine(40))
-	if ansi.StringWidth(got) != 40 || !strings.HasSuffix(got, " v0.2.1"+str.Separator()+"21:14") || !strings.HasPrefix(got, kitChip()+str.Separator()+"a ver") || !strings.Contains(got, "… v0.2.1") {
+	if ansi.StringWidth(got) != 40 || !strings.HasSuffix(got, " v0.2.1"+str.Separator()+"21:14") || !strings.HasPrefix(got, "a ver") || !strings.Contains(got, "… v0.2.1") {
 		t.Errorf("statusline = %q", got)
 	}
 	if tiny := ansi.Strip(h.m.statusLine(10)); ansi.StringWidth(tiny) != 10 {

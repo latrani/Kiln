@@ -41,7 +41,7 @@ func TestBurstPausesAtItsStart(t *testing.T) {
 	h := pagerHarness(t)
 	h.feed(40, 0)
 	sb := &h.m.chars["fm/kit"].sb
-	if !sb.Scrolled() || !strings.Contains(strings.Split(h.screen(), "\n")[0], "line 1") {
+	if !sb.Scrolled() || !strings.Contains(strings.Split(h.screen(), "\n")[topH], "line 1") {
 		t.Errorf("a burst taller than the screen should stop at its first line:\n%s", h.screen())
 	}
 	for i := 0; sb.Scrolled() && i < 20; i++ {
@@ -61,7 +61,7 @@ func TestAwayHoldsOutput(t *testing.T) {
 		t.Fatalf("/away didn't take:\n%s", h.screen())
 	}
 	h.feed(40, 2*pageGap) // slow, but you're away
-	if !h.m.chars["fm/kit"].sb.Scrolled() || !strings.Contains(strings.Split(h.screen(), "\n")[0], "line 1") {
+	if !h.m.chars["fm/kit"].sb.Scrolled() || !strings.Contains(strings.Split(h.screen(), "\n")[topH], "line 1") {
 		t.Errorf("output while away should stop at the first line since:\n%s", h.screen())
 	}
 	h.typeText("x")
@@ -86,7 +86,7 @@ func TestSwitchOpensAtFirstUnread(t *testing.T) {
 	h.m.switchTo("fm/rook")
 	h.feed(40, 2*pageGap) // Kit, in the background
 	h.m.switchTo("fm/kit")
-	if !h.m.chars["fm/kit"].sb.Scrolled() || !strings.Contains(strings.Split(h.screen(), "\n")[0], "line 1") {
+	if !h.m.chars["fm/kit"].sb.Scrolled() || !strings.Contains(strings.Split(h.screen(), "\n")[topH], "line 1") {
 		t.Errorf("switching back should open at the first line missed:\n%s", h.screen())
 	}
 }

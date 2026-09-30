@@ -162,7 +162,7 @@ func TestMouseSelectAndLinks(t *testing.T) {
 	h.screen()
 	l := h.m.layout()
 	x0 := l.sw + 1
-	y := l.sbH - 1 // the newest line sits at the bottom
+	y := l.top + l.sbH - 1 // the newest line sits at the bottom
 	mouse := func(msg tea.Msg) tea.Cmd { _, cmd := h.m.Update(msg); return cmd }
 
 	col := strings.Index("Mira pages: look at https://kiln.test/map please", "kiln")
@@ -192,7 +192,7 @@ func TestMouseSelectAndLinks(t *testing.T) {
 
 	cs.in.SetValue("hello there")
 	h.screen()
-	iy := l.sbH + 1
+	iy := l.top + l.sbH + 1
 	mouse(tea.MouseClickMsg{X: x0 + gutterWidth, Y: iy, Button: tea.MouseLeft})
 	mouse(tea.MouseMotionMsg{X: x0 + gutterWidth + 4, Y: iy, Button: tea.MouseLeft})
 	if got := clipboard(mouse(tea.MouseReleaseMsg{X: x0 + gutterWidth + 4, Y: iy, Button: tea.MouseLeft})); got != "hello" {
@@ -233,7 +233,7 @@ func TestHoverTracksPointer(t *testing.T) {
 	h.screen()
 	l := h.m.layout()
 	col := strings.Index(line, "kiln")
-	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + col, Y: l.sbH - 1})
+	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + col, Y: l.top + l.sbH - 1})
 	if !strings.Contains(h.m.View().Content, theme.SGR(theme.LinkHover)+"https://kiln.test/map") {
 		t.Error("link under the pointer isn't lit")
 	}

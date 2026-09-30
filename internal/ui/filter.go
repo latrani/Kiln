@@ -37,8 +37,7 @@ func (e panelEntry) sel() filterSel { return filterSel{item: e.item, add: e.add}
 type panelRowKind int
 
 const (
-	prTitle panelRowKind = iota
-	prName
+	prName panelRowKind = iota
 	prButtons
 	prBlank
 	prAdd
@@ -46,7 +45,7 @@ const (
 
 type panelRow struct {
 	text  string    // drawn, not yet fitted
-	entry int       // index into entries(); -1 for the title and its blank
+	entry int       // index into entries()
 	sel   filterSel // the entry's, on its name or + Text row
 	kind  panelRowKind
 }
@@ -116,11 +115,11 @@ func (b *browse) filteredUnder(parent string, items []scene.Item) bool {
 	return false
 }
 
-// panelRows lays the panel out: a title, then per entry its name and its
+// panelRows lays the panel out: per entry its name and its
 // Hide and Only buttons, a blank row after each top-level group (a tag
 // and its children, or a text row); + Text last.
 func (b *browse) panelRows(w int) []panelRow {
-	rows := []panelRow{{text: theme.Paint(theme.FilterItem, " "+str.FilterTitle()), entry: -1, kind: prTitle}, {entry: -1, kind: prBlank}}
+	var rows []panelRow
 	f := &b.cs.filter
 	only, hasOnly := f.Only()
 	items := b.items()

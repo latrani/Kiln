@@ -259,7 +259,7 @@ func TestGoldenScrolled(t *testing.T) {
 	h.press(tea.KeyPgUp, 0)
 	h.drawn() // hover reads what the last View put on screen
 	l := h.m.layout()
-	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + len("line 19 h"), Y: l.sbH - 1})
+	h.m.Update(tea.MouseMotionMsg{X: l.sw + 1 + len("line 19 h"), Y: l.top + l.sbH - 1})
 	assertGolden(t, "scrolled", h.drawn())
 }
 

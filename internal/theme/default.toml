@@ -111,11 +111,13 @@ alarm-deep = "#f9dcdc"
 "input.over_limit" = { fg = "alarm", bg = "alarm-deep" }
 "input.selection"  = { reverse = true }
 
-"status"        = { fg = "cobalt-ink" }
-"status.log"    = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
-"status.log.on" = { reverse = true }
-"status.error"  = { fg = "red" }
-"status.clock"  = { fg = "cobalt-mid" }
+"status"           = { fg = "cobalt-ink" }
+"status.log"       = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
+"status.log.on"    = { reverse = true }
+"status.filter"    = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
+"status.filter.on" = { reverse = true }
+"status.error"     = { fg = "red" }
+"status.clock"     = { fg = "cobalt-mid" }
 
 "form"        = { fg = "kaki-ink" }
 "form.label"  = { fg = "kaki-mid" }
@@ -126,10 +128,6 @@ alarm-deep = "#f9dcdc"
 "form.button"           = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
 "form.button.secondary" = { bold = false }
 
-"log.header"         = { fg = "cobalt-ink" }
-"log.header.title"   = { bold = true }
-"log.header.chip"    = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
-"log.header.chip.on" = { reverse = true }
 "log.time"           = { faint = true }
 "log.cursor"         = { reverse = true }
 "log.find"           = { reverse = true }

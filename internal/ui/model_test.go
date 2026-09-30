@@ -276,7 +276,7 @@ func (h *harness) openAll() {
 func TestLayoutShowsSidebarAndStatus(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	s := h.screen()
-	for _, want := range []string{"× Kit", addLabel, "│" + kitChip() + str.Separator() + str.StateDisconnected() + " ", "21:14", "│" + str.ViewDisconnected()} {
+	for _, want := range []string{"× Kit", addLabel, "│" + str.StateDisconnected() + " ", "21:14", "│" + str.ViewDisconnected()} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -734,7 +734,7 @@ func TestScrollPill(t *testing.T) {
 		t.Errorf("pill should count new lines:\n%s", h.screen())
 	}
 	l := h.m.layout()
-	h.m.Update(tea.MouseClickMsg{X: 79, Y: l.sbH - 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 79, Y: l.top + l.sbH - 1, Button: tea.MouseLeft})
 	if h.m.chars["fm/kit"].sb.Scrolled() || !strings.Contains(h.screen(), "fresh") {
 		t.Errorf("pill click did not jump to live:\n%s", h.screen())
 	}
@@ -972,7 +972,7 @@ func TestClickPlacesInputCursor(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.typeText("hello")
 	l := h.m.layout()
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 4, Y: l.sbH + 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 4, Y: l.top + l.sbH + 1, Button: tea.MouseLeft})
 	h.typeText("^")
 	if got := h.m.cur().in.Value(); got != "he^llo" {
 		t.Errorf("input = %q, want the cursor where clicked", got)

@@ -50,11 +50,13 @@ const (
 	InputOverLimit Role = "input.over_limit"
 	InputSelection Role = "input.selection"
 
-	Status      Role = "status"     // area
-	StatusLog   Role = "status.log" // the Log chip
-	StatusLogOn Role = "status.log.on"
-	StatusError Role = "status.error"
-	StatusClock Role = "status.clock"
+	Status         Role = "status"     // area
+	StatusLog      Role = "status.log" // the Log chip
+	StatusLogOn    Role = "status.log.on"
+	StatusFilter   Role = "status.filter" // the Filter chip, in log mode
+	StatusFilterOn Role = "status.filter.on"
+	StatusError    Role = "status.error"
+	StatusClock    Role = "status.clock"
 
 	Form                Role = "form" // area, in place of input while it's up
 	FormLabel           Role = "form.label"
@@ -66,10 +68,6 @@ const (
 	FormButtonSecondary Role = "form.button.secondary"
 
 	Log         Role = "log"
-	LogHeader   Role = "log.header" // area
-	LogTitle    Role = "log.header.title"
-	LogChip     Role = "log.header.chip"
-	LogChipOn   Role = "log.header.chip.on"
 	LogTime     Role = "log.time"
 	LogCursor   Role = "log.cursor"
 	LogSelected Role = "log.selected"
@@ -101,9 +99,9 @@ var Roles = []Role{
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
-	Status, StatusLog, StatusLogOn, StatusError, StatusClock,
+	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError, StatusClock,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
-	Log, LogHeader, LogTitle, LogChip, LogChipOn, LogTime, LogCursor, LogSelected, LogExcluded,
+	Log, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogError,
 	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore,
 	Export,

@@ -91,7 +91,7 @@ func TestInputAreaHasNoHoles(t *testing.T) {
 	h.typeText("this line runs past twenty bytes")
 	base := th.SGR(theme.Input)
 	l := h.m.layout()
-	row := strings.Split(h.drawn(), "\n")[l.sbH+1]
+	row := strings.Split(h.drawn(), "\n")[l.top+l.sbH+1]
 	_, right, _ := strings.Cut(row, "│")
 	right = strings.TrimPrefix(right, theme.Reset) // the divider's own reset
 	if !strings.HasPrefix(right, base) {
@@ -175,9 +175,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	th := withTheme(t, `[ui]
-"log.header" = { bg = "#010203" }
-"log.header.title" = { fg = "#0a0b0c" }
-"log.header.chip.on" = { fg = "#0d0e0f" }
+"status.filter.on" = { fg = "#0d0e0f" }
 "log.time" = { fg = "#101112" }
 "log.cursor" = { fg = "#131415" }
 "log.find" = { fg = "#161718" }
@@ -186,17 +184,18 @@ func TestLogModeUsesTheme(t *testing.T) {
 "log.bar.hints" = { fg = "#1f2021" }`)
 	h.key("ctrl+l")
 	s := h.drawn()
-	for _, role := range []theme.Role{theme.LogHeader, theme.LogTitle, theme.LogTime, theme.LogCursor, theme.LogDay, theme.LogBar, theme.LogHints} {
+	for _, role := range []theme.Role{theme.LogTime, theme.LogCursor, theme.LogDay, theme.LogBar, theme.LogHints} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("log mode doesn't draw %s", role)
 		}
 	}
-	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items()) // the Filter chip on
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items())
 	h.key("/")
-	h.typeText("Mira") // the chip shows only pages
+	h.typeText("Mira") // only pages show
 	h.key("enter")
+	h.key("f") // the panel open: the Filter chip on
 	s = h.drawn()
-	for _, role := range []theme.Role{theme.LogChipOn, theme.LogFind} {
+	for _, role := range []theme.Role{theme.StatusFilterOn, theme.LogFind} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("log mode doesn't draw %s", role)
 		}
@@ -422,7 +421,7 @@ func TestRulesTakeTheirAreas(t *testing.T) {
 	rules := func() (top, bottom string) {
 		l := h.m.layout()
 		rows := strings.Split(h.drawn(), "\n")
-		return rows[l.sbH], rows[l.sbH+len(l.inRows)+1]
+		return rows[l.top+l.sbH], rows[l.top+l.sbH+len(l.inRows)+1]
 	}
 	top, bottom := rules()
 	if !strings.Contains(top, th.SGR(theme.RuleInput)) || !strings.Contains(bottom, th.SGR(theme.RuleStatus)) {
@@ -452,7 +451,7 @@ form = { bg = "#070809" }`)
 		}
 	}
 	l := h.m.layout()
-	_, in, _ := strings.Cut(rows[l.sbH+1], "│")
+	_, in, _ := strings.Cut(rows[l.top+l.sbH+1], "│")
 	if in = strings.TrimPrefix(in, theme.Reset); !strings.HasPrefix(in, th.SGR(theme.Form)) {
 		t.Errorf("the picker's filter row isn't the form's area: %q", in)
 	}

@@ -32,7 +32,7 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side := panelSide(h)
-	want := []string{str.FilterTitle(), "", str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want := []string{str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -47,17 +47,7 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	if h.br() == nil || h.br().panel != nil {
 		t.Error("Esc should close the panel and stay in log mode")
 	}
-	// The chip toggles it too.
-	l := h.m.layout()
-	h.screen()
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + h.br().filterChip[0] + 1, Y: 0, Button: tea.MouseLeft})
-	if h.br().panel == nil {
-		t.Fatal("clicking the Filter chip should open the panel")
-	}
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + h.br().filterChip[0] + 1, Y: 0, Button: tea.MouseLeft})
-	if h.br().panel != nil {
-		t.Error("clicking it again should close the panel")
-	}
+	// The chip toggles it too (TestTopBarChipsToggle).
 }
 
 func TestPanelLightsTheItemsOwnState(t *testing.T) {
@@ -117,7 +107,7 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
-	if got := panelSide(h)[5]; got != glyphCollapsed+" page "+glyphFiltered {
+	if got := panelSide(h)[3]; got != glyphCollapsed+" page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
 	}
 }
@@ -129,23 +119,23 @@ func TestPanelClicks(t *testing.T) {
 	h.key("f")
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
-	// Rows: 0 Filter, 1 blank, 2 Untagged, 3 buttons, 4 blank, 5 ▼ page, 6 buttons,
-	// 7 in, 8 buttons, 9 blank, 10 self, 11 buttons.
+	// Rows: 0 Untagged, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
+	// 5 in, 6 buttons, 7 blank, 8 self, 9 buttons.
 	// Buttons for depth 0 start at column 2: "  Hide Only".
 	hideX, onlyX := 2, 2+len(str.FilterHide())+1
-	click(hideX, 11)
+	click(hideX, 9)
 	if !f.Hidden(scene.Item{Name: "self"}) {
 		t.Error("clicking self's Hide")
 	}
-	click(onlyX, 6)
+	click(onlyX, 4)
 	if o, _ := f.Only(); o != (scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
-	click(1, 5) // the ▼
+	click(1, 3) // the ▼
 	if !h.m.chars["fm/kit"].collapsed["page"] {
 		t.Error("clicking ▼ should collapse page")
 	}
-	click(4, 10-2) // rows moved up two: self's name is now row 8
+	click(4, 8-2) // rows moved up two: self's name is now row 6
 	if h.br().panel.sel.item != (scene.Item{Name: "self"}) {
 		t.Errorf("clicking a name selects it: %v", h.br().panel.sel)
 	}
@@ -177,8 +167,8 @@ func TestPanelScrolls(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side := panelSide(h)
-	// 12 tags × 3 rows + title and blank + "+ Text" = 39 rows; 23 show above the hint.
-	if want := str.ViewMoreBelow(39 - 23); side[len(side)-1] != want {
+	// 12 tags × 3 rows + "+ Text" = 37 rows; 23 show above the hint.
+	if want := str.ViewMoreBelow(37 - 23); side[len(side)-1] != want {
 		t.Fatalf("last row = %q, want %q:\n%s", side[len(side)-1], want, h.screen())
 	}
 	for range 40 {
@@ -363,8 +353,8 @@ func TestPanelUntaggedRow(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	if side := panelSide(h); side[2] != str.FilterUntagged() || side[3] != buttons() {
-		t.Fatalf("first rows = %q, %q:\n%s", side[2], side[3], h.screen())
+	if side := panelSide(h); side[0] != str.FilterUntagged() || side[1] != buttons() {
+		t.Fatalf("first rows = %q, %q:\n%s", side[0], side[1], h.screen())
 	}
 	if h.br().panel.sel.item != (scene.Item{Untagged: true}) {
 		t.Errorf("the panel should open on Untagged: %v", h.br().panel.sel)

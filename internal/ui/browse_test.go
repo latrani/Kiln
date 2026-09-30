@@ -111,7 +111,10 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	s := h.screen()
-	for _, want := range []string{str.BrowseLog() + " Kit" + str.Separator() + str.BrowseToToday("Thu Sep 24"), "── Thu Sep 24 ──", "21:00", "Rook says", "21:06", firstPart(str.BrowseHints())} {
+	if top := rightRow(h, 0); !strings.HasPrefix(top, "fm/Kit") {
+		t.Errorf("top bar = %q", top)
+	}
+	for _, want := range []string{"── Thu Sep 24 ──", "21:00", "Rook says", "21:06", firstPart(str.BrowseHints())} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -120,7 +123,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 		t.Error("normal input still shown in browse mode")
 	}
 	h.key("esc")
-	if h.br() != nil || strings.Contains(h.screen(), "LOG") {
+	if h.br() != nil || strings.Contains(h.screen(), firstPart(str.BrowseHints())) {
 		t.Errorf("esc did not close browse:\n%s", h.screen())
 	}
 }
@@ -138,7 +141,7 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 		rows := strings.Split(h.screen(), "\n")
 		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); !strings.HasPrefix(got, "fm/Kit  "+str.ViewLogButton()+" "+sep+str.StateDisconnected()+sep+str.ViewSelected(0)+" ") || !strings.HasSuffix(got, " 21:14") {
+	if got := last(); !strings.HasPrefix(got, str.StateDisconnected()+sep+str.ViewSelected(0)+" ") || !strings.HasSuffix(got, " 21:14") {
 		t.Errorf("statusline = %q", got)
 	}
 	if !strings.Contains(rows[len(rows)-2], firstPart(str.BrowseHints())) {
@@ -349,8 +352,8 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 	if len(b.lines) != 300 {
 		t.Errorf("initially loaded %d lines, want 300 (two days)", len(b.lines))
 	}
-	if !strings.Contains(h.screen(), "…"+str.BrowseToToday("Wed Sep 23")) {
-		t.Errorf("header should show more history exists:\n%s", h.screen())
+	if b.histDone {
+		t.Error("older days should remain to page in")
 	}
 	h.key("g")
 	h.typeText("2026-09-21")
@@ -358,8 +361,8 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 	if b.cursor.e.Text != "day 21 line 0" {
 		t.Errorf("date jump landed on %q", b.cursor.e.Text)
 	}
-	if !strings.Contains(h.screen(), str.BrowseToToday("Mon Sep 21")) || strings.Contains(h.screen(), "…Mon") {
-		t.Errorf("header after loading everything:\n%s", h.screen())
+	if !b.histDone || b.lines[0].day != "2026-09-21" {
+		t.Errorf("after loading everything: done %v, oldest %s", b.histDone, b.lines[0].day)
 	}
 	h.key("g")
 	h.typeText("yesterday")
@@ -512,11 +515,11 @@ func TestBrowseCommandAndSwitching(t *testing.T) {
 		t.Fatalf("screen:\n%s", h.screen())
 	}
 	h.press(tea.KeyDown, tea.ModCtrl) // switch to Rook: normal view
-	if strings.Contains(h.screen(), "LOG") {
+	if h.m.chars["fm/rook"].browse != nil || strings.Contains(h.screen(), firstPart(str.BrowseHints())) {
 		t.Error("rook should not be in browse mode")
 	}
 	h.press(tea.KeyUp, tea.ModCtrl)
-	if !strings.Contains(h.screen(), "LOG Kit") {
+	if h.br() == nil || !strings.Contains(h.screen(), firstPart(str.BrowseHints())) {
 		t.Error("kit's browse state was lost")
 	}
 	_ = session.Connected
@@ -716,39 +719,6 @@ func TestLogDirAndNameSettings(t *testing.T) {
 	}
 }
 
-// The statusline's Log chip sits after the character's name in both
-// modes: clicking it opens log mode, and in log mode goes back.
-func TestStatusLogChip(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	l := h.m.layout()
-	chipX := l.sw + 1 + len("fm/Kit ") + 1 // on the label, past the chip's leading space
-	click := func(x int) {
-		h.m.Update(tea.MouseClickMsg{X: x, Y: h.m.height - 1, Button: tea.MouseLeft})
-	}
-	click(chipX - 2) // the name: nothing
-	if h.m.cur().browse != nil {
-		t.Fatal("clicking the name opened log mode")
-	}
-	click(chipX)
-	if h.m.cur().browse == nil {
-		t.Fatalf("clicking %s didn't open log mode:\n%s", str.ViewLogButton(), h.screen())
-	}
-	click(chipX)
-	if h.m.cur().browse != nil {
-		t.Fatalf("clicking %s in log mode didn't go back:\n%s", str.ViewLogButton(), h.screen())
-	}
-
-	// A name too long to leave room for the chip: nothing to click.
-	h.m.chars["fm/kit"].ch.Name = strings.Repeat("K", h.m.width)
-	for x := l.sw + 1; x < h.m.width; x++ {
-		click(x)
-		if h.m.cur().browse != nil {
-			t.Fatalf("a click at %d opened log mode with the chip cut off:\n%s", x, h.screen())
-		}
-	}
-}
-
-// kitFilter is fm/kit's log filter.
 func (h *harness) kitFilter() *scene.Filter { return &h.m.chars["fm/kit"].filter }
 
 func TestBrowseFilterHidesAndOnly(t *testing.T) {
@@ -821,19 +791,5 @@ func TestFilterOutlastsLogMode(t *testing.T) {
 	h.key("ctrl+l")
 	if strings.Contains(h.screen(), "Mira pages") {
 		t.Errorf("filter lost on leaving log mode:\n%s", h.screen())
-	}
-}
-
-func TestFilterChipOnHeaderRow(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, scene1...)
-	h.key("ctrl+l")
-	rows := strings.Split(h.screen(), "\n")
-	head := strings.SplitN(rows[0], "│", 2)[1]
-	if !strings.HasSuffix(strings.TrimRight(head, " "), " "+str.FilterTitle()) {
-		t.Errorf("header row = %q, want the Filter chip at its end", head)
-	}
-	if strings.Contains(h.screen(), "1[") {
-		t.Errorf("numbered chips still drawn:\n%s", h.screen())
 	}
 }
