@@ -38,11 +38,11 @@
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc
                 │h hide · o only · ←→ fold · enter add · x remove · f close     
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-74 fg=#b1a68b; @75-79 fg=#e3d0a0
-                │connected · 0 selected                                    21:15
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │0 selected                                                     
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3

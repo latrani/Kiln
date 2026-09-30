@@ -222,8 +222,11 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// tick wakes the model at the next local midnight, when "Connected
+// since" gains its day.
 func tick(now time.Time) tea.Cmd {
-	next := now.Truncate(time.Minute).Add(time.Minute)
+	y, mo, d := now.Local().Date()
+	next := time.Date(y, mo, d+1, 0, 0, 0, 0, time.Local)
 	return tea.Tick(next.Sub(now), func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
@@ -719,6 +722,9 @@ const statusTimeout = 30 * time.Second
 func (m *Model) setStatus(isErr bool, msg string) {
 	m.status, m.statusErr = msg, isErr
 	m.statusGen++
+	if cs := m.cur(); cs != nil && cs.browse != nil {
+		cs.browse.status = "" // the bottom bar shows the newest message
+	}
 }
 
 func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
@@ -1168,8 +1174,8 @@ func (m *Model) openBrowse(cs *charState) {
 }
 
 // browseBodyH is the number of line rows in browse mode: the screen less
-// the top bar and its rule, the rule and action bar, and the bottom bar.
-func (m *Model) browseBodyH() int { return max(1, m.height-topH-3) }
+// the top bar and its rule, the action bar with its rules, and the bottom bar.
+func (m *Model) browseBodyH() int { return max(1, m.height-topH-4) }
 
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()

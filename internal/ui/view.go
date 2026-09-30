@@ -148,37 +148,39 @@ func fit(s string, w int) string {
 	return s
 }
 
-// statusLine is the bottom bar: the connection, or while there is a
-// status message, the message; in log mode then "N selected". The
-// version and clock are pinned to the right; when space runs out, the
-// left side is cut first.
+// statusLine is the bottom bar: a status message while there is one (log
+// mode's first), else in log mode how many lines are selected, else the
+// connection. Nothing in it changes by the minute.
 func (m *Model) statusLine(w int) string {
-	sep := str.Separator()
 	cs := m.cur()
-	var parts []string
-	if m.status != "" {
-		msg := m.status
-		if m.statusErr {
-			msg = theme.Paint(theme.StatusError, msg)
-		}
-		parts = append(parts, msg)
-	} else if cs != nil {
-		parts = append(parts, stateName(cs.state))
+	msg, isErr := m.status, m.statusErr
+	if cs != nil && cs.browse != nil && cs.browse.status != "" {
+		msg, isErr = cs.browse.status, cs.browse.statusErr
 	}
-	if cs != nil && cs.browse != nil {
-		parts = append(parts, str.ViewSelected(len(cs.browse.selection())))
+	switch {
+	case msg != "" && isErr:
+		msg = theme.Paint(theme.StatusError, msg)
+	case msg != "":
+	case cs == nil:
+	case cs.browse != nil:
+		msg = str.ViewSelected(len(cs.browse.selection()))
+	case cs.state == session.Connected:
+		msg = m.connectedSince(cs)
+	default:
+		msg = stateName(cs.state)
 	}
-	left := strings.Join(parts, sep)
-	right := m.d.Now().Format("15:04")
-	if m.d.Version != "" {
-		right = m.d.Version + sep + right
+	return fitName(msg, w)
+}
+
+// connectedSince says when the connection came up: the time, with the day
+// first if that wasn't today.
+func (m *Model) connectedSince(cs *charState) string {
+	at, now := cs.connectedAt.Local(), m.d.Now().Local()
+	t := at.Format("15:04") //str:ok
+	if at.Format("2006-01-02") != now.Format("2006-01-02") { //str:ok
+		return str.ViewConnectedSinceDay(at.Format(str.DateDay()), t)
 	}
-	rw := xansi.StringWidth(right)
-	right = theme.Paint(theme.StatusClock, right)
-	if w <= rw {
-		return fit(right, w)
-	}
-	return fitName(left, w-rw-1) + " " + right
+	return str.ViewConnectedSince(t)
 }
 
 // topH is the rows above the body: the top bar and its rule.

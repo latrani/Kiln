@@ -56,7 +56,6 @@ const (
 	StatusFilter   Role = "status.filter" // the Filter chip, in log mode
 	StatusFilterOn Role = "status.filter.on"
 	StatusError    Role = "status.error"
-	StatusClock    Role = "status.clock"
 
 	Form                Role = "form" // area, in place of input while it's up
 	FormLabel           Role = "form.label"
@@ -77,7 +76,6 @@ const (
 	LogLoading  Role = "log.loading"
 	LogBar      Role = "log.bar" // area
 	LogHints    Role = "log.bar.hints"
-	LogError    Role = "log.bar.error"
 
 	Filter         Role = "filter" // area, in place of sidebar while log mode's filter panel is open
 	FilterItem     Role = "filter.item"
@@ -99,10 +97,10 @@ var Roles = []Role{
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
-	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError, StatusClock,
+	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogSelected, LogExcluded,
-	LogFind, LogDay, LogLoading, LogBar, LogHints, LogError,
+	LogFind, LogDay, LogLoading, LogBar, LogHints,
 	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore,
 	Export,
 }

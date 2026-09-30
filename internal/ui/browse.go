@@ -812,7 +812,7 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	b.items() // new tags take the filter already set
 	v := b.visible()
-	bodyH := max(1, h-2)
+	bodyH := max(1, h-3)
 	b.scrollToCursor(v, bodyH, w)
 
 	// Body.
@@ -879,20 +879,16 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		label := b.promptLabel()
 		text, x := promptWindow([]rune(b.pin.Value()), b.pin.col, w-xansi.StringWidth(label)-1)
 		rows = append(rows, theme.Fill(theme.LogBar, label+text, w))
-		curX, curY, showCur = xansi.StringWidth(label)+x, h-1, true
-	case b.status != "":
-		msg := b.status
-		if b.statusErr {
-			msg = theme.Paint(theme.LogError, msg)
-		}
-		rows = append(rows, theme.Fill(theme.LogBar, msg, w))
-	default:
+		curX, curY, showCur = xansi.StringWidth(label)+x, h-2, true
+	default: // messages go to the bottom bar
+
 		hints := str.BrowseHints()
 		if b.panel != nil {
 			hints = str.FilterHints()
 		}
 		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, hints), w))
 	}
+	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat("─", w)))
 	return rows, curX, curY, showCur
 }
 

@@ -38,11 +38,11 @@ fm              │fm/Kit   find: Mira 1/1                            Filter  Lo
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │m mark · space exclude · / find · n/N · g date · f filter · t t
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
-                │connected · 0 selected                                    21:15
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#a0b7e3; @75-79 fg=#8b98b1
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │0 selected                                                     
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3

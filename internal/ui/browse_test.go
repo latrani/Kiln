@@ -136,19 +136,18 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 	if len(rows) != 24 {
 		t.Fatalf("screen has %d rows, want 24", len(rows))
 	}
-	sep := str.Separator()
 	last := func() string {
 		rows := strings.Split(h.screen(), "\n")
 		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); !strings.HasPrefix(got, str.StateDisconnected()+sep+str.ViewSelected(0)+" ") || !strings.HasSuffix(got, " 21:14") {
+	if got := last(); got != str.ViewSelected(0) {
 		t.Errorf("statusline = %q", got)
 	}
-	if !strings.Contains(rows[len(rows)-2], firstPart(str.BrowseHints())) {
-		t.Errorf("action bar should sit just above the statusline:\n%s", h.screen())
+	if !strings.Contains(rows[len(rows)-3], firstPart(str.BrowseHints())) {
+		t.Errorf("action bar should sit a rule above the statusline:\n%s", h.screen())
 	}
 	h.keys("m", "up", "m")
-	if got := last(); !strings.Contains(got, sep+str.ViewSelected(2)+" ") {
+	if got := last(); got != str.BrowseLinesInRange(2) {
 		t.Errorf("statusline = %q", got)
 	}
 	msg := str.StatusLogWriteFailed("R", errors.New("x")) // e.g. another character's event

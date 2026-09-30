@@ -44,5 +44,5 @@ fm              │fm/Kit                                                     Lo
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-17 fg=#e3d0a0; @18-22 reverse,fg=#e3d0a0; @23-37 fg=#e3d0a0; @38-49 fg=#d92626,bg=#2a0909; @50-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │not sent: x                                               21:15
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-27 fg=ansi1; @28-74 fg=#a0b7e3; @75-79 fg=#8b98b1
+                │not sent: x                                                    
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-27 fg=ansi1; @28-79 fg=#a0b7e3

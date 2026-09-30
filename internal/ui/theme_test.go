@@ -132,11 +132,10 @@ func TestStatusUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	th := withTheme(t, `[ui]
 status = { bg = "#010203" }
-"status.error" = { fg = "#0a0b0c" }
-"status.clock" = { fg = "#0d0e0f" }`)
+"status.error" = { fg = "#0a0b0c" }`)
 	h.m.setStatus(true, "x")
 	s := h.drawn()
-	for _, role := range []theme.Role{theme.Status, theme.StatusError, theme.StatusClock} {
+	for _, role := range []theme.Role{theme.Status, theme.StatusError} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("screen doesn't draw %s", role)
 		}

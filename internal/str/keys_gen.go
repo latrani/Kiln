@@ -857,6 +857,16 @@ func ViewCertChanged() string { return get("view.cert_changed", nil) }
 // ViewConnectFailed is view.connect_failed: "Connection failed · Enter to retry"
 func ViewConnectFailed() string { return get("view.connect_failed", nil) }
 
+// ViewConnectedSince is view.connected_since: "Connected since {time}"
+func ViewConnectedSince(time any) string {
+	return get("view.connected_since", map[string]any{"time": time})
+}
+
+// ViewConnectedSinceDay is view.connected_since_day: "Connected since {day} {time}"
+func ViewConnectedSinceDay(day, time any) string {
+	return get("view.connected_since_day", map[string]any{"day": day, "time": time})
+}
+
 // ViewConnecting is view.connecting: "Connecting…"
 func ViewConnecting() string { return get("view.connecting", nil) }
 
