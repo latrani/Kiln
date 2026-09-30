@@ -124,6 +124,10 @@ func TestLoadErrors(t *testing.T) {
 		{"extends = \"nope\"\n", str.ThemeNoTheme("nope")},
 		{"[ui\n", "themes/default.toml"},
 		{"[ui]\n\"sidebar.nope\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "sidebar.nope")},
+		// Roles the relayout removed fail like any unknown one.
+		{"[ui]\n\"status.clock\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "status.clock")},
+		{"[ui]\n\"log.header\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "log.header")},
+		{"[ui]\n\"log.bar.error\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "log.bar.error")},
 	} {
 		dir := t.TempDir()
 		writeTheme(t, dir, "default", c.body)

@@ -9,6 +9,7 @@ package main
 
 import (
 	"bufio"
+	"io"
 
 	tea "charm.land/bubbletea/v2"
 	"context"
@@ -45,7 +46,14 @@ func main() {
 	}
 }
 
+// stdout is where commands print; tests swap it.
+var stdout io.Writer = os.Stdout
+
 func run(args []string) error {
+	if len(args) == 1 && (args[0] == "version" || args[0] == "--version") { //str:ok
+		_, err := fmt.Fprintln(stdout, version.String())
+		return err
+	}
 	if len(args) != 0 && len(args) != 3 {
 		return errors.New(str.CliUsage())
 	}

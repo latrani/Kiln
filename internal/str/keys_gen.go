@@ -141,7 +141,7 @@ func CliTrustHint(world, fingerprint any) string {
 	return get("cli.trust_hint", map[string]any{"world": world, "fingerprint": fingerprint})
 }
 
-// CliUsage is cli.usage: "usage:\n  kiln\n  kiln tail <world> <char>\n  kiln passwd <world> <char>\n  kiln trust <world> <fingerprint>\n  kiln theme show <theme>"
+// CliUsage is cli.usage: "usage:\n  kiln\n  kiln tail <world> <char>\n  kiln passwd <world> <char>\n  kiln trust <world> <fingerprint>\n  kiln theme show <theme>\n  kiln version"
 func CliUsage() string { return get("cli.usage", nil) }
 
 // ConfigAddedByHighlight is config.added_by_highlight: "added by /highlight"

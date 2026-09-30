@@ -396,6 +396,7 @@ kiln tail <world> <char>           connect, print output, send lines typed on st
 kiln passwd <world> <char>         save a character's password (see password_store)
 kiln trust <world> <fingerprint>   accept a changed server certificate
 kiln theme show <theme>            print a theme, merged into one file
+kiln version                       print Kiln's version (also --version)
 ```
 
 ## Releasing

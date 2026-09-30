@@ -55,7 +55,8 @@ usage:
   kiln tail <world> <char>
   kiln passwd <world> <char>
   kiln trust <world> <fingerprint>
-  kiln theme show <theme>"""
+  kiln theme show <theme>
+  kiln version"""
 error = "kiln: {err}"
 no_character_define = "no character {world}/{char}"
 no_character = "no character {world}/{char}"
