@@ -59,6 +59,17 @@ var browseKeys = map[string]browseAction{
 	"t":      actTags,
 }
 
+// openFilterKey opens and closes log mode's filter panel.
+const openFilterKey = "f"
+
+// Filter panel glyphs: a parent's disclosure, and the mark on a
+// collapsed parent with a filter set under it.
+const (
+	glyphOpen      = "▼"
+	glyphCollapsed = "►"
+	glyphFiltered  = "•"
+)
+
 // Export format keys, pressed after actExport.
 var exportFormatKeys = map[string]string{"p": "plain", "a": "ansi", "h": "html"}
 

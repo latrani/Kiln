@@ -81,6 +81,14 @@ const (
 	LogHints    Role = "log.bar.hints"
 	LogError    Role = "log.bar.error"
 
+	Filter         Role = "filter" // area, in place of sidebar while log mode's filter panel is open
+	FilterItem     Role = "filter.item"
+	FilterSelected Role = "filter.selected"
+	FilterButton   Role = "filter.button"
+	FilterButtonOn Role = "filter.button.on"
+	FilterAdd      Role = "filter.add"
+	FilterMore     Role = "filter.more"
+
 	Export Role = "export" // the HTML export's page colors
 )
 
@@ -97,6 +105,7 @@ var Roles = []Role{
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogHeader, LogTitle, LogChip, LogChipOn, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogError,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore,
 	Export,
 }
 

@@ -457,6 +457,18 @@ func EditorWorld() string { return get("editor.world", nil) }
 // EditorWorldIdChars is editor.world_id_chars: "a world id can only use letters, digits, _ and -"
 func EditorWorldIdChars() string { return get("editor.world_id_chars", nil) }
 
+// FilterAddText is filter.add_text: "+ Text"
+func FilterAddText() string { return get("filter.add_text", nil) }
+
+// FilterHide is filter.hide: "Hide"
+func FilterHide() string { return get("filter.hide", nil) }
+
+// FilterOnly is filter.only: "Only"
+func FilterOnly() string { return get("filter.only", nil) }
+
+// FilterTextItem is filter.text_item: "\"{term}\""
+func FilterTextItem(term any) string { return get("filter.text_item", map[string]any{"term": term}) }
+
 // FilterTitle is filter.title: "Filter"
 func FilterTitle() string { return get("filter.title", nil) }
 

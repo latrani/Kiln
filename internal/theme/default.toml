@@ -139,6 +139,14 @@ alarm-deep = "#f9dcdc"
 "log.bar.hints"      = { fg = "gold-mid" }
 "log.bar.error"      = { fg = "red" }
 
+"filter"           = { fg = "cobalt-ink" }
+"filter.item"      = { bold = true }
+"filter.selected"  = { reverse = true }
+"filter.button"    = { fg = "cobalt-mid" }
+"filter.button.on" = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
+"filter.add"       = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
+"filter.more"      = { fg = "cobalt-mid" }
+
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
 
 # How lines with classify tags are drawn. A tag inherits up its slashes,

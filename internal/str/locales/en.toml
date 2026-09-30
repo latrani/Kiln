@@ -260,6 +260,11 @@ tag_unstyled = "{tag} (unstyled)"
 # Log mode's filter panel, in the sidebar.
 [filter]
 title = "Filter"
+hide = "Hide"
+only = "Only"
+add_text = "+ Text"
+# A text row's name in the panel.
+text_item = "\"{term}\""
 
 # The open-connection picker.
 [picker]

@@ -65,9 +65,10 @@ type browse struct {
 	format       string
 	status       string
 	statusErr    bool
-	rowLines     []*bline  // body row → line (nil for dividers), from the last draw
-	filterChip   [2]int    // columns [from, to) of the Filter chip on header row 0
-	loadedTo     time.Time // newest logged time at open, at log (millisecond) precision
+	rowLines     []*bline     // body row → line (nil for dividers), from the last draw
+	filterChip   [2]int       // columns [from, to) of the Filter chip on header row 0
+	panel        *filterPanel // non-nil while the filter panel is open
+	loadedTo     time.Time    // newest logged time at open, at log (millisecond) precision
 	exportDir    string
 	exportName   string         // file name template; see config.ExportNameVars
 	exportFormat string         // preselected format; "" asks
@@ -523,6 +524,13 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	if b.prompt != promptNone {
 		return b.promptKey(k), false
 	}
+	if b.panel != nil {
+		return b.panelKey(k), false
+	}
+	if s == openFilterKey {
+		b.togglePanel()
+		return nil, false
+	}
 	b.status = ""
 	switch browseKeys[s] {
 	case actBack:
@@ -901,6 +909,12 @@ func highlightFind(plain, needle string) string {
 // ignored while a prompt is open so the selection can't change under it.
 func (b *browse) click(x, y int, shift bool) {
 	if b.prompt != promptNone {
+		return
+	}
+	if y == 0 {
+		if x >= b.filterChip[0] && x < b.filterChip[1] {
+			b.togglePanel()
+		}
 		return
 	}
 	row := y - 2

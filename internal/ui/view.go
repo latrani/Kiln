@@ -278,6 +278,11 @@ func (m *Model) View() tea.View {
 	if m.listing() {
 		side = theme.Picker
 	}
+	var panel []string
+	if cs != nil && cs.browse != nil && cs.browse.panel != nil {
+		side = theme.Filter
+		panel = cs.browse.panelView(l.sw, m.height)
+	}
 	sv := m.sidebarView()
 	var b strings.Builder
 	for y := 0; y < m.height; y++ {
@@ -285,6 +290,8 @@ func (m *Model) View() tea.View {
 			b.WriteByte('\n')
 		}
 		switch r, hint := sv.at(y); {
+		case panel != nil:
+			b.WriteString(theme.Fill(side, panel[y], l.sw))
 		case hint < 0:
 			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
 		case hint > 0:
