@@ -2,12 +2,10 @@ package ui
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -33,10 +31,11 @@ const browseInitialLines = 200
 const browsePrefixW = 8
 
 type bline struct {
-	e    logstore.Entry
-	tags []string
-	text string // sanitized and styled for display
-	day  string // local "2006-01-02"
+	e     logstore.Entry
+	tags  []string
+	text  string // sanitized and styled for display
+	lower string // plain text, lowercased, for text filters
+	day   string // local "2006-01-02"
 }
 
 type promptKind int
@@ -60,16 +59,14 @@ type browse struct {
 	start        *bline
 	end          *bline
 	excluded     map[*bline]bool
-	chips        map[string]scene.Chip
-	tagOrder     []string // chip order; see tagList
 	find         string
 	prompt       promptKind
 	pin          *Input
 	format       string
 	status       string
 	statusErr    bool
-	rowLines     []*bline // body row → line (nil for dividers), from the last draw
-	chipSpans    []chipSpan
+	rowLines     []*bline  // body row → line (nil for dividers), from the last draw
+	filterChip   [2]int    // columns [from, to) of the Filter chip on header row 0
 	loadedTo     time.Time // newest logged time at open, at log (millisecond) precision
 	exportDir    string
 	exportName   string         // file name template; see config.ExportNameVars
@@ -89,15 +86,10 @@ type olderMsg struct {
 	theme *theme.Theme // the theme active when the read started
 }
 
-type chipSpan struct {
-	tag      string
-	from, to int // columns within the right pane
-}
-
 // newBrowse opens browse mode over the logs l describes (none unless
 // hasLogs).
 func newBrowse(cs *charState, l logstore.Layout, hasLogs bool) *browse {
-	b := &browse{cs: cs, excluded: map[*bline]bool{}, chips: map[string]scene.Chip{}, pin: NewInput()}
+	b := &browse{cs: cs, excluded: map[*bline]bool{}, pin: NewInput()}
 	if hasLogs {
 		if h, err := history.NewReader(l); err == nil {
 			b.hist = h
@@ -110,7 +102,6 @@ func newBrowse(cs *charState, l logstore.Layout, hasLogs bool) *browse {
 	if l := b.last(); l != nil {
 		b.loadedTo = l.e.Time
 	}
-	b.tagList() // pin chip numbers for the tags loaded at open
 	return b
 }
 
@@ -130,7 +121,7 @@ func makeLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry)
 	if e.Dir == logstore.In {
 		tags = cls.Classify(plain)
 	}
-	return &bline{e: e, tags: tags, text: text, day: e.Time.Local().Format("2006-01-02")}
+	return &bline{e: e, tags: tags, text: text, lower: strings.ToLower(plain), day: e.Time.Local().Format("2006-01-02")}
 }
 
 // readOlder reads and renders the next older day. Only one call may run
@@ -239,7 +230,7 @@ func (b *browse) setStatus(isErr bool, msg string) {
 func (b *browse) visible() []*bline {
 	out := make([]*bline, 0, len(b.lines))
 	for _, l := range b.lines {
-		if scene.Visible(l.tags, b.chips) {
+		if b.shows(l) {
 			out = append(out, l)
 		}
 	}
@@ -269,28 +260,22 @@ func (b *browse) inRange(l *bline) bool {
 	return i >= b.index(b.start) && i <= b.index(b.end)
 }
 
-// tagList is every tag in the loaded lines, in chip order. Chip numbers
-// are what 1–9 act on, so they stay stable while browse is open: the tags
-// present at open are sorted, and tags that first appear later (live
-// lines, paged-in history) are appended after them.
-func (b *browse) tagList() []string {
-	known := map[string]bool{}
-	for _, t := range b.tagOrder {
-		known[t] = true
-	}
-	var added []string
+// items is the filter panel's list: every tag on a loaded line with its
+// parents, then the text rows. It syncs the filter, so a tag seen for
+// the first time obeys the filter already set.
+func (b *browse) items() []scene.Item {
+	var tags []string
 	for _, l := range b.lines {
-		for _, t := range l.tags {
-			if !known[t] {
-				known[t] = true
-				added = append(added, t)
-			}
-		}
+		tags = append(tags, l.tags...)
 	}
-	sort.Strings(added)
-	b.tagOrder = append(b.tagOrder, added...)
-	return b.tagOrder
+	f := &b.cs.filter
+	items := append(scene.TagItems(tags), f.Texts()...)
+	f.Sync(items)
+	return items
 }
+
+// shows reports whether the filter lets l through.
+func (b *browse) shows(l *bline) bool { return b.cs.filter.Visible(l.tags, l.lower) }
 
 // moveCursor moves by delta visible lines. Moving up past the oldest
 // loaded line stops there and pages in older history; the rest of the
@@ -466,7 +451,7 @@ func (b *browse) selection() []logstore.Entry {
 	}
 	var out []logstore.Entry
 	for _, l := range b.lines[b.index(b.start) : b.index(b.end)+1] {
-		if !b.excluded[l] && scene.Visible(l.tags, b.chips) && scene.Exportable(l.e) {
+		if !b.excluded[l] && b.shows(l) && scene.Exportable(l.e) {
 			out = append(out, l.e)
 		}
 	}
@@ -537,13 +522,6 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	s := k.String()
 	if b.prompt != promptNone {
 		return b.promptKey(k), false
-	}
-	if len(s) == 1 && s >= "1" && s <= "9" {
-		tags := b.tagList()
-		if i := int(s[0] - '1'); i < len(tags) {
-			b.cycleChip(tags[i])
-		}
-		return nil, false
 	}
 	b.status = ""
 	switch browseKeys[s] {
@@ -617,9 +595,11 @@ func (b *browse) lineTags(l *bline) string {
 	return str.BrowseLineTags(strings.Join(parts, str.Separator()))
 }
 
-func (b *browse) cycleChip(tag string) {
-	b.chips[tag] = b.chips[tag].Next()
-	if b.cursor != nil && !scene.Visible(b.cursor.tags, b.chips) {
+// refilter keeps the reader's place after the filter changes: a cursor
+// on a line now hidden moves to the nearest visible one.
+func (b *browse) refilter() {
+	b.items() // sync
+	if b.cursor != nil && !b.shows(b.cursor) {
 		if n := b.nearestVisible(b.cursor); n != nil {
 			b.cursor = n
 		}
@@ -631,12 +611,12 @@ func (b *browse) cycleChip(tag string) {
 func (b *browse) nearestVisible(l *bline) *bline {
 	i := b.index(l)
 	for j := i + 1; j < len(b.lines); j++ {
-		if scene.Visible(b.lines[j].tags, b.chips) {
+		if b.shows(b.lines[j]) {
 			return b.lines[j]
 		}
 	}
 	for j := i - 1; j >= 0; j-- {
-		if scene.Visible(b.lines[j].tags, b.chips) {
+		if b.shows(b.lines[j]) {
 			return b.lines[j]
 		}
 	}
@@ -780,11 +760,12 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 // view draws the right pane (w×h) in browse mode. When a prompt is being
 // typed, showCur is true and (curX, curY) is the cursor within the pane.
 func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
+	b.items() // new tags take the filter already set
 	v := b.visible()
-	bodyH := max(1, h-5)
+	bodyH := max(1, h-4)
 	b.scrollToCursor(v, bodyH, w)
 
-	// Header row 1.
+	// Header: title and span, the Filter chip at the right end.
 	span := str.BrowseNoLogs()
 	if len(b.lines) > 0 {
 		span = str.BrowseToToday(dayLabel(b.lines[0].day))
@@ -797,28 +778,20 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		i, n := b.matchPos()
 		head += "   " + str.BrowseFindStatus(b.find, i, n)
 	}
-	// Header row 2: chips.
-	chipRow := str.BrowseTags()
-	b.chipSpans = b.chipSpans[:0]
-	for i, t := range b.tagList() {
-		label := t
-		switch b.chips[t] {
-		case scene.Only:
-			label = glyphChipOnly + t
-		case scene.Hide:
-			label = glyphChipHide + t
-		}
-		chip := fmt.Sprintf(" %d[%s]", i+1, label)
-		from := xansi.StringWidth(chipRow) + 1
-		chipRow += chip
-		b.chipSpans = append(b.chipSpans, chipSpan{tag: t, from: from, to: xansi.StringWidth(chipRow)})
-		role := theme.LogChip
-		if b.chips[t] != scene.Neutral {
-			role = theme.LogChipOn
-		}
-		chipRow = chipRow[:len(chipRow)-len(chip)] + " " + theme.Paint(role, chip[1:])
+	role := theme.LogChip
+	if b.cs.filter.Active() {
+		role = theme.LogChipOn
 	}
-	rows = []string{theme.Fill(theme.LogHeader, head, w), theme.Fill(theme.LogHeader, chipRow, w), theme.Paint(theme.Rule, strings.Repeat("─", w))}
+	chipText := chip(role, str.FilterTitle())
+	cw := xansi.StringWidth(chipText)
+	b.filterChip = [2]int{w - cw, w}
+	if w-cw-1 < 1 {
+		b.filterChip = [2]int{}
+		cw = 0
+		chipText = ""
+	}
+	head = fitName(head, w-cw-1) + " " + chipText
+	rows = []string{theme.Fill(theme.LogHeader, head, w), theme.Paint(theme.Rule, strings.Repeat("─", w))}
 
 	// Body.
 	b.rowLines = b.rowLines[:0]
@@ -866,7 +839,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			}
 		}
 	}
-	for len(rows) < 3+bodyH {
+	for len(rows) < 2+bodyH {
 		rows = append(rows, "")
 		b.rowLines = append(b.rowLines, nil)
 	}
@@ -930,15 +903,7 @@ func (b *browse) click(x, y int, shift bool) {
 	if b.prompt != promptNone {
 		return
 	}
-	if y == 1 {
-		for _, c := range b.chipSpans {
-			if x >= c.from && x < c.to {
-				b.cycleChip(c.tag)
-			}
-		}
-		return
-	}
-	row := y - 3
+	row := y - 2
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return
 	}

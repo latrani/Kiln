@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -16,40 +15,6 @@ import (
 	"github.com/latrani/Kiln/internal/pathfmt"
 	"github.com/latrani/Kiln/internal/theme"
 )
-
-// Chip is a tag filter's state.
-type Chip int
-
-const (
-	Neutral Chip = iota
-	Only         // show only lines carrying this tag
-	Hide         // hide lines carrying this tag
-)
-
-// Next cycles Neutral → Only → Hide → Neutral.
-func (c Chip) Next() Chip { return (c + 1) % 3 }
-
-// Visible applies chip filters to a line's tags. A line is hidden if it
-// carries any Hide tag. If any chip is Only, the line must carry at least
-// one Only tag.
-func Visible(tags []string, chips map[string]Chip) bool {
-	wantOnly := false
-	hasOnly := false
-	for tag, c := range chips {
-		switch c {
-		case Hide:
-			if slices.Contains(tags, tag) {
-				return false
-			}
-		case Only:
-			wantOnly = true
-			if slices.Contains(tags, tag) {
-				hasOnly = true
-			}
-		}
-	}
-	return !wantOnly || hasOnly
-}
 
 // Exportable reports whether an entry belongs in an exported scene at
 // all: only text received from the server (sent commands are echoed by

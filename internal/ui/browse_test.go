@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
@@ -239,75 +241,6 @@ func TestBrowseLineTags(t *testing.T) {
 	}
 }
 
-func TestBrowseChips(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, scene1...)
-	h.key("ctrl+l")
-	s := h.screen()
-	if !strings.Contains(s, "tags: 1[page] 2[page/in] 3[self]") {
-		t.Fatalf("chips:\n%s", s)
-	}
-	h.key("1") // page → only
-	s = h.screen()
-	if !strings.Contains(s, "1[+page]") || strings.Contains(s, "Sable") || !strings.Contains(s, "Mira pages") {
-		t.Errorf("only-page filter wrong:\n%s", s)
-	}
-	h.key("1") // page → hide
-	s = h.screen()
-	if !strings.Contains(s, "1[−page]") || strings.Contains(s, "Mira pages") || !strings.Contains(s, "Sable") {
-		t.Errorf("hide-page filter wrong:\n%s", s)
-	}
-	h.key("1") // neutral
-	if !strings.Contains(h.screen(), "Mira pages") {
-		t.Error("neutral chip should show everything")
-	}
-}
-
-func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, scene1...)
-	h.key("ctrl+l")
-	h.keys("home", "down", "down") // Mira pages
-	b := h.br()
-	if b.cursor.e.Text != "Mira pages: you around?" {
-		t.Fatalf("cursor on %q", b.cursor.e.Text)
-	}
-	h.keys("1", "1") // page → only → hide
-	if got := b.cursor.e.Text; got != "> :grins." && got != ":grins." {
-		t.Errorf("cursor moved to %q, want the next line", got)
-	}
-	h.keys("1", "home", "down", "down", "down", "down") // neutral; Kit grins. (self)
-	h.keys("3", "3")                                    // self → only → hide
-	if got := b.cursor.e.Text; got != "Rook says, \"The lighthouse is dark.\"" {
-		t.Errorf("cursor moved to %q, want the next visible line", got)
-	}
-	// With nothing visible after it, fall back to the previous line.
-	h.keys("3", "end", "1") // self neutral; Rook yawns; page → only
-	if got := b.cursor.e.Text; got != "Mira pages: you around?" {
-		t.Errorf("cursor moved to %q, want the previous visible line", got)
-	}
-}
-
-func TestBrowseChipNumbersStayStable(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, "Rook whispers, \"Hi, Kit.\"")
-	h.init()
-	h.settle("fm/kit", h.connected("fm/kit"))
-	h.key("ctrl+l")
-	if s := h.screen(); !strings.Contains(s, "tags: 1[self] 2[whisper] 3[whisper/in]") {
-		t.Fatalf("chips:\n%s", s)
-	}
-	h.conn("fm/kit").lines <- "Mira pages: you around?"
-	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Mira pages") })
-	if s := h.screen(); !strings.Contains(s, "tags: 1[self] 2[whisper] 3[whisper/in] 4[page]") {
-		t.Errorf("new tag renumbered chips:\n%s", s)
-	}
-	h.key("1")
-	if b := h.br(); b.chips["self"] == 0 || b.chips["page"] != 0 {
-		t.Errorf("1 should still target self: %v", b.chips)
-	}
-}
-
 func TestBrowseFind(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
@@ -464,7 +397,7 @@ func TestBrowseMouse(t *testing.T) {
 	rowOf := func(text string) int {
 		for i, bl := range b.rowLines {
 			if bl != nil && bl.e.Text == text {
-				return i + 3
+				return i + 2
 			}
 		}
 		t.Fatalf("%q not on screen", text)
@@ -484,10 +417,6 @@ func TestBrowseMouse(t *testing.T) {
 	if !b.excluded[b.lines[2]] {
 		t.Error("gutter click did not exclude")
 	}
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + b.chipSpans[0].from, Y: 1, Button: tea.MouseLeft})
-	if b.chips["page"] == 0 {
-		t.Error("chip click did not cycle")
-	}
 }
 
 func TestBrowseMouseSelectsLikeFinder(t *testing.T) {
@@ -505,7 +434,7 @@ func TestBrowseMouseSelectsLikeFinder(t *testing.T) {
 		}
 		for row, bl := range b.rowLines {
 			if bl == b.lines[i] {
-				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 3, Button: tea.MouseLeft, Mod: mod})
+				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 2, Button: tea.MouseLeft, Mod: mod})
 				h.screen()
 				return
 			}
@@ -648,25 +577,6 @@ func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
 	}
 	if strings.Join(got, ",") != "one,two,three,four" {
 		t.Errorf("lines = %q", got)
-	}
-}
-
-func TestChipClickDuringFormatPromptDoesNotCrash(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, scene1...)
-	h.key("ctrl+l")
-	h.keys("up", "m", "up", "up", "m") // Sable..Kit grins region
-	h.key("e")
-	h.screen()
-	b := h.br()
-	for _, c := range b.chipSpans {
-		if c.tag == "page" { // clicking would make "page only" hide the whole selection
-			h.m.Update(tea.MouseClickMsg{X: h.m.layout().sw + 1 + c.from, Y: 1, Button: tea.MouseLeft})
-		}
-	}
-	h.key("p") // must not panic
-	if b.chips["page"] != 0 {
-		t.Error("clicks should be ignored while a prompt is open")
 	}
 }
 
@@ -827,5 +737,95 @@ func TestStatusLogChip(t *testing.T) {
 		if h.m.cur().browse != nil {
 			t.Fatalf("a click at %d opened log mode with the chip cut off:\n%s", x, h.screen())
 		}
+	}
+}
+
+// kitFilter is fm/kit's log filter.
+func (h *harness) kitFilter() *scene.Filter { return &h.m.chars["fm/kit"].filter }
+
+func TestBrowseFilterHidesAndOnly(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	f := h.kitFilter()
+	f.PressOnly(scene.Item{Name: "page"}, b.items())
+	b.refilter()
+	s := h.screen()
+	if strings.Contains(s, "Sable") || !strings.Contains(s, "Mira pages") {
+		t.Errorf("only page:\n%s", s)
+	}
+	f.PressOnly(scene.Item{Name: "page"}, b.items()) // clean slate
+	f.ToggleHide(scene.Item{Name: "page"}, b.items())
+	b.refilter()
+	s = h.screen()
+	if strings.Contains(s, "Mira pages") || !strings.Contains(s, "Sable") {
+		t.Errorf("hide page:\n%s", s)
+	}
+}
+
+func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.keys("home", "down", "down") // Mira pages
+	b := h.br()
+	f := h.kitFilter()
+	if b.cursor.e.Text != "Mira pages: you around?" {
+		t.Fatalf("cursor on %q", b.cursor.e.Text)
+	}
+	f.ToggleHide(scene.Item{Name: "page"}, b.items())
+	b.refilter()
+	if got := b.cursor.e.Text; got != "> :grins." && got != ":grins." {
+		t.Errorf("cursor moved to %q, want the next line", got)
+	}
+	f.ToggleHide(scene.Item{Name: "page"}, b.items()) // shown again
+	h.keys("end")                                     // Rook yawns, the last line
+	f.PressOnly(scene.Item{Name: "page"}, b.items())
+	b.refilter()
+	if got := b.cursor.e.Text; got != "Mira pages: you around?" {
+		t.Errorf("cursor moved to %q, want the previous visible line", got)
+	}
+}
+
+func TestFilterNewTagUnderOnlyArrivesHidden(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, "Rook whispers, \"Hi, Kit.\"")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	b := h.br()
+	f := h.kitFilter()
+	f.PressOnly(scene.Item{Name: "whisper"}, b.items())
+	h.conn("fm/kit").lines <- "Mira pages: you around?"
+	h.settle("fm/kit", func() bool { return slices.Contains(b.items(), scene.Item{Name: "page"}) })
+	if !f.Hidden(scene.Item{Name: "page"}) || strings.Contains(h.screen(), "Mira pages") {
+		t.Errorf("a tag arriving under Only whisper should arrive hidden:\n%s", h.screen())
+	}
+}
+
+func TestFilterOutlastsLogMode(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.kitFilter().ToggleHide(scene.Item{Name: "page"}, h.br().items())
+	h.key("esc")
+	h.key("ctrl+l")
+	if strings.Contains(h.screen(), "Mira pages") {
+		t.Errorf("filter lost on leaving log mode:\n%s", h.screen())
+	}
+}
+
+func TestFilterChipOnHeaderRow(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	rows := strings.Split(h.screen(), "\n")
+	head := strings.SplitN(rows[0], "│", 2)[1]
+	if !strings.HasSuffix(strings.TrimRight(head, " "), " "+str.FilterTitle()) {
+		t.Errorf("header row = %q, want the Filter chip at its end", head)
+	}
+	if strings.Contains(h.screen(), "1[") {
+		t.Errorf("numbered chips still drawn:\n%s", h.screen())
 	}
 }

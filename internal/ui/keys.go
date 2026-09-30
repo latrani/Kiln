@@ -66,6 +66,4 @@ var exportFormatKeys = map[string]string{"p": "plain", "a": "ansi", "h": "html"}
 const (
 	glyphSelected = "▌"
 	glyphExcluded = "░"
-	glyphChipOnly = "+"
-	glyphChipHide = "−"
 )

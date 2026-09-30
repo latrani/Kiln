@@ -16,6 +16,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -190,7 +191,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 			t.Errorf("log mode doesn't draw %s", role)
 		}
 	}
-	h.key("1")
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items()) // the Filter chip on
 	h.key("/")
 	h.typeText("Mira") // the chip shows only pages
 	h.key("enter")

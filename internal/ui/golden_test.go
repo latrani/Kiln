@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -231,8 +232,8 @@ func TestGoldenLog(t *testing.T) {
 	h := goldenHarness(t)
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("m", "up", "m") // a range
-	h.key("1")             // a chip on
+	h.keys("m", "up", "m")                                            // a range
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items()) // the Filter chip on
 	h.key("/")
 	h.typeText("Mira") // the page the chip shows
 	h.key("enter")     // find

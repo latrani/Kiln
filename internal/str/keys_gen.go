@@ -37,7 +37,7 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "m mark · space exclude · / find · n/N · g date · 1-9 filter · t tags · e export · c copy · esc back"
+// BrowseHints is browse.hints: "m mark · space exclude · / find · n/N · g date · f filter · t tags · e export · c copy · esc back"
 func BrowseHints() string { return get("browse.hints", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
@@ -106,9 +106,6 @@ func BrowseTagAs(tag, styled any) string {
 
 // BrowseTagUnstyled is browse.tag_unstyled: "{tag} (unstyled)"
 func BrowseTagUnstyled(tag any) string { return get("browse.tag_unstyled", map[string]any{"tag": tag}) }
-
-// BrowseTags is browse.tags: "tags:"
-func BrowseTags() string { return get("browse.tags", nil) }
 
 // BrowseToToday is browse.to_today: "{first} → today"
 func BrowseToToday(first any) string { return get("browse.to_today", map[string]any{"first": first}) }
@@ -459,6 +456,9 @@ func EditorWorld() string { return get("editor.world", nil) }
 
 // EditorWorldIdChars is editor.world_id_chars: "a world id can only use letters, digits, _ and -"
 func EditorWorldIdChars() string { return get("editor.world_id_chars", nil) }
+
+// FilterTitle is filter.title: "Filter"
+func FilterTitle() string { return get("filter.title", nil) }
 
 // FormNextField is form.next_field: "Use enter or arrows to move between fields · {hint}"
 func FormNextField(hint any) string { return get("form.next_field", map[string]any{"hint": hint}) }

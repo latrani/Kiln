@@ -50,7 +50,7 @@ const (
 	InputOverLimit Role = "input.over_limit"
 	InputSelection Role = "input.selection"
 
-	Status      Role = "status" // area
+	Status      Role = "status"     // area
 	StatusLog   Role = "status.log" // the Log chip
 	StatusLogOn Role = "status.log.on"
 	StatusError Role = "status.error"

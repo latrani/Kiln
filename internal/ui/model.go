@@ -22,6 +22,7 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
@@ -117,6 +118,7 @@ type charState struct {
 	pwDraft     string           // input stashed while the password prompt is up
 	orphan      bool             // removed from the config; dropped when it disconnects
 	browse      *browse          // non-nil while browse mode is open
+	filter      scene.Filter     // log mode's filter; outlasts a log-mode session
 	hist        *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
 	sentGen     int              // hereGen when the last notification went out; -1: none yet
@@ -1165,8 +1167,8 @@ func (m *Model) openBrowse(cs *charState) {
 }
 
 // browseBodyH is the number of line rows in browse mode: the pane less
-// two header rows, two rules, the action bar and the statusline.
-func (m *Model) browseBodyH() int { return max(1, m.height-6) }
+// the header row, two rules, the action bar and the statusline.
+func (m *Model) browseBodyH() int { return max(1, m.height-5) }
 
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()

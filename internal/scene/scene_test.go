@@ -9,12 +9,6 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-func TestChipCycle(t *testing.T) {
-	if Neutral.Next() != Only || Only.Next() != Hide || Hide.Next() != Neutral {
-		t.Error("cycle wrong")
-	}
-}
-
 func TestExportable(t *testing.T) {
 	if !Exportable(logstore.Entry{Dir: logstore.In}) || Exportable(logstore.Entry{Dir: logstore.Out}) || Exportable(logstore.Entry{Dir: logstore.Sys}) {
 		t.Error("only received lines are exportable")

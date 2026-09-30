@@ -147,7 +147,7 @@ Kiln never scrolls text past you unread. When a burst of output (a long room des
 | `↑`/`↓` (`k`/`j`), `PgUp`/`PgDn`, `Home`/`End` | Move; moving past the top loads older days |
 | `g` | Go to a date (`2026-09-24`) |
 | `/`, then `n` / `N` | Find, then next or previous match |
-| `1`–`9`, or click a tag | Cycle a tag filter: neutral → `+tag` (only these) → `−tag` (hide these) |
+| `f`, or click ` Filter ` | Open the filter panel (see below) |
 | `t` | Show the current line's tags, and whose style each one takes |
 | `m` | Mark the start of a range, then its end |
 | `Space` | Leave the current line out of the range |

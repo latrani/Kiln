@@ -1,48 +1,48 @@
-fm              │LOG Kit · Thu Sep 24 → today   find: Mira 1/1                  
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-23 bold,fg=#a0b7e3; @24-79 fg=#a0b7e3
- Kit            │tags: 1[+page] 2[page/in] 3[self]                              
-  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-22 fg=#a0b7e3; @23-30 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @31-31 fg=#a0b7e3; @32-41 bold,fg=#c0cfed,bg=#0b1b3d; @42-42 fg=#a0b7e3; @43-49 bold,fg=#c0cfed,bg=#0b1b3d; @50-79 fg=#a0b7e3
+fm              │LOG Kit · Thu Sep 24 → today   find: Mira 1/1           Filter 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-23 bold,fg=#a0b7e3; @24-71 fg=#a0b7e3; @72-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
+ Kit            │───────────────────────────────────────────────────────────────
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │── Thu Sep 24 ──                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-32 faint
+ + Connection   │21:02   Mira pages: you around?                                
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 reverse; @25-28 reverse
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
- + Connection   │── Thu Sep 24 ──                                               
-  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-32 faint
-                │21:02   Mira pages: you around?                                
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 reverse; @25-28 reverse
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │───────────────────────────────────────────────────────────────
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │m mark · space exclude · / find · n/N · g date · 1-9 filter · t
+                │m mark · space exclude · / find · n/N · g date · f filter · t t
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
                 │fm/Kit  Log  · connected · 0 selected                     21:15
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-23 fg=#a0b7e3; @24-28 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @29-74 fg=#a0b7e3; @75-79 fg=#8b98b1
