@@ -79,6 +79,7 @@ type browse struct {
 	histDone     bool           // every log day is loaded (or there is no history)
 	loading      bool           // an older day is being read in a tea.Cmd
 	pending      func() tea.Cmd // what to do when it arrives; see requestOlder
+	scrolled     bool           // top was set by scrollBy: the cursor follows the view, not the other way round
 	searching    bool           // pending is find, reading older days for a match
 }
 
@@ -352,6 +353,28 @@ func (b *browse) moveCursor(delta int) tea.Cmd {
 	b.cursor = v[min(max(0, i+delta), len(v)-1)]
 	if rest := i + delta; rest < 0 {
 		return b.requestOlder(func() tea.Cmd { return b.moveCursor(rest) })
+	}
+	return nil
+}
+
+// scrollBy scrolls the view by delta lines, as the wheel does, leaving
+// the cursor where it is unless it would go out of sight; then it's
+// dragged along at the top or bottom edge. Scrolling up past the oldest
+// loaded line pages in older history, and the rest of the scroll happens
+// when it arrives.
+func (b *browse) scrollBy(delta int) tea.Cmd {
+	b.stopSearch()
+	v := b.visible()
+	if len(v) == 0 {
+		return nil
+	}
+	ti := slices.Index(v, b.top)
+	if ti < 0 {
+		ti = max(0, slices.Index(v, b.cursor))
+	}
+	b.top, b.scrolled = v[min(max(0, ti+delta), len(v)-1)], true
+	if rest := ti + delta; rest < 0 {
+		return b.requestOlder(func() tea.Cmd { return b.scrollBy(rest) })
 	}
 	return nil
 }
@@ -848,6 +871,24 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 		return b.rowsFor(v[i], prev, w)
 	}
 	ti := slices.Index(v, b.top)
+	if b.scrolled && ti >= 0 {
+		b.scrolled = false
+		ti = min(ti, b.bottomTop(v, rows, h)) // no scrolling past the newest line
+		if ci < ti {                          // dragged along at the top edge
+			ci = ti
+		}
+		last, n := ti, rows(ti, ti) // the last line wholly in view
+		for last+1 < len(v) && n+rows(last+1, ti) <= h {
+			last++
+			n += rows(last, ti)
+		}
+		if ci > last { // or at the bottom one
+			ci = last
+		}
+		b.cursor, b.top = v[ci], v[ti]
+		return
+	}
+	b.scrolled = false
 	if ti < 0 || ci < ti {
 		ti = ci
 	}
@@ -864,7 +905,12 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 		}
 		ti++
 	}
-	// The earliest top that still fits everything through the last line.
+	b.top = v[min(ti, b.bottomTop(v, rows, h))]
+}
+
+// bottomTop is the earliest top line that still fits everything through
+// the newest line in h rows: a later one would leave rows blank below it.
+func (b *browse) bottomTop(v []*bline, rows func(i, top int) int, h int) int {
 	fill, n := len(v)-1, 0
 	for ; fill >= 0; fill-- {
 		if n+rows(fill, fill) > h {
@@ -872,10 +918,7 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 		}
 		n += rows(fill, -1)
 	}
-	if fill+1 < ti {
-		ti = fill + 1
-	}
-	b.top = v[ti]
+	return fill + 1
 }
 
 // view draws the right pane (w×h) in browse mode. When a prompt is being
@@ -935,6 +978,12 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 				break
 			}
 		}
+	}
+	// Too few lines to fill the body sit at its bottom, newest last, as
+	// in the scrollback; "no logs yet" stays at the top.
+	if pad := bodyH - len(rows); pad > 0 && len(b.lines) > 0 {
+		rows = append(make([]string, pad), rows...)
+		b.rowLines = append(make([]*bline, pad), b.rowLines...)
 	}
 	for len(rows) < bodyH {
 		rows = append(rows, "")

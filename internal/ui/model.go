@@ -1237,9 +1237,9 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	if cs != nil && cs.browse != nil && msg.X > l.sw {
 		switch msg.Button {
 		case tea.MouseWheelUp:
-			return cs.browse.moveCursor(-3)
+			return cs.browse.scrollBy(-1)
 		case tea.MouseWheelDown:
-			return cs.browse.moveCursor(3)
+			return cs.browse.scrollBy(1)
 		}
 		return nil
 	}
