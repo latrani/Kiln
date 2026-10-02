@@ -29,7 +29,7 @@ Links (`http://` or `https://`) in the scrollback are underlined and turn blue u
 
 The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
 
-Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: each of its open characters, when their last line came, and their last five lines.
+Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: each of its open characters, when their last line came, and their last five lines, with a line between characters. Click a character's part to switch to it. The overview has the whole pane, with no input box; `PgUp`/`PgDn` and the mouse wheel scroll it when the characters don't all fit, and `Enter`, `Ctrl+O` and `Ctrl+T` work as usual.
 
 ## Commands
 

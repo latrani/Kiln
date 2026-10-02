@@ -262,6 +262,83 @@ func TestWorldOverview(t *testing.T) {
 	}
 }
 
+// bigWorld is a world with more characters than an overview shows at once.
+func bigWorld(n int) string {
+	w := "host = \"big.test\"\nport = 1\n"
+	for i := range n {
+		w += fmt.Sprintf("\n[[characters]]\nid = \"c%d\"\nname = \"Char%d\"\n", i, i)
+	}
+	return w
+}
+
+// A world's overview has no input box, draws a rule between characters,
+// opens a character on a click in its part, and scrolls when the
+// characters don't all fit. Keys still do what they do.
+func TestWorldOverviewPane(t *testing.T) {
+	h := newHarness(t, map[string]string{"big": bigWorld(6)})
+	h.openAll()
+	for _, k := range h.m.order {
+		for i := range overviewLines {
+			h.m.chars[k].sb.AppendLine(entryLine(fmt.Sprintf("%s line %d", k, i), logstore.Entry{Time: h.now}))
+		}
+	}
+	h.m.switchTo(worldSel("big"))
+	s := h.screen()
+	if strings.Contains(s, str.ViewNothingOpen()) || h.m.View().Cursor != nil {
+		t.Errorf("the overview shouldn't have an input box:\n%s", s)
+	}
+	rows := strings.Split(s, "\n")
+	body := func(y int) string { return strings.SplitN(rows[topH+y], "│", 2)[1] }
+	if !strings.HasPrefix(body(overviewLines+1), "───") || !strings.Contains(body(overviewLines+2), "Char1") {
+		t.Errorf("want a rule, then the next character:\n%s", s)
+	}
+	if !strings.Contains(rows[len(rows)-2], "───") {
+		t.Errorf("the overview should run down to the statusline's rule:\n%s", s)
+	}
+
+	h.typeText("hello") // nowhere to type
+	if !h.m.idle.Empty() {
+		t.Errorf("typing went to the hidden input: %q", h.m.idle.Value())
+	}
+
+	l := h.m.layout()
+	h.press(tea.KeyPgDown, 0)
+	if h.m.ovTop == 0 {
+		t.Fatal("PgDn should scroll the overview")
+	}
+	s = h.screen()
+	var pane []string
+	for _, r := range strings.Split(s, "\n") {
+		pane = append(pane, strings.SplitN(r, "│", 2)[1])
+	}
+	if p := strings.Join(pane, "\n"); strings.Contains(p, "Char0") || !strings.Contains(p, "Char5") {
+		t.Errorf("scrolled down, the last character should show:\n%s", s)
+	}
+	rows = strings.Split(s, "\n")
+	y := slices.IndexFunc(rows[topH:], func(r string) bool { return strings.Contains(strings.SplitN(r, "│", 2)[1], "Char5") })
+	y += 2 // a line under its name
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 5, Y: l.top + y, Button: tea.MouseLeft})
+	if h.m.active != "big/c5" {
+		t.Fatalf("clicking Char5's lines should open it, active %q", h.m.active)
+	}
+
+	h.m.switchTo(worldSel("big"))
+	if h.m.ovTop != 0 {
+		t.Error("an overview should open at its top")
+	}
+	for range 3 {
+		h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: l.top + 1, Button: tea.MouseWheelDown})
+	}
+	if h.m.ovTop != 3*h.m.scrollLines() {
+		t.Errorf("the wheel should scroll scroll_lines rows a notch: top %d", h.m.ovTop)
+	}
+
+	h.enter()
+	if h.m.picker == nil {
+		t.Error("Enter on an overview should open the picker, as with nothing open")
+	}
+}
+
 // Ctrl+↑/↓ steps through the worlds' rows as well as the characters'.
 func TestSwitchByIncludesWorlds(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})

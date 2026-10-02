@@ -43,6 +43,10 @@ func SidebarWidth(w int) int {
 func (m *Model) layout() layout {
 	l := layout{sw: SidebarWidth(m.width), top: topH}
 	l.rw = max(1, m.width-l.sw-1)
+	if m.overviewing() { // no input box: the overview has the pane down to the statusline
+		l.sbH = max(1, m.height-l.top-2) // top bar and rule; rule + statusline
+		return l
+	}
 	cs := m.cur()
 	if rows, row, col, ok := m.prompt(cs); ok {
 		// A tall form gets up to half the screen, scrolled to its focus.
@@ -344,7 +348,9 @@ func (m *Model) View() tea.View {
 		}
 		right = append(right, rows...)
 	}
-	if cs == nil || cs.browse == nil {
+	if m.overviewing() {
+		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
+	} else if cs == nil || cs.browse == nil {
 		// Each rule takes the color of the area below it.
 		area, topRule := theme.Input, theme.RuleInput
 		if m.modal() {
@@ -401,25 +407,27 @@ func (m *Model) View() tea.View {
 // overview shows.
 const overviewLines = 5
 
-// overview draws world's overview, at most h rows of width w: each open
-// character's name and when its last line came, then those last lines.
+// overview draws world's overview, h rows of width w from row m.ovTop
+// on: each open character's name and when its last line came, then those
+// last lines, with a rule between characters. It notes which character
+// each row shows in m.ovKeys, for clicks.
 func (m *Model) overview(world string, w, h int) []string {
-	var rows []string
+	var rows, keys []string
 	for _, k := range m.order {
 		cs := m.chars[k]
 		if cs.ch.World != world {
 			continue
 		}
 		if len(rows) > 0 {
-			rows = append(rows, "")
+			rows, keys = append(rows, theme.Paint(theme.ScrollbackRule, strings.Repeat("─", w))), append(keys, "")
 		}
 		when := str.ViewOverviewQuiet()
 		if t, ok := cs.sb.LastTime(); ok {
 			when = m.clock(t)
 		}
-		rows = append(rows, theme.Paint(theme.ScrollbackOverview, cs.ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when))
+		rows, keys = append(rows, theme.Paint(theme.ScrollbackOverview, cs.ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when)), append(keys, k)
 		for _, l := range cs.sb.Tail(overviewLines) {
-			rows = append(rows, xansi.Truncate(l, w, "…")+style.Reset)
+			rows, keys = append(rows, xansi.Truncate(l, w, "…")+style.Reset), append(keys, k)
 		}
 	}
 	if m.modal() {
@@ -427,8 +435,21 @@ func (m *Model) overview(world string, w, h int) []string {
 			rows[i] = theme.Paint(theme.ScrollbackInactive, ansi.Strip(r))
 		}
 	}
-	return rows[:min(len(rows), h)]
+	m.ovTop = min(max(0, m.ovTop), max(0, len(rows)-h))
+	end := min(len(rows), m.ovTop+h)
+	m.ovKeys = keys[m.ovTop:end]
+	return rows[m.ovTop:end]
 }
+
+// overviewing reports whether a world's overview has the pane, with
+// nothing asking in the input area: then there's no input box.
+func (m *Model) overviewing() bool {
+	_, ok := m.activeWorld()
+	return ok && m.picker == nil && m.mode == modeNormal
+}
+
+// scrollOverview moves the overview by delta rows; the next draw clamps it.
+func (m *Model) scrollOverview(delta int) { m.ovTop = max(0, m.ovTop+delta) }
 
 // clock is t as a time of day, with the day first if that wasn't today.
 func (m *Model) clock(t time.Time) string {
