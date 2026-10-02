@@ -79,6 +79,7 @@ type browse struct {
 	histDone     bool           // every log day is loaded (or there is no history)
 	loading      bool           // an older day is being read in a tea.Cmd
 	pending      func() tea.Cmd // what to do when it arrives; see requestOlder
+	searching    bool           // pending is find, reading older days for a match
 }
 
 // olderMsg carries one older day, read and rendered off the UI goroutine.
@@ -169,6 +170,7 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 		return nil
 	}
 	b.pending = then
+	b.searching = false // a find waiting on older days gives way to whatever asked now
 	if b.loading {
 		return nil
 	}
@@ -314,7 +316,13 @@ func (b *browse) findStatus() string {
 	if b.find == "" {
 		return ""
 	}
-	i, n := b.matchPos()
+	if b.searching {
+		return str.BrowseSearching(b.find)
+	}
+	i, n, more := b.matchPos()
+	if more {
+		return str.BrowseFindStatusMore(b.find, i, n)
+	}
 	return str.BrowseFindStatus(b.find, i, n)
 }
 
@@ -425,48 +433,86 @@ func (b *browse) matches() []*bline {
 	return out
 }
 
-// jumpMatch moves to the next (dir=1) or previous (dir=-1) match,
-// wrapping around. With from=true the cursor's own line counts.
-func (b *browse) jumpMatch(dir int, includeCursor bool) {
-	ms := b.matches()
-	if len(ms) == 0 {
-		b.setStatus(true, str.BrowseNoMatches(b.find))
-		return
-	}
-	pos := make(map[*bline]int, len(b.lines))
-	for i, l := range b.lines {
-		pos[l] = i
-	}
-	ci := pos[b.cursor]
-	pick := -1
-	if dir > 0 {
-		for k, m := range ms {
-			if i := pos[m]; i > ci || (includeCursor && i == ci) {
-				pick = k
-				break
-			}
-		}
-		if pick < 0 {
-			pick = 0
-		}
-	} else {
-		for k := len(ms) - 1; k >= 0; k-- {
-			if pos[ms[k]] < ci {
-				pick = k
-				break
-			}
-		}
-		if pick < 0 {
-			pick = len(ms) - 1
-		}
-	}
-	b.cursor = ms[pick]
-	b.status = ""
+// matchAt reports whether l is a find match that's shown.
+func (b *browse) matchAt(re *regexp.Regexp, l *bline) bool {
+	return b.shows(l) && re.MatchString(ansi.Strip(l.text))
 }
 
-func (b *browse) matchPos() (int, int) {
+// findOlder moves to the nearest match older than the cursor (or at it,
+// with includeCursor), the way find goes: newest first. It reads in
+// older days until one turns up or history runs out; it doesn't wrap.
+func (b *browse) findOlder(includeCursor bool) tea.Cmd {
+	if b.find == "" {
+		return nil
+	}
+	i := len(b.lines) - 1
+	if ci := b.index(b.cursor); ci >= 0 {
+		i = ci
+		if !includeCursor {
+			i--
+		}
+	}
+	return b.findOlderFrom(i)
+}
+
+// findOlderFrom looks for a match at line i or older; see findOlder.
+func (b *browse) findOlderFrom(i int) tea.Cmd {
+	re := findRE(b.find)
+	b.searching = false
+	for ; i >= 0; i-- {
+		if l := b.lines[i]; b.matchAt(re, l) {
+			b.cursor = l
+			b.status = ""
+			return nil
+		}
+	}
+	if !b.histDone {
+		var oldest *bline // where this pass stopped; the next goes on below it
+		if len(b.lines) > 0 {
+			oldest = b.lines[0]
+		}
+		cmd := b.requestOlder(func() tea.Cmd { return b.findOlderFrom(b.index(oldest) - 1) })
+		b.searching = true
+		return cmd
+	}
+	b.findFailed(str.BrowseNoOlderMatches(b.find))
+	return nil
+}
+
+// findNewer moves to the nearest match newer than the cursor. Everything
+// newer is always loaded; it doesn't wrap.
+func (b *browse) findNewer() {
+	if b.find == "" {
+		return
+	}
+	re := findRE(b.find)
+	for _, l := range b.lines[b.index(b.cursor)+1:] {
+		if b.matchAt(re, l) {
+			b.cursor = l
+			b.status = ""
+			return
+		}
+	}
+	b.findFailed(str.BrowseNoNewerMatches(b.find))
+}
+
+// findFailed says there's nothing further: that the term matches nothing
+// at all, if so, else msg.
+func (b *browse) findFailed(msg string) {
+	if len(b.matches()) == 0 && b.histDone {
+		msg = str.BrowseNoMatches(b.find)
+	}
+	b.setStatus(true, msg)
+}
+
+// matchPos is the cursor's match counted from the newest, of n loaded;
+// more says older history not yet loaded may hold others.
+func (b *browse) matchPos() (i, n int, more bool) {
 	ms := b.matches()
-	return slices.Index(ms, b.cursor) + 1, len(ms)
+	if k := slices.Index(ms, b.cursor); k >= 0 {
+		i = len(ms) - k
+	}
+	return i, len(ms), !b.histDone
 }
 
 // gotoDate pages in history back to day, then moves to its first
@@ -601,10 +647,10 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	case actFind:
 		b.prompt = promptFind
 		b.pin.SetValue(b.find)
-	case actNextMatch:
-		b.jumpMatch(1, false)
+	case actNextMatch: // n goes on the way find goes: older
+		return b.findOlder(false), false
 	case actPrevMatch:
-		b.jumpMatch(-1, false)
+		b.findNewer()
 	case actDate:
 		b.prompt = promptDate
 		b.pin.SetValue("")
@@ -710,9 +756,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		switch kind {
 		case promptFind:
 			b.find = v
-			if v != "" {
-				b.jumpMatch(1, true)
-			}
+			return b.findOlder(true)
 		case promptDate:
 			return b.gotoDate(v)
 		case promptFilename:

@@ -29,6 +29,11 @@ func BrowseFindStatus(find, i any, n int) string {
 	return get("browse.find_status", map[string]any{"find": find, "i": i, "n": n})
 }
 
+// BrowseFindStatusMore is browse.find_status_more: "find: {find} {i}/{n}+"
+func BrowseFindStatusMore(find, i any, n int) string {
+	return get("browse.find_status_more", map[string]any{"find": find, "i": i, "n": n})
+}
+
 // BrowseFormatPrompt is browse.format_prompt: "export as (p)lain · (a)nsi · (h)tml   esc cancel"
 func BrowseFormatPrompt() string { return get("browse.format_prompt", nil) }
 
@@ -76,6 +81,16 @@ func BrowseNoLogsAfter(day any) string {
 // BrowseNoMatches is browse.no_matches: "no matches for {find:%q}"
 func BrowseNoMatches(find any) string { return get("browse.no_matches", map[string]any{"find": find}) }
 
+// BrowseNoNewerMatches is browse.no_newer_matches: "no newer matches for {find:%q}"
+func BrowseNoNewerMatches(find any) string {
+	return get("browse.no_newer_matches", map[string]any{"find": find})
+}
+
+// BrowseNoOlderMatches is browse.no_older_matches: "no older matches for {find:%q}"
+func BrowseNoOlderMatches(find any) string {
+	return get("browse.no_older_matches", map[string]any{"find": find})
+}
+
 // BrowseNothingLeft is browse.nothing_left: "nothing left to export"
 func BrowseNothingLeft() string { return get("browse.nothing_left", nil) }
 
@@ -95,6 +110,9 @@ func BrowseSavePrompt() string { return get("browse.save_prompt", nil) }
 
 // BrowseSaved is browse.saved: "saved {path}"
 func BrowseSaved(path any) string { return get("browse.saved", map[string]any{"path": path}) }
+
+// BrowseSearching is browse.searching: "find: {find} searching older history…"
+func BrowseSearching(find any) string { return get("browse.searching", map[string]any{"find": find}) }
 
 // BrowseTagAs is browse.tag_as: "{tag} (styled as {styled})"
 func BrowseTagAs(tag, styled any) string {
