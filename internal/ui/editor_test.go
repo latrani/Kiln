@@ -347,30 +347,61 @@ func TestEditKeyKeepsDraft(t *testing.T) {
 	}
 }
 
-// Clicking away from the editor keeps its edits, as Ctrl+T does: from
-// /edit's editor beside the sidebar, and from one over the picker.
-func TestClickAwayKeepsDraft(t *testing.T) {
+// An editor opened from the main view stays open on its sidebar item,
+// as log mode does on a character: switching away and back, by click or
+// key, finds it as it was. Each item keeps its own.
+func TestEditorStaysOnItsItem(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	edit := func() *editor {
+		if h.m.picker == nil {
+			return nil
+		}
+		return h.m.picker.edit
+	}
 	aliases := func() string {
-		f := h.m.picker.edit.form
+		f := edit().form
 		return f.value(f.field(aliasesLabel))
 	}
 	h.press('t', tea.ModCtrl)
 	h.focusOn(aliasesLabel)
 	h.typeText("kitty")
 	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // fm's row
-	if h.m.picker != nil || !strings.Contains(h.screen(), str.StatusDraftKept()) {
-		t.Fatalf("clicking the sidebar should hide the editor, edits kept:\n%s", h.screen())
+	if h.m.active != worldSel("fm") || edit() != nil {
+		t.Fatalf("clicking fm should show its overview:\n%s", h.screen())
 	}
-	h.m.switchTo("fm/kit")
-	h.press('t', tea.ModCtrl)
-	if got := aliases(); got != "kitty" {
-		t.Fatalf("draft not back after a click away: aliases %q", got)
+	h.press(tea.KeyDown, tea.ModCtrl) // to Kit
+	if e := edit(); e == nil || e.kind != editChar || aliases() != "kitty" {
+		t.Fatalf("Kit's editor should still be open, edits and all:\n%s", h.screen())
 	}
-	h.press('t', tea.ModCtrl)
+	h.typeText("cat") // focus kept too
+	h.press(tea.KeyUp, tea.ModCtrl)
+	h.press('t', tea.ModCtrl) // fm's own editor
+	if e := edit(); e == nil || e.kind != editWorld {
+		t.Fatalf("Ctrl+T on fm should edit it:\n%s", h.screen())
+	}
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: 1, Button: tea.MouseLeft}) // Kit's row
+	if e := edit(); e == nil || e.kind != editChar || aliases() != "kittycat" {
+		t.Fatalf("back on Kit, its editor:\n%s", h.screen())
+	}
+	h.press(tea.KeyUp, tea.ModCtrl)
+	if e := edit(); e == nil || e.kind != editWorld {
+		t.Errorf("back on fm, its editor:\n%s", h.screen())
+	}
+}
+
+// Clicking a row in the Ctrl+O list keeps the edits of the editor over
+// it, as Ctrl+T does.
+func TestPickerClickKeepsDraft(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	aliases := func() string {
+		f := h.m.picker.edit.form
+		return f.value(f.field(aliasesLabel))
+	}
 	h.press('o', tea.ModCtrl)
 	h.m.picker.sel = "fm/kit"
 	h.press('t', tea.ModCtrl)
+	h.focusOn(aliasesLabel)
+	h.typeText("kitty")
 	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // the picker's fm row: its editor
 	if e := h.m.picker.edit; e == nil || e.kind != editWorld {
 		t.Fatalf("the click should open fm's editor:\n%s", h.screen())

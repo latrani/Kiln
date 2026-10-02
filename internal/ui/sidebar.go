@@ -94,6 +94,13 @@ func (m *Model) close(k string) {
 	if cs := m.chars[k]; cs.cancel != nil {
 		cs.cancel()
 	}
+	if k == m.active {
+		m.leaveEditor() // its edits wait as a draft
+	}
+	if e := m.parked[k]; e != nil {
+		delete(m.parked, k)
+		m.stashDraft(e)
+	}
 	delete(m.chars, k)
 	m.order = slices.Delete(m.order, i, i+1)
 	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
