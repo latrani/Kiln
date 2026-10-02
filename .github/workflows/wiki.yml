@@ -1,0 +1,53 @@
+# Mirrors docs/ to the GitHub wiki. docs/ is the source of truth: edits
+# made in the wiki are overwritten on the next push to main.
+name: wiki
+
+on:
+  push:
+    branches: [main]
+    paths: [docs/**, .github/workflows/wiki.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write # push to the wiki repository
+
+concurrency: wiki
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build wiki pages
+        run: |
+          mkdir wiki
+          cp docs/*.md wiki/
+          mv wiki/README.md wiki/Home.md
+          cp wiki/Home.md wiki/_Sidebar.md
+          # Wiki pages link by name, without .md; files outside docs/
+          # link to the repository instead.
+          blob="https://github.com/${{ github.repository }}/blob/main"
+          perl -pi \
+            -e "s#\]\(\.\./([^)]*)\)#](${blob}/\$1)#g;" \
+            -e 's#\]\(README\.md\)#](Home)#g;' \
+            -e 's#\]\(([a-z-]+)\.md(\#[^)]*)?\)#]($1$2)#g;' \
+            wiki/*.md
+
+      - name: Push to the wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git" remote
+          find remote -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp wiki/*.md remote/
+          cd remote
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "wiki already up to date"
+            exit 0
+          fi
+          git commit -m "Sync from docs/ at ${GITHUB_SHA::7}"
+          git push
