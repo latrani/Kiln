@@ -313,3 +313,36 @@ func TestEditKeyToggles(t *testing.T) {
 		t.Errorf("Ctrl+T saved:\n%s", got)
 	}
 }
+
+// Ctrl+T hides the editor with its edits kept, and brings them back the
+// next time the same editor opens, from anywhere; Esc throws them away.
+func TestEditKeyKeepsDraft(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	aliases := func() string {
+		f := h.m.picker.edit.form
+		return f.value(f.field(aliasesLabel))
+	}
+	h.press('t', tea.ModCtrl)
+	h.focusOn(aliasesLabel)
+	h.typeText("kitty")
+	h.press('t', tea.ModCtrl)
+	if !strings.Contains(h.screen(), str.StatusDraftKept()) {
+		t.Errorf("hiding should say the edits are kept:\n%s", h.screen())
+	}
+	h.press('o', tea.ModCtrl) // from the picker this time
+	h.m.picker.sel = "fm/kit"
+	h.press('t', tea.ModCtrl)
+	if got := aliases(); got != "kitty" {
+		t.Fatalf("draft not back: aliases %q\n%s", got, h.screen())
+	}
+	h.typeText("cat") // the focus came back too
+	if got := aliases(); got != "kittycat" {
+		t.Errorf("aliases = %q", got)
+	}
+	h.press(tea.KeyEscape, 0) // out of the editor, then the picker
+	h.press(tea.KeyEscape, 0)
+	h.press('t', tea.ModCtrl)
+	if got := aliases(); got != "" {
+		t.Errorf("Esc should drop the draft: aliases %q", got)
+	}
+}

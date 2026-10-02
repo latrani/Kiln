@@ -654,6 +654,9 @@ func StatusConfigReloaded() string { return get("status.config_reloaded", nil) }
 // StatusCopied is status.copied: "copied to clipboard"
 func StatusCopied() string { return get("status.copied", nil) }
 
+// StatusDraftKept is status.draft_kept: "edits kept · Ctrl+T to go back to them"
+func StatusDraftKept() string { return get("status.draft_kept", nil) }
+
 // StatusHighlightAdded is status.highlight_added: "added highlight for {text:%q}"
 func StatusHighlightAdded(text any) string {
 	return get("status.highlight_added", map[string]any{"text": text})

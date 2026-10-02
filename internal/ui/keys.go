@@ -34,8 +34,8 @@ const openPickerKey = "ctrl+o"
 
 // openEditorKey opens the editor for the world or character highlighted
 // in the picker, or from the main view for the active character (like
-// /edit); in the editor it closes it unsaved, like Esc. Ctrl+E is the
-// input's end of line.
+// /edit); in the editor it hides it, keeping the edits for the next time
+// it opens (Esc drops them). Ctrl+E is the input's end of line.
 const openEditorKey = "ctrl+t"
 
 var browseKeys = map[string]browseAction{

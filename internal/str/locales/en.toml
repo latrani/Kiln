@@ -223,6 +223,8 @@ link_copied = "copied link {url}"
 link_opened = "opened {url}"
 copied = "copied to clipboard"
 away = "away until your next key or click"
+# The editor was hidden with Ctrl+T; its unsaved edits wait for it to reopen.
+draft_kept = "edits kept · Ctrl+T to go back to them"
 theme_not_loaded = "theme not loaded: {err}"
 
 [scrollback]

@@ -213,7 +213,7 @@ func (m *Model) choose(sel string) tea.Cmd {
 	case strings.HasPrefix(sel, "+"):
 		name := textField(str.PickerName())
 		name.accept = config.NameChars
-		m.picker.edit = &editor{form: newForm(addCharHint, name), kind: addChar, world: strings.TrimPrefix(sel, "+")}
+		m.setEditor(&editor{form: newForm(addCharHint, name), kind: addChar, world: strings.TrimPrefix(sel, "+")})
 	default:
 		return m.pick(sel)
 	}

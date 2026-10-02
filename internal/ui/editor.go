@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -266,7 +267,7 @@ func (m *Model) openWorldEditor(world string) {
 		}
 		f := m.worldForm(true, s, inh)
 		f.title = str.EditorNewWorld()
-		m.picker.edit = &editor{form: f, kind: addWorld}
+		m.setEditor(&editor{form: f, kind: addWorld})
 		return
 	}
 	s, inh, err := config.ReadWorld(m.d.ConfigDir, world)
@@ -276,7 +277,7 @@ func (m *Model) openWorldEditor(world string) {
 	}
 	f := m.worldForm(false, s, inh)
 	f.title = str.EditorEditing(world)
-	m.picker.edit = &editor{form: f, kind: editWorld, world: world}
+	m.setEditor(&editor{form: f, kind: editWorld, world: world})
 }
 
 // openCharEditor opens the editor for character k.
@@ -290,7 +291,7 @@ func (m *Model) openCharEditor(k string) {
 		m.setStatus(true, err.Error())
 		return
 	}
-	m.picker.edit = &editor{form: m.charForm(ch.World+"/"+ch.Name, s, inh), kind: editChar, world: ch.World, char: ch.ID}
+	m.setEditor(&editor{form: m.charForm(ch.World+"/"+ch.Name, s, inh), kind: editChar, world: ch.World, char: ch.ID})
 }
 
 // editCommand opens an editor from /edit: the active character's, or
@@ -327,6 +328,31 @@ func (m *Model) editWorld(world string) {
 	}
 }
 
+// target says what e adds or edits; a draft comes back to the same one.
+func (e *editor) target() string { return fmt.Sprint(e.kind, "/", e.world, "/", e.char) } //str:ok
+
+// setEditor opens e over the picker, or in its place the draft that
+// Ctrl+T hid for the same target.
+func (m *Model) setEditor(e *editor) {
+	if d := m.drafts[e.target()]; d != nil {
+		delete(m.drafts, e.target())
+		d.armed, d.closeAll = "", false // the caller sets closeAll for where it's opened from now
+		e = d
+	}
+	m.picker.edit = e
+}
+
+// hideEditor closes the editor but keeps its edits, to come back the
+// next time the same world or character's editor opens.
+func (m *Model) hideEditor() {
+	if m.drafts == nil {
+		m.drafts = map[string]*editor{}
+	}
+	m.drafts[m.picker.edit.target()] = m.picker.edit
+	m.closeEditor()
+	m.setStatus(false, str.StatusDraftKept())
+}
+
 // closeEditor goes back to the picker, or out of it for /edit.
 func (m *Model) closeEditor() {
 	if m.picker.edit.closeAll {
@@ -343,8 +369,10 @@ func (m *Model) editorKey(k tea.KeyPressMsg) tea.Cmd {
 		e.armed = ""
 	}
 	switch k.String() {
-	case "esc", "ctrl+c", openEditorKey: // the key that opened it closes it, saving nothing
+	case "esc", "ctrl+c":
 		m.closeEditor()
+	case openEditorKey: // the key that opened it hides it, edits and all
+		m.hideEditor()
 	case "enter":
 		if e.form.key(k) { // moved to the next field, or opened the extras
 			e.armed = ""
@@ -486,6 +514,13 @@ func (m *Model) deleteEdited(e *editor) {
 		}
 	} else {
 		err = config.DeleteWorld(m.d.ConfigDir, e.world)
+		if err == nil {
+			for t, d := range m.drafts { // drafts for the world are moot; one would reappear for a new one by its name
+				if d.world == e.world {
+					delete(m.drafts, t)
+				}
+			}
+		}
 	}
 	if err != nil {
 		e.armed = ""

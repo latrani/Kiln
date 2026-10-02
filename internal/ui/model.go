@@ -102,6 +102,7 @@ type Model struct {
 	detected        theme.Appearance        // the terminal's last answer about its background; Dark until one comes
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
+	drafts          map[string]*editor      // editors hidden by Ctrl+T, unsaved, by target; see hideEditor
 }
 
 type charState struct {
