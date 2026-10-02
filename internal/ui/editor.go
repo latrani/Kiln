@@ -312,6 +312,21 @@ func (m *Model) editCommand(cs *charState, arg string) {
 	}
 }
 
+// editWorld opens world's editor from its overview, as editCommand does
+// for a character: the picker opens under it and closes with it.
+func (m *Model) editWorld(world string) {
+	if m.picker == nil {
+		m.openPicker()
+		if m.picker == nil {
+			return // openPicker said why
+		}
+	}
+	m.openWorldEditor(world)
+	if m.picker.edit != nil {
+		m.picker.edit.closeAll = true
+	}
+}
+
 // closeEditor goes back to the picker, or out of it for /edit.
 func (m *Model) closeEditor() {
 	if m.picker.edit.closeAll {

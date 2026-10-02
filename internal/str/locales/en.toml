@@ -140,6 +140,9 @@ connected_since_day = "Connected since {day} {time}"
 too_small = "Kiln needs at least {min_w}x{min_h} (now {w}x{h})"
 more_above = "▲ {n} more"
 more_below = "▼ {n} more"
+# A world's overview, shown when its row in the sidebar is selected: each
+# open character, when its last line came, and its last few lines.
+overview_quiet = "nothing yet"
 
 # The world and character editors.
 [editor]

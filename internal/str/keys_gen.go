@@ -892,6 +892,9 @@ func ViewNoCharacters() string { return get("view.no_characters", nil) }
 // ViewNothingOpen is view.nothing_open: "Hit Enter or Ctrl+O to choose a connection"
 func ViewNothingOpen() string { return get("view.nothing_open", nil) }
 
+// ViewOverviewQuiet is view.overview_quiet: "nothing yet"
+func ViewOverviewQuiet() string { return get("view.overview_quiet", nil) }
+
 // ViewPasswordKeys is view.password_keys: "   Enter to log in · Esc to skip"
 func ViewPasswordKeys() string { return get("view.password_keys", nil) }
 

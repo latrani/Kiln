@@ -13,10 +13,10 @@
 | `Home` / `End` (or `Ctrl+A` / `Ctrl+E`) | Start or end of the line |
 | `Ctrl+W` (or `Alt+Backspace`) / `Alt+Delete` | Delete the word before or after the cursor |
 | `Ctrl+U` / `Ctrl+K` | Delete to the start or end of the line |
-| `Ctrl+↑` / `Ctrl+↓` | Switch between open characters |
+| `Ctrl+↑` / `Ctrl+↓` | Switch between open characters and their worlds' overviews |
 | `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before |
 | `Ctrl+O` | Open a connection (same as `/open`): type to filter, `Enter` to connect, `Esc` to close |
-| `Ctrl+T` | Edit the active character (same as `/edit`); in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world does it too) |
+| `Ctrl+T` | Edit the active character (same as `/edit`), or on a world's overview the world; in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world does it too) |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back, or page through held output (see [Paging](#paging)) |
 | `Ctrl+L` | Open log mode |
 | `Esc` | Skip the login prompt; while scrolled back, jump to live (so does clicking the `▼ new` pill) |
@@ -28,6 +28,8 @@ The editing keys (word and line movement, deletes) work the same in every text f
 Links (`http://` or `https://`) in the scrollback are underlined and turn blue under the pointer; click one to open it in your browser (over ssh it copies the link instead; see [Over ssh](notifications.md#over-ssh)). Drag across text in the scrollback or the input box to select it; it's copied to the clipboard when you let go, with line breaks only where the lines really break, not where they wrap. (Your terminal's own selection usually still works with `Shift` or `Option` held.) Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
 The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
+
+Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: each of its open characters, when their last line came, and their last five lines.
 
 ## Commands
 
