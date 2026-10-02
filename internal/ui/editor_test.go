@@ -346,3 +346,39 @@ func TestEditKeyKeepsDraft(t *testing.T) {
 		t.Errorf("Esc should drop the draft: aliases %q", got)
 	}
 }
+
+// Clicking away from the editor keeps its edits, as Ctrl+T does: from
+// /edit's editor beside the sidebar, and from one over the picker.
+func TestClickAwayKeepsDraft(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	aliases := func() string {
+		f := h.m.picker.edit.form
+		return f.value(f.field(aliasesLabel))
+	}
+	h.press('t', tea.ModCtrl)
+	h.focusOn(aliasesLabel)
+	h.typeText("kitty")
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // fm's row
+	if h.m.picker != nil || !strings.Contains(h.screen(), str.StatusDraftKept()) {
+		t.Fatalf("clicking the sidebar should hide the editor, edits kept:\n%s", h.screen())
+	}
+	h.m.switchTo("fm/kit")
+	h.press('t', tea.ModCtrl)
+	if got := aliases(); got != "kitty" {
+		t.Fatalf("draft not back after a click away: aliases %q", got)
+	}
+	h.press('t', tea.ModCtrl)
+	h.press('o', tea.ModCtrl)
+	h.m.picker.sel = "fm/kit"
+	h.press('t', tea.ModCtrl)
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // the picker's fm row: its editor
+	if e := h.m.picker.edit; e == nil || e.kind != editWorld {
+		t.Fatalf("the click should open fm's editor:\n%s", h.screen())
+	}
+	h.press(tea.KeyEscape, 0)
+	h.m.picker.sel = "fm/kit"
+	h.press('t', tea.ModCtrl)
+	if got := aliases(); got != "kitty" {
+		t.Errorf("draft lost to a click in the picker: aliases %q", got)
+	}
+}

@@ -1028,6 +1028,7 @@ func (m *Model) switchTo(k string) {
 	cs.sb.SetWidth(l.rw)
 	cs.sb.Pause(l.sbH) // open at the first line you haven't seen
 	if cs.browse != nil && m.picker != nil {
+		m.leaveEditor()
 		m.closePicker() // browse has the pane; the filter would be hidden
 	}
 	cs.unread, cs.attention = 0, false
@@ -1254,7 +1255,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 			return nil
 		}
 		if m.picker != nil && !m.listing() {
-			m.closePicker() // leave /edit's editor for the sidebar
+			m.leaveEditor() // leave /edit's editor, and the picker under it, for the sidebar
 		}
 		sv := m.sidebarView()
 		r, hint := sv.at(msg.Y)
@@ -1263,7 +1264,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 			m.scrollSidebar(hint * max(1, sv.avail-1))
 		case r == nil:
 		case m.picker != nil:
-			m.picker.edit = nil
+			m.leaveEditor()
 			if k := selKey(*r); k != "" {
 				m.picker.sel = k
 				return m.choose(k)

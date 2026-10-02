@@ -353,6 +353,14 @@ func (m *Model) hideEditor() {
 	m.setStatus(false, str.StatusDraftKept())
 }
 
+// leaveEditor hides the editor, if one is open, as Ctrl+T does: going
+// somewhere else keeps the edits. Only Esc drops them.
+func (m *Model) leaveEditor() {
+	if m.picker != nil && m.picker.edit != nil {
+		m.hideEditor()
+	}
+}
+
 // closeEditor goes back to the picker, or out of it for /edit.
 func (m *Model) closeEditor() {
 	if m.picker.edit.closeAll {
