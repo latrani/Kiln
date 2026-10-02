@@ -248,8 +248,8 @@ no_newer_matches = "no newer matches for {find:%q}"
 # In the top bar while find reads older days for a match: the oldest day
 # it has searched so far. Any key stops it.
 searching = "find: {find} · searching back to {day}… esc to stop"
-# Esc (or any key) stopped a find reading older days: how far back it got.
-search_stopped = "find stopped; searched back to {day}"
+# Esc (or any key) stopped a find reading older days.
+search_cancelled = "search cancelled"
 date_format = "dates look like 2026-09-24"
 no_logs_after = "no logs on or after {day}"
 no_file_name = "no file name given"

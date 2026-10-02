@@ -111,10 +111,8 @@ func BrowseSavePrompt() string { return get("browse.save_prompt", nil) }
 // BrowseSaved is browse.saved: "saved {path}"
 func BrowseSaved(path any) string { return get("browse.saved", map[string]any{"path": path}) }
 
-// BrowseSearchStopped is browse.search_stopped: "find stopped; searched back to {day}"
-func BrowseSearchStopped(day any) string {
-	return get("browse.search_stopped", map[string]any{"day": day})
-}
+// BrowseSearchCancelled is browse.search_cancelled: "search cancelled"
+func BrowseSearchCancelled() string { return get("browse.search_cancelled", nil) }
 
 // BrowseSearching is browse.searching: "find: {find} · searching back to {day}… esc to stop"
 func BrowseSearching(find, day any) string {

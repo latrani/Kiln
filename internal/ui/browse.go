@@ -496,7 +496,7 @@ func (b *browse) stopSearch() bool {
 		return false
 	}
 	b.searching, b.pending = false, nil
-	b.setStatus(false, str.BrowseSearchStopped(b.searchedTo()))
+	b.setStatus(false, str.BrowseSearchCancelled())
 	return true
 }
 

@@ -357,7 +357,7 @@ func TestBrowseFindSaysWhileSearching(t *testing.T) {
 	if h.br() != b || b.searching || b.cursor != cursor {
 		t.Fatalf("Esc should stop the search and stay:\n%s", h.screen())
 	}
-	if want := str.BrowseSearchStopped(dayLabel(b.lines[0].day)); !strings.Contains(h.screen(), want) {
+	if want := str.BrowseSearchCancelled(); !strings.Contains(h.screen(), want) {
 		t.Errorf("want %q:\n%s", want, h.screen())
 	}
 	h.key("esc")
