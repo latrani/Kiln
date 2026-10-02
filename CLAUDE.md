@@ -38,7 +38,7 @@ Every color and attribute Kiln draws comes from a theme role
 (`internal/theme/roles.go`), never an escape code in the UI:
 `theme.Paint(theme.StatusError, msg)`. A new kind of thing on screen gets
 a new role, added to `roles.go` (`Roles` too), the built-in
-`internal/theme/default.toml`, and the README's role list.
+`internal/theme/default.toml`, and the role list in `docs/themes.md`.
 `TestNoHardCodedStyles` fails on escape codes in `internal/ui` and
 `cmd/kiln`. Painted areas (sidebar, input, statusline, log header and
 action bar) go through `theme.Fill`. The scrollback and log body never do:

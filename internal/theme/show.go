@@ -121,7 +121,7 @@ func writeStyles(b *strings.Builder, header string, order []string, lines map[st
 	}
 }
 
-// inline is s as a TOML inline table, fields in the order the README
+// inline is s as a TOML inline table, fields in the order docs/themes.md
 // lists them.
 func inline(s fileStyle, scope *string) string {
 	var fields []string
