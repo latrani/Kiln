@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"slices"
@@ -970,6 +971,155 @@ func TestLogDateSticksToTop(t *testing.T) {
 	}
 	if got := firstRow(); !strings.Contains(got, divider(day24)) {
 		t.Errorf("back on the 24th, the top row should say so: %q\n%s", got, h.screen())
+	}
+}
+
+// Whatever you do in log mode, the body never ends in blank rows, and the
+// cursor stays in view: moves, pages, the wheel, filtering, resizing.
+func TestLogBodyStaysFull(t *testing.T) {
+	for seed := range int64(3) {
+		h := newHarness(t, map[string]string{"fm": fmWorld})
+		r := rand.New(rand.NewSource(seed))
+		var lines []string
+		for i := range 150 {
+			who := []string{"Rook says, ", "Mira pages: ", "Sable says, "}[r.Intn(3)]
+			lines = append(lines, fmt.Sprintf("%s%q", who, strings.Repeat("word ", r.Intn(30))+fmt.Sprint(i)))
+		}
+		h.writeLog(day24.AddDate(0, 0, -2), lines[:30]...)
+		h.writeLog(day24.AddDate(0, 0, -1), lines[30:70]...)
+		h.writeLog(day24, lines[70:]...)
+		h.key("ctrl+l")
+		b := h.br()
+		keys := []string{"up", "down", "pgup", "pgdn", "home", "end", "wu", "wd", "wu", "wd", "wu", "wd", "filter", "resize"}
+		for step := range 400 {
+			l := h.m.layout()
+			k := keys[r.Intn(len(keys))]
+			switch k {
+			case "wu":
+				h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: tea.MouseWheelUp}))
+			case "wd":
+				h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: tea.MouseWheelDown}))
+			case "pgup":
+				h.press(tea.KeyPgUp, 0)
+			case "pgdn":
+				h.press(tea.KeyPgDown, 0)
+			case "filter":
+				h.kitFilter().ToggleHide(scene.Item{Name: "page"}, b.items())
+				b.refilter()
+			case "resize":
+				h.m.Update(tea.WindowSizeMsg{Width: 60 + r.Intn(60), Height: 12 + r.Intn(20)})
+			default:
+				h.key(k)
+			}
+			s := h.screen()
+			rows := strings.Split(s, "\n")
+			bodyEnd := len(rows) - 5
+			last := strings.TrimSpace(strings.SplitN(rows[bodyEnd], "│", 2)[1])
+			if last == "" {
+				t.Fatalf("seed %d step %d after %s: blank bottom row\n%s", seed, step, k, s)
+			}
+			if !slices.Contains(b.rowLines, b.cursor) {
+				t.Fatalf("seed %d step %d after %s: cursor out of view\n%s", seed, step, k, s)
+			}
+		}
+	}
+}
+
+// The wheel scrolls log mode's view a line at a time, as it scrolls the
+// scrollback, leaving the cursor be until it would go out of sight; then
+// it's dragged along at the edge.
+func TestLogWheelScrolls(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	wheel := func(button tea.MouseButton) {
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: button}))
+		h.screen()
+	}
+	h.screen()
+	bottom := b.cursor
+	top := b.top
+	wheel(tea.MouseWheelUp)
+	if b.top == top || b.top.e.Text != lines[slices.IndexFunc(lines, func(s string) bool { return s == top.e.Text })-1] {
+		t.Errorf("one notch up should scroll one line: top %q, was %q", b.top.e.Text, top.e.Text)
+	}
+	if b.cursor == bottom {
+		t.Error("the cursor on the newest line, now scrolled out of view, should be dragged up with it")
+	}
+	if b.rowLines[len(b.rowLines)-1] != b.cursor {
+		t.Errorf("dragged to the bottom edge, the cursor should be the last line shown:\n%s", h.screen())
+	}
+	h.keys("up", "up") // off the edge: wheel leaves it alone now
+	cursor := b.cursor
+	wheel(tea.MouseWheelUp)
+	if b.cursor != cursor {
+		t.Errorf("a cursor in view shouldn't move: %q", b.cursor.e.Text)
+	}
+	for range 100 {
+		wheel(tea.MouseWheelUp)
+	}
+	if b.top != b.visible()[0] || b.cursor != b.rowLines[len(b.rowLines)-1] {
+		t.Errorf("scrolled to the oldest line, the cursor is the last line shown: top %q cursor %q", b.top.e.Text, b.cursor.e.Text)
+	}
+	h.key("home") // the cursor on the top edge
+	wheel(tea.MouseWheelDown)
+	if b.cursor != b.top {
+		t.Errorf("scrolling down, the cursor is dragged along at the top edge: top %q cursor %q", b.top.e.Text, b.cursor.e.Text)
+	}
+	for range 100 {
+		wheel(tea.MouseWheelDown)
+	}
+	if last := b.rowLines[len(b.rowLines)-1]; last != b.last() {
+		t.Errorf("scrolled to the end, the newest line should be at the bottom:\n%s", h.screen())
+	}
+}
+
+// One wheel notch scrolls scroll_lines: rows in the scrollback, lines in
+// log mode.
+func TestWheelScrollsScrollLines(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	cs := h.m.chars["fm/kit"]
+	for _, c := range []struct{ setting, want int }{{config.DefaultScrollLines, 1}, {4, 4}} {
+		h.m.cfg.ScrollLines = c.setting
+		l := h.m.layout()
+		cs.sb.ToBottom()
+		h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: l.top + 1, Button: tea.MouseWheelUp})
+		if cs.sb.offset != c.want {
+			t.Errorf("scroll_lines %d: scrollback scrolled %d rows, want %d", c.setting, cs.sb.offset, c.want)
+		}
+		h.key("ctrl+l")
+		b := h.br()
+		h.screen()
+		top := b.index(b.top)
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: tea.MouseWheelUp}))
+		h.screen()
+		if got := top - b.index(b.top); got != c.want {
+			t.Errorf("scroll_lines %d: log mode scrolled %d lines, want %d", c.setting, got, c.want)
+		}
+		h.key("esc")
+	}
+}
+
+// Too few lines to fill log mode's body sit at its bottom, as in the
+// scrollback.
+func TestLogShortHistorySitsAtBottom(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	s := h.screen()
+	if rows := strings.Split(s, "\n"); !strings.Contains(rows[len(rows)-5], scene1[6]) {
+		t.Errorf("the newest line should be at the bottom:\n%s", s)
 	}
 }
 

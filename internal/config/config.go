@@ -97,6 +97,7 @@ type Config struct {
 	NotifyMethod  notify.Method
 	Theme         string // themes/<name>.toml; "kiln" is the built-in, as is "default" without one
 	Appearance    string // "auto", "dark" or "light"
+	ScrollLines   int    // how far one wheel notch scrolls the scrollback (rows) or log mode (lines); at least 1
 }
 
 // Find returns the resolved character, or false.
@@ -161,6 +162,7 @@ type globalFile struct {
 	NotifyMethod  string       `toml:"notify_method"`
 	Theme         string       `toml:"theme"`
 	Appearance    string       `toml:"appearance"`
+	ScrollLines   any          `toml:"scroll_lines"` // any: a value that isn't a whole number ≥ 1 falls back to the default
 	Defaults      defaultsFile `toml:"defaults"`
 }
 
@@ -203,6 +205,9 @@ const (
 	DefaultPasswordStore = "keychain"
 	// DefaultNotifyIdle is used when config.toml sets no notify_idle.
 	DefaultNotifyIdle = 5 * time.Minute
+	// DefaultScrollLines is used when config.toml sets no scroll_lines,
+	// or one that isn't a whole number of at least 1.
+	DefaultScrollLines = 1
 )
 
 var idRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`) //str:ok
@@ -289,7 +294,10 @@ func Load(dir string) (*Config, error) {
 		return nil, errors.New(str.ConfigLogNameHasFolders())
 	}
 	cfg := &Config{ExportDir: exportDir, ExportName: exportName, ExportFormat: g.ExportFormat, LogDir: logDir, LogName: g.LogName, PasswordStore: store,
-		NotifyIdle: idle, NotifyMethod: method, Theme: themeName, Appearance: appearance}
+		NotifyIdle: idle, NotifyMethod: method, Theme: themeName, Appearance: appearance, ScrollLines: DefaultScrollLines}
+	if n, ok := g.ScrollLines.(int64); ok && n >= 1 {
+		cfg.ScrollLines = int(n)
+	}
 	for _, wp := range worldPaths {
 		w, err := loadWorld(dir, wp, base, baseRules, packs)
 		if err != nil {

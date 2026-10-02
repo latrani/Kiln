@@ -486,6 +486,28 @@ func TestNotifyGlobalKeys(t *testing.T) {
 	}
 }
 
+// scroll_lines defaults to 1, and anything but a whole number of at
+// least 1 falls back to that rather than failing the load.
+func TestScrollLines(t *testing.T) {
+	for toml, want := range map[string]int{
+		"":                       1,
+		"scroll_lines = 3\n":     3,
+		"scroll_lines = 0\n":     1,
+		"scroll_lines = -2\n":    1,
+		"scroll_lines = 2.5\n":   1,
+		"scroll_lines = \"3\"\n": 1,
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"config.toml": toml})
+		cfg, err := Load(dir)
+		if err != nil {
+			t.Errorf("%q: %v", toml, err)
+		} else if cfg.ScrollLines != want {
+			t.Errorf("%q: scroll_lines %d, want %d", toml, cfg.ScrollLines, want)
+		}
+	}
+}
+
 func TestNotifyLevelValidated(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, map[string]string{"worlds/a.toml": "host = \"h\"\nport = 1\nnotify = \"loud\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n"})
