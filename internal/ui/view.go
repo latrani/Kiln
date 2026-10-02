@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
@@ -199,7 +200,8 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip, presenceChip [2
 func (m *Model) topBarFor(w int, p presenceState) (line string, logChip, filterChip, presenceChip [2]int) {
 	cs := m.cur()
 	if cs == nil {
-		return "", logChip, filterChip, presenceChip
+		world, _ := m.activeWorld() // "" with nothing open
+		return fitName(world, w), logChip, filterChip, presenceChip
 	}
 	left := cs.ch.World + str.Separator() + cs.ch.Name
 	logRole := theme.StatusLog
@@ -322,7 +324,9 @@ func (m *Model) View() tea.View {
 		}
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
-		if len(m.allChars()) == 0 {
+		if w, ok := m.activeWorld(); ok {
+			copy(right[l.top:], m.overview(w, l.rw, l.sbH))
+		} else if len(m.allChars()) == 0 {
 			right[l.top] = theme.Paint(theme.ScrollbackEmpty, str.ViewNoCharacters())
 		}
 	} else {
@@ -391,6 +395,48 @@ func (m *Model) View() tea.View {
 	v.Content = b.String()
 	v.Cursor = cursor
 	return v
+}
+
+// overviewLines is how many of each character's last lines a world's
+// overview shows.
+const overviewLines = 5
+
+// overview draws world's overview, at most h rows of width w: each open
+// character's name and when its last line came, then those last lines.
+func (m *Model) overview(world string, w, h int) []string {
+	var rows []string
+	for _, k := range m.order {
+		cs := m.chars[k]
+		if cs.ch.World != world {
+			continue
+		}
+		if len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		when := str.ViewOverviewQuiet()
+		if t, ok := cs.sb.LastTime(); ok {
+			when = m.clock(t)
+		}
+		rows = append(rows, theme.Paint(theme.ScrollbackOverview, cs.ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when))
+		for _, l := range cs.sb.Tail(overviewLines) {
+			rows = append(rows, xansi.Truncate(l, w, "…")+style.Reset)
+		}
+	}
+	if m.modal() {
+		for i, r := range rows {
+			rows[i] = theme.Paint(theme.ScrollbackInactive, ansi.Strip(r))
+		}
+	}
+	return rows[:min(len(rows), h)]
+}
+
+// clock is t as a time of day, with the day first if that wasn't today.
+func (m *Model) clock(t time.Time) string {
+	t = t.Local()
+	if t.Format("2006-01-02") != m.d.Now().Local().Format("2006-01-02") { //str:ok
+		return t.Format(str.DateDayTime())
+	}
+	return t.Format("15:04") //str:ok
 }
 
 // stateName is a connection state as the statusline says it.

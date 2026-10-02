@@ -884,6 +884,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case openEditorKey:
 		if cs != nil {
 			m.editCommand(cs, "")
+		} else if w, ok := m.activeWorld(); ok {
+			m.editWorld(w)
 		}
 		return nil
 	case "ctrl+c", "ctrl+d": // Ctrl+D with text deletes forward, below
@@ -967,19 +969,15 @@ func (m *Model) quit() tea.Cmd {
 	return tea.Quit
 }
 
-// switchBy moves the active character through the sidebar order.
+// switchBy moves through the sidebar's worlds and characters.
 func (m *Model) switchBy(delta int) {
-	if len(m.order) == 0 {
+	stops := m.stops()
+	if len(stops) == 0 {
 		return
 	}
-	i := 0
-	for j, k := range m.order {
-		if k == m.active {
-			i = j
-		}
-	}
-	i = (i + delta + len(m.order)) % len(m.order)
-	m.switchTo(m.order[i])
+	i := max(0, slices.Index(stops, m.active))
+	i = (i + delta + len(stops)) % len(stops)
+	m.switchTo(stops[i])
 }
 
 // switchToUnread moves to the next character (dir 1) or previous one
@@ -1003,19 +1001,24 @@ func (m *Model) switchToUnread(dir int) {
 	}
 }
 
+// switchTo makes k active: a character's key, or a world's selection key
+// (worldSel) for its overview. Tab's history holds only characters.
 func (m *Model) switchTo(k string) {
 	cs, ok := m.chars[k]
+	w, isWorld := strings.CutPrefix(k, worldSel(""))
+	if !ok && (!isWorld || !m.worldOpen(w)) {
+		return
+	}
+	if old := m.cur(); old != nil && m.active != k {
+		old.sb.MarkSeen() // you saw it up to now
+		m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == m.active })
+		m.recent = append([]string{m.active}, m.recent...)
+	}
+	m.active, m.confirm = k, false
 	if !ok {
 		return
 	}
 	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
-	if m.active != "" && m.active != k {
-		m.recent = append([]string{m.active}, m.recent...)
-		if old := m.cur(); old != nil {
-			old.sb.MarkSeen() // you saw it up to now
-		}
-	}
-	m.active, m.confirm = k, false
 	l := m.layout()
 	cs.sb.SetWidth(l.rw)
 	cs.sb.Pause(l.sbH) // open at the first line you haven't seen
@@ -1262,7 +1265,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 			}
 		case r.kind == rowAdd:
 			m.openPicker()
-		case r.kind == rowWorld, r.kind == rowGap: // headers and gaps do nothing
+		case r.kind == rowWorld:
+			m.switchTo(worldSel(r.world))
+			m.sideShown = m.active // clicked, so already in view
+		case r.kind == rowGap: // gaps do nothing
 		case msg.X == badgeX && closable(m.chars[r.char]):
 			m.close(r.char)
 		default:
