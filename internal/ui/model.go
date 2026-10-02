@@ -869,6 +869,10 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	if cs != nil && cs.browse != nil {
 		m.clearLogStatus()
+		if k.String() == openBrowseKey { // the key that opened it closes it, prompt or not
+			cs.browse = nil
+			return nil
+		}
 		cmd, closed := cs.browse.key(k, m.browseBodyH())
 		if closed {
 			cs.browse = nil

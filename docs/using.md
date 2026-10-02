@@ -16,9 +16,9 @@
 | `Ctrl+↑` / `Ctrl+↓` | Switch between open characters and their worlds' overviews |
 | `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before |
 | `Ctrl+O` | Open a connection (same as `/open`): type to filter, `Enter` to connect, `Esc` to close |
-| `Ctrl+T` | Edit the active character (same as `/edit`), or on a world's overview the world; in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world does it too) |
+| `Ctrl+T` | Edit the active character (same as `/edit`), or on a world's overview the world; in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world does it too). In the editor, `Ctrl+T` again closes it without saving, like `Esc` |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back, or page through held output (see [Paging](#paging)) |
-| `Ctrl+L` | Open log mode |
+| `Ctrl+L` | Open log mode; in log mode, close it |
 | `Esc` | Skip the login prompt; while scrolled back, jump to live (so does clicking the `▼ new` pill) |
 | `Ctrl+C` | Clear the input; on an empty input, press twice to quit |
 | `Ctrl+D` | Delete the character after the cursor; on an empty input, press twice to quit |

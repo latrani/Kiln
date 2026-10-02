@@ -2,7 +2,7 @@
 
 > **AI-generated.** Claude wrote this page from Kiln's code and earlier README. If something here is wrong, please [open an issue](https://github.com/latrani/Kiln/issues).
 
-`Ctrl+L` opens a browser over **all** of the active character's logs, with new lines still arriving at the bottom. `Esc` goes back.
+`Ctrl+L` opens a browser over **all** of the active character's logs, with new lines still arriving at the bottom. `Esc` or `Ctrl+L` goes back.
 
 | Key | Does |
 |---|---|
