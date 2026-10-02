@@ -123,6 +123,7 @@ type charState struct {
 	pwDraft     string           // input stashed while the password prompt is up
 	orphan      bool             // removed from the config; dropped when it disconnects
 	browse      *browse          // non-nil while browse mode is open
+	hidBrowse   *browse          // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
 	filter      scene.Filter     // log mode's filter; outlasts a log-mode session
 	collapsed   map[string]bool  // filter panel parents folded shut, by tag
 	foldSeen    map[string]bool  // parents the panel has already met; a new one starts folded
@@ -142,6 +143,22 @@ type sbOlderMsg struct {
 	lines []sbLine
 	more  bool
 }
+
+// browses is log mode, showing or hidden by Ctrl+L, for what keeps
+// either up to date.
+func (cs *charState) browses() []*browse {
+	var bs []*browse
+	for _, b := range []*browse{cs.browse, cs.hidBrowse} {
+		if b != nil {
+			bs = append(bs, b)
+		}
+	}
+	return bs
+}
+
+// hideBrowse leaves log mode as it is, filter panel, cursor, marks and
+// all, to come back on the next Ctrl+L. Esc closes it for good.
+func (cs *charState) hideBrowse() { cs.browse, cs.hidBrowse = nil, cs.browse }
 
 // startPassword shows the masked password prompt, stashing any draft so
 // it neither becomes part of the password nor is lost.
@@ -318,8 +335,8 @@ func (m *Model) loadTheme() {
 		}
 		render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
 		cs.sb.Rerender(render)
-		if cs.browse != nil {
-			cs.browse.restyle(render)
+		for _, b := range cs.browses() {
+			b.restyle(render)
 		}
 	}
 }
@@ -334,8 +351,8 @@ func (m *Model) applyConfig(cfg *config.Config) {
 	m.pwStore.Store(&store)
 	for _, k := range slices.Clone(m.order) {
 		cs := m.chars[k]
-		if cs.browse != nil {
-			cs.browse.setExport(cfg)
+		for _, b := range cs.browses() {
+			b.setExport(cfg)
 		}
 		ch, ok := m.find(k)
 		if !ok {
@@ -659,8 +676,8 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cs.sb.PrependLines(msg.lines, msg.more)
 		}
 	case olderMsg:
-		if cs := m.chars[msg.key]; cs != nil && cs.browse == msg.b {
-			return m, cs.browse.receive(msg)
+		if cs := m.chars[msg.key]; cs != nil && slices.Contains(cs.browses(), msg.b) {
+			return m, msg.b.receive(msg)
 		}
 	case tea.PasteMsg:
 		m.focused = true // only a focused window gets input, even if its focus-in was lost
@@ -773,8 +790,8 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 			cs.sb.SetWidth(l.rw) // measure at the pane's width, even before a View
 			cs.sb.Pause(l.sbH)
 		}
-		if cs.browse != nil {
-			cs.browse.appendLive(ev.Entry)
+		for _, b := range cs.browses() {
+			b.appendLive(ev.Entry)
 		}
 		if msg.key != m.active && ev.Entry.Dir == logstore.In && !res.Quiet {
 			cs.unread++
@@ -871,8 +888,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	if cs != nil && cs.browse != nil {
 		m.clearLogStatus()
-		if k.String() == openBrowseKey { // the key that opened it closes it, prompt or not
-			cs.browse = nil
+		if k.String() == openBrowseKey { // the key that opened it hides it, prompt or not
+			cs.hideBrowse()
 			return nil
 		}
 		cmd, closed := cs.browse.key(k, m.browseBodyH())
@@ -1193,6 +1210,11 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
+	if cs.hidBrowse != nil { // back as Ctrl+L left it
+		cs.browse, cs.hidBrowse = cs.hidBrowse, nil
+		m.status = ""
+		return
+	}
 	l, ok := m.logLayout(cs.ch)
 	cs.browse = newBrowse(cs, l, ok)
 	cs.browse.copy = m.copyCmd

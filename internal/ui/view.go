@@ -278,7 +278,7 @@ func (m *Model) topClick(x int, was presenceState) {
 		}
 	case x >= logc[0] && x < logc[1]:
 		if cs.browse != nil {
-			cs.browse = nil // as Esc does
+			cs.hideBrowse() // as Ctrl+L does
 		} else {
 			m.openBrowse(cs)
 		}

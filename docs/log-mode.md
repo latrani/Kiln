@@ -2,7 +2,7 @@
 
 > **AI-generated.** Claude wrote this page from Kiln's code and earlier README. If something here is wrong, please [open an issue](https://github.com/latrani/Kiln/issues).
 
-`Ctrl+L` opens a browser over **all** of the active character's logs, with new lines still arriving at the bottom. `Esc` or `Ctrl+L` goes back.
+`Ctrl+L` opens a browser over **all** of the active character's logs, with new lines still arriving at the bottom. `Ctrl+L` (or the `Log` chip in the top bar) goes back and keeps log mode as you left it: the filter panel, cursor, marks and find are all there when you open it again with `Ctrl+L`, the chip or `/log`, even if you've looked at other characters in between. `Esc` goes back and starts fresh next time. The filter itself is kept either way.
 
 | Key | Does |
 |---|---|
