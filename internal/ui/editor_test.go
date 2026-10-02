@@ -326,14 +326,15 @@ func TestEditKeyKeepsDraft(t *testing.T) {
 	h.focusOn(aliasesLabel)
 	h.typeText("kitty")
 	h.press('t', tea.ModCtrl)
-	if !strings.Contains(h.screen(), str.StatusDraftKept()) {
-		t.Errorf("hiding should say the edits are kept:\n%s", h.screen())
-	}
 	h.press('o', tea.ModCtrl) // from the picker this time
 	h.m.picker.sel = "fm/kit"
 	h.press('t', tea.ModCtrl)
 	if got := aliases(); got != "kitty" {
 		t.Fatalf("draft not back: aliases %q\n%s", got, h.screen())
+	}
+	unsaved := str.Separator() + str.EditorUnsaved()
+	if !strings.Contains(h.screen(), unsaved) {
+		t.Errorf("a draft's title should say it's unsaved:\n%s", h.screen())
 	}
 	h.typeText("cat") // the focus came back too
 	if got := aliases(); got != "kittycat" {
@@ -344,6 +345,9 @@ func TestEditKeyKeepsDraft(t *testing.T) {
 	h.press('t', tea.ModCtrl)
 	if got := aliases(); got != "" {
 		t.Errorf("Esc should drop the draft: aliases %q", got)
+	}
+	if strings.Contains(h.screen(), unsaved) {
+		t.Errorf("a fresh editor isn't unsaved:\n%s", h.screen())
 	}
 }
 

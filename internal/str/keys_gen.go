@@ -445,6 +445,9 @@ func EditorSaved(what any) string { return get("editor.saved", map[string]any{"w
 // EditorTls is editor.tls: "TLS"
 func EditorTls() string { return get("editor.tls", nil) }
 
+// EditorUnsaved is editor.unsaved: "unsaved"
+func EditorUnsaved() string { return get("editor.unsaved", nil) }
+
 // EditorWorld is editor.world: "World"
 func EditorWorld() string { return get("editor.world", nil) }
 
@@ -653,9 +656,6 @@ func StatusConfigReloaded() string { return get("status.config_reloaded", nil) }
 
 // StatusCopied is status.copied: "copied to clipboard"
 func StatusCopied() string { return get("status.copied", nil) }
-
-// StatusDraftKept is status.draft_kept: "edits kept · Ctrl+T to go back to them"
-func StatusDraftKept() string { return get("status.draft_kept", nil) }
 
 // StatusHighlightAdded is status.highlight_added: "added highlight for {text:%q}"
 func StatusHighlightAdded(text any) string {

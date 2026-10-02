@@ -344,6 +344,8 @@ func (m *Model) setEditor(e *editor) {
 		delete(m.drafts, e.target())
 		d.armed, d.closeAll = "", false // the caller sets closeAll for where it's opened from now
 		e = d
+	} else {
+		e.form.markSaved()
 	}
 	m.picker.edit = e
 }
@@ -353,7 +355,6 @@ func (m *Model) setEditor(e *editor) {
 func (m *Model) hideEditor() {
 	m.stashDraft(m.picker.edit)
 	m.closeEditor()
-	m.setStatus(false, str.StatusDraftKept())
 }
 
 // stashDraft keeps e's edits for the next time its editor opens.
