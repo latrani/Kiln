@@ -56,7 +56,7 @@ func BrowseLoading() string { return get("browse.loading", nil) }
 // BrowseMarkRange is browse.mark_range: "mark a range with m (only received lines export)"
 func BrowseMarkRange() string { return get("browse.mark_range", nil) }
 
-// BrowseNoExportDir is browse.no_export_dir: "no export_dir configured; give a full path"
+// BrowseNoExportDir is browse.no_export_dir: "no export_dir configured · give a full path"
 func BrowseNoExportDir() string { return get("browse.no_export_dir", nil) }
 
 // BrowseNoFileName is browse.no_file_name: "no file name given"
@@ -82,7 +82,7 @@ func BrowseNothingLeft() string { return get("browse.nothing_left", nil) }
 // BrowseNothingToExport is browse.nothing_to_export: "nothing to export"
 func BrowseNothingToExport() string { return get("browse.nothing_to_export", nil) }
 
-// BrowseRangeStart is browse.range_start: "range start marked; m again at the end"
+// BrowseRangeStart is browse.range_start: "range start marked"
 func BrowseRangeStart() string { return get("browse.range_start", nil) }
 
 // BrowseReadingLogs is browse.reading_logs: "reading logs: {err}"
@@ -170,7 +170,7 @@ func ConfigBadMaxLineBytes() string { return get("config.bad_max_line_bytes", ni
 // ConfigBadNewlineMode is config.bad_newline_mode: "newline_mode must be \"batch\" or \"flatten\""
 func ConfigBadNewlineMode() string { return get("config.bad_newline_mode", nil) }
 
-// ConfigBadNotifyIdle is config.bad_notify_idle: "config.toml: notify_idle must be a duration like \"5m\" (\"0\" turns it off)"
+// ConfigBadNotifyIdle is config.bad_notify_idle: "config.toml: notify_idle must be a duration like \"5m\", or \"0\" to turn it off"
 func ConfigBadNotifyIdle() string { return get("config.bad_notify_idle", nil) }
 
 // ConfigBadPackId is config.bad_pack_id: "pack id {id:%q} may only use letters, digits, _ and -"
@@ -235,7 +235,7 @@ func ConfigHostRequired(file any) string {
 // ConfigLogNameHasFolders is config.log_name_has_folders: "config.toml: log_name is a file name; put folders in log_dir"
 func ConfigLogNameHasFolders() string { return get("config.log_name_has_folders", nil) }
 
-// ConfigMissingCharacterTable is config.missing_character_table: "{file}: can't find character {id:%q}'s table"
+// ConfigMissingCharacterTable is config.missing_character_table: "{file}: can't find character {id:%q}'s settings"
 func ConfigMissingCharacterTable(file, id any) string {
 	return get("config.missing_character_table", map[string]any{"file": file, "id": id})
 }
@@ -707,7 +707,7 @@ func StatusNotSent(err error) string { return get("status.not_sent", map[string]
 // StatusNothingOpen is status.nothing_open: "nothing open to send to"
 func StatusNothingOpen() string { return get("status.nothing_open", nil) }
 
-// StatusOverLimit is status.over_limit: "over {n} bytes: Enter again to send anyway"
+// StatusOverLimit is status.over_limit: "over {n} bytes · Enter again to send anyway"
 func StatusOverLimit(n int) string { return get("status.over_limit", map[string]any{"n": n}) }
 
 // StatusPasswordNotSaved is status.password_not_saved: "password not saved"
@@ -755,7 +755,7 @@ func ThemeBadColor(file, where, color any) string {
 	return get("theme.bad_color", map[string]any{"file": file, "where": where, "color": color})
 }
 
-// ThemeBadExtends is theme.bad_extends: "{file}: extends {name:%q} isn't a theme name (a file name in themes/, without .toml)"
+// ThemeBadExtends is theme.bad_extends: "{file}: extends {name:%q} isn't a theme name"
 func ThemeBadExtends(file, name any) string {
 	return get("theme.bad_extends", map[string]any{"file": file, "name": name})
 }
@@ -765,7 +765,7 @@ func ThemeBadField(file, role, field, want any) string {
 	return get("theme.bad_field", map[string]any{"file": file, "role": role, "field": field, "want": want})
 }
 
-// ThemeBadName is theme.bad_name: "theme {name:%q} isn't a theme name (a file name in themes/, without .toml)"
+// ThemeBadName is theme.bad_name: "theme {name:%q} isn't a theme name"
 func ThemeBadName(name any) string { return get("theme.bad_name", map[string]any{"name": name}) }
 
 // ThemeBadScope is theme.bad_scope: "{file}: tag {tag:%q}: scope must be \"line\" or \"match\""
