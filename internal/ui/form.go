@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -132,7 +133,26 @@ type form struct {
 	reject   string // why the last edit was refused; shown instead of the hint
 	expanded bool   // the extra fields are shown
 	title    string // drawn above the fields, if any
+	saved    string // the fields' state as saved; see markSaved
 }
+
+// state is what the fields hold: text, toggles and choices.
+func (f *form) state() string {
+	var b strings.Builder
+	for _, fl := range f.fields {
+		if fl.in != nil {
+			b.WriteString(fl.in.Value())
+		}
+		fmt.Fprintf(&b, "\x00%t\x00%d\x00", fl.on, fl.choice) //str:ok
+	}
+	return b.String()
+}
+
+// markSaved takes the fields as they are to be what's saved.
+func (f *form) markSaved() { f.saved = f.state() }
+
+// unsaved reports whether the fields differ from what's saved.
+func (f *form) unsaved() bool { return f.state() != f.saved }
 
 // visible reports whether field i is shown.
 func (f *form) visible(i int) bool { return !f.fields[i].extra || f.expanded }
@@ -274,7 +294,11 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 		return []string{text + theme.Paint(theme.FormHint, " "+str.Separator()) + note}, 0, col
 	}
 	if f.title != "" {
-		rows = append(rows, theme.Paint(theme.FormTitle, f.title))
+		title := f.title
+		if f.unsaved() {
+			title += str.Separator() + str.EditorUnsaved()
+		}
+		rows = append(rows, theme.Paint(theme.FormTitle, title))
 	}
 	w := 0
 	for i, fl := range f.fields {

@@ -445,6 +445,9 @@ func EditorSaved(what any) string { return get("editor.saved", map[string]any{"w
 // EditorTls is editor.tls: "TLS"
 func EditorTls() string { return get("editor.tls", nil) }
 
+// EditorUnsaved is editor.unsaved: "unsaved"
+func EditorUnsaved() string { return get("editor.unsaved", nil) }
+
 // EditorWorld is editor.world: "World"
 func EditorWorld() string { return get("editor.world", nil) }
 

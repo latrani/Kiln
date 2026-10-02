@@ -152,6 +152,9 @@ forget_password = "Forget saved password"
 delete_character = "Delete character"
 delete_world = "Delete world"
 hint = "Esc to cancel"
+# After an editor's title once its fields differ from what's saved, as
+# when Ctrl+T brings back a hidden draft.
+unsaved = "unsaved"
 on = "on"
 off = "off"
 default = "default ({value})"

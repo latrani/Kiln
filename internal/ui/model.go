@@ -102,6 +102,8 @@ type Model struct {
 	detected        theme.Appearance        // the terminal's last answer about its background; Dark until one comes
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
+	drafts          map[string]*editor      // editors hidden by Ctrl+T, unsaved, by target; see hideEditor
+	parked          map[string]*editor      // editors left open on a sidebar item while another is active, by m.active; see parkEditor
 }
 
 type charState struct {
@@ -1013,6 +1015,10 @@ func (m *Model) switchTo(k string) {
 	if !ok && (!isWorld || !m.worldOpen(w)) {
 		return
 	}
+	if m.active != k {
+		m.parkEditor()
+		defer m.unparkEditor()
+	}
 	if old := m.cur(); old != nil && m.active != k {
 		old.sb.MarkSeen() // you saw it up to now
 		m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == m.active })
@@ -1027,6 +1033,7 @@ func (m *Model) switchTo(k string) {
 	cs.sb.SetWidth(l.rw)
 	cs.sb.Pause(l.sbH) // open at the first line you haven't seen
 	if cs.browse != nil && m.picker != nil {
+		m.leaveEditor()
 		m.closePicker() // browse has the pane; the filter would be hidden
 	}
 	cs.unread, cs.attention = 0, false
@@ -1252,22 +1259,20 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 			cs.browse.panelClick(msg.X, msg.Y, m.height)
 			return nil
 		}
-		if m.picker != nil && !m.listing() {
-			m.closePicker() // leave /edit's editor for the sidebar
-		}
 		sv := m.sidebarView()
 		r, hint := sv.at(msg.Y)
 		switch {
 		case hint != 0:
 			m.scrollSidebar(hint * max(1, sv.avail-1))
 		case r == nil:
-		case m.picker != nil:
-			m.picker.edit = nil
+		case m.listing(): // the rows are the picker's
+			m.leaveEditor()
 			if k := selKey(*r); k != "" {
 				m.picker.sel = k
 				return m.choose(k)
 			}
 		case r.kind == rowAdd:
+			m.parkEditor()
 			m.openPicker()
 		case r.kind == rowWorld:
 			m.switchTo(worldSel(r.world))
