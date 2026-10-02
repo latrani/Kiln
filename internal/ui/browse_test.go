@@ -793,6 +793,67 @@ func TestFilterOutlastsLogMode(t *testing.T) {
 	}
 }
 
+// Ctrl+L (or the Log chip) hides log mode as you left it: back on the
+// next Ctrl+L with the filter panel, cursor and marks, even after
+// looking at another world, and caught up on what arrived meanwhile.
+// Esc closes it, and the next one starts fresh.
+func TestLogModeKeptAcrossToggle(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.writeLog(day24, scene1...)
+	h.open("sp/ash")
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	h.keys("up", "up", "m")
+	h.key("f")
+	h.key("down")
+	b := h.br()
+	cursor, sel := b.cursor, b.panel.sel
+	h.key("ctrl+l")
+	if h.br() != nil {
+		t.Fatal("Ctrl+L should leave log mode")
+	}
+	h.m.switchTo("sp/ash") // another world
+	h.conn("fm/kit").lines <- "Brand new line"
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].unread > 0 })
+	h.m.switchTo("fm/kit")
+	h.key("ctrl+l")
+	if h.br() != b || b.panel == nil || b.panel.sel != sel || b.cursor != cursor || b.start == nil {
+		t.Fatalf("log mode not as left:\n%s", h.screen())
+	}
+	if b.last().e.Text != "Brand new line" {
+		t.Errorf("hidden log mode missed a live line: last %q", b.last().e.Text)
+	}
+	h.key("esc") // the panel
+	h.key("esc") // log mode
+	h.key("ctrl+l")
+	if h.br() == b || h.br().panel != nil || h.br().start != nil {
+		t.Errorf("after Esc, log mode should start fresh:\n%s", h.screen())
+	}
+}
+
+// The Log chip hides log mode as Ctrl+L does, and /log brings it back
+// as Ctrl+L does.
+func TestLogModeKeptAcrossChipAndCommand(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.typeText("/log")
+	h.enter()
+	h.key("f")
+	b := h.br()
+	l := h.m.layout()
+	_, logc, _, _ := h.m.topBar(l.rw)
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + logc[0] + 1, Y: 0, Button: tea.MouseLeft})
+	if h.br() != nil {
+		t.Fatalf("the Log chip should leave log mode:\n%s", h.screen())
+	}
+	h.typeText("/log")
+	h.enter()
+	if h.br() != b || b.panel == nil {
+		t.Errorf("/log should bring log mode back as the chip left it:\n%s", h.screen())
+	}
+}
+
 // With local_echo off, the log view leaves out what you sent, like the
 // scrollback does; the lines stay loaded, so turning it on brings them back.
 func TestBrowseRespectsLocalEcho(t *testing.T) {
