@@ -102,6 +102,8 @@ type Model struct {
 	detected        theme.Appearance        // the terminal's last answer about its background; Dark until one comes
 	hereGen         int                     // bumped by each here; re-arms "first"
 	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
+	ovTop           int                     // first row of a world's overview shown; see overview
+	ovKeys          []string                // the character each overview row shows, from the last draw; "" for a rule
 	drafts          map[string]*editor      // editors hidden by Ctrl+T, unsaved, by target; see hideEditor
 	parked          map[string]*editor      // editors left open on a sidebar item while another is active, by m.active; see parkEditor
 }
@@ -697,7 +699,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
 				cs.browse.pin.InsertText(oneLine(msg.Content))
 			}
-		} else if m.mode == modeNormal {
+		} else if m.mode == modeNormal && !m.overviewing() {
 			m.input().InsertText(msg.Content)
 			m.confirm = false
 		}
@@ -917,7 +919,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	case "ctrl+c", "ctrl+d": // Ctrl+D with text deletes forward, below
-		if m.input().Empty() {
+		if m.input().Empty() || m.overviewing() {
 			return m.armQuit(k.String(), armed)
 		}
 		if k.String() == "ctrl+c" {
@@ -926,10 +928,14 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "pgup":
 		if cs != nil {
 			cs.sb.ScrollUp(max(1, m.layout().sbH-1))
+		} else if m.overviewing() {
+			m.scrollOverview(-max(1, m.layout().sbH-1))
 		}
 	case "pgdown":
 		if cs != nil {
 			cs.sb.ScrollDown(max(1, m.layout().sbH-1))
+		} else if m.overviewing() {
+			m.scrollOverview(max(1, m.layout().sbH-1))
 		}
 	case "esc":
 		m.confirm = false
@@ -941,6 +947,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "enter":
 		return m.submit()
+	}
+	if m.overviewing() {
+		return nil // no input box to type in
 	}
 	in := m.input()
 	switch k.String() {
@@ -1046,6 +1055,9 @@ func (m *Model) switchTo(k string) {
 		m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == m.active })
 		m.recent = append([]string{m.active}, m.recent...)
 	}
+	if m.active != k {
+		m.ovTop = 0 // an overview starts at its top
+	}
 	m.active, m.confirm = k, false
 	if !ok {
 		return
@@ -1063,6 +1075,10 @@ func (m *Model) switchTo(k string) {
 
 // submit handles Enter: a command, a password, or lines for the server.
 func (m *Model) submit() tea.Cmd {
+	if m.overviewing() {
+		m.openPicker() // as on an empty input with nothing open
+		return nil
+	}
 	cs := m.cur()
 	if cs == nil {
 		switch text := m.idle.Value(); {
@@ -1261,6 +1277,15 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if m.overviewing() && msg.X > l.sw && msg.Y >= l.top && msg.Y-l.top < l.sbH {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.scrollOverview(-m.scrollLines())
+		case tea.MouseWheelDown:
+			m.scrollOverview(m.scrollLines())
+		}
+		return nil
+	}
 	if cs == nil || msg.X <= l.sw || msg.Y < l.top || msg.Y-l.top >= l.sbH {
 		return nil
 	}
@@ -1335,6 +1360,12 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 		return nil
 	}
 	msg.Y -= l.top // body rows from here on
+	if m.overviewing() {
+		if msg.Y < len(m.ovKeys) && m.ovKeys[msg.Y] != "" {
+			m.switchTo(m.ovKeys[msg.Y])
+		}
+		return nil
+	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		m.clearLogStatus()
 		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)

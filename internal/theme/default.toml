@@ -104,6 +104,7 @@ alarm-deep = "#f9dcdc"
 "scrollback.inactive"    = { faint = true }
 "scrollback.empty"       = { faint = true }
 "scrollback.overview"    = { bold = true }
+"scrollback.rule"        = { faint = true }
 "link"                   = { underline = true }
 "link.hover"             = { fg = "bright-blue" }
 
