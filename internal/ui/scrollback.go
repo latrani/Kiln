@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/str"
@@ -213,6 +215,26 @@ func (s *Scrollback) SetPrompt(p string) { s.prompt = p }
 
 // Len is the number of logical lines.
 func (s *Scrollback) Len() int { return len(s.lines) }
+
+// Tail is the text of the last n lines, newest last, unwrapped.
+func (s *Scrollback) Tail(n int) []string {
+	var out []string
+	for _, l := range s.lines[max(0, len(s.lines)-n):] {
+		out = append(out, l.text)
+	}
+	return out
+}
+
+// LastTime is when the newest line from the log was logged; false when
+// there's none.
+func (s *Scrollback) LastTime() (time.Time, bool) {
+	for i := len(s.lines) - 1; i >= 0; i-- {
+		if e := s.lines[i].entry; e != nil {
+			return e.Time, true
+		}
+	}
+	return time.Time{}, false
+}
 
 // Scrolled reports whether the view is above the live bottom.
 func (s *Scrollback) Scrolled() bool { return s.offset > 0 }

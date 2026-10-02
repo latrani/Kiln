@@ -302,6 +302,13 @@ func TestEditKeyToggles(t *testing.T) {
 	if p := h.m.picker; p == nil || p.edit != nil {
 		t.Errorf("Ctrl+T should go back to the picker:\n%s", h.screen())
 	}
+	h.press(tea.KeyEscape, 0)
+	h.m.switchTo(worldSel("fm")) // and from a world's overview, back to it
+	h.press('t', tea.ModCtrl)
+	h.press('t', tea.ModCtrl)
+	if h.m.picker != nil || h.m.active != worldSel("fm") {
+		t.Errorf("Ctrl+T should go back to the overview: active %q\n%s", h.m.active, h.screen())
+	}
 	if got := h.worldFile("fm"); got != fmWorld {
 		t.Errorf("Ctrl+T saved:\n%s", got)
 	}

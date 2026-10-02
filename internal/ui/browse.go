@@ -724,20 +724,8 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 			b.refilter()
 		}
-	case "backspace":
-		b.pin.Backspace()
-	case "left":
-		b.pin.Left()
-	case "right":
-		b.pin.Right()
-	case "home", "ctrl+a":
-		b.pin.Home()
-	case "end", "ctrl+e":
-		b.pin.End()
 	default:
-		if k.Text != "" && k.Mod&(tea.ModCtrl|tea.ModAlt) == 0 {
-			b.pin.InsertText(k.Text)
-		}
+		editKey(b.pin, k) // the same line editing as the input and forms
 	}
 	return nil
 }

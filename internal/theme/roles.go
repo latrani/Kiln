@@ -41,7 +41,8 @@ const (
 	ScrollbackPill       Role = "scrollback.pill"
 	ScrollbackSelection  Role = "scrollback.selection"
 	ScrollbackInactive   Role = "scrollback.inactive"
-	ScrollbackEmpty      Role = "scrollback.empty" // the hint in an empty pane
+	ScrollbackEmpty      Role = "scrollback.empty"    // the hint in an empty pane
+	ScrollbackOverview   Role = "scrollback.overview" // a character's name in a world's overview
 	Link                 Role = "link"
 	LinkHover            Role = "link.hover"
 
@@ -100,7 +101,7 @@ var Roles = []Role{
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd,
 	Divider, Rule, RuleInput, RuleForm, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
-	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, Link, LinkHover,
+	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,

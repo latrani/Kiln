@@ -822,6 +822,25 @@ func TestBrowseRespectsLocalEcho(t *testing.T) {
 	}
 }
 
+// The log mode prompt edits like the input box and forms do (#97).
+func TestBrowsePromptEditKeys(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("/")
+	h.typeText("say rook")
+	h.press(tea.KeyBackspace, tea.ModAlt) // delete word: "say "
+	h.press('a', tea.ModCtrl)             // to the start
+	h.press('d', tea.ModCtrl)             // delete forward: "ay "
+	if got := h.br().pin.Value(); got != "ay " {
+		t.Errorf("after word delete, home and delete: %q", got)
+	}
+	h.press('k', tea.ModCtrl) // kill to end
+	if got := h.br().pin.Value(); got != "" {
+		t.Errorf("after kill to end: %q", got)
+	}
+}
+
 // Ctrl+L closes log mode as it opened it, even with a prompt open (#98).
 func TestBrowseKeyToggles(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})

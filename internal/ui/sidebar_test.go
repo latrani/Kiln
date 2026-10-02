@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -216,13 +219,97 @@ func TestClosingLastCharacterShowsEmptyState(t *testing.T) {
 	}
 }
 
-func TestClickingWorldHeaderDoesNothing(t *testing.T) {
+// Clicking a world's row shows its overview; even a double-click on the
+// badge column closes or connects nothing.
+func TestClickingWorldHeaderShowsOverview(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	for _, x := range []int{badgeX, 6, badgeX, 6} { // badge column and name column, twice (a double-click)
 		h.m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
 	}
-	if h.m.active != "fm/kit" || h.m.chars["fm/kit"] == nil {
+	if h.m.active != worldSel("fm") || h.m.chars["fm/kit"] == nil {
 		t.Errorf("active = %q after clicking the world header", h.m.active)
+	}
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: 1, Button: tea.MouseLeft})
+	if h.m.active != "fm/kit" {
+		t.Errorf("active = %q after clicking Kit", h.m.active)
+	}
+}
+
+// A world's overview shows each open character there: when its last line
+// came, and its last few lines (#99).
+func TestWorldOverview(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	kit := h.m.chars["fm/kit"]
+	for i := range overviewLines + 2 {
+		at := h.now.Add(time.Duration(i-10) * time.Minute)
+		kit.sb.AppendLine(entryLine(fmt.Sprintf("kit line %d", i), logstore.Entry{Time: at, Text: "x"}))
+	}
+	h.m.switchTo(worldSel("fm"))
+	s := h.screen()
+	if !strings.Contains(s, "Kit"+str.Separator()+h.now.Add(-4*time.Minute).Format("15:04")) {
+		t.Errorf("Kit's last activity missing:\n%s", s)
+	}
+	if strings.Contains(s, "kit line 1\n") || !strings.Contains(s, "kit line 2") || !strings.Contains(s, "kit line 6") {
+		t.Errorf("want Kit's last %d lines:\n%s", overviewLines, s)
+	}
+	if !strings.Contains(s, "Rook"+str.Separator()+str.ViewOverviewQuiet()) {
+		t.Errorf("Rook should have no activity yet:\n%s", s)
+	}
+	h.m.chars["fm/kit"].sb.AppendLine(entryLine("old", logstore.Entry{Time: h.now.AddDate(0, 0, -2)}))
+	if s := h.screen(); !strings.Contains(s, h.now.AddDate(0, 0, -2).Format(str.DateDayTime())) {
+		t.Errorf("an older last line should say the day:\n%s", s)
+	}
+}
+
+// Ctrl+↑/↓ steps through the worlds' rows as well as the characters'.
+func TestSwitchByIncludesWorlds(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.openAll()
+	h.m.switchTo(worldSel("fm"))
+	var got []string
+	for range len(h.m.stops()) {
+		h.press(tea.KeyDown, tea.ModCtrl)
+		got = append(got, h.m.active)
+	}
+	want := []string{"fm/kit", "fm/rook", worldSel("sp"), "sp/ash", worldSel("fm")}
+	if !slices.Equal(got, want) {
+		t.Errorf("Ctrl+Down went %v, want %v", got, want)
+	}
+	h.press(tea.KeyUp, tea.ModCtrl)
+	if h.m.active != "sp/ash" {
+		t.Errorf("Ctrl+Up went to %q", h.m.active)
+	}
+}
+
+// Ctrl+T on a world's overview edits the world; Esc goes back to it.
+func TestEditWorldFromOverview(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.switchTo(worldSel("fm"))
+	h.press('t', tea.ModCtrl)
+	if p := h.m.picker; p == nil || p.edit == nil || p.edit.kind != editWorld || p.edit.world != "fm" {
+		t.Fatalf("Ctrl+T should edit the world:\n%s", h.screen())
+	}
+	h.press(tea.KeyEscape, 0)
+	if h.m.picker != nil || h.m.active != worldSel("fm") {
+		t.Errorf("Esc should go back to the overview: active %q\n%s", h.m.active, h.screen())
+	}
+}
+
+// Closing a world's last character takes its overview with it.
+func TestClosingWorldsLastCharacterLeavesOverview(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.open("sp/ash")
+	h.m.switchTo(worldSel("fm"))
+	h.m.close("fm/kit")
+	if h.m.active != "sp/ash" {
+		t.Errorf("active = %q", h.m.active)
+	}
+	// Tab goes back to the last character, not to a world.
+	h.m.switchTo(worldSel("sp"))
+	h.press(tea.KeyTab, 0)
+	if h.m.active != "sp/ash" {
+		t.Errorf("Tab went to %q", h.m.active)
 	}
 }
 

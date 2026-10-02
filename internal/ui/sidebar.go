@@ -97,6 +97,9 @@ func (m *Model) close(k string) {
 	delete(m.chars, k)
 	m.order = slices.Delete(m.order, i, i+1)
 	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
+	if w, ok := m.activeWorld(); ok && !m.worldOpen(w) {
+		k = m.active // its last character closed: the world's row goes too
+	}
 	if m.active != k {
 		return
 	}
@@ -104,6 +107,30 @@ func (m *Model) close(k string) {
 	if len(m.order) > 0 {
 		m.switchTo(m.order[min(i, len(m.order)-1)])
 	}
+}
+
+// activeWorld is the world whose overview is showing, when its sidebar
+// row is the active one instead of a character.
+func (m *Model) activeWorld() (string, bool) { return strings.CutPrefix(m.active, worldSel("")) }
+
+// worldOpen reports whether any of world's characters are open.
+func (m *Model) worldOpen(world string) bool {
+	return slices.ContainsFunc(m.order, func(k string) bool { return m.chars[k].ch.World == world })
+}
+
+// stops are what Ctrl+↑/↓ steps through: each world's row and each
+// character's, in sidebar order, as values m.active takes.
+func (m *Model) stops() []string {
+	var s []string
+	for _, r := range m.sidebarRows() {
+		switch r.kind {
+		case rowWorld:
+			s = append(s, worldSel(r.world))
+		case rowChar:
+			s = append(s, r.char)
+		}
+	}
+	return s
 }
 
 // rowKind says what a sidebar row is.
@@ -216,7 +243,7 @@ func (m *Model) sidebarView() sideView {
 	if focus != m.sideShown {
 		m.sideShown = focus
 		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool {
-			return r.kind == rowChar && r.char == focus || m.listing() && selKey(r) == focus
+			return r.kind == rowChar && r.char == focus || (m.listing() || r.kind == rowWorld) && selKey(r) == focus
 		}); a >= 0 {
 			if a < sv.top {
 				sv = fit(a - 1) // show the row above too (often its world header)
@@ -247,6 +274,9 @@ func closable(cs *charState) bool {
 func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	switch r.kind {
 	case rowWorld:
+		if worldSel(r.world) == m.active {
+			return theme.Paint(theme.SidebarActive, fitName(r.world, w))
+		}
 		return theme.Paint(theme.SidebarWorld, fitName(r.world, w))
 	case rowGap:
 		return fit("", w)
