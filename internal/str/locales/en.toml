@@ -242,6 +242,14 @@ range_start = "range start marked"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
 exclude_needs_range = "exclude works inside a marked range"
 no_matches = "no matches for {find:%q}"
+# Find goes no further than the oldest (or newest) line; it doesn't wrap.
+no_older_matches = "no older matches for {find:%q}"
+no_newer_matches = "no newer matches for {find:%q}"
+# In the top bar while find reads older days for a match: the oldest day
+# it has searched so far. Any key stops it.
+searching = "find: {find} · searching back to {day}… esc to stop"
+# Esc (or any key) stopped a find reading older days.
+search_cancelled = "search cancelled"
 date_format = "dates look like 2026-09-24"
 no_logs_after = "no logs on or after {day}"
 no_file_name = "no file name given"
@@ -260,6 +268,8 @@ format_prompt_default = "export as (p)lain · (a)nsi · (h)tml · enter {format}
 save_prompt = "save as: "
 no_logs = "no logs yet"
 find_status = "find: {find} {i}/{n}"
+# As find_status, while older history not yet loaded may hold more.
+find_status_more = "find: {find} {i}/{n}+"
 loading = "loading older history…"
 hints = "m mark · space exclude · / find · n/N · g date · f filter · t tags · e export · c copy · esc back"
 # What t shows: the cursor line's tags, and for one with no style of its

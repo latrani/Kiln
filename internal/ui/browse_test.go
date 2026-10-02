@@ -251,31 +251,118 @@ func TestBrowseLineTags(t *testing.T) {
 	}
 }
 
+// Find goes newest first: from the cursor (at the newest line on
+// opening) back through older lines, n further back, N forward again,
+// stopping at either end rather than wrapping.
 func TestBrowseFind(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("home") // cursor to the oldest line
 	h.key("/")
 	h.typeText("rook")
 	h.key("enter")
 	b := h.br()
-	if b.cursor.e.Text != scene1[0] || !strings.Contains(h.screen(), "find: rook 1/3") {
-		t.Errorf("first match wrong: %q\n%s", b.cursor.e.Text, h.screen())
+	if b.cursor.e.Text != scene1[6] || !strings.Contains(h.screen(), str.BrowseFindStatus("rook", 1, 3)) {
+		t.Errorf("first match should be the newest: %q\n%s", b.cursor.e.Text, h.screen())
 	}
 	h.key("n")
 	if b.cursor.e.Text != scene1[5] {
 		t.Errorf("n went to %q", b.cursor.e.Text)
 	}
+	h.key("n")
+	h.key("n") // past the oldest
+	if b.cursor.e.Text != scene1[0] || !strings.Contains(h.screen(), str.BrowseNoOlderMatches("rook")) {
+		t.Errorf("n past the oldest match should stay, and say so: %q\n%s", b.cursor.e.Text, h.screen())
+	}
 	h.key("N")
-	if b.cursor.e.Text != scene1[0] {
+	if b.cursor.e.Text != scene1[5] {
 		t.Errorf("N went to %q", b.cursor.e.Text)
+	}
+	h.keys("N", "N") // past the newest
+	if b.cursor.e.Text != scene1[6] || !strings.Contains(h.screen(), str.BrowseNoNewerMatches("rook")) {
+		t.Errorf("N past the newest match should stay, and say so: %q\n%s", b.cursor.e.Text, h.screen())
 	}
 	if !strings.Contains(h.m.View().Content, theme.SGR(theme.LogFind)+"Rook") {
 		t.Error("matches not highlighted")
 	}
 	if !strings.Contains(h.screen(), "Sable") {
 		t.Error("find must not hide lines")
+	}
+	h.key("/")
+	h.press('u', tea.ModCtrl) // clear the last term
+	h.typeText("nobody")
+	h.key("enter")
+	if !strings.Contains(h.screen(), str.BrowseNoMatches("nobody")) {
+		t.Errorf("a term with no matches should say so:\n%s", h.screen())
+	}
+}
+
+// Find reads in older days for a match not yet loaded, and its count
+// says when older history may hold more.
+func TestBrowseFindSearchesOlderHistory(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24.AddDate(0, 0, -1), "Rook says, \"lighthouse\"", "Sable waves.")
+	var lines []string
+	for i := range browseInitialLines + 20 {
+		lines = append(lines, fmt.Sprintf("Sable says, \"line %d\"", i))
+	}
+	lines[10] = "Rook says, \"lighthouse again\""
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	if b.histDone {
+		t.Fatal("the older day shouldn't be loaded yet")
+	}
+	h.key("/")
+	h.typeText("lighthouse")
+	h.key("enter")
+	if b.cursor.e.Text != lines[10] || !strings.Contains(h.screen(), str.BrowseFindStatusMore("lighthouse", 1, 1)) {
+		t.Errorf("first match, with more history to search: %q\n%s", b.cursor.e.Text, h.screen())
+	}
+	h.key("n")
+	if b.cursor.e.Text != "Rook says, \"lighthouse\"" || !strings.Contains(h.screen(), str.BrowseFindStatus("lighthouse", 2, 2)) {
+		t.Errorf("n should read in the older day for its match: %q\n%s", b.cursor.e.Text, h.screen())
+	}
+}
+
+// While find reads older days, the top bar says so; a move that asks
+// for older lines itself takes over.
+func TestBrowseFindSaysWhileSearching(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24.AddDate(0, 0, -2), scene1...)
+	h.writeLog(day24.AddDate(0, 0, -1), scene1...)
+	lines := make([]string, browseInitialLines+20)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("Sable says, \"line %d\"", i)
+	}
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	b.find = "nowhere"
+	today := dayLabel(day24.Format("2006-01-02"))
+	cmd := b.findOlder(true)
+	if cmd == nil || b.findStatus() != str.BrowseSearching("nowhere", today) {
+		t.Fatalf("searching: status %q", b.findStatus())
+	}
+	b.requestOlder(nil) // as moving up past the top does
+	if b.findStatus() == str.BrowseSearching("nowhere", today) {
+		t.Error("the search should give way")
+	}
+
+	// Esc stops a search, staying in log mode with the cursor where it was.
+	h.m.Update(cmd()) // the read requestOlder(nil) took over
+	cursor := b.cursor
+	b.findOlder(true)
+	h.press(tea.KeyEscape, 0) // not h.key: the read stays in flight, undrained
+	if h.br() != b || b.searching || b.cursor != cursor {
+		t.Fatalf("Esc should stop the search and stay:\n%s", h.screen())
+	}
+	if want := str.BrowseSearchCancelled(); !strings.Contains(h.screen(), want) {
+		t.Errorf("want %q:\n%s", want, h.screen())
+	}
+	h.key("esc")
+	if h.br() != nil {
+		t.Error("with no search, Esc leaves log mode")
 	}
 }
 
@@ -595,14 +682,18 @@ func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
 	h.key("ctrl+l")
 	b := h.br()
 	for i := 0; i < 50000; i++ {
-		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: fmt.Sprintf("the line %d", i)}, text: fmt.Sprintf("the line %d", i), day: "2026-09-24"})
+		text := fmt.Sprintf("a line %d", i)
+		if i == 0 {
+			text = "the line" // the only match, at the far end
+		}
+		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, text: text, day: "2026-09-24"})
 	}
-	b.cursor = b.lines[len(b.lines)-1]
 	b.find = "the"
 	start := time.Now()
 	for i := 0; i < 10; i++ {
-		b.jumpMatch(1, false) // wraps around every time from the end
 		b.cursor = b.lines[len(b.lines)-1]
+		b.findOlder(false) // the whole way back every time
+		b.findStatus()
 	}
 	if d := time.Since(start); d > 2*time.Second {
 		t.Errorf("10 find jumps on 50k lines took %v", d)

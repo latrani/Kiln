@@ -158,7 +158,12 @@ func (cs *charState) browses() []*browse {
 
 // hideBrowse leaves log mode as it is, filter panel, cursor, marks and
 // all, to come back on the next Ctrl+L. Esc closes it for good.
-func (cs *charState) hideBrowse() { cs.browse, cs.hidBrowse = nil, cs.browse }
+func (cs *charState) hideBrowse() {
+	if cs.browse.stopSearch() {
+		cs.browse.status = "" // not news by the time it's back
+	}
+	cs.browse, cs.hidBrowse = nil, cs.browse
+}
 
 // startPassword shows the masked password prompt, stashing any draft so
 // it neither becomes part of the password nor is lost.
