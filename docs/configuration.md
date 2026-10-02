@@ -22,6 +22,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `notify_idle` | config.toml | No input for this long counts as away (default `"5m"`; `"0"`: only switching away counts), see [Notifications](notifications.md) |
 | `notify_method` | config.toml | `"osc"` (default): a notification with the line; `"bell"`: a bell (works over mosh); `"both"` |
 | `theme` | config.toml | Which `themes/<name>.toml` to draw with (default `"default"`, which Kiln makes on first run; `"kiln"` is the built-in), see [Themes](themes.md) |
+| `scroll_lines` | config.toml | How far one notch of the mouse wheel scrolls: rows in the scrollback, lines in log mode (default `1`; anything but a whole number of at least 1 means `1`) |
 | `appearance` | config.toml | `"auto"` (default: ask the terminal), `"dark"` or `"light"`: which palette themes use, see [Themes](themes.md) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |

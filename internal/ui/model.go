@@ -1237,9 +1237,9 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	if cs != nil && cs.browse != nil && msg.X > l.sw {
 		switch msg.Button {
 		case tea.MouseWheelUp:
-			return cs.browse.scrollBy(-1)
+			return cs.browse.scrollBy(-m.scrollLines())
 		case tea.MouseWheelDown:
-			return cs.browse.scrollBy(1)
+			return cs.browse.scrollBy(m.scrollLines())
 		}
 		return nil
 	}
@@ -1266,11 +1266,19 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	}
 	switch msg.Button {
 	case tea.MouseWheelUp:
-		cs.sb.ScrollUp(3)
+		cs.sb.ScrollUp(m.scrollLines())
 	case tea.MouseWheelDown:
-		cs.sb.ScrollDown(3)
+		cs.sb.ScrollDown(m.scrollLines())
 	}
 	return nil
+}
+
+// scrollLines is the scroll_lines setting: how far a wheel notch scrolls.
+func (m *Model) scrollLines() int {
+	if m.cfg != nil {
+		return m.cfg.ScrollLines
+	}
+	return config.DefaultScrollLines
 }
 
 // doubleClick is the longest gap between the clicks of a double-click.

@@ -1080,6 +1080,37 @@ func TestLogWheelScrolls(t *testing.T) {
 	}
 }
 
+// One wheel notch scrolls scroll_lines: rows in the scrollback, lines in
+// log mode.
+func TestWheelScrollsScrollLines(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	cs := h.m.chars["fm/kit"]
+	for _, c := range []struct{ setting, want int }{{config.DefaultScrollLines, 1}, {4, 4}} {
+		h.m.cfg.ScrollLines = c.setting
+		l := h.m.layout()
+		cs.sb.ToBottom()
+		h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: l.top + 1, Button: tea.MouseWheelUp})
+		if cs.sb.offset != c.want {
+			t.Errorf("scroll_lines %d: scrollback scrolled %d rows, want %d", c.setting, cs.sb.offset, c.want)
+		}
+		h.key("ctrl+l")
+		b := h.br()
+		h.screen()
+		top := b.index(b.top)
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: tea.MouseWheelUp}))
+		h.screen()
+		if got := top - b.index(b.top); got != c.want {
+			t.Errorf("scroll_lines %d: log mode scrolled %d lines, want %d", c.setting, got, c.want)
+		}
+		h.key("esc")
+	}
+}
+
 // Too few lines to fill log mode's body sit at its bottom, as in the
 // scrollback.
 func TestLogShortHistorySitsAtBottom(t *testing.T) {
