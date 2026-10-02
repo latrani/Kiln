@@ -8,7 +8,7 @@
 |---|---|
 | `↑`/`↓` (`k`/`j`), `PgUp`/`PgDn`, `Home`/`End` | Move; moving past the top loads older days |
 | `g` | Go to a date (`2026-09-24`) |
-| `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. `n` goes on to the next older match, `N` back to the next newer one; neither wraps around. The count in the top bar starts from the newest match, with a `+` while older history isn't loaded yet |
+| `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. `n` goes on to the next older match, `N` back to the next newer one; neither wraps around. The count in the top bar starts from the newest match, with a `+` while older history isn't loaded yet. While it reads older days the top bar says how far back it's got; any key stops it there, and `Esc` only stops it, staying in log mode |
 | `f`, or click ` Filter ` | Open the filter panel (see below) |
 | `t` | Show the current line's tags, and whose style each one takes |
 | `m` | Mark the start of a range, then its end |

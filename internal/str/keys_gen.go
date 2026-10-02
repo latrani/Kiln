@@ -111,8 +111,15 @@ func BrowseSavePrompt() string { return get("browse.save_prompt", nil) }
 // BrowseSaved is browse.saved: "saved {path}"
 func BrowseSaved(path any) string { return get("browse.saved", map[string]any{"path": path}) }
 
-// BrowseSearching is browse.searching: "find: {find} searching older history…"
-func BrowseSearching(find any) string { return get("browse.searching", map[string]any{"find": find}) }
+// BrowseSearchStopped is browse.search_stopped: "find stopped; searched back to {day}"
+func BrowseSearchStopped(day any) string {
+	return get("browse.search_stopped", map[string]any{"day": day})
+}
+
+// BrowseSearching is browse.searching: "find: {find} · searching back to {day}… esc to stop"
+func BrowseSearching(find, day any) string {
+	return get("browse.searching", map[string]any{"find": find, "day": day})
+}
 
 // BrowseTagAs is browse.tag_as: "{tag} (styled as {styled})"
 func BrowseTagAs(tag, styled any) string {

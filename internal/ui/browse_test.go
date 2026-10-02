@@ -329,6 +329,7 @@ func TestBrowseFindSearchesOlderHistory(t *testing.T) {
 // for older lines itself takes over.
 func TestBrowseFindSaysWhileSearching(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24.AddDate(0, 0, -2), scene1...)
 	h.writeLog(day24.AddDate(0, 0, -1), scene1...)
 	lines := make([]string, browseInitialLines+20)
 	for i := range lines {
@@ -338,12 +339,30 @@ func TestBrowseFindSaysWhileSearching(t *testing.T) {
 	h.key("ctrl+l")
 	b := h.br()
 	b.find = "nowhere"
-	if cmd := b.findOlder(true); cmd == nil || b.findStatus() != str.BrowseSearching("nowhere") {
+	today := dayLabel(day24.Format("2006-01-02"))
+	cmd := b.findOlder(true)
+	if cmd == nil || b.findStatus() != str.BrowseSearching("nowhere", today) {
 		t.Fatalf("searching: status %q", b.findStatus())
 	}
 	b.requestOlder(nil) // as moving up past the top does
-	if b.findStatus() == str.BrowseSearching("nowhere") {
+	if b.findStatus() == str.BrowseSearching("nowhere", today) {
 		t.Error("the search should give way")
+	}
+
+	// Esc stops a search, staying in log mode with the cursor where it was.
+	h.m.Update(cmd()) // the read requestOlder(nil) took over
+	cursor := b.cursor
+	b.findOlder(true)
+	h.press(tea.KeyEscape, 0) // not h.key: the read stays in flight, undrained
+	if h.br() != b || b.searching || b.cursor != cursor {
+		t.Fatalf("Esc should stop the search and stay:\n%s", h.screen())
+	}
+	if want := str.BrowseSearchStopped(dayLabel(b.lines[0].day)); !strings.Contains(h.screen(), want) {
+		t.Errorf("want %q:\n%s", want, h.screen())
+	}
+	h.key("esc")
+	if h.br() != nil {
+		t.Error("with no search, Esc leaves log mode")
 	}
 }
 

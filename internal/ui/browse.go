@@ -317,7 +317,7 @@ func (b *browse) findStatus() string {
 		return ""
 	}
 	if b.searching {
-		return str.BrowseSearching(b.find)
+		return str.BrowseSearching(b.find, b.searchedTo())
 	}
 	i, n, more := b.matchPos()
 	if more {
@@ -337,6 +337,7 @@ func (b *browse) shows(l *bline) bool {
 // loaded line stops there and pages in older history; the rest of the
 // move happens when it arrives.
 func (b *browse) moveCursor(delta int) tea.Cmd {
+	b.stopSearch() // the wheel, say: you've moved on
 	v := b.visible()
 	if len(v) == 0 {
 		if delta < 0 { // everything loaded is hidden; look further back
@@ -479,6 +480,26 @@ func (b *browse) findOlderFrom(i int) tea.Cmd {
 	return nil
 }
 
+// searchedTo is the oldest day loaded, which a search has read through.
+func (b *browse) searchedTo() string {
+	if len(b.lines) == 0 {
+		return ""
+	}
+	return dayLabel(b.lines[0].day)
+}
+
+// stopSearch ends a find that's reading older days, leaving the cursor
+// where it was, and reports whether there was one. The day being read
+// still arrives, to nothing.
+func (b *browse) stopSearch() bool {
+	if !b.searching {
+		return false
+	}
+	b.searching, b.pending = false, nil
+	b.setStatus(false, str.BrowseSearchStopped(b.searchedTo()))
+	return true
+}
+
 // findNewer moves to the nearest match newer than the cursor. Everything
 // newer is always loaded; it doesn't wrap.
 func (b *browse) findNewer() {
@@ -614,6 +635,9 @@ func (b *browse) save(path string) {
 // key handles a key press in browse mode. It returns (cmd, close).
 func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	s := k.String()
+	if b.stopSearch() && s == "esc" { // Esc stops a search, not log mode; any other key stops it and does its thing
+		return nil, false
+	}
 	if b.prompt != promptNone {
 		return b.promptKey(k), false
 	}
@@ -973,6 +997,7 @@ func highlightFind(plain, needle string) string {
 // click handles a left click at (x, y) within the right pane. Clicks are
 // ignored while a prompt is open so the selection can't change under it.
 func (b *browse) click(x, y int, shift bool) {
+	b.stopSearch()
 	if b.prompt != promptNone {
 		return
 	}
