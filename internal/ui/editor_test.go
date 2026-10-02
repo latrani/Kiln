@@ -283,3 +283,26 @@ func TestEditCharacterNotify(t *testing.T) {
 		t.Errorf("Notify = %q", kit.ch.Notify)
 	}
 }
+
+// Ctrl+T in the editor closes it without saving, like Esc (#98): back
+// to the picker when it came from there, out of it from the main view.
+func TestEditKeyToggles(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('t', tea.ModCtrl)
+	h.focusOn(aliasesLabel)
+	h.typeText("kitty")
+	h.press('t', tea.ModCtrl)
+	if h.m.picker != nil {
+		t.Errorf("Ctrl+T should close the editor and the picker it came with:\n%s", h.screen())
+	}
+	h.press('o', tea.ModCtrl)
+	h.m.picker.sel = worldSel("fm")
+	h.press('t', tea.ModCtrl)
+	h.press('t', tea.ModCtrl)
+	if p := h.m.picker; p == nil || p.edit != nil {
+		t.Errorf("Ctrl+T should go back to the picker:\n%s", h.screen())
+	}
+	if got := h.worldFile("fm"); got != fmWorld {
+		t.Errorf("Ctrl+T saved:\n%s", got)
+	}
+}

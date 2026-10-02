@@ -328,7 +328,7 @@ func (m *Model) editorKey(k tea.KeyPressMsg) tea.Cmd {
 		e.armed = ""
 	}
 	switch k.String() {
-	case "esc", "ctrl+c":
+	case "esc", "ctrl+c", openEditorKey: // the key that opened it closes it, saving nothing
 		m.closeEditor()
 	case "enter":
 		if e.form.key(k) { // moved to the next field, or opened the extras

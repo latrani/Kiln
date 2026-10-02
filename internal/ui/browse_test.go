@@ -821,3 +821,23 @@ func TestBrowseRespectsLocalEcho(t *testing.T) {
 		t.Errorf("sent line missing with local_echo on:\n%s", s)
 	}
 }
+
+// Ctrl+L closes log mode as it opened it, even with a prompt open (#98).
+func TestBrowseKeyToggles(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	if h.br() == nil {
+		t.Fatal("Ctrl+L didn't open log mode")
+	}
+	h.key("ctrl+l")
+	if h.br() != nil {
+		t.Errorf("Ctrl+L should close log mode:\n%s", h.screen())
+	}
+	h.key("ctrl+l")
+	h.key("/")
+	h.key("ctrl+l")
+	if h.br() != nil {
+		t.Errorf("Ctrl+L should close log mode from a prompt:\n%s", h.screen())
+	}
+}
