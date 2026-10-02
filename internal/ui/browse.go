@@ -770,9 +770,11 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 	if ci < 0 {
 		b.cursor, ci = v[len(v)-1], len(v)-1
 	}
-	rows := func(i int) int {
+	// rows is how many rows v[i] takes with v[top] at the top, where its
+	// day's divider always shows (see view).
+	rows := func(i, top int) int {
 		var prev *bline
-		if i > 0 {
+		if i > 0 && i != top {
 			prev = v[i-1]
 		}
 		return b.rowsFor(v[i], prev, w)
@@ -787,7 +789,7 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 	for ti < ci {
 		n := 0
 		for i := ti; i <= ci; i++ {
-			n += rows(i)
+			n += rows(i, ti)
 		}
 		if n <= h {
 			break
@@ -797,10 +799,10 @@ func (b *browse) scrollToCursor(v []*bline, h, w int) {
 	// The earliest top that still fits everything through the last line.
 	fill, n := len(v)-1, 0
 	for ; fill >= 0; fill-- {
-		if n+rows(fill) > h {
+		if n+rows(fill, fill) > h {
 			break
 		}
-		n += rows(fill)
+		n += rows(fill, -1)
 	}
 	if fill+1 < ti {
 		ti = fill + 1
@@ -830,7 +832,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	}
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
-		if i == 0 || v[i-1].day != l.day {
+		if i == max(0, start) || v[i-1].day != l.day { // the top line's day always shows, so the date stays in sight
 			rows = append(rows, theme.Paint(theme.LogDay, "── "+dayLabel(l.day)+" ──"))
 			b.rowLines = append(b.rowLines, nil)
 			if len(b.rowLines) >= bodyH {

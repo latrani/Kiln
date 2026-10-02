@@ -854,6 +854,34 @@ func TestLogModeKeptAcrossChipAndCommand(t *testing.T) {
 	}
 }
 
+// The top row of log mode always shows the date of the line at the top,
+// mid-day too, and scrolling never hides the cursor under it.
+func TestLogDateSticksToTop(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.writeLog(day24.AddDate(0, 0, 1), lines...)
+	h.key("ctrl+l")
+	divider := func(day time.Time) string { return "── " + dayLabel(day.Format("2006-01-02")) + " ──" }
+	firstRow := func() string { return strings.SplitN(strings.Split(h.screen(), "\n")[topH], "│", 2)[1] }
+	if got := firstRow(); !strings.Contains(got, divider(day24.AddDate(0, 0, 1))) {
+		t.Errorf("mid-day, the top row should be the day: %q\n%s", got, h.screen())
+	}
+	b := h.br()
+	for range 100 { // up across the day boundary, a line at a time
+		h.key("up")
+		if h.screen(); !slices.Contains(b.rowLines, b.cursor) {
+			t.Fatalf("cursor scrolled out of view:\n%s", h.screen())
+		}
+	}
+	if got := firstRow(); !strings.Contains(got, divider(day24)) {
+		t.Errorf("back on the 24th, the top row should say so: %q\n%s", got, h.screen())
+	}
+}
+
 // With local_echo off, the log view leaves out what you sent, like the
 // scrollback does; the lines stay loaded, so turning it on brings them back.
 func TestBrowseRespectsLocalEcho(t *testing.T) {
