@@ -1,0 +1,28 @@
+# Tells the Homebrew tap (latrani/homebrew-tap) about a published release,
+# so it opens a formula bump PR, builds bottles and publishes them; see that
+# repo's README. Drafts don't count: this runs on "Publish release".
+name: homebrew
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send kiln-release to the tap
+        env:
+          # A fine-grained token for latrani/homebrew-tap (Contents and Pull
+          # requests: write). GITHUB_TOKEN can't reach another repo.
+          GH_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          revision=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          gh api repos/latrani/homebrew-tap/dispatches \
+            -f event_type=kiln-release \
+            -f "client_payload[tag]=$TAG" \
+            -f "client_payload[revision]=$revision"
