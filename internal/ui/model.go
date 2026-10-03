@@ -96,6 +96,7 @@ type Model struct {
 	focusSeen       bool                    // the terminal has sent a focus-in or focus-out, so it reports focus
 	lastHere        time.Time               // latest focus-in or input; see here
 	awayNow         bool                    // set by /away until the next input; see away
+	shownPresence   presenceState           // what the presence chip shows; see Update
 	themed          bool                    // a theme has been loaded; see loadTheme
 	standIn         bool                    // the theme is the built-in standing in for a broken one; see loadTheme
 	themeErr        error                   // why the theme didn't load, to report once the update is done
@@ -221,6 +222,7 @@ func New(d Deps, cfg *config.Config) *Model {
 	m.focused, m.lastHere = true, d.Now()
 	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
+	m.shownPresence = m.presence()
 	m.loadTheme() // at start a broken theme falls back to the built-in, and says so
 	if m.themeErr != nil {
 		m.setStatus(true, str.StatusThemeNotLoaded(m.themeErr))
@@ -611,6 +613,12 @@ func (m *Model) reportSize() {
 // view has run past it.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, cmd := m.update(msg)
+	if _, blur := msg.(tea.BlurMsg); !blur {
+		// Switching away leaves the chip be: nobody's looking, and in tmux
+		// redrawing it would flag the window as active every time you left.
+		// It catches up with whatever next changes.
+		m.shownPresence = m.presence()
+	}
 	m.takeLogStatus()
 	if older := m.pageOlder(); older != nil {
 		cmd = tea.Batch(cmd, older)
@@ -718,7 +726,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
-		was := m.presence() // before here() clears an Away that a click on the chip toggles
+		was := m.shownPresence // as drawn, before here() clears an Away that a click on the chip toggles
 		m.focused = true
 		m.here()
 		return m, m.handleClick(msg, was)

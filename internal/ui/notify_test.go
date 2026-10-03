@@ -386,6 +386,23 @@ func TestPresenceStates(t *testing.T) {
 	}
 }
 
+// Switching away draws nothing: in tmux any output flags the window,
+// so the chip changing to Away would mark it every time you left. It
+// catches up on the next thing that does draw.
+func TestBlurRepaintsNothing(t *testing.T) {
+	h := notifyHarness(t, "all", nil)
+	h.m.Update(tea.FocusMsg{})
+	before := h.screen()
+	h.m.Update(tea.BlurMsg{})
+	if after := h.screen(); after != before {
+		t.Errorf("blur changed the screen:\n%s\nwant\n%s", after, before)
+	}
+	h.line("Rook says, \"hi\"")
+	if top := rightRow(h, 0); !strings.Contains(top, str.ViewPresenceAway()) {
+		t.Errorf("after a line while away: %q", top)
+	}
+}
+
 // With no focus events, idle still counts as away, and shows it.
 func TestPresenceIdleWithoutFocusEvents(t *testing.T) {
 	h := notifyHarness(t, "all", nil)

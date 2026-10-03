@@ -196,7 +196,7 @@ const topH = 2
 // between each. It says which columns each chip takes, [from, to); zero
 // when it isn't drawn whole.
 func (m *Model) topBar(w int) (line string, logChip, filterChip, presenceChip [2]int) {
-	return m.topBarFor(w, m.presence())
+	return m.topBarFor(w, m.shownPresence)
 }
 
 // topBarFor is topBar with the presence chip as it is for p, which
