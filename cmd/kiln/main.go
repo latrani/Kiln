@@ -40,10 +40,27 @@ import (
 )
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, str.CliError(err))
-		os.Exit(1)
+	crashLog := openCrashLog()
+	err := run(os.Args[1:])
+	if err == nil {
+		return
 	}
+	msg := str.CliError(err)
+	fmt.Fprintln(os.Stderr, msg)
+	if crashLog != nil {
+		logFailure(crashLog, msg, err)
+	}
+	if ownsConsole() {
+		holdWindow(os.Stdin, os.Stderr)
+	}
+	os.Exit(1)
+}
+
+// holdWindow waits for Enter, so a window that closes when kiln exits stays
+// up long enough to read why it's exiting.
+func holdWindow(in io.Reader, out io.Writer) {
+	fmt.Fprint(out, str.CliPressEnter())
+	bufio.NewReader(in).ReadString('\n')
 }
 
 // stdout is where commands print; tests swap it.
@@ -289,7 +306,11 @@ func tui(cfgDir, dataDir string, cfg *config.Config, noAutoconnect bool) error {
 		Changes: watcher.Changes(),
 		OpenURL: openURL,
 	}, cfg)
+	stop := teeStderr()
 	_, err = tea.NewProgram(m).Run()
+	if out := stop(); err != nil && out != "" {
+		err = detailed{err, out}
+	}
 	return err
 }
 

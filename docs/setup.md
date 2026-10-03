@@ -79,8 +79,11 @@ Kiln splits its files in two: settings you edit, and data it writes.
   logs/<world>/<char>/   # logs, unless log_dir moves them (see logs.md)
   passwords.json         # saved passwords, only with password_store = "file"
   known_hosts            # pinned server certificates (see configuration.md)
+  kiln.log               # why Kiln last quit with an error, and crash reports
 ```
 
 With the default `password_store = "keychain"`, passwords are in your OS keychain instead, under the service name `kiln` and the account `<world>/<char>`.
+
+If Kiln quits with an error, the message is printed and also added to `kiln.log`, with the stack if it crashed. That's the place to look when Kiln closes before you can read why. On Windows, when Kiln has a window to itself (you double-clicked it), it waits for Enter before closing it.
 
 Those paths are the same on every system, macOS and Windows included. On macOS, `~/.local` is hidden in Finder: press `Cmd+Shift+G` and paste the path, or `Cmd+Shift+.` to show hidden files. To move either folder, set `XDG_CONFIG_HOME` or `XDG_DATA_HOME` (Kiln then uses `kiln/` inside it), but other programs that follow the same convention will move too.

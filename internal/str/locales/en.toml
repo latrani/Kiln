@@ -57,6 +57,7 @@ usage:
   kiln theme show <theme>
   kiln version"""
 error = "kiln: {err}"
+press_enter = "press Enter to close"
 no_character_define = "no character {world}/{char}"
 no_character = "no character {world}/{char}"
 store_none = 'password store disabled'

@@ -156,6 +156,9 @@ func CliPasswordPrompt(world, char any) string {
 	return get("cli.password_prompt", map[string]any{"world": world, "char": char})
 }
 
+// CliPressEnter is cli.press_enter: "press Enter to close"
+func CliPressEnter() string { return get("cli.press_enter", nil) }
+
 // CliStoreNone is cli.store_none: "password store disabled"
 func CliStoreNone() string { return get("cli.store_none", nil) }
 
