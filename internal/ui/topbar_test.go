@@ -154,8 +154,8 @@ func TestTopBarPresenceChip(t *testing.T) {
 	if top := rightRow(h, 0); !strings.Contains(top, str.ViewPresenceHere()) {
 		t.Errorf("after focus-in: %q", top)
 	}
-	h.m.Update(tea.BlurMsg{})
-	if top := rightRow(h, 0); !strings.Contains(top, str.ViewPresenceAway()) {
+	h.m.Update(tea.BlurMsg{}) // nobody's looking, so it waits (see TestBlurRepaintsNothing)
+	if top := rightRow(h, 0); !strings.Contains(top, str.ViewPresenceHere()) {
 		t.Errorf("after blur: %q", top)
 	}
 }
