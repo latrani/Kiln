@@ -1,0 +1,36 @@
+# Tests the relay, the web module natively and under wasm on memfs, and
+# memfs itself, on PRs and pushes to main that touch them.
+name: web
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["web/**", "internal/**", "cmd/kiln-relay/**", ".github/workflows/web.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - name: Root tests
+        run: go test ./...
+      - name: Web, native
+        working-directory: web
+        run: go test ./...
+      - name: Web, wasm on memfs
+        working-directory: web
+        run: GOOS=js GOARCH=wasm go test -exec "$PWD/testdata/memfs_exec.sh" ./...
+      - name: memfs
+        run: node --test web/static/memfs.test.mjs
+      - name: Page builds
+        run: web/build.sh
