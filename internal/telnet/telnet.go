@@ -59,7 +59,9 @@ type Parser struct {
 	width  uint16
 	height uint16
 	naws   bool // server asked for NAWS and we agreed
-	utf8   bool // server accepted/negotiated UTF-8
+	// Our side of CHARSET: we WILL it, and we asked the server to DO it.
+	charsetWill, charsetDo bool
+	utf8                   bool // server accepted/negotiated UTF-8
 }
 
 // NewParser returns a parser that reports the given window size via NAWS.
@@ -135,24 +137,52 @@ func (p *Parser) sbAppend(b byte) {
 	p.sbBuf = append(p.sbBuf, b)
 }
 
+// negotiate answers a WILL/WONT/DO/DONT. It replies only when the request
+// changes an option's state: re-acknowledging an option that's already
+// settled loops forever with a server that does the same (RFC 854, RFC 1143).
 func (p *Parser) negotiate(verb, opt byte) []byte {
 	switch verb {
 	case DO:
 		switch opt {
 		case OptNAWS:
+			if p.naws {
+				return nil
+			}
 			p.naws = true
 			return append([]byte{IAC, WILL, OptNAWS}, p.nawsMsg()...)
 		case OptCharset:
+			if p.charsetWill {
+				return nil
+			}
+			p.charsetWill = true
 			return []byte{IAC, WILL, OptCharset}
 		}
 		return []byte{IAC, WONT, opt}
 	case WILL:
 		if opt == OptCharset {
+			if p.charsetDo {
+				return nil
+			}
+			p.charsetDo = true
 			return []byte{IAC, DO, OptCharset}
 		}
 		return []byte{IAC, DONT, opt}
+	case DONT:
+		if opt == OptNAWS && p.naws {
+			p.naws = false
+			return []byte{IAC, WONT, OptNAWS}
+		}
+		if opt == OptCharset && p.charsetWill {
+			p.charsetWill = false
+			return []byte{IAC, WONT, OptCharset}
+		}
+	case WONT:
+		if opt == OptCharset && p.charsetDo {
+			p.charsetDo = false
+			return []byte{IAC, DONT, OptCharset}
+		}
 	}
-	return nil // WONT/DONT: nothing to acknowledge for options we never enabled
+	return nil // turning off an option that was never on: nothing to acknowledge
 }
 
 func (p *Parser) subneg(opt byte, data []byte) []byte {

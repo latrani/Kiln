@@ -125,3 +125,37 @@ func TestUnterminatedSubnegotiationIsBounded(t *testing.T) {
 		t.Errorf("sbBuf cap = %d", cap(p.sbBuf))
 	}
 }
+
+// A server that answers our WILL NAWS with another DO NAWS (Fuzzball up to
+// 7.2.1 does) must not get another WILL: re-acknowledging a settled option
+// loops forever (RFC 854, RFC 1143).
+func TestSettledOptionsAreNotReacknowledged(t *testing.T) {
+	p := NewParser(80, 24)
+	if _, reply := p.Feed([]byte{IAC, DO, OptNAWS, IAC, DO, OptCharset, IAC, WILL, OptCharset}); len(reply) == 0 {
+		t.Fatal("no reply to the first negotiation")
+	}
+	if _, reply := p.Feed([]byte{IAC, DO, OptNAWS, IAC, DO, OptCharset, IAC, WILL, OptCharset}); reply != nil {
+		t.Errorf("re-acknowledged settled options: %v", reply)
+	}
+}
+
+// Turning off an option we agreed to is acknowledged once, and it can be
+// turned back on.
+func TestDisablingAnOptionIsAcknowledgedOnce(t *testing.T) {
+	p := NewParser(80, 24)
+	p.Feed([]byte{IAC, DO, OptNAWS, IAC, WILL, OptCharset})
+	_, reply := p.Feed([]byte{IAC, DONT, OptNAWS, IAC, WONT, OptCharset})
+	if want := []byte{IAC, WONT, OptNAWS, IAC, DONT, OptCharset}; !bytes.Equal(reply, want) {
+		t.Errorf("reply=%v want %v", reply, want)
+	}
+	if _, reply := p.Feed([]byte{IAC, DONT, OptNAWS, IAC, WONT, OptCharset}); reply != nil {
+		t.Errorf("re-acknowledged: %v", reply)
+	}
+	if msg := p.Resize(100, 40); msg != nil {
+		t.Errorf("Resize after DONT NAWS = %v, want nil", msg)
+	}
+	_, reply = p.Feed([]byte{IAC, DO, OptNAWS})
+	if want := []byte{IAC, WILL, OptNAWS, IAC, SB, OptNAWS, 0, 100, 0, 40, IAC, SE}; !bytes.Equal(reply, want) {
+		t.Errorf("re-enable reply=%v want %v", reply, want)
+	}
+}
