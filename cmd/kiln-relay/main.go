@@ -61,5 +61,7 @@ func run(args []string, logw io.Writer) error {
 		logf(str.RelayDevServing("http://" + addr + "/kiln/")) //str:ok
 	}
 	logf(str.RelayListening(addr))
-	return http.ListenAndServe(addr, mux)
+	// No WriteTimeout: relayed connections are long-lived WebSockets.
+	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	return srv.ListenAndServe()
 }
