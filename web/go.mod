@@ -34,8 +34,9 @@ require (
 	golang.org/x/text v0.42.0 // indirect
 )
 
-replace (
-	// v2.0.10 plus tty_js.go: upstream doesn't build for GOOS=js yet.
-	charm.land/bubbletea/v2 => ./third_party/bubbletea
-	github.com/latrani/Kiln => ../
-)
+replace github.com/latrani/Kiln => ../
+
+// v2.0.10 plus charmbracelet/bubbletea#1790 (GOOS=js support) and the
+// three upstream fixes it sits on. Drop once a release ships #1790; see
+// bubbletea_test.go and .github/workflows/bubbletea-watch.yml.
+replace charm.land/bubbletea/v2 => github.com/0magnet/bubbletea/v2 v2.0.9-0.20261004194220-80c2fc5bd53f

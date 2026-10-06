@@ -31,9 +31,6 @@ func TestNoStrayStrings(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if d.IsDir() && path == filepath.Join(root, "web", "third_party") {
-				return filepath.SkipDir
-			}
 			if d.IsDir() {
 				if path == filepath.Join(root, "internal", "str") {
 					return filepath.SkipDir
@@ -163,9 +160,6 @@ func TestTestsReadTheCatalog(t *testing.T) {
 				return err
 			}
 			if d.IsDir() && path == filepath.Join(root, "internal", "str") {
-				return filepath.SkipDir
-			}
-			if d.IsDir() && path == filepath.Join(root, "web", "third_party") {
 				return filepath.SkipDir
 			}
 			if strings.HasSuffix(path, "_test.go") {
