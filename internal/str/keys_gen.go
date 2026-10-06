@@ -611,6 +611,36 @@ func RelayAllowUnknownKey(path, key any) string {
 	return get("relay.allow_unknown_key", map[string]any{"path": path, "key": key})
 }
 
+// RelayClosed is relay.closed: "closed {ip} → {world}: {up} bytes up, {down} down, {dur}"
+func RelayClosed(ip, world, up, down, dur any) string {
+	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
+}
+
+// RelayOpened is relay.opened: "open {ip} → {world}"
+func RelayOpened(ip, world any) string {
+	return get("relay.opened", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayRefusedNotListed is relay.refused_not_listed: "refused {ip} → {world}: not on the allowlist"
+func RelayRefusedNotListed(ip, world any) string {
+	return get("relay.refused_not_listed", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayRefusedNotTls is relay.refused_not_tls: "refused {ip} → {world}: not TLS"
+func RelayRefusedNotTls(ip, world any) string {
+	return get("relay.refused_not_tls", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayRefusedTooMany is relay.refused_too_many: "refused {ip} → {world}: too many connections"
+func RelayRefusedTooMany(ip, world any) string {
+	return get("relay.refused_too_many", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayRefusedUnreachable is relay.refused_unreachable: "refused {ip} → {world}: {err}"
+func RelayRefusedUnreachable(ip, world any, err error) string {
+	return get("relay.refused_unreachable", map[string]any{"ip": ip, "world": world, "err": err})
+}
+
 // ScrollbackHistoryEnds is scrollback.history_ends: "─── history ends {when} ───"
 func ScrollbackHistoryEnds(when any) string {
 	return get("scrollback.history_ends", map[string]any{"when": when})
