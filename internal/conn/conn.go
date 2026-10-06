@@ -31,6 +31,9 @@ type Options struct {
 	Height     int
 	// DialContext opens the raw connection (TLS, if on, runs over it).
 	// nil: a plain TCP dial. The web build dials through kiln-relay.
+	// Its ctx bounds the dial and the TLS handshake together and is
+	// cancelled when Dial returns, so the conn it returns must not depend
+	// on ctx.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 

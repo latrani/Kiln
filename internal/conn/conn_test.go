@@ -278,9 +278,8 @@ func TestTLSPinMismatchThroughDialContext(t *testing.T) {
 	kh.Trust("muck.test:4201", "sha256:0000")
 	ln, _ := selfSignedListener(t)
 	host, port := fakeServer(t, ln, greet)
-	var asked string
 	_, err := Dial(context.Background(), Options{Host: "muck.test", Port: 4201, TLS: true, TLSTrust: "pin",
-		KnownHosts: kh, DialContext: redirect(host, port, &asked)})
+		KnownHosts: kh, DialContext: redirect(host, port, new(string))})
 	var pin *PinMismatchError
 	if !errors.As(err, &pin) {
 		t.Fatalf("err = %v, want PinMismatchError", err)
