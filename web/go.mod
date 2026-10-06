@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/coder/websocket v1.8.15
 	github.com/latrani/Kiln v0.0.0
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20261005185213-c3db4df58582
 )
 
 require (
