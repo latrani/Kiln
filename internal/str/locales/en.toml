@@ -29,6 +29,7 @@ relay_needs_tls = "this world only works over TLS on the web"
 relay_too_many = "too many connections from your address; close one and try again"
 relay_unreachable = "the relay couldn't reach this world: {reason}"
 relay_down = "couldn't reach the web relay"
+relay_dropped = "lost the connection to the web relay"
 
 [logstore]
 no_tab = "logstore: no tab in {line:%q}"

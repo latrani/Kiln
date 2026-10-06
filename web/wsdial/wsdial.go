@@ -42,7 +42,8 @@ func target(relayURL, addr string) (string, error) {
 	return u.String(), nil
 }
 
-// explain turns the relay's refusals into errors people can read.
+// explain turns the relay's refusals, and other unexpected closes, into
+// errors people can read. Normal closures pass through.
 func explain(err error) error {
 	var ce websocket.CloseError
 	if err == nil || !errors.As(err, &ce) {
@@ -57,6 +58,8 @@ func explain(err error) error {
 		return str.Wrap(str.ConnRelayTooMany(), err)
 	case codeUnreachable:
 		return str.Wrap(str.ConnRelayUnreachable(ce.Reason), err)
+	case websocket.StatusNormalClosure, websocket.StatusGoingAway:
+		return err
 	}
-	return err
+	return str.Wrap(str.ConnRelayDropped(), err)
 }

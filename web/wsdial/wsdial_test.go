@@ -10,7 +10,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http/httptest"
@@ -18,6 +20,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
 
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/relay"
@@ -136,6 +140,36 @@ func TestUnreachableReadsAsCatalogText(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), upTo(str.ConnRelayUnreachable(mark))) {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestExplain(t *testing.T) {
+	for _, tc := range []struct {
+		code websocket.StatusCode
+		want string // "" leaves the error as it was
+	}{
+		{codeTooMany, str.ConnRelayTooMany()},
+		{websocket.StatusAbnormalClosure, str.ConnRelayDropped()},
+		{websocket.StatusInternalError, str.ConnRelayDropped()},
+		{websocket.StatusNormalClosure, ""},
+		{websocket.StatusGoingAway, ""},
+	} {
+		in := fmt.Errorf("read: %w", websocket.CloseError{Code: tc.code, Reason: "bye"})
+		got := explain(in)
+		var ce websocket.CloseError
+		if !errors.As(got, &ce) || ce.Code != tc.code {
+			t.Errorf("%v: explain(%v) = %v, lost the CloseError", tc.code, in, got)
+		}
+		if tc.want == "" {
+			if got != in {
+				t.Errorf("%v: explain changed it to %v", tc.code, got)
+			}
+		} else if got.Error() != tc.want {
+			t.Errorf("%v: explain(%v) = %v", tc.code, in, got)
+		}
+	}
+	if err := explain(io.EOF); err != io.EOF {
+		t.Errorf("explain(io.EOF) = %v", err)
 	}
 }
 
