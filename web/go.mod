@@ -5,6 +5,7 @@ go 1.27.1
 require (
 	charm.land/bubbletea/v2 v2.0.10
 	github.com/charmbracelet/colorprofile v0.4.3
+	github.com/coder/websocket v1.8.15
 	github.com/latrani/Kiln v0.0.0
 )
 

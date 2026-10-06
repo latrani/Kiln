@@ -24,6 +24,10 @@ no_certificate = "server sent no certificate"
 reading_known_hosts = "reading known_hosts: {err}"
 bad_fingerprint = "malformed sha256 fingerprint {fp:%q}"
 cert_changed = "certificate for {host} changed: pinned {pinned}, got {got}"
+relay_not_listed = "this world isn't on the web relay's list"
+relay_needs_tls = "this world only works over TLS on the web"
+relay_too_many = "too many connections from your address; close one and try again"
+relay_unreachable = "the relay couldn't reach this world: {reason}"
 
 [logstore]
 no_tab = "logstore: no tab in {line:%q}"

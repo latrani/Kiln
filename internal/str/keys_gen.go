@@ -341,6 +341,20 @@ func ConnReadingKnownHosts(err error) string {
 	return get("conn.reading_known_hosts", map[string]any{"err": err})
 }
 
+// ConnRelayNeedsTls is conn.relay_needs_tls: "this world only works over TLS on the web"
+func ConnRelayNeedsTls() string { return get("conn.relay_needs_tls", nil) }
+
+// ConnRelayNotListed is conn.relay_not_listed: "this world isn't on the web relay's list"
+func ConnRelayNotListed() string { return get("conn.relay_not_listed", nil) }
+
+// ConnRelayTooMany is conn.relay_too_many: "too many connections from your address; close one and try again"
+func ConnRelayTooMany() string { return get("conn.relay_too_many", nil) }
+
+// ConnRelayUnreachable is conn.relay_unreachable: "the relay couldn't reach this world: {reason}"
+func ConnRelayUnreachable(reason any) string {
+	return get("conn.relay_unreachable", map[string]any{"reason": reason})
+}
+
 // DateDay is date.day: "Mon Jan 2"
 func DateDay() string { return get("date.day", nil) }
 
