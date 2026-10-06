@@ -1,0 +1,58 @@
+# Watches charmbracelet/bubbletea#1790 (GOOS=js support), which the web
+# build pins in web/go.mod. Opens an issue once a Bubble Tea release ships
+# it (drop the pin), or if the PR is closed without merging (re-plan it).
+# Each issue opens once; run by hand from the Actions tab to check now.
+name: bubbletea-watch
+
+on:
+  schedule:
+    - cron: "17 15 * * 1" # Mondays
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPSTREAM: charmbracelet/bubbletea
+      PR: "1790"
+      DRY_RUN: ""
+    steps:
+      - name: Check the PR and releases
+        run: |
+          set -eu
+          pr=$(gh api "repos/$UPSTREAM/pulls/$PR")
+          state=$(jq -r .state <<<"$pr")
+          merged=$(jq -r '.merged_at // ""' <<<"$pr")
+          sha=$(jq -r '.merge_commit_sha // ""' <<<"$pr")
+          title="" body=""
+          if [ "$state" = closed ] && [ -z "$merged" ]; then
+            title="Bubble Tea #$PR closed without merging: re-plan the web build's pin"
+            body="https://github.com/$UPSTREAM/pull/$PR was closed without merging. web/go.mod still pins its commit, which keeps working (go.sum and the Go module proxy hold it), but nothing will replace it upstream. Decide whether to keep the pin, carry the patch some other way, or ask upstream about GOOS=js support again."
+          elif [ -n "$merged" ]; then
+            for tag in $(gh api "repos/$UPSTREAM/releases?per_page=10" --jq '.[] | select(.draft|not) | .tag_name'); do
+              status=$(gh api "repos/$UPSTREAM/compare/$sha...$tag" --jq .status)
+              if [ "$status" = ahead ] || [ "$status" = identical ]; then
+                title="Bubble Tea $tag ships GOOS=js support: drop the web build's pin"
+                body="$UPSTREAM $tag includes https://github.com/$UPSTREAM/pull/$PR. To drop the pin: bump charm.land/bubbletea/v2 to $tag in go.mod and web/go.mod, delete the replace in web/go.mod, delete web/bubbletea_test.go and this workflow, then run the web tests (docs/web-dev.md)."
+                break
+              fi
+            done
+          fi
+          if [ -z "$title" ]; then
+            echo "nothing yet: #$PR is $state${merged:+, merged $merged, not in a release yet}"
+            exit 0
+          fi
+          if gh issue list -R "$GITHUB_REPOSITORY" --state all --search "in:title \"$title\"" --json title --jq '.[].title' | grep -qxF "$title"; then
+            echo "already filed: $title"
+            exit 0
+          fi
+          if [ -n "$DRY_RUN" ]; then
+            printf 'would file: %s\n%s\n' "$title" "$body"
+            exit 0
+          fi
+          gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "$body"
