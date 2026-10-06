@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths: ["web/**", "internal/**", "cmd/kiln-relay/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "internal/**", "cmd/kiln-relay/**", "go.mod", "go.sum", ".github/workflows/web.yml"]
 
 permissions:
   contents: read
