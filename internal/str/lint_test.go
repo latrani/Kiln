@@ -26,10 +26,13 @@ import (
 func TestNoStrayStrings(t *testing.T) {
 	root := filepath.Join("..", "..")
 	var stray []string
-	for _, top := range []string{"cmd", "internal"} {
+	for _, top := range []string{"cmd", "internal", "web"} {
 		err := filepath.WalkDir(filepath.Join(root, top), func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
+			}
+			if d.IsDir() && path == filepath.Join(root, "web", "third_party") {
+				return filepath.SkipDir
 			}
 			if d.IsDir() {
 				if path == filepath.Join(root, "internal", "str") {
@@ -154,12 +157,15 @@ func TestTestsReadTheCatalog(t *testing.T) {
 	}
 	root := filepath.Join("..", "..")
 	var copied []string
-	for _, top := range []string{"cmd", "internal"} {
+	for _, top := range []string{"cmd", "internal", "web"} {
 		err := filepath.WalkDir(filepath.Join(root, top), func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 			if d.IsDir() && path == filepath.Join(root, "internal", "str") {
+				return filepath.SkipDir
+			}
+			if d.IsDir() && path == filepath.Join(root, "web", "third_party") {
 				return filepath.SkipDir
 			}
 			if strings.HasSuffix(path, "_test.go") {

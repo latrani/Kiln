@@ -1,3 +1,7 @@
 /kiln
 /dist/
 .DS_Store
+/web/static/kiln.wasm
+/web/static/wasm_exec.js
+/web/preset.local/
+/web/dev-allow.toml

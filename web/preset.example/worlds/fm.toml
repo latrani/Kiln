@@ -1,0 +1,9 @@
+# An example world for the dev page. Copy preset.example to preset.local
+# (gitignored) and point it at a real MUCK to try one.
+host = "muck.example.org"
+port = 8899
+tls = true
+
+[[characters]]
+id = "kit"
+name = "Kit"
