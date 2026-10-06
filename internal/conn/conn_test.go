@@ -229,3 +229,60 @@ func TestNoPromptForPromptlyCompletedLines(t *testing.T) {
 	case <-time.After(PromptDelay + 100*time.Millisecond):
 	}
 }
+
+// redirect returns a DialContext that records the address Kiln asked for
+// and connects to the test server instead.
+func redirect(host string, port int, asked *string) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		*asked = addr
+		var d net.Dialer
+		return d.DialContext(ctx, network, net.JoinHostPort(host, strconv.Itoa(port)))
+	}
+}
+
+func TestDialContextIsUsed(t *testing.T) {
+	host, port := fakeServer(t, tcpListener(t), func(c net.Conn) { c.Write([]byte("hello\r\n")) })
+	var asked string
+	c, err := Dial(context.Background(), Options{Host: "muck.test", Port: 4201, DialContext: redirect(host, port, &asked)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if asked != "muck.test:4201" {
+		t.Errorf("dialed %q, want muck.test:4201", asked)
+	}
+	if got := collect(t, c); len(got) != 1 || got[0] != "hello" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestTLSPinsThroughDialContext(t *testing.T) {
+	kh := KnownHosts{Path: filepath.Join(t.TempDir(), "known_hosts")}
+	ln, cert := selfSignedListener(t)
+	host, port := fakeServer(t, ln, greet)
+	var asked string
+	c, err := Dial(context.Background(), Options{Host: "muck.test", Port: 4201, TLS: true, TLSTrust: "pin",
+		KnownHosts: kh, DialContext: redirect(host, port, &asked)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := collect(t, c); len(got) != 1 || got[0] != "secure hello" {
+		t.Errorf("got %q", got)
+	}
+	if fp, ok, _ := kh.Lookup("muck.test:4201"); !ok || fp != Fingerprint(cert) {
+		t.Errorf("pinned %q, want %q", fp, Fingerprint(cert))
+	}
+}
+
+func TestTLSPinMismatchThroughDialContext(t *testing.T) {
+	kh := KnownHosts{Path: filepath.Join(t.TempDir(), "known_hosts")}
+	kh.Trust("muck.test:4201", "sha256:0000")
+	ln, _ := selfSignedListener(t)
+	host, port := fakeServer(t, ln, greet)
+	var asked string
+	_, err := Dial(context.Background(), Options{Host: "muck.test", Port: 4201, TLS: true, TLSTrust: "pin",
+		KnownHosts: kh, DialContext: redirect(host, port, &asked)})
+	var pin *PinMismatchError
+	if !errors.As(err, &pin) {
+		t.Fatalf("err = %v, want PinMismatchError", err)
+	}
+}

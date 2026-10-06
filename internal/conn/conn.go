@@ -29,6 +29,9 @@ type Options struct {
 	KnownHosts KnownHosts
 	Width      int // reported via NAWS
 	Height     int
+	// DialContext opens the raw connection (TLS, if on, runs over it).
+	// nil: a plain TCP dial. The web build dials through kiln-relay.
+	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Conn is an open connection. Received lines arrive on Lines().
@@ -43,24 +46,32 @@ type Conn struct {
 	err     error // set before lines is closed
 }
 
-// Dial connects and starts reading. The context bounds only the dial.
+// Dial connects and starts reading. The context, capped at 15s, bounds the
+// dial and TLS handshake together.
 func Dial(ctx context.Context, o Options) (*Conn, error) {
 	hostport := net.JoinHostPort(o.Host, strconv.Itoa(o.Port))
-	d := &net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}
-	var nc net.Conn
-	var err error
-	if o.TLS {
-		td := &tls.Dialer{NetDialer: d, Config: tlsConfig(o, hostport)}
-		nc, err = td.DialContext(ctx, "tcp", hostport)
-	} else {
-		nc, err = d.DialContext(ctx, "tcp", hostport)
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second) // dial and handshake together
+	defer cancel()
+	dial := o.DialContext
+	if dial == nil {
+		d := &net.Dialer{KeepAlive: 30 * time.Second}
+		dial = d.DialContext
 	}
+	nc, err := dial(ctx, "tcp", hostport)
 	if err != nil {
-		var pin *PinMismatchError
-		if errors.As(err, &pin) {
-			return nil, pin
-		}
 		return nil, err
+	}
+	if o.TLS {
+		tc := tls.Client(nc, tlsConfig(o, hostport))
+		if err := tc.HandshakeContext(ctx); err != nil {
+			nc.Close()
+			var pin *PinMismatchError
+			if errors.As(err, &pin) {
+				return nil, pin
+			}
+			return nil, err
+		}
+		nc = tc
 	}
 	c := &Conn{
 		nc:      nc,
