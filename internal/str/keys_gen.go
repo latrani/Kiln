@@ -581,6 +581,36 @@ func PickerHint() string { return get("picker.hint", nil) }
 // PickerName is picker.name: "Name"
 func PickerName() string { return get("picker.name", nil) }
 
+// RelayAllowBadPort is relay.allow_bad_port: "allowlist {path}: {host} has bad port {port}"
+func RelayAllowBadPort(path, host, port any) string {
+	return get("relay.allow_bad_port", map[string]any{"path": path, "host": host, "port": port})
+}
+
+// RelayAllowBadProxy is relay.allow_bad_proxy: "allowlist {path}: trusted_proxies has bad address {addr:%q}"
+func RelayAllowBadProxy(path, addr any) string {
+	return get("relay.allow_bad_proxy", map[string]any{"path": path, "addr": addr})
+}
+
+// RelayAllowNoHost is relay.allow_no_host: "allowlist {path}: world {n} has no host"
+func RelayAllowNoHost(path any, n int) string {
+	return get("relay.allow_no_host", map[string]any{"path": path, "n": n})
+}
+
+// RelayAllowNoPorts is relay.allow_no_ports: "allowlist {path}: {host} has no ports"
+func RelayAllowNoPorts(path, host any) string {
+	return get("relay.allow_no_ports", map[string]any{"path": path, "host": host})
+}
+
+// RelayAllowReading is relay.allow_reading: "reading allowlist {path}: {err}"
+func RelayAllowReading(path any, err error) string {
+	return get("relay.allow_reading", map[string]any{"path": path, "err": err})
+}
+
+// RelayAllowUnknownKey is relay.allow_unknown_key: "allowlist {path}: unknown setting {key:%q}"
+func RelayAllowUnknownKey(path, key any) string {
+	return get("relay.allow_unknown_key", map[string]any{"path": path, "key": key})
+}
+
 // ScrollbackHistoryEnds is scrollback.history_ends: "─── history ends {when} ───"
 func ScrollbackHistoryEnds(when any) string {
 	return get("scrollback.history_ends", map[string]any{"when": when})

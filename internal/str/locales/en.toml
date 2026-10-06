@@ -335,3 +335,11 @@ swatch_sample = "Sample"
 show_merged = """
 {name}, with the themes it extends merged in. It looks the same saved
 as a file of its own. A role inherits from the one before its last dot."""
+
+[relay]
+allow_reading = "reading allowlist {path}: {err}"
+allow_unknown_key = "allowlist {path}: unknown setting {key:%q}"
+allow_no_host = "allowlist {path}: world {n} has no host"
+allow_no_ports = "allowlist {path}: {host} has no ports"
+allow_bad_port = "allowlist {path}: {host} has bad port {port}"
+allow_bad_proxy = "allowlist {path}: trusted_proxies has bad address {addr:%q}"
