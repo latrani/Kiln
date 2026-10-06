@@ -2,9 +2,11 @@
 
 Kiln's web build can't open TCP connections, so the page opens a
 WebSocket to `kiln-relay`, which connects to the MUCK. It only connects to
-worlds in its allowlist, and only passes TLS traffic unless a world says
-`plaintext = true`. So whoever runs the relay never sees other worlds'
-passwords.
+worlds in its allowlist; that list is the real boundary. For a world
+without `plaintext = true`, the relay also checks that the client's first
+frame starts a TLS handshake and refuses it otherwise, so an honest
+client can't send a password in the clear by accident. It doesn't inspect
+anything after that first frame.
 
 ## Allowlist
 
