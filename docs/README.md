@@ -11,3 +11,5 @@
 - [Themes](themes.md): colors, palettes, light and dark, the role list
 - [Notifications](notifications.md): desktop notifications, presence, tmux and ssh
 - [Releasing](releasing.md): cutting a release (for maintainers)
+- [Web build](web-dev.md): running Kiln in a browser locally, and its tests (for developers)
+- [Web relay](web-relay.md): running kiln-relay, its allowlist, nginx and systemd (for operators)
