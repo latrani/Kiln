@@ -341,6 +341,9 @@ func ConnReadingKnownHosts(err error) string {
 	return get("conn.reading_known_hosts", map[string]any{"err": err})
 }
 
+// ConnRelayDown is conn.relay_down: "couldn't reach the web relay"
+func ConnRelayDown() string { return get("conn.relay_down", nil) }
+
 // ConnRelayNeedsTls is conn.relay_needs_tls: "this world only works over TLS on the web"
 func ConnRelayNeedsTls() string { return get("conn.relay_needs_tls", nil) }
 
