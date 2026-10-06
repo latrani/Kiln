@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/coder/websocket"
 
@@ -59,7 +60,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ip := s.clientIP(r, a)
 	host := r.URL.Query().Get("host")
 	port, _ := strconv.Atoi(r.URL.Query().Get("port"))
-	addr := net.JoinHostPort(host, strconv.Itoa(port))
+	// addr is only for the log, which quotes it; host comes from the
+	// client, so it's cut to a DNS name's longest.
+	addr := net.JoinHostPort(cut(host, 253), strconv.Itoa(port))
 
 	wl, ok := a.Lookup(host, port)
 	if !ok {
@@ -86,8 +89,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			c.Close(CodeNeedsTLS, "")
 		})
 		typ, b, err := c.Read(ctx)
-		timer.Stop()
-		if timedOut.Load() {
+		// Stop is false once the timer has fired: it's closing c, even if
+		// it hasn't set timedOut yet.
+		if !timer.Stop() || timedOut.Load() {
 			s.logf(str.RelayRefusedNotTls(ip, addr))
 			return
 		}
@@ -197,12 +201,17 @@ func pipe(ws, tc net.Conn) (up, down int64) {
 }
 
 // reason fits err into a close frame's reason (at most 123 bytes).
-func reason(err error) string {
-	s := err.Error()
-	if len(s) > 123 {
-		s = s[:123]
+func reason(err error) string { return cut(err.Error(), 123) }
+
+// cut shortens s to at most n bytes without splitting a UTF-8 sequence.
+func cut(s string, n int) string {
+	if len(s) <= n {
+		return s
 	}
-	return s
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }
 
 func or[T comparable](v, def T) T {

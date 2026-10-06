@@ -9,18 +9,21 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/coder/websocket"
 
@@ -154,6 +157,33 @@ func TestUnlistedIsRefusedAndNeverDialed(t *testing.T) {
 	}
 	if !strings.HasPrefix(logs.first(), upTo(str.RelayRefusedNotListed(mark, mark))) {
 		t.Errorf("log %q", logs.first())
+	}
+}
+
+func TestLoggedHostIsOneQuotedLine(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	_, base, logs := relay(t, world(port, true))
+	host := "fm.example\nrefused 10.0.0.1 → evil" + strings.Repeat("x", 1000)
+	closeCode(t, open(t, base, url.QueryEscape(host), port))
+	line := logs.first()
+	if strings.ContainsAny(line, "\r\n") {
+		t.Errorf("log has a raw line break: %q", line)
+	}
+	if len(line) > 600 {
+		t.Errorf("log is %d bytes; the host wasn't cut", len(line))
+	}
+	if !strings.HasPrefix(line, upTo(str.RelayRefusedNotListed(mark, mark))) {
+		t.Errorf("log %q", line)
+	}
+}
+
+func TestReasonKeepsWholeRunes(t *testing.T) {
+	r := reason(errors.New(strings.Repeat("a", 122) + "é and more"))
+	if len(r) > 123 || !utf8.ValidString(r) {
+		t.Errorf("reason %q (%d bytes)", r, len(r))
+	}
+	if r != strings.Repeat("a", 122) {
+		t.Errorf("reason %q, want the a's without half an é", r)
 	}
 }
 

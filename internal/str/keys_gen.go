@@ -640,7 +640,7 @@ func RelayAllowUnknownKey(path, key any) string {
 	return get("relay.allow_unknown_key", map[string]any{"path": path, "key": key})
 }
 
-// RelayClosed is relay.closed: "closed {ip} → {world}: {up} bytes up, {down} down, {dur}"
+// RelayClosed is relay.closed: "closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur}"
 func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
 }
@@ -672,27 +672,27 @@ func RelayListening(addr any) string { return get("relay.listening", map[string]
 // RelayNeedAllow is relay.need_allow: "kiln-relay needs -allow PATH (the allowlist file)"
 func RelayNeedAllow() string { return get("relay.need_allow", nil) }
 
-// RelayOpened is relay.opened: "open {ip} → {world}"
+// RelayOpened is relay.opened: "open {ip} → {world:%q}"
 func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
 }
 
-// RelayRefusedNotListed is relay.refused_not_listed: "refused {ip} → {world}: not on the allowlist"
+// RelayRefusedNotListed is relay.refused_not_listed: "refused {ip} → {world:%q}: not on the allowlist"
 func RelayRefusedNotListed(ip, world any) string {
 	return get("relay.refused_not_listed", map[string]any{"ip": ip, "world": world})
 }
 
-// RelayRefusedNotTls is relay.refused_not_tls: "refused {ip} → {world}: not TLS"
+// RelayRefusedNotTls is relay.refused_not_tls: "refused {ip} → {world:%q}: not TLS"
 func RelayRefusedNotTls(ip, world any) string {
 	return get("relay.refused_not_tls", map[string]any{"ip": ip, "world": world})
 }
 
-// RelayRefusedTooMany is relay.refused_too_many: "refused {ip} → {world}: too many connections"
+// RelayRefusedTooMany is relay.refused_too_many: "refused {ip} → {world:%q}: too many connections"
 func RelayRefusedTooMany(ip, world any) string {
 	return get("relay.refused_too_many", map[string]any{"ip": ip, "world": world})
 }
 
-// RelayRefusedUnreachable is relay.refused_unreachable: "refused {ip} → {world}: {err}"
+// RelayRefusedUnreachable is relay.refused_unreachable: "refused {ip} → {world:%q}: {err}"
 func RelayRefusedUnreachable(ip, world any, err error) string {
 	return get("relay.refused_unreachable", map[string]any{"ip": ip, "world": world, "err": err})
 }
