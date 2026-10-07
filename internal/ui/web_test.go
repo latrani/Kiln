@@ -21,6 +21,7 @@ type webCalls struct {
 
 // webHarness is a harness with the web build's hooks set.
 func webHarness(t *testing.T) (*harness, *webCalls) {
+	t.Setenv("HOME", t.TempDir()) // "~/" paths never reach the real home
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	c := &webCalls{saved: map[string]string{}}
 	h.deps.SaveFile = func(name string, data []byte) error { c.saved[name] = string(data); return nil }
