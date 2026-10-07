@@ -1,0 +1,48 @@
+fm              │fm · Kit                                       ? focus  ·  Log 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+ Kit            │───────────────────────────────────────────────────────────────
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+ + Connection   │                                                               
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │* connected to muck.test:8888                                  
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#cdc1a2
+                │›                                                              
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
+ ↓ Back up      │───────────────────────────────────────────────────────────────
+  @0-10 bold,fg=#c0edeb,bg=#0b3d3b; @11-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+ ↑ Restore      │Connected since 21:14                                          
+  @0-10 bold,fg=#c0edeb,bg=#0b3d3b; @11-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3

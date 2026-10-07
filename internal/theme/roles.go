@@ -18,6 +18,7 @@ const (
 	SidebarConnecting   Role = "sidebar.connecting"
 	SidebarDisconnected Role = "sidebar.disconnected"
 	SidebarAdd          Role = "sidebar.add"
+	SidebarAction       Role = "sidebar.action" // Back up and Restore, the web build's sidebar footer
 	SidebarMore         Role = "sidebar.more"
 
 	Picker              Role = "picker" // area, in place of sidebar while it's open
@@ -98,7 +99,7 @@ const (
 // Roles is every role, each after its parent.
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarAttention,
-	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarMore,
+	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore,
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd,
 	Divider, Rule, RuleInput, RuleForm, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,

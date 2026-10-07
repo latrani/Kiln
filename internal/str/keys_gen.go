@@ -2,6 +2,21 @@
 
 package str
 
+// BackupEmpty is backup.empty: "no Kiln files in this backup"
+func BackupEmpty() string { return get("backup.empty", nil) }
+
+// BackupFileName is backup.file_name: "kiln-backup-{date}.zip"
+func BackupFileName(date any) string { return get("backup.file_name", map[string]any{"date": date}) }
+
+// BackupNotZip is backup.not_zip: "not a zip file"
+func BackupNotZip() string { return get("backup.not_zip", nil) }
+
+// BackupStrayFile is backup.stray_file: "not a Kiln backup: it has {name:%q}"
+func BackupStrayFile(name any) string { return get("backup.stray_file", map[string]any{"name": name}) }
+
+// BackupTooBig is backup.too_big: "backup unpacks to more than {mb} MB"
+func BackupTooBig(mb any) string { return get("backup.too_big", map[string]any{"mb": mb}) }
+
 // BrowseCopied is browse.copied, by count:
 //   - one: "copied 1 line"
 //   - other: "copied {n} lines"
@@ -758,8 +773,14 @@ func SessionSentNotLogged(err error) string {
 	return get("session.sent_not_logged", map[string]any{"err": err})
 }
 
+// SidebarBackUp is sidebar.back_up: "↓ Back up"
+func SidebarBackUp() string { return get("sidebar.back_up", nil) }
+
 // SidebarOpenConnection is sidebar.open_connection: "+ Connection"
 func SidebarOpenConnection() string { return get("sidebar.open_connection", nil) }
+
+// SidebarRestore is sidebar.restore: "↑ Restore"
+func SidebarRestore() string { return get("sidebar.restore", nil) }
 
 // StateConnected is state.connected: "connected"
 func StateConnected() string { return get("state.connected", nil) }
@@ -781,6 +802,11 @@ func StatusAlreadyConnected(name any) string {
 // StatusAway is status.away: "away until your next key or click"
 func StatusAway() string { return get("status.away", nil) }
 
+// StatusBackupFailed is status.backup_failed: "couldn't back up: {err}"
+func StatusBackupFailed(err error) string {
+	return get("status.backup_failed", map[string]any{"err": err})
+}
+
 // StatusCertChanged is status.cert_changed: "{name}: certificate changed; /trust to accept"
 func StatusCertChanged(name any) string {
 	return get("status.cert_changed", map[string]any{"name": name})
@@ -801,6 +827,9 @@ func StatusConfigReloaded() string { return get("status.config_reloaded", nil) }
 
 // StatusCopied is status.copied: "copied to clipboard"
 func StatusCopied() string { return get("status.copied", nil) }
+
+// StatusDownloaded is status.downloaded: "downloaded {name}"
+func StatusDownloaded(name any) string { return get("status.downloaded", map[string]any{"name": name}) }
 
 // StatusHighlightAdded is status.highlight_added: "added highlight for {text:%q}"
 func StatusHighlightAdded(text any) string {
@@ -871,6 +900,16 @@ func StatusPasswordSaved() string { return get("status.password_saved", nil) }
 
 // StatusQuitHint is status.quit_hint: "Press Ctrl+{key} again to quit"
 func StatusQuitHint(key any) string { return get("status.quit_hint", map[string]any{"key": key}) }
+
+// StatusRestoreFailed is status.restore_failed: "couldn't restore: {err}"
+func StatusRestoreFailed(err error) string {
+	return get("status.restore_failed", map[string]any{"err": err})
+}
+
+// StatusRestored is status.restored, by count:
+//   - one: "restored 1 file"
+//   - other: "restored {n} files"
+func StatusRestored(n int) string { return count("status.restored", n, map[string]any{"n": n}) }
 
 // StatusSkippedLogin is status.skipped_login: "skipped login"
 func StatusSkippedLogin() string { return get("status.skipped_login", nil) }
@@ -1084,3 +1123,12 @@ func ViewStoreKeychain() string { return get("view.store_keychain", nil) }
 func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
+
+// WebNotSaving is web.not_saving: "this browser isn't saving Kiln's configuration"
+func WebNotSaving() string { return get("web.not_saving", nil) }
+
+// WebOtherTab is web.other_tab: "Kiln's open in another tab."
+func WebOtherTab() string { return get("web.other_tab", nil) }
+
+// WebUseHere is web.use_here: "Use here"
+func WebUseHere() string { return get("web.use_here", nil) }

@@ -108,3 +108,85 @@ test("writeFileAll makes parents", () => {
   fs.writeFileAll("/home/kiln/.config/kiln/worlds/fm.toml", enc("host = 1"));
   assert.equal(readFile(fs, "/home/kiln/.config/kiln/worlds/fm.toml"), "host = 1");
 });
+
+function watched() {
+  const changed = [], synced = [];
+  const fs = createFS({ onChange: (p) => changed.push(p), onSync: (p) => synced.push(p) });
+  return { fs, changed, synced };
+}
+
+test("changing calls report their path", () => {
+  const { fs, changed } = watched();
+  fs.mkdirAll("/d");
+  call(fs, "mkdir", "/d/sub", 0o755);
+  writeFile(fs, "/d/f", "hi");
+  call(fs, "chmod", "/d/f", 0o600);
+  call(fs, "utimes", "/d/f", 1, 2);
+  call(fs, "unlink", "/d/f");
+  call(fs, "rmdir", "/d/sub");
+  assert.deepEqual([...new Set(changed)], ["/d/sub", "/d/f"]);
+  assert.ok(changed.filter((p) => p === "/d/f").length >= 4); // create, write, chmod, utimes, unlink
+});
+
+test("an fd reports the path it was opened with, normalized", () => {
+  const { fs, changed } = watched();
+  fs.mkdirAll("/a/x");
+  const fd = call(fs, "open", "/a/./x//f", C.O_WRONLY | C.O_CREAT, 0o644);
+  changed.length = 0;
+  call(fs, "write", fd, enc("x"), 0, 1, null);
+  call(fs, "ftruncate", fd, 0);
+  call(fs, "fchmod", fd, 0o600);
+  call(fs, "close", fd);
+  assert.deepEqual(changed, ["/a/x/f", "/a/x/f", "/a/x/f"]);
+});
+
+test("fsync reports through onSync", () => {
+  const { fs, synced } = watched();
+  const fd = call(fs, "open", "/f", C.O_WRONLY | C.O_CREAT, 0o644);
+  call(fs, "fsync", fd);
+  assert.deepEqual(synced, ["/f"]);
+});
+
+test("rename reports both paths, everything under a dir, and moves open fds", () => {
+  const { fs, changed } = watched();
+  fs.mkdirAll("/old/sub");
+  writeFile(fs, "/old/sub/f", "x");
+  const fd = call(fs, "open", "/old/sub/f", C.O_WRONLY, 0);
+  changed.length = 0;
+  call(fs, "rename", "/old", "/new");
+  assert.deepEqual(new Set(changed), new Set(["/old", "/old/sub", "/old/sub/f", "/new", "/new/sub", "/new/sub/f"]));
+  changed.length = 0;
+  call(fs, "write", fd, enc("y"), 0, 1, null);
+  assert.deepEqual(changed, ["/new/sub/f"]);
+});
+
+test("atomic write: temp file renamed over the real one", () => {
+  const { fs, changed } = watched();
+  writeFile(fs, "/f", "old");
+  const fd = call(fs, "open", "/f.tmp", C.O_WRONLY | C.O_CREAT, 0o600);
+  call(fs, "write", fd, enc("new"), 0, 3, null);
+  call(fs, "close", fd);
+  changed.length = 0;
+  call(fs, "rename", "/f.tmp", "/f");
+  assert.deepEqual(new Set(changed), new Set(["/f.tmp", "/f"]));
+  assert.equal(fs.entry("/f.tmp"), null);
+  assert.equal(dec(fs.entry("/f").bytes), "new");
+});
+
+test("entry, put and exists round-trip without reporting", () => {
+  const { fs, changed } = watched();
+  fs.put("/x/y/f", { kind: "file", mode: 0o100600, mtimeMs: 5000, bytes: enc("abc") });
+  fs.put("/x/d", { kind: "dir", mode: 0o040700 });
+  fs.writeFileAll("/x/p", enc("preset"));
+  assert.deepEqual(changed, []);
+  assert.ok(fs.exists("/x/y/f") && fs.exists("/x/d") && !fs.exists("/nope"));
+  const e = fs.entry("/x/y/f");
+  assert.equal(e.kind, "file");
+  assert.equal(e.mode, 0o100600);
+  assert.equal(e.mtimeMs, 5000);
+  assert.equal(dec(e.bytes), "abc");
+  e.bytes[0] = 0; // a copy
+  assert.equal(readFile(fs, "/x/y/f"), "abc");
+  assert.deepEqual(fs.entry("/x/d"), { kind: "dir", mode: 0o040700 });
+  assert.equal(fs.entry("/nope"), null);
+});

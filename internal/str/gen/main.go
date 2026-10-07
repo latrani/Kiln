@@ -1,5 +1,6 @@
 // Command gen writes keys_gen.go from locales/en.toml: one function per
-// catalog entry. Run it with go generate ./internal/str.
+// catalog entry, and web/static/strings.json, the [web] table for the
+// page. Run it with go generate ./internal/str.
 package main
 
 import (
@@ -16,6 +17,12 @@ func main() {
 		var src []byte
 		if src, err = catalog.Generate(data, prev); err == nil {
 			err = os.WriteFile("keys_gen.go", src, 0o644)
+		}
+		if err == nil {
+			var js []byte
+			if js, err = catalog.WebJSON(data); err == nil {
+				err = os.WriteFile("../../web/static/strings.json", js, 0o644)
+			}
 		}
 	}
 	if err != nil {

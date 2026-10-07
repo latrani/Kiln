@@ -234,6 +234,10 @@ link_opened = "opened {url}"
 copied = "copied to clipboard"
 away = "away until your next key or click"
 theme_not_loaded = "theme not loaded: {err}"
+downloaded = "downloaded {name}"
+backup_failed = "couldn't back up: {err}"
+restore_failed = "couldn't restore: {err}"
+restored = { one = "restored 1 file", other = "restored {n} files" }
 
 [scrollback]
 history_ends = "─── history ends {when} ───"
@@ -241,6 +245,8 @@ loading = "─── loading older history… ───"
 
 [sidebar]
 open_connection = "+ Connection"
+back_up = "↓ Back up"
+restore = "↑ Restore"
 
 # Log mode (browse, in the code).
 [browse]
@@ -366,3 +372,18 @@ flag_allow = "allowlist file (TOML)"
 flag_dev = "also serve the web page and a preset config dir, for local testing"
 flag_web = "with -dev: the built page (web/static)"
 flag_preset = "with -dev: the config dir to preload in the browser"
+
+# The web build. Entries here also go to web/static/strings.json for the
+# page, which fills {name} placeholders only: no plurals, verbs or braces.
+[web]
+other_tab = "Kiln's open in another tab."
+use_here = "Use here"
+not_saving = "this browser isn't saving Kiln's configuration"
+
+# Back up and Restore in the web build.
+[backup]
+not_zip = "not a zip file"
+stray_file = "not a Kiln backup: it has {name:%q}"
+too_big = "backup unpacks to more than {mb} MB"
+empty = "no Kiln files in this backup"
+file_name = "kiln-backup-{date}.zip"

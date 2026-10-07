@@ -81,6 +81,7 @@ alarm-deep = "#f9dcdc"
 "sidebar.active"       = { reverse = true, bold = true }
 "sidebar.attention"    = { fg = "beacon", bold = true }
 "sidebar.add"          = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
+"sidebar.action"       = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
 "sidebar.more"         = { fg = "celadon-mid" }
 
 "picker"                = { fg = "kaki-ink" }
