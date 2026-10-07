@@ -37,4 +37,5 @@ moves Kiln over; the first tab saves, disconnects, and shows the same
 offer.
 
 Preset files are written only where nothing is saved, so your edits to a
-preset world win over the server's copy.
+preset world win over the server's copy. A preset world you delete comes
+back on the next visit.

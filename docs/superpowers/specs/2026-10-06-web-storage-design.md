@@ -58,29 +58,33 @@ and `pin` worlds are trust-on-first-use on every visit (#114).
 - **Loading:** `persist.load(fs)` reads every record and recreates it in
   memfs (directories first, by path depth), before the preset is seeded
   and before Go starts.
-- **Testability:** `persist.mjs` takes the IndexedDB factory as a
-  parameter. Tests use a small in-memory fake written in the test file,
-  not an npm package.
+- **Testability:** `persist.mjs` takes a store adapter (`idbStore`, which
+  wraps the IndexedDB factory) with `open`, `all` and `apply`. Tests use
+  a small in-memory fake store (and a fake factory for the adapter)
+  written in the test files, not an npm package. `idbStore.open` gives
+  up after 5 s, so a hung open falls back to plain memfs.
 
 ### Boot order (`kiln.js`)
 
 1. Take the tab lock (§2). Without it, stop and show the lock screen.
 2. Open IndexedDB and load saved files into memfs.
-3. Seed the preset, **only paths that don't exist yet**. A saved copy of a
-   preset world always wins; preset updates reach new visitors only.
+3. Seed the preset, **only paths that don't exist yet**. Seeded files
+   aren't saved, so an untouched preset world follows the server, a saved
+   edit wins, and a preset world the user deletes comes back next visit.
 4. Ask for `navigator.storage.persist()`; log the answer, nothing else.
 5. Load `wasm_exec.js` and start Go.
 
 ### When saving can't work
 
 - IndexedDB won't open or the load fails (some private modes): Kiln runs
-  on plain memfs. Once Go starts, Kiln shows a sys line: nothing will be
-  saved in this browser.
-- A flush fails (quota, for example): the same sys line, once per visit.
+  on plain memfs. Once Go starts, Kiln shows a statusline message
+  (`ui.StatusMsg`, not a sys line, since nothing may be open at boot):
+  nothing will be saved in this browser.
+- A flush fails (quota, for example): the same statusline message, once per visit.
   The paths stay marked as changed and go out with the next flush.
-- JS tells Go through the bridge: `kiln.start` gets a `storage` argument
-  (`"ok"` or `"off"`), and later failures call `kiln.storageFailed()`.
-  `kiln-web` turns either into the sys line.
+- JS tells Go through the bridge: `kiln.start` gets a boolean `saving`
+  argument, and later failures call `kiln.storageFailed()`. `kiln-web`
+  turns either into the statusline message.
 
 ## 2. One tab owns Kiln: `web/static/tablock.mjs`
 
@@ -150,7 +154,7 @@ a hook is set. There is no "web mode" flag.
   1. Ask JS for a file: `kilnPickFile()` clicks a hidden
      `<input type="file" accept=".zip">` and resolves with the bytes, or
      with nothing if the user cancels.
-  2. Check the zip: only `config/…` and `known_hosts` entries, no `..`,
+  2. Check the zip, reading every entry before writing any: only `config/…` and `known_hosts` entries, no `..`,
      no absolute paths, at most 10 MB unpacked. Anything else rejects the
      whole zip, with a catalog error on the status line.
   3. Write each file over the existing one. Nothing is deleted: a world
