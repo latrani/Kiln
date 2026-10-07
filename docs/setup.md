@@ -53,7 +53,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
    autoconnect = true
    ```
 
-   Worlds added from Kiln don't get a `login` line; to log in automatically, set `login` in the world file or in `config.toml`'s `[defaults]`.
+   Worlds added from Kiln don't get a `login` line; they use the default, `connect {name} {password}`. Set `login` in the world file if yours logs in differently, or `login = ""` to log in yourself.
 
    A character's id (used for its log folder, saved password and `kiln passwd`) is its name. If the name has anything besides letters, digits, `_` and `-`, give it one with `id = "…"`.
 

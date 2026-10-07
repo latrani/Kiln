@@ -31,6 +31,7 @@
 [defaults]
 max_line_bytes = 2047   # Fuzzball's limit; override per world if yours differs
 newline_mode = "batch"  # "batch": each line is its own command; "flatten": join with spaces
-reconnect = true        # false: stay disconnected after a drop until /connect
+login = "connect {name} {password}"  # how Kiln logs in; "" to log in yourself
+reconnect = false       # true: retry with backoff after a drop (some MUCKs ask clients not to)
 notify = "first"        # "all", "first" (first line while away, then pages), "attention" or "none"
 local_echo = false      # true: show what you send in the scrollback (it is always logged)

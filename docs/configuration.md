@@ -26,12 +26,12 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `appearance` | config.toml | `"auto"` (default: ask the terminal), `"dark"` or `"light"`: which palette themes use, see [Themes](themes.md) |
 | `host`, `port`, `tls` | world | Where to connect |
 | `tls_trust` | world | `"pin"` (default) or `"ca"`, see below |
-| `login` | world, character | Login template; `{name}` and `{password}` are filled in |
+| `login` | any level | Login template; `{name}` and `{password}` are filled in (default `"connect {name} {password}"`; `""` means you log in yourself) |
 | `use` | world | Rule packs to apply |
 | `max_line_bytes` | any level | Longest line the server accepts (Fuzzball: 2047) |
 | `newline_mode` | any level | `"batch"`: each line is its own command; `"flatten"`: lines are joined with spaces |
 | `autoconnect` | any level | Connect when Kiln starts |
-| `reconnect` | any level | Retry with backoff after a drop or failed connect (default `true`); `false` stays disconnected until `/connect` |
+| `reconnect` | any level | Retry with backoff after a drop or failed connect (default `false`: stay disconnected until `/connect`; some MUCKs ask clients not to reconnect on their own) |
 | `notify` | any level | What notifies while you're away: `"all"`, `"first"` (default: the first line, then attention lines), `"attention"` or `"none"` |
 | `local_echo` | any level | Show what you send in the scrollback and the log view (default `false`; the server usually echoes poses, and sent lines are always logged) |
 | `name`, `aliases` | character | Your in-game name and the others that count as you |
