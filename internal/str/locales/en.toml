@@ -366,3 +366,10 @@ flag_allow = "allowlist file (TOML)"
 flag_dev = "also serve the web page and a preset config dir, for local testing"
 flag_web = "with -dev: the built page (web/static)"
 flag_preset = "with -dev: the config dir to preload in the browser"
+
+# The web build. Entries here also go to web/static/strings.json for the
+# page, which fills {name} placeholders only: no plurals, verbs or braces.
+[web]
+other_tab = "Kiln's open in another tab."
+use_here = "Use here"
+not_saving = "this browser isn't saving Kiln's files · they last until the tab closes"

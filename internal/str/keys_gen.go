@@ -1084,3 +1084,12 @@ func ViewStoreKeychain() string { return get("view.store_keychain", nil) }
 func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
+
+// WebNotSaving is web.not_saving: "this browser isn't saving Kiln's files · they last until the tab closes"
+func WebNotSaving() string { return get("web.not_saving", nil) }
+
+// WebOtherTab is web.other_tab: "Kiln's open in another tab."
+func WebOtherTab() string { return get("web.other_tab", nil) }
+
+// WebUseHere is web.use_here: "Use here"
+func WebUseHere() string { return get("web.use_here", nil) }
