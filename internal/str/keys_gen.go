@@ -14,7 +14,7 @@ func BackupNotZip() string { return get("backup.not_zip", nil) }
 // BackupStrayFile is backup.stray_file: "not a Kiln backup: it has {name:%q}"
 func BackupStrayFile(name any) string { return get("backup.stray_file", map[string]any{"name": name}) }
 
-// BackupTooBig is backup.too_big: "backup unpacks to more than {mb} MB"
+// BackupTooBig is backup.too_big: "didn't load backup because it unpacks to more than {mb} MB"
 func BackupTooBig(mb any) string { return get("backup.too_big", map[string]any{"mb": mb}) }
 
 // BrowseCopied is browse.copied, by count:
@@ -1124,7 +1124,7 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
-// WebNotSaving is web.not_saving: "this browser isn't saving Kiln's files · they last until the tab closes"
+// WebNotSaving is web.not_saving: "this session isn't saving any changes"
 func WebNotSaving() string { return get("web.not_saving", nil) }
 
 // WebOtherTab is web.other_tab: "Kiln's open in another tab."

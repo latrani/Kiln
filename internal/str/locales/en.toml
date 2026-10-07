@@ -378,12 +378,12 @@ flag_preset = "with -dev: the config dir to preload in the browser"
 [web]
 other_tab = "Kiln's open in another tab."
 use_here = "Use here"
-not_saving = "this browser isn't saving Kiln's files · they last until the tab closes"
+not_saving = "this session isn't saving any changes"
 
 # Back up and Restore in the web build.
 [backup]
 not_zip = "not a zip file"
 stray_file = "not a Kiln backup: it has {name:%q}"
-too_big = "backup unpacks to more than {mb} MB"
+too_big = "didn't load backup because it unpacks to more than {mb} MB"
 empty = "no Kiln files in this backup"
 file_name = "kiln-backup-{date}.zip"
