@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createFS } from "./memfs.mjs";
-import { createPersist } from "./persist.mjs";
+import { createPersist, idbStore } from "./persist.mjs";
 
 const enc = (s) => new TextEncoder().encode(s);
 const dec = (b) => new TextDecoder().decode(b);
@@ -135,4 +135,38 @@ test("direct flush after failed timer flush saves failed paths", async () => {
   await p.flush();
   assert.equal(store.recs.size, 1);
   assert.equal(dec(store.recs.get("/home/kiln/a").bytes), "1");
+});
+
+// fakeIDB is an IDBFactory whose open request is driven by the test.
+function fakeIDB() {
+  const r = {};
+  return { req: r, open: () => r };
+}
+
+test("idbStore.open rejects when the open never settles", async () => {
+  let fire;
+  const idb = fakeIDB();
+  const store = idbStore(idb, { setTimer: (fn) => { fire = fn; return 1; }, clearTimer() {} });
+  const opened = store.open();
+  fire();
+  await assert.rejects(opened, /timed out/);
+});
+
+test("idbStore.open rejects when the open is blocked", async () => {
+  const idb = fakeIDB();
+  const store = idbStore(idb, { setTimer: () => 1, clearTimer() {} });
+  const opened = store.open();
+  idb.req.onblocked();
+  await assert.rejects(opened, /blocked/);
+});
+
+test("idbStore.open succeeds when the open does, and stops the timer", async () => {
+  let cleared = 0;
+  const idb = fakeIDB();
+  const store = idbStore(idb, { setTimer: () => 7, clearTimer: (t) => { if (t === 7) cleared++; } });
+  const opened = store.open();
+  idb.req.result = {};
+  idb.req.onsuccess();
+  await opened;
+  assert.equal(cleared, 1);
 });

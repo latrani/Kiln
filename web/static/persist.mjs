@@ -9,14 +9,28 @@ const STORE = "files";
 
 // idbStore adapts an IDBFactory (globalThis.indexedDB) to the three calls
 // createPersist needs.
-export function idbStore(idb) {
+export function idbStore(idb, { setTimer = setTimeout, clearTimer = clearTimeout, openTimeout = 5000 } = {}) {
   const req = (r) => new Promise((ok, fail) => { r.onsuccess = () => ok(r.result); r.onerror = () => fail(r.error); });
   let db;
   return {
+    // open rejects if the browser neither opens nor fails within
+    // openTimeout (a blocked upgrade can hang forever).
     async open() {
       const r = idb.open(DB, 1);
       r.onupgradeneeded = () => r.result.createObjectStore(STORE);
-      db = await req(r);
+      let timer;
+      try {
+        db = await Promise.race([
+          new Promise((ok, fail) => {
+            r.onsuccess = () => ok(r.result);
+            r.onerror = () => fail(r.error);
+            r.onblocked = () => fail(new Error("indexedDB open blocked"));
+          }),
+          new Promise((_, fail) => { timer = setTimer(() => fail(new Error("indexedDB open timed out")), openTimeout); }),
+        ]);
+      } finally {
+        clearTimer(timer);
+      }
     },
     async all() {
       const s = db.transaction(STORE, "readonly").objectStore(STORE);
