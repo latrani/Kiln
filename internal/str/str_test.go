@@ -28,6 +28,17 @@ func TestGeneratedIsFresh(t *testing.T) {
 	if !bytes.Equal(got, want) {
 		t.Error("keys_gen.go is stale: run go generate ./internal/str")
 	}
+	gotJS, err := os.ReadFile("../../web/static/strings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantJS, err := catalog.WebJSON(en)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(gotJS, wantJS) {
+		t.Error("web/static/strings.json is stale: run go generate ./internal/str")
+	}
 }
 
 // TestTranslationsMatchEnglish checks each translation against en.toml: no

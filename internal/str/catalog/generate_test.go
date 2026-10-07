@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -22,13 +23,17 @@ b = "x"
 	if len(m) != 1 || m["a"] != "hello {name}" {
 		t.Errorf("WebJSON = %v", m)
 	}
-	for _, bad := range []string{
-		"[web]\na = { one = \"1\", other = \"{n}\" }",
-		"[web]\na = \"{x:%q}\"",
-		"[web]\na = \"{{literal}}\"",
+	// Each must parse, so the error is WebJSON's own rejection.
+	for bad, want := range map[string]string{
+		"[web]\na = { one = \"1\", other = \"{n}\" }": "plural",
+		"[web]\na = \"{x:%q}\"":                       "fmt verbs",
+		"[web]\na = \"{{literal}}\"":                  "braces",
 	} {
-		if _, err := WebJSON([]byte(bad)); err == nil {
-			t.Errorf("WebJSON(%q): no error", bad)
+		if _, err := Parse([]byte(bad)); err != nil {
+			t.Errorf("Parse(%q): %v", bad, err)
+		}
+		if _, err := WebJSON([]byte(bad)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("WebJSON(%q) = %v, want the %s error", bad, err, want)
 		}
 	}
 }
