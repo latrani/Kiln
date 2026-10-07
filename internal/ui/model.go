@@ -47,6 +47,9 @@ type Deps struct {
 	DeletePassword func(store, world, char string) error           // nil: passwords can't be forgotten
 	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
+	SaveFile       func(name string, data []byte) error            // offers a file to download (web); nil: browse save writes under export_dir
+	Backup         func() (name string, err error)                 // downloads a backup of config and pins (web); nil: no Back up
+	Restore        func() (n int, err error)                       // asks for a backup and writes its n files back; 0, nil when cancelled; nil: no Restore
 	Tmux           bool                                            // inside tmux: wrap notifications and clipboard writes for passthrough
 	Remote         bool                                            // over ssh: links can't open on your screen, so a click copies them
 	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
@@ -589,6 +592,25 @@ const resizeDebounce = 200 * time.Millisecond
 // message's generation, and only the latest generation reports.
 type resizeMsg int
 
+// StatusMsg puts Text on the statusline (as an error when Err is set):
+// how a front end, like the web build, tells the user something.
+type StatusMsg struct {
+	Text string
+	Err  bool
+}
+
+// backupDoneMsg is what the Backup hook returned.
+type backupDoneMsg struct {
+	name string
+	err  error
+}
+
+// restoreDoneMsg is what the Restore hook returned.
+type restoreDoneMsg struct {
+	n   int
+	err error
+}
+
 // paneSize is the right pane's size, where server text is shown: what
 // NAWS reports. It is 0×0 before the first WindowSizeMsg.
 func (m *Model) paneSize() (w, h int) {
@@ -645,6 +667,21 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case resizeMsg:
 		if int(msg) == m.resizeGen { // the drag has settled
 			m.reportSize()
+		}
+	case StatusMsg:
+		m.setStatus(msg.Err, msg.Text)
+	case backupDoneMsg:
+		if msg.err != nil {
+			m.setStatus(true, str.StatusBackupFailed(msg.err))
+		} else {
+			m.setStatus(false, str.StatusDownloaded(msg.name))
+		}
+	case restoreDoneMsg:
+		switch {
+		case msg.err != nil:
+			m.setStatus(true, str.StatusRestoreFailed(msg.err))
+		case msg.n > 0 && m.reloadNow(): // reloadNow says why it didn't
+			m.setStatus(false, str.StatusRestored(msg.n))
 		}
 	case tickMsg:
 		return m, tick(time.Time(msg))
@@ -1178,12 +1215,16 @@ func isLogErr(err error) bool {
 // that take free text (/highlight) can keep its spacing.
 func (m *Model) command(cs *charState, text string) tea.Cmd {
 	args := strings.Fields(text)
+	if (args[0] == "/backup" && m.d.Backup == nil) || (args[0] == "/restore" && m.d.Restore == nil) {
+		m.setStatus(true, str.StatusUnknownCommand(args[0])) // web-only, so unknown here
+		return nil
+	}
 	if args[0] == "/away" {
 		m.awayNow = true
 		m.setStatus(false, str.StatusAway())
 		return nil
 	}
-	if cs == nil && args[0] != "/quit" && args[0] != "/open" {
+	if cs == nil && args[0] != "/quit" && args[0] != "/open" && args[0] != "/backup" && args[0] != "/restore" {
 		m.setStatus(true, str.StatusNeedsCharacter(args[0]))
 		return nil
 	}
@@ -1231,10 +1272,27 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		m.setStatus(false, str.StatusHighlightAdded(text))
 	case "/notify":
 		m.notifyCommand(cs, args[1:])
+	case "/backup":
+		return m.backupCmd()
+	case "/restore":
+		return m.restoreCmd()
 	default:
 		m.setStatus(true, str.StatusUnknownCommand(args[0]))
 	}
 	return nil
+}
+
+// backupCmd runs the Backup hook off the UI goroutine.
+func (m *Model) backupCmd() tea.Cmd {
+	backup := m.d.Backup
+	return func() tea.Msg { name, err := backup(); return backupDoneMsg{name, err} }
+}
+
+// restoreCmd runs the Restore hook, which waits for the user to pick a
+// file, off the UI goroutine.
+func (m *Model) restoreCmd() tea.Cmd {
+	restore := m.d.Restore
+	return func() tea.Msg { n, err := restore(); return restoreDoneMsg{n, err} }
 }
 
 // openBrowse opens browse mode for cs.
@@ -1326,6 +1384,12 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.panel != nil {
 			cs.browse.panelClick(msg.X, msg.Y, m.height)
 			return nil
+		}
+		if f := m.footerH(); f > 0 && msg.Y >= m.height-f {
+			if msg.Y == m.height-f {
+				return m.backupCmd()
+			}
+			return m.restoreCmd()
 		}
 		sv := m.sidebarView()
 		r, hint := sv.at(msg.Y)

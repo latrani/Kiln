@@ -216,6 +216,18 @@ func (sv sideView) at(y int) (*sidebarRow, int) {
 	return nil, 0
 }
 
+// footerH is how many rows the web build's Back up and Restore take at the
+// bottom of the sidebar: none on desktop, in the picker, or on a short screen.
+func (m *Model) footerH() int {
+	if m.d.Backup == nil || m.d.Restore == nil || m.listing() || m.height < 8 {
+		return 0
+	}
+	return 2
+}
+
+// footerLabels are the footer's rows, top to bottom.
+var footerLabels = []string{str.SidebarBackUp(), str.SidebarRestore()}
+
 // sidebarView lays the sidebar out for the screen height. It scrolls the
 // active character into view when it changes, and otherwise keeps the
 // position the mouse wheel left.
@@ -225,7 +237,7 @@ func (m *Model) sidebarView() sideView {
 		rows, focus = m.pickerRows(), m.picker.sel
 	}
 	sv := sideView{rows: rows}
-	h := max(1, m.height)
+	h := max(1, m.height-m.footerH())
 	total := len(sv.rows)
 	if total <= h {
 		m.sideTop = 0

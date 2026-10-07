@@ -211,6 +211,14 @@ func TestGoldenMain(t *testing.T) {
 	assertGolden(t, "main", h.drawn())
 }
 
+func TestGoldenWebSidebar(t *testing.T) {
+	h, _ := webHarness(t)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.advance(time.Minute)
+	assertGolden(t, "web-sidebar", h.drawn())
+}
+
 func TestGoldenPicker(t *testing.T) {
 	h := goldenHarness(t)
 	h.show("Rook says, \"Evening, Kit.\"") // bold (self), so the backdrop shows
