@@ -105,3 +105,23 @@ func TestStatusMsg(t *testing.T) {
 		t.Errorf("status = %q, err %v", h.m.status, h.m.statusErr)
 	}
 }
+
+func TestBrowseSaveDownloads(t *testing.T) {
+	h, c := webHarness(t)
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.keys("up", "m")
+	h.keys("up", "up", "up", "up", "m")
+	h.keys("e", "h")
+	if v := h.br().pin.Value(); strings.Contains(v, "/") {
+		t.Errorf("web filename prompt has a folder: %q", v)
+	}
+	h.br().pin.SetValue("~/scenes/x.txt")
+	h.key("enter")
+	if _, ok := c.saved["x.txt"]; !ok || len(c.saved) != 1 {
+		t.Errorf("saved = %v", c.saved)
+	}
+	if !strings.Contains(h.screen(), str.StatusDownloaded("x.txt")) {
+		t.Errorf("status missing:\n%s", h.screen())
+	}
+}

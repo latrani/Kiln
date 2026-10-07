@@ -1305,6 +1305,7 @@ func (m *Model) openBrowse(cs *charState) {
 	l, ok := m.logLayout(cs.ch)
 	cs.browse = newBrowse(cs, l, ok)
 	cs.browse.copy = m.copyCmd
+	cs.browse.saveFile = m.d.SaveFile
 	cs.browse.setExport(m.cfg)
 	m.status = ""
 }

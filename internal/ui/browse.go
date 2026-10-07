@@ -63,7 +63,8 @@ type browse struct {
 	find         string
 	prompt       promptKind
 	pin          *Input
-	copy         func(text string) tea.Cmd // the model's clipboard write; nil: plain OSC 52
+	copy         func(text string) tea.Cmd            // the model's clipboard write; nil: plain OSC 52
+	saveFile     func(name string, data []byte) error // Deps.SaveFile; set, saving downloads instead
 	format       string
 	status       string
 	statusErr    bool
@@ -606,11 +607,27 @@ func (b *browse) title() string {
 }
 
 // save writes the export to path, refusing to overwrite. "~/" is
-// expanded and a relative path is placed in the export directory.
+// expanded and a relative path is placed in the export directory. With
+// saveFile set (the web build) it offers a download named after path's
+// last element instead.
 func (b *browse) save(path string) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		b.setStatus(true, str.BrowseNoFileName())
+		return
+	}
+	if b.saveFile != nil {
+		sel := b.selection()
+		if len(sel) == 0 {
+			b.setStatus(true, str.BrowseNothingToExport())
+			return
+		}
+		name := filepath.Base(path)
+		if err := b.saveFile(name, []byte(scene.Render(b.format, sel, b.title()))); err != nil {
+			b.setStatus(true, err.Error())
+			return
+		}
+		b.setStatus(false, str.StatusDownloaded(name))
 		return
 	}
 	path, err := config.ExpandHome(path)
@@ -791,7 +808,11 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 			b.format = f
 			b.prompt = promptFilename
-			b.pin.SetValue(scene.FileName(b.exportDir, b.exportName, sel[0].Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
+			dir := b.exportDir
+			if b.saveFile != nil {
+				dir = "" // a download: just a name
+			}
+			b.pin.SetValue(scene.FileName(dir, b.exportName, sel[0].Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
 		}
 		return nil
 	}
