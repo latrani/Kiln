@@ -151,7 +151,7 @@ test("handOff gives up on a store that keeps failing", async () => {
   store.apply = async () => { store.applies++; throw new Error("quota"); };
   write(fs, "/home/kiln/a", "1");
   await p.handOff();
-  assert.ok(store.applies >= 1 && store.applies <= 3, `applies = ${store.applies}`);
+  assert.equal(store.applies, 3); // tries three times, then gives up
   assert.equal(errors.length, 1);
 });
 
