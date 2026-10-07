@@ -43,9 +43,10 @@ const skipped = (p) => p === "/tmp" || p.startsWith("/tmp/");
 // first failed flush only; failed paths stay changed and go out next time.
 export function createPersist({ store, fs, onError = () => {}, delay = 500, setTimer = setTimeout, clearTimer = clearTimeout }) {
   const dirty = new Set();
-  let timer = null, chain = Promise.resolve(), failed = false, stopped = false;
+  let timer = null, chain = Promise.resolve(), failed = false, stopped = false, queued = false;
 
   async function run() {
+    queued = false;
     if (stopped || dirty.size === 0) return;
     const paths = [...dirty];
     dirty.clear();
@@ -76,9 +77,10 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
     },
     // flush saves now; flushes run one at a time.
     flush() {
-      if (timer !== null) {
-        clearTimer(timer);
-        timer = null;
+      clearTimer(timer);
+      timer = null;
+      if (!queued) {
+        queued = true;
         chain = chain.then(run);
       }
       return chain;

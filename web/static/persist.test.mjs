@@ -124,3 +124,15 @@ test("after stop nothing is saved", async () => {
   await p.flush();
   assert.equal(store.applies, 0);
 });
+
+test("direct flush after failed timer flush saves failed paths", async () => {
+  const { store, t, fs, p } = setup();
+  store.fail = true;
+  write(fs, "/home/kiln/a", "1");
+  await t.fire(p);
+  assert.equal(store.recs.size, 0); // failed flush saves nothing
+  // no new changes, no timer armed, but direct flush() should save
+  await p.flush();
+  assert.equal(store.recs.size, 1);
+  assert.equal(dec(store.recs.get("/home/kiln/a").bytes), "1");
+});
