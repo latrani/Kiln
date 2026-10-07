@@ -9,10 +9,18 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; }
   #term { position: fixed; inset: 0; padding: 4px; }
+  #lock { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 1em; color: #ccc; font: 16px ui-monospace, Menlo, monospace; }
+  #lock[hidden] { display: none; }
+  #lock button { font: inherit; padding: .4em 1.2em; }
 </style>
 </head>
 <body>
 <div id="term"></div>
+<div id="lock" hidden>
+  <p id="lock-text"></p>
+  <button id="lock-use"></button>
+</div>
 <noscript>Kiln needs JavaScript.</noscript>
 <script type="module" src="kiln.js"></script>
 </body>
