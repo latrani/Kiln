@@ -8,7 +8,9 @@
 // Go's fsCall allows. Paths resolve lexically; the cwd is "/".
 //
 // memfs reports changed paths through onChange (every mutation) and onSync
-// (fsync) so the page can save them; persist.mjs does that. mkdirAll,
+// (fsync) so the page can save them; persist.mjs does that. An fd reports
+// under its file's current path: it follows renames, and reports nothing
+// once its file is unlinked or renamed over. mkdirAll,
 // writeFileAll and put are for the page and stay silent.
 
 const S_IFDIR = 0o040000;
@@ -80,6 +82,13 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
     if (d.kind !== "dir") throw fail("ENOTDIR", call, path);
     return [d, ps[ps.length - 1]];
   }
+  // orphan stops fds on n from reporting: n is gone from the tree (unlinked
+  // or renamed over), so its old path now names another file or nothing.
+  function orphan(n) {
+    for (const f of fds.values()) if (f.node === n) f.path = null;
+  }
+  // touched reports a change made through f, unless its file is orphaned.
+  const touched = (f) => { if (f.path !== null) onChange(f.path); };
   function open(fd, call) {
     const f = fds.get(fd);
     if (!f) throw fail("EBADF", call);
@@ -132,7 +141,7 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
 
     open(path, flags, perm, cb) {
       run(cb, () => {
-        let n, created = false;
+        let n, changed = false;
         try {
           n = lookup(path, "open");
           if ((flags & constants.O_CREAT) && (flags & constants.O_EXCL)) throw fail("EEXIST", "open", path);
@@ -140,21 +149,21 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
           if (e.code !== "ENOENT" || !(flags & constants.O_CREAT)) throw e;
           const [d, name] = parentOf(path, "open");
           n = file(perm);
-          created = true;
+          changed = true;
           d.entries.set(name, n);
           d.mtimeMs = now();
         }
         if (n.kind === "dir" && (flags & 3) !== constants.O_RDONLY) throw fail("EISDIR", "open", path);
         if ((flags & constants.O_DIRECTORY) && n.kind !== "dir") throw fail("ENOTDIR", "open", path);
-        if ((flags & constants.O_TRUNC) && n.kind === "file") { resize(n, 0, "open"); created = true; }
+        if ((flags & constants.O_TRUNC) && n.kind === "file") { resize(n, 0, "open"); changed = true; }
         const fd = nextFd++;
         fds.set(fd, { node: n, pos: 0, append: !!(flags & constants.O_APPEND), path: norm(path) });
-        if (created) onChange(norm(path));
+        if (changed) onChange(norm(path));
         return fd;
       });
     },
     close(fd, cb) { run(cb, () => { if (!fds.delete(fd)) throw fail("EBADF", "close"); }); },
-    fsync(fd, cb) { run(cb, () => { onSync(open(fd, "fsync").path); }); },
+    fsync(fd, cb) { run(cb, () => { const f = open(fd, "fsync"); if (f.path !== null) onSync(f.path); }); },
 
     read(fd, buf, offset, length, position, cb) {
       run(cb, () => {
@@ -176,12 +185,12 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
         if (pos + length > n.size) resize(n, pos + length, "write");
         n.data.set(buf.subarray(offset, offset + length), pos);
         n.mtimeMs = now();
-        onChange(f.path);
+        touched(f);
         if (position == null) f.pos = pos + length;
         return length;
       });
     },
-    ftruncate(fd, len, cb) { run(cb, () => { const f = open(fd, "ftruncate"); resize(f.node, len, "ftruncate"); onChange(f.path); }); },
+    ftruncate(fd, len, cb) { run(cb, () => { const f = open(fd, "ftruncate"); resize(f.node, len, "ftruncate"); touched(f); }); },
     truncate(path, len, cb) { run(cb, () => { resize(lookup(path, "truncate"), len, "truncate"); onChange(norm(path)); }); },
 
     fstat(fd, cb) { run(cb, () => stat(open(fd, "fstat").node)); },
@@ -218,11 +227,12 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
         }
         const from_ = norm(from), to_ = norm(to);
         const moved = under(n, from_);
+        if (old && old !== n) orphan(old);
         fdir.entries.delete(fname);
         td.entries.set(tname, n);
         fdir.mtimeMs = td.mtimeMs = now();
         for (const f of fds.values()) {
-          if (f.path === from_ || f.path.startsWith(from_ + "/")) f.path = to_ + f.path.slice(from_.length);
+          if (f.path !== null && (f.path === from_ || f.path.startsWith(from_ + "/"))) f.path = to_ + f.path.slice(from_.length);
         }
         for (const p of moved) { onChange(p); onChange(to_ + p.slice(from_.length)); }
       });
@@ -234,6 +244,7 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
         if (!n) throw fail("ENOENT", "unlink", path);
         if (n.kind === "dir") throw fail("EISDIR", "unlink", path);
         d.entries.delete(name);
+        orphan(n);
         onChange(norm(path));
       });
     },
@@ -245,12 +256,13 @@ export function createFS({ stdout = lineLogger(console.log), stderr = lineLogger
         if (n.kind !== "dir") throw fail("ENOTDIR", "rmdir", path);
         if (n.entries.size) throw fail("ENOTEMPTY", "rmdir", path);
         d.entries.delete(name);
+        orphan(n);
         onChange(norm(path));
       });
     },
 
     chmod(path, mode, cb) { run(cb, () => { const n = lookup(path, "chmod"); n.mode = (n.mode & ~0o7777) | (mode & 0o7777); onChange(norm(path)); }); },
-    fchmod(fd, mode, cb) { run(cb, () => { const f = open(fd, "fchmod"); const n = f.node; n.mode = (n.mode & ~0o7777) | (mode & 0o7777); onChange(f.path); }); },
+    fchmod(fd, mode, cb) { run(cb, () => { const f = open(fd, "fchmod"); const n = f.node; n.mode = (n.mode & ~0o7777) | (mode & 0o7777); touched(f); }); },
     utimes(path, atime, mtime, cb) { run(cb, () => { lookup(path, "utimes").mtimeMs = mtime * 1000; onChange(norm(path)); }); },
     chown(path, uid, gid, cb) { run(cb, () => { lookup(path, "chown"); }); },
     fchown(fd, uid, gid, cb) { run(cb, () => { open(fd, "fchown"); }); },

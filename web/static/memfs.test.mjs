@@ -124,8 +124,19 @@ test("changing calls report their path", () => {
   call(fs, "utimes", "/d/f", 1, 2);
   call(fs, "unlink", "/d/f");
   call(fs, "rmdir", "/d/sub");
-  assert.deepEqual([...new Set(changed)], ["/d/sub", "/d/f"]);
-  assert.ok(changed.filter((p) => p === "/d/f").length >= 4); // create, write, chmod, utimes, unlink
+  // mkdir; create, write, chmod, utimes, unlink; rmdir
+  assert.deepEqual(changed, ["/d/sub", "/d/f", "/d/f", "/d/f", "/d/f", "/d/f", "/d/sub"]);
+});
+
+test("truncate by path resizes and reports", () => {
+  const { fs, changed } = watched();
+  writeFile(fs, "/d/../f", "abcdef");
+  changed.length = 0;
+  call(fs, "truncate", "/f", 2);
+  assert.equal(readFile(fs, "/f"), "ab");
+  call(fs, "truncate", "/./f", 4);
+  assert.deepEqual([...enc(readFile(fs, "/f"))], [0x61, 0x62, 0, 0]);
+  assert.deepEqual(changed, ["/f", "/f"]);
 });
 
 test("an fd reports the path it was opened with, normalized", () => {
@@ -158,6 +169,27 @@ test("rename reports both paths, everything under a dir, and moves open fds", ()
   changed.length = 0;
   call(fs, "write", fd, enc("y"), 0, 1, null);
   assert.deepEqual(changed, ["/new/sub/f"]);
+});
+
+test("an fd on a file that's renamed over, or unlinked, reports nothing", () => {
+  const { fs, changed, synced } = watched();
+  writeFile(fs, "/f", "old");
+  const fd = call(fs, "open", "/f", C.O_WRONLY, 0);
+  writeFile(fs, "/f.tmp", "new");
+  call(fs, "rename", "/f.tmp", "/f");
+  writeFile(fs, "/g", "g");
+  const gd = call(fs, "open", "/g", C.O_WRONLY, 0);
+  call(fs, "unlink", "/g");
+  changed.length = 0;
+  for (const d of [fd, gd]) {
+    call(fs, "write", d, enc("x"), 0, 1, null);
+    call(fs, "ftruncate", d, 0);
+    call(fs, "fchmod", d, 0o600);
+    call(fs, "fsync", d);
+  }
+  assert.deepEqual(changed, []);
+  assert.deepEqual(synced, []);
+  assert.equal(readFile(fs, "/f"), "new");
 });
 
 test("atomic write: temp file renamed over the real one", () => {
