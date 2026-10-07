@@ -49,10 +49,12 @@ export function createTabLock({ locks, openChannel, onLost, setTimer = setTimeou
           ac.abort();
           locks.request(NAME, { steal: true }, hold(() => ok())).catch(lost);
         }, stealAfter);
+        let got = false;
         locks.request(NAME, { signal: ac.signal }, (lock) => {
+          got = true;
           clearTimer(timer);
           return hold(() => ok())(lock);
-        }).catch(() => {}); // aborted: the steal took over
+        }).catch((e) => { if (got) lost(e); }); // before the grant: our own steal's abort
         openChannel().postMessage("release");
       });
     },

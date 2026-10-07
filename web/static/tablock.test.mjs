@@ -118,3 +118,21 @@ test("two release messages flush once", async () => {
   assert.equal(flushed, 1);
   assert.equal(reloaded, 1);
 });
+
+test("a tab that got Kiln through use here hears it lost when someone steals it", async () => {
+  const locks = fakeLocks(), open = bus();
+  let lost = false;
+  const a = createTabLock({ locks, openChannel: open, onLost() {} });
+  const b = createTabLock({ locks, openChannel: open, onLost: () => { lost = true; } });
+  await a.tryTake();
+  a.serve(async () => {}, () => {});
+  await b.takeOver(); // granted the normal way, no steal
+  const t = manualTimer();
+  const c = createTabLock({ locks, openChannel: open, onLost() {}, setTimer: t.setTimer, clearTimer: t.clearTimer });
+  const took = c.takeOver();
+  await tick();
+  t.fn();
+  await took;
+  await tick();
+  assert.equal(lost, true);
+});
