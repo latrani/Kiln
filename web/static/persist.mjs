@@ -2,7 +2,7 @@
 // loads them back before Go starts. memfs says which paths changed; a
 // flush writes each one's current state (or deletes its record if it's
 // gone) in one transaction. Saving is best effort: browsers can clear
-// IndexedDB, so world defs also have Back up (see kiln-web).
+// IndexedDB, so world defs also have Back up (see web/cmd/kiln-web).
 
 const DB = "kiln";
 const STORE = "files";
@@ -14,7 +14,8 @@ export function idbStore(idb, { setTimer = setTimeout, clearTimer = clearTimeout
   let db;
   return {
     // open rejects if the browser neither opens nor fails within
-    // openTimeout (a blocked upgrade can hang forever).
+    // openTimeout (a blocked upgrade can hang forever). A db that opens
+    // after open gave up is closed, so it can't block a later upgrade.
     async open() {
       const r = idb.open(DB, 1);
       r.onupgradeneeded = () => r.result.createObjectStore(STORE);
@@ -28,6 +29,9 @@ export function idbStore(idb, { setTimer = setTimeout, clearTimer = clearTimeout
           }),
           new Promise((_, fail) => { timer = setTimer(() => fail(new Error("indexedDB open timed out")), openTimeout); }),
         ]);
+      } catch (e) {
+        r.onsuccess = () => r.result.close();
+        throw e;
       } finally {
         clearTimer(timer);
       }
@@ -50,7 +54,6 @@ export function idbStore(idb, { setTimer = setTimeout, clearTimer = clearTimeout
   };
 }
 
-const depth = (p) => p.split("/").length;
 const skipped = (p) => p === "/tmp" || p.startsWith("/tmp/");
 
 // createPersist saves fs's changed paths to store. onError hears about the
@@ -78,9 +81,10 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
   }
 
   const persist = {
+    // load puts every record back. Order doesn't matter: put makes a
+    // file's parents, and a dir's record then sets the mode on the dir.
     async load() {
       const recs = await store.all();
-      recs.sort(([a], [b]) => depth(a) - depth(b));
       for (const [p, rec] of recs) fs.put(p, rec);
     },
     changed(path) {
@@ -98,6 +102,16 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
         chain = chain.then(run);
       }
       return chain;
+    },
+    // handOff saves everything, including changes that land while it
+    // saves, then stops: this tab is giving Kiln to another one. It tries a
+    // few times, so a store that keeps failing can't hold the handoff up.
+    async handOff() {
+      for (let i = 0; i < 3; i++) {
+        await persist.flush(); // waits out a flush already running, too
+        if (dirty.size === 0) break;
+      }
+      persist.stop();
     },
     // stop ends saving for good: another tab owns Kiln now.
     stop() { stopped = true; clearTimer(timer); },

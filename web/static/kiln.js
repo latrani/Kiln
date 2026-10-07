@@ -14,8 +14,15 @@ import { createTabLock } from "./tablock.mjs";
 const HOME = "/home/kiln";
 const CONFIG = `${HOME}/.config/kiln`;
 
-const strings = await (await fetch("strings.json")).json();
-const t = (key, args = {}) => strings[key].replace(/\{([a-z][a-z0-9_]*)\}/g, (_, n) => String(args[n]));
+// pageStrings fetches the page's own strings (the catalog's [web] table),
+// and returns t, which fills one in. Only the lock screen needs them, so
+// a tab that owns Kiln never fetches them.
+async function pageStrings() {
+  const res = await fetch("strings.json");
+  if (!res.ok) throw new Error(`strings.json: ${res.status}`);
+  const strings = await res.json();
+  return (key, args = {}) => strings[key].replace(/\{([a-z][a-z0-9_]*)\}/g, (_, n) => String(args[n]));
+}
 
 function loadScript(src) {
   return new Promise((ok, fail) => {
@@ -49,6 +56,7 @@ const lock = navigator.locks && createTabLock({
 let persist = null;
 
 if (lock && !(await lock.tryTake())) {
+  const t = await pageStrings();
   const screen = document.getElementById("lock");
   const use = document.getElementById("lock-use");
   document.getElementById("lock-text").textContent = t("other_tab");
@@ -102,7 +110,7 @@ globalThis.process = {
 await seedPreset(fs);
 navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
 addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") persist?.flush(); });
-lock?.serve(async () => { await persist?.flush(); persist?.stop(); }, () => location.reload());
+lock?.serve(async () => { await persist?.handOff(); }, () => location.reload());
 
 globalThis.kilnDownload = (name, bytes) => {
   const url = URL.createObjectURL(new Blob([bytes]));

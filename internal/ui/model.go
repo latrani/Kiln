@@ -95,6 +95,7 @@ type Model struct {
 		char string
 		at   time.Time
 	}
+	backingUp       bool                    // a Back up is running; another is ignored until it's done
 	focused         bool                    // the terminal has focus, as far as we know
 	focusSeen       bool                    // the terminal has sent a focus-in or focus-out, so it reports focus
 	lastHere        time.Time               // latest focus-in or input; see here
@@ -671,6 +672,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StatusMsg:
 		m.setStatus(msg.Err, msg.Text)
 	case backupDoneMsg:
+		m.backingUp = false
 		if msg.err != nil {
 			m.setStatus(true, str.StatusBackupFailed(msg.err))
 		} else {
@@ -1282,8 +1284,13 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 	return nil
 }
 
-// backupCmd runs the Backup hook off the UI goroutine.
+// backupCmd runs the Backup hook off the UI goroutine. While one runs,
+// another does nothing, so a double-click downloads one zip.
 func (m *Model) backupCmd() tea.Cmd {
+	if m.backingUp {
+		return nil
+	}
+	m.backingUp = true
 	backup := m.d.Backup
 	return func() tea.Msg { name, err := backup(); return backupDoneMsg{name, err} }
 }

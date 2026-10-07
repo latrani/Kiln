@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -17,15 +18,21 @@ type webCalls struct {
 	restores   int
 	restoreN   int
 	restoreErr error
+	backupErr  error
 }
 
 // webHarness is a harness with the web build's hooks set.
 func webHarness(t *testing.T) (*harness, *webCalls) {
+	return webHarnessWith(t, map[string]string{"fm": fmWorld})
+}
+
+// webHarnessWith is webHarness with these worlds.
+func webHarnessWith(t *testing.T, worlds map[string]string) (*harness, *webCalls) {
 	t.Setenv("HOME", t.TempDir()) // "~/" paths never reach the real home
-	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h := newHarness(t, worlds)
 	c := &webCalls{saved: map[string]string{}}
 	h.deps.SaveFile = func(name string, data []byte) error { c.saved[name] = string(data); return nil }
-	h.deps.Backup = func() (string, error) { c.backups++; return "kiln-backup.zip", nil }
+	h.deps.Backup = func() (string, error) { c.backups++; return "kiln-backup.zip", c.backupErr }
 	h.deps.Restore = func() (int, error) { c.restores++; return c.restoreN, c.restoreErr }
 	h.m = New(h.deps, h.cfg)
 	h.m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -124,5 +131,155 @@ func TestBrowseSaveDownloads(t *testing.T) {
 	}
 	if !strings.Contains(h.screen(), str.StatusDownloaded("x.txt")) {
 		t.Errorf("status missing:\n%s", h.screen())
+	}
+}
+
+func TestBackupFailed(t *testing.T) {
+	h, c := webHarness(t)
+	c.backupErr = errors.New("no space")
+	h.typeText("/backup")
+	h.run(h.enter())
+	if h.m.status != str.StatusBackupFailed(c.backupErr) || !h.m.statusErr {
+		t.Errorf("status = %q, err %v", h.m.status, h.m.statusErr)
+	}
+}
+
+// /backup and /restore don't need a character.
+func TestBackupCommandsWithNothingOpen(t *testing.T) {
+	h, c := webHarnessWith(t, map[string]string{"sp": spWorld}) // nothing autoconnects
+	c.restoreN = 2
+	h.typeText("/backup")
+	h.run(h.enter())
+	h.typeText("/restore")
+	h.run(h.enter())
+	if c.backups != 1 || c.restores != 1 {
+		t.Errorf("backups = %d, restores = %d; status %q", c.backups, c.restores, h.m.status)
+	}
+}
+
+// A second Back up while one runs is ignored: a double-click would
+// otherwise download two zips.
+func TestBackupIgnoredWhileRunning(t *testing.T) {
+	h, c := webHarness(t)
+	click := func() tea.Cmd {
+		_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: 22, Button: tea.MouseLeft})
+		return cmd
+	}
+	first := click()
+	if again := click(); again != nil {
+		t.Error("second click while backing up returned a command")
+	}
+	h.typeText("/backup")
+	if cmd := h.enter(); cmd != nil {
+		t.Error("/backup while backing up returned a command")
+	}
+	h.run(first)
+	h.run(click())
+	if c.backups != 2 {
+		t.Errorf("backups = %d, want 2", c.backups)
+	}
+}
+
+func TestFooterHiddenOnShortScreen(t *testing.T) {
+	h, c := webHarness(t)
+	h.m.Update(tea.WindowSizeMsg{Width: 80, Height: 7})
+	if f := h.m.footerH(); f != 0 {
+		t.Errorf("footerH at height 7 = %d", f)
+	}
+	if strings.Contains(h.screen(), str.SidebarBackUp()) {
+		t.Errorf("footer on a short screen:\n%s", h.screen())
+	}
+	_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: 6, Button: tea.MouseLeft})
+	h.run(cmd)
+	if c.backups != 0 || c.restores != 0 {
+		t.Errorf("bottom-row click ran backups = %d, restores = %d", c.backups, c.restores)
+	}
+	h.m.Update(tea.WindowSizeMsg{Width: 80, Height: 8})
+	if f := h.m.footerH(); f != 2 {
+		t.Errorf("footerH at height 8 = %d", f)
+	}
+}
+
+// crowdWorld has enough open characters to overflow a short sidebar.
+func crowdWorld(n int) string {
+	s := "host = \"crowd.test\"\nport = 1\n"
+	for i := range n {
+		s += fmt.Sprintf("\n[[characters]]\nid = \"c%d\"\nname = \"C%d\"\nautoconnect = true\n", i, i)
+	}
+	return s
+}
+
+// sideCol is the sidebar column of each screen row, trimmed.
+func sideCol(h *harness) []string {
+	var out []string
+	for _, row := range strings.Split(h.screen(), "\n") {
+		out = append(out, strings.TrimSpace(strings.SplitN(row, "│", 2)[0]))
+	}
+	return out
+}
+
+func TestFooterBelowOverflowHints(t *testing.T) {
+	h, c := webHarnessWith(t, map[string]string{"crowd": crowdWorld(8)})
+	h.m.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
+	side, sv := sideCol(h), h.m.sidebarView()
+	if !sv.below {
+		t.Fatalf("sidebar doesn't overflow:\n%s", h.screen())
+	}
+	if want := str.ViewMoreBelow(len(sv.rows) - sv.top - sv.avail); side[7] != want {
+		t.Errorf("row 7 = %q, want %q:\n%s", side[7], want, h.screen())
+	}
+	if side[8] != str.SidebarBackUp() || side[9] != str.SidebarRestore() {
+		t.Errorf("footer rows = %q / %q", side[8], side[9])
+	}
+	_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: 7, Button: tea.MouseLeft}) // the ▼ hint
+	h.run(cmd)
+	if c.backups != 0 || h.m.sideTop == 0 {
+		t.Errorf("hint click: backups = %d, sideTop = %d", c.backups, h.m.sideTop)
+	}
+	h.m.scrollSidebar(100) // to the end: only the ▲ hint
+	side, sv = sideCol(h), h.m.sidebarView()
+	if want := str.ViewMoreAbove(sv.top); side[0] != want || sv.below {
+		t.Errorf("row 0 = %q, want %q; below %v", side[0], want, sv.below)
+	}
+	if side[7] != str.SidebarOpenConnection() || side[8] != str.SidebarBackUp() || side[9] != str.SidebarRestore() {
+		t.Errorf("bottom rows = %q", side[7:])
+	}
+}
+
+func TestFooterHiddenInPicker(t *testing.T) {
+	h, c := webHarness(t)
+	h.m.openPicker()
+	if !h.m.listing() {
+		t.Fatal("picker didn't open")
+	}
+	if s := h.screen(); strings.Contains(s, str.SidebarBackUp()) || strings.Contains(s, str.SidebarRestore()) {
+		t.Errorf("footer in the picker:\n%s", s)
+	}
+	_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: 23, Button: tea.MouseLeft})
+	if cmd != nil {
+		t.Error("click on the picker's empty bottom row returned a command")
+	}
+	if c.restores != 0 {
+		t.Errorf("restores = %d", c.restores)
+	}
+}
+
+func TestFooterHiddenUnderFilterPanel(t *testing.T) {
+	h, c := webHarness(t)
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	if h.br().panel == nil {
+		t.Fatal("panel didn't open")
+	}
+	if s := h.screen(); strings.Contains(s, str.SidebarBackUp()) || strings.Contains(s, str.SidebarRestore()) {
+		t.Errorf("footer under the panel:\n%s", s)
+	}
+	for _, y := range []int{22, 23} {
+		_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft})
+		h.run(cmd)
+	}
+	if c.backups != 0 || c.restores != 0 {
+		t.Errorf("panel clicks ran backups = %d, restores = %d", c.backups, c.restores)
 	}
 }

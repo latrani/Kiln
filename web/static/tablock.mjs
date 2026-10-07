@@ -6,7 +6,7 @@
 
 const NAME = "kiln";
 
-export function createTabLock({ locks, openChannel, onLost, setTimer = setTimeout, clearTimer = clearTimeout, stealAfter = 3000 }) {
+export function createTabLock({ locks, openChannel, onLost, onError = (e) => console.error(e), setTimer = setTimeout, clearTimer = clearTimeout, stealAfter = 3000 }) {
   let release = null;
   // hold is the lock callback: it reports whether the lock was granted,
   // and keeps it until release() is called.
@@ -28,14 +28,19 @@ export function createTabLock({ locks, openChannel, onLost, setTimer = setTimeou
     },
     // serve answers other tabs' requests: beforeRelease (save everything),
     // then let go of the lock, then afterRelease (reload, which shows this
-    // tab the lock screen).
+    // tab the lock screen). If beforeRelease throws, onError hears it and
+    // the lock is let go anyway: the other tab shouldn't wait for a steal.
     serve(beforeRelease, afterRelease) {
       const ch = openChannel();
       ch.onmessage = async (e) => {
         if (e.data !== "release" || !release) return;
         const r = release;
         release = null; // before awaiting, so a second message does nothing
-        await beforeRelease();
+        try {
+          await beforeRelease();
+        } catch (e) {
+          onError(e);
+        }
         r();
         afterRelease();
       };
@@ -55,7 +60,9 @@ export function createTabLock({ locks, openChannel, onLost, setTimer = setTimeou
           clearTimer(timer);
           return hold(() => ok())(lock);
         }).catch((e) => { if (got) lost(e); }); // before the grant: our own steal's abort
-        openChannel().postMessage("release");
+        const ch = openChannel();
+        ch.postMessage("release");
+        ch.close(); // what's posted is still delivered
       });
     },
   };

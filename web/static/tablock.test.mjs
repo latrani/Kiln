@@ -35,12 +35,17 @@ function fakeLocks() {
 }
 
 // bus is a BroadcastChannel stand-in: a message reaches every other open
-// channel, asynchronously.
+// channel, asynchronously. As with BroadcastChannel, closing a channel
+// after posting doesn't take back what it posted.
 function bus() {
-  const chans = [];
+  const chans = new Set();
   return () => {
-    const ch = { onmessage: null, postMessage(data) { for (const c of chans) if (c !== ch) setTimeout(() => c.onmessage?.({ data })); } };
-    chans.push(ch);
+    const ch = {
+      onmessage: null, closed: false,
+      postMessage(data) { for (const c of chans) if (c !== ch) setTimeout(() => c.onmessage?.({ data })); },
+      close() { ch.closed = true; chans.delete(ch); },
+    };
+    chans.add(ch);
     return ch;
   };
 }
@@ -135,4 +140,30 @@ test("a tab that got Kiln through use here hears it lost when someone steals it"
   await took;
   await tick();
   assert.equal(lost, true);
+});
+
+test("a holder whose save throws still lets go, without the steal", async () => {
+  const locks = fakeLocks(), open = bus();
+  const errors = [];
+  let reloaded = 0;
+  const a = createTabLock({ locks, openChannel: open, onLost() {}, onError: (e) => errors.push(e) });
+  await a.tryTake();
+  a.serve(async () => { throw new Error("quota"); }, () => { reloaded++; });
+  const t = manualTimer();
+  const b = createTabLock({ locks, openChannel: open, onLost() {}, setTimer: t.setTimer, clearTimer: t.clearTimer });
+  await b.takeOver(); // t.fn never runs: no steal
+  assert.equal(reloaded, 1);
+  assert.equal(errors.length, 1);
+});
+
+test("takeOver closes the channel it asks on", async () => {
+  const locks = fakeLocks(), open = bus();
+  const opened = [];
+  const a = createTabLock({ locks, openChannel: open, onLost() {} });
+  await a.tryTake();
+  a.serve(async () => {}, () => {});
+  const b = createTabLock({ locks, openChannel: () => { const ch = open(); opened.push(ch); return ch; }, onLost() {} });
+  await b.takeOver();
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].closed, true);
 });
