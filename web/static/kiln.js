@@ -112,13 +112,25 @@ globalThis.kilnDownload = (name, bytes) => {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-globalThis.kilnPickFile = () => new Promise((ok) => {
+// kilnPickFile resolves with the zip's bytes, null if the user cancels (or a
+// newer pick replaces this one), and rejects if the file can't be read.
+let cancelPick = null;
+globalThis.kilnPickFile = () => new Promise((ok, fail) => {
+  cancelPick?.();
   const input = Object.assign(document.createElement("input"), { type: "file", accept: ".zip" });
   input.hidden = true;
   document.body.append(input);
-  const done = (v) => { input.remove(); ok(v); };
-  input.onchange = async () => { const f = input.files[0]; done(f ? new Uint8Array(await f.arrayBuffer()) : null); };
-  input.oncancel = () => done(null);
+  const done = (settle, v) => { input.remove(); if (cancelPick === replace) cancelPick = null; settle(v); };
+  const replace = () => done(ok, null);
+  cancelPick = replace;
+  input.onchange = async () => {
+    const f = input.files[0];
+    if (!f) return done(ok, null);
+    let bytes;
+    try { bytes = new Uint8Array(await f.arrayBuffer()); } catch (e) { return done(fail, e); }
+    done(ok, bytes);
+  };
+  input.oncancel = () => done(ok, null);
   input.click();
 });
 
