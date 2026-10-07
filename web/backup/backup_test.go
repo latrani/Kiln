@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func write(t *testing.T, path, s string) {
@@ -109,26 +111,15 @@ func TestUnzipTooBig(t *testing.T) {
 	}
 }
 
-// Each file is under the cap and the headers say so, but together the
-// real bytes pass it. Nothing may be written.
+// Each file is under the cap, but together they pass it. The error must
+// be the too-big one, and nothing may be written.
 func TestUnzipTooBigTogetherWritesNothing(t *testing.T) {
 	dst := t.TempDir()
 	half := string(bytes.Repeat([]byte("a"), MaxUnpacked/2+1))
 	data := zipOf(t, map[string]string{"config/a": half, "config/b": half})
-	// Make the headers lie: claim every entry is one byte.
-	for _, sig := range [][]byte{{'P', 'K', 3, 4}, {'P', 'K', 1, 2}} {
-		off := 22 // uncompressed size: local header +22, central +24
-		if sig[2] == 1 {
-			off = 24
-		}
-		for i := 0; i+off+4 <= len(data); i++ {
-			if bytes.Equal(data[i:i+4], sig) {
-				copy(data[i+off:], []byte{1, 0, 0, 0})
-			}
-		}
-	}
-	if _, err := Unzip(data, filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
-		t.Error("too big together: no error")
+	_, err := Unzip(data, filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
+	if err == nil || err.Error() != str.BackupTooBig(MaxUnpacked>>20) {
+		t.Errorf("err = %v, want the too-big error", err)
 	}
 	for _, f := range []string{"a", "b"} {
 		if _, err := os.Stat(filepath.Join(dst, "config", f)); !errors.Is(err, os.ErrNotExist) {

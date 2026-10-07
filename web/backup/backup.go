@@ -97,7 +97,8 @@ func Unzip(data []byte, configDir, knownHosts string) (int, error) {
 		if dest == "" {
 			return 0, errors.New(str.BackupStrayFile(f.Name))
 		}
-		// Headers can lie, so count the bytes actually read.
+		// Count the bytes actually read. The stdlib reader already fails
+		// content longer than its header, so this is defense in depth.
 		rc, err := f.Open()
 		if err != nil {
 			return 0, err
