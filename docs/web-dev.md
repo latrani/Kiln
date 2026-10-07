@@ -20,8 +20,21 @@ Tests:
 go test ./...                                   # root: relay, conn, …
 (cd web && go test ./...)                       # bridge, wsdial (native)
 (cd web && GOOS=js GOARCH=wasm go test -exec "$PWD/testdata/memfs_exec.sh" ./...)
-node --test web/static/memfs.test.mjs
+node --test web/static/*.test.mjs
 ```
 
-Files live in memory: config edits, pins and logs last until the tab
-closes.
+Files are saved in the browser (IndexedDB) and come back on the next
+visit: config edits, worlds, TLS pins and logs. That's best effort:
+clearing site data, a private window, or a browser that evicts storage
+loses them. Safari clears a site's storage after 7 days of Safari use
+without visiting it. **↓ Back up** at the bottom of the sidebar downloads
+a zip of your config and pins; **↑ Restore** reads one back (it adds and
+replaces files, never deletes). `/backup` and `/restore` do the same.
+Saving a log in log mode downloads the file.
+
+One tab runs Kiln at a time. A second tab offers **Use here**, which
+moves Kiln over; the first tab saves, disconnects, and shows the same
+offer.
+
+Preset files are written only where nothing is saved, so your edits to a
+preset world win over the server's copy.
