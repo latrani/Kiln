@@ -69,7 +69,8 @@ func Zip(configDir, knownHosts string) ([]byte, error) {
 // Unzip writes a backup's files over configDir and knownHosts. It checks
 // every entry, and reads every file into memory, before writing any, so a
 // bad name or an oversized backup leaves disk untouched. It never deletes
-// a file, and returns how many files it wrote.
+// a file, and returns how many files it wrote; a name that appears twice
+// is written once, with the later copy.
 func Unzip(data []byte, configDir, knownHosts string) (int, error) {
 	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -80,6 +81,7 @@ func Unzip(data []byte, configDir, knownHosts string) (int, error) {
 		body []byte
 	}
 	var items []item
+	seen := map[string]int{} // dest → index in items
 	var total int
 	for _, f := range r.File {
 		if strings.HasSuffix(f.Name, "/") {
@@ -112,6 +114,11 @@ func Unzip(data []byte, configDir, knownHosts string) (int, error) {
 		if total > MaxUnpacked {
 			return 0, errors.New(str.BackupTooBig(MaxUnpacked >> 20))
 		}
+		if i, ok := seen[dest]; ok {
+			items[i].body = b // a name twice is one file: the later copy wins
+			continue
+		}
+		seen[dest] = len(items)
 		items = append(items, item{dest, b})
 	}
 	if len(items) == 0 {

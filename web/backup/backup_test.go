@@ -28,16 +28,19 @@ func read(t *testing.T, path string) string {
 	return string(b)
 }
 
-// zipOf builds a zip with the given names and contents.
-func zipOf(t *testing.T, files map[string]string) []byte {
+// entry is one file in a test zip.
+type entry struct{ name, body string }
+
+// zipOf builds a zip of entries, in order.
+func zipOf(t *testing.T, entries ...entry) []byte {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
-	for name, body := range files {
-		f, err := w.Create(name)
+	for _, e := range entries {
+		f, err := w.Create(e.name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		f.Write([]byte(body))
+		f.Write([]byte(e.body))
 	}
 	w.Close()
 	return buf.Bytes()
@@ -74,28 +77,27 @@ func TestZipWithoutKnownHosts(t *testing.T) {
 }
 
 func TestUnzipRejectsBeforeWriting(t *testing.T) {
-	for name, files := range map[string]map[string]string{
-		"dotdot":   {"config/ok.toml": "x", "config/../../evil": "x"},
-		"absolute": {"config/ok.toml": "x", "/etc/evil": "x"},
-		"stray":    {"config/ok.toml": "x", "notes.txt": "x"},
-	} {
+	// The good entry comes first, so a reject has to come before any write.
+	for _, bad := range []string{"config/../../evil", "/etc/evil", "notes.txt"} {
 		dst := t.TempDir()
-		if _, err := Unzip(zipOf(t, files), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
-			t.Errorf("%s: no error", name)
+		data := zipOf(t, entry{"config/ok.toml", "x"}, entry{bad, "x"})
+		_, err := Unzip(data, filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
+		if err == nil || err.Error() != str.BackupStrayFile(bad) {
+			t.Errorf("%s: err = %v, want the stray-file error", bad, err)
 		}
 		if _, err := os.Stat(filepath.Join(dst, "config", "ok.toml")); !errors.Is(err, os.ErrNotExist) {
-			t.Errorf("%s: wrote ok.toml before rejecting", name)
+			t.Errorf("%s: wrote ok.toml before rejecting", bad)
 		}
 	}
 }
 
 func TestUnzipSkipsDirsAndRejectsEmptyAndJunk(t *testing.T) {
 	dst := t.TempDir()
-	n, err := Unzip(zipOf(t, map[string]string{"config/": "", "config/worlds/": "", "config/a.toml": "x"}), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
+	n, err := Unzip(zipOf(t, entry{"config/", ""}, entry{"config/worlds/", ""}, entry{"config/a.toml", "x"}), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
 	if err != nil || n != 1 {
 		t.Errorf("dirs: %d, %v", n, err)
 	}
-	if _, err := Unzip(zipOf(t, map[string]string{"config/": ""}), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
+	if _, err := Unzip(zipOf(t, entry{"config/", ""}), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
 		t.Error("empty backup: no error")
 	}
 	if _, err := Unzip([]byte("not a zip"), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
@@ -106,7 +108,7 @@ func TestUnzipSkipsDirsAndRejectsEmptyAndJunk(t *testing.T) {
 func TestUnzipTooBig(t *testing.T) {
 	dst := t.TempDir()
 	big := string(bytes.Repeat([]byte("a"), MaxUnpacked+1))
-	if _, err := Unzip(zipOf(t, map[string]string{"config/big": big}), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
+	if _, err := Unzip(zipOf(t, entry{"config/big", big}), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts")); err == nil {
 		t.Error("too big: no error")
 	}
 }
@@ -116,7 +118,7 @@ func TestUnzipTooBig(t *testing.T) {
 func TestUnzipTooBigTogetherWritesNothing(t *testing.T) {
 	dst := t.TempDir()
 	half := string(bytes.Repeat([]byte("a"), MaxUnpacked/2+1))
-	data := zipOf(t, map[string]string{"config/a": half, "config/b": half})
+	data := zipOf(t, entry{"config/a", half}, entry{"config/b", half})
 	_, err := Unzip(data, filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
 	if err == nil || err.Error() != str.BackupTooBig(MaxUnpacked>>20) {
 		t.Errorf("err = %v, want the too-big error", err)
@@ -125,5 +127,19 @@ func TestUnzipTooBigTogetherWritesNothing(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dst, "config", f)); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("wrote %s before rejecting", f)
 		}
+	}
+}
+
+// A name that appears twice is one file: the later copy wins, and it's
+// counted once.
+func TestUnzipDuplicateNamesCountOnce(t *testing.T) {
+	dst := t.TempDir()
+	data := zipOf(t, entry{"config/a.toml", "first"}, entry{"known_hosts", "k"}, entry{"config/a.toml", "second"})
+	n, err := Unzip(data, filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
+	if err != nil || n != 2 {
+		t.Fatalf("Unzip = %d, %v; want 2", n, err)
+	}
+	if got := read(t, filepath.Join(dst, "config", "a.toml")); got != "second" {
+		t.Errorf("a.toml = %q, want the later copy", got)
 	}
 }
