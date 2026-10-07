@@ -2,6 +2,21 @@
 
 package str
 
+// BackupEmpty is backup.empty: "no Kiln files in this backup"
+func BackupEmpty() string { return get("backup.empty", nil) }
+
+// BackupFileName is backup.file_name: "kiln-backup-{date}.zip"
+func BackupFileName(date any) string { return get("backup.file_name", map[string]any{"date": date}) }
+
+// BackupNotZip is backup.not_zip: "not a zip file"
+func BackupNotZip() string { return get("backup.not_zip", nil) }
+
+// BackupStrayFile is backup.stray_file: "not a Kiln backup: it has {name:%q}"
+func BackupStrayFile(name any) string { return get("backup.stray_file", map[string]any{"name": name}) }
+
+// BackupTooBig is backup.too_big: "backup unpacks to more than {mb} MB"
+func BackupTooBig(mb any) string { return get("backup.too_big", map[string]any{"mb": mb}) }
+
 // BrowseCopied is browse.copied, by count:
 //   - one: "copied 1 line"
 //   - other: "copied {n} lines"
