@@ -102,7 +102,7 @@ globalThis.process = {
 await seedPreset(fs);
 navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
 addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") persist?.flush(); });
-lock?.serve(async () => { await persist?.flush(); persist?.stop(); }, () => location.reload());
+lock?.serve(async () => { await persist?.handOff(); }, () => location.reload());
 
 globalThis.kilnDownload = (name, bytes) => {
   const url = URL.createObjectURL(new Blob([bytes]));
