@@ -48,7 +48,9 @@ and `pin` worlds are trust-on-first-use on every visit (#114).
   `ftruncate`, `rename` (old and new path, and every path under a renamed
   directory), `unlink`, `rmdir`, `mkdir`, `chmod`, `fchmod`, `utimes`.
   memfs knows nothing about IndexedDB. For a call made on an fd, memfs
-  reports the path the fd was opened with.
+  reports the fd's file's current path: an fd follows renames of its file
+  (or a directory above it), and once its file is unlinked or another file
+  is renamed over it, the fd reports nothing.
 - **Flushing:** changed paths collect in a set. A flush runs about 500 ms
   after the last change, at once on `fsync`, and at once when the page
   goes hidden (`visibilitychange`). memfs also gets an `onSync(path)` hook
@@ -56,8 +58,9 @@ and `pin` worlds are trust-on-first-use on every visit (#114).
   path: if it exists in memfs, put its current record; if not, delete its
   record. Paths under `/tmp` are skipped.
 - **Loading:** `persist.load(fs)` reads every record and recreates it in
-  memfs (directories first, by path depth), before the preset is seeded
-  and before Go starts.
+  memfs, before the preset is seeded and before Go starts. Order doesn't
+  matter: a file's parents are made as needed, and a directory's record
+  then sets its mode.
 - **Testability:** `persist.mjs` takes a store adapter (`idbStore`, which
   wraps the IndexedDB factory) with `open`, `all` and `apply`. Tests use
   a small in-memory fake store (and a fake factory for the adapter)
@@ -71,7 +74,8 @@ and `pin` worlds are trust-on-first-use on every visit (#114).
 3. Seed the preset, **only paths that don't exist yet**. Seeded files
    aren't saved, so an untouched preset world follows the server, a saved
    edit wins, and a preset world the user deletes comes back next visit.
-4. Ask for `navigator.storage.persist()`; log the answer, nothing else.
+4. Ask for `navigator.storage.persist()`, best effort. The answer isn't
+   logged or used.
 5. Load `wasm_exec.js` and start Go.
 
 ### When saving can't work
@@ -99,9 +103,12 @@ and two live Kilns would double-connect characters.
 - **Use here:**
   1. The new tab posts `release` on `BroadcastChannel("kiln")` and waits
      on a blocking `locks.request("kiln", …)`.
-  2. The old tab flushes and reloads itself. Reloading closes its
-     connections and releases the lock. Coming back up, it finds the lock
-     taken and shows the same screen, so the user can switch back.
+  2. The old tab saves (`persist.handOff()`: it flushes until nothing is
+     changed, so writes that land mid-flush go out too, then stops
+     saving), lets go of the lock, and reloads itself. If the save throws,
+     it lets go anyway. Reloading closes its connections. Coming back up,
+     it finds the lock taken and shows the same screen, so the user can
+     switch back.
   3. If the new tab hasn't got the lock after 3 s (old tab frozen or
      throttled in the background), it requests again with `{steal: true}`.
      The worst case is losing the old tab's last unflushed writes.
@@ -113,8 +120,9 @@ and two live Kilns would double-connect characters.
 The lock screen is shown with no Go running, but its text still lives in
 the catalog. Add a `[web]` table to `en.toml` and have
 `go generate ./internal/str` also write `web/static/strings.json`, holding
-the `[web]` entries only. `kiln.js` fetches it before showing any page
-text. Placeholders are filled in JS with the same `{name}` syntax; plural
+the `[web]` entries only. `kiln.js` fetches it only when it's about to show
+the lock screen, so a failed fetch can't stop the owning tab from booting.
+`TestGeneratedIsFresh` checks the file against `catalog.WebJSON`. Placeholders are filled in JS with the same `{name}` syntax; plural
 tables are left out of `[web]` until something needs one. The
 `TestTestsReadTheCatalog`/lint rules don't cover JS; review does.
 
@@ -139,7 +147,9 @@ a hook is set. There is no "web mode" flag.
 
 ### Back up and Restore
 
-- `Backup func() error` and `Restore func() error`. When both are set, the
+- `Backup func() (name string, err error)` and
+  `Restore func() (n int, err error)`; `Restore` returns `0, nil` when the
+  user cancels. When both are set, the
   sidebar pins two rows to its bottom: `↓ Back up` and `↑ Restore`
   (new catalog entries). They're clickable and keyboard-reachable the same
   way as `+ Connection`. They get a new role, `sidebar.action`, styled
@@ -150,6 +160,10 @@ a hook is set. There is no "web mode" flag.
   `archive/zip`. Paths in the zip are `config/…` and `known_hosts`. The
   file is named `kiln-backup-YYYY-MM-DD.zip` and goes out through the
   same download as browse save. The status line says `downloaded {name}`.
+  A Back up (click or `/backup`) while one is running is ignored, so a
+  double-click downloads one zip. Restore isn't gated: a second pick
+  replaces the first in the page, and a browser that never fires the file
+  input's cancel event would otherwise leave Restore stuck.
 - **Restore** (`kiln-web`):
   1. Ask JS for a file: `kilnPickFile()` clicks a hidden
      `<input type="file" accept=".zip">` and resolves with the bytes, or
@@ -158,7 +172,8 @@ a hook is set. There is no "web mode" flag.
      no absolute paths, at most 10 MB unpacked. Anything else rejects the
      whole zip, with a catalog error on the status line.
   3. Write each file over the existing one. Nothing is deleted: a world
-     the user added since the backup survives a restore.
+     the user added since the backup survives a restore. A name that
+     appears twice in the zip is one file (the later copy) and counts once.
   4. Reload config with the existing `reloadNow()` path, and say
      `restored {n} files` (plural table, new entry).
 - The writes go through memfs, so they're saved like any other change.
@@ -186,9 +201,10 @@ a hook is set. There is no "web mode" flag.
   save calls `SaveFile` with the name and rendered bytes and skips
   `export_dir`. A new golden screen shows the sidebar with the two rows;
   existing goldens don't change.
-- **`web/cmd/kiln-web` (wasm tests under memfs):** backup zips the right
-  paths; restore writes them back, rejects `..`, absolute paths, unknown
-  top-level names and oversized zips, and never deletes.
+- **`web/backup` (native `go test`; the zip code is plain Go):** backup
+  zips the right paths; restore writes them back, rejects `..`, absolute
+  paths, unknown top-level names and oversized zips before writing
+  anything, and never deletes.
 - **By hand, headless Chrome smoke script:** edit a world, reload, it's
   still there; second tab shows the lock screen and Use here moves Kiln;
   Back up downloads a zip and Restore brings it back.

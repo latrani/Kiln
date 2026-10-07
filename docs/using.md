@@ -45,6 +45,8 @@ Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: 
 | `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |
 | `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see [Certificates](configuration.md#certificates)) |
+| `/backup` | Web build only: download a zip of your config and certificate pins (same as `↓ Back up` in the sidebar) |
+| `/restore` | Web build only: pick a backup zip and write its files back (same as `↑ Restore` in the sidebar). Files you've added since are kept |
 | `/quit` | Quit Kiln |
 
 To send a line that starts with `/`, double it: `//me waves` sends `/me waves`.
