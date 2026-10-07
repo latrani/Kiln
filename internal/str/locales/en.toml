@@ -378,7 +378,7 @@ flag_preset = "with -dev: the config dir to preload in the browser"
 [web]
 other_tab = "Kiln's open in another tab."
 use_here = "Use here"
-not_saving = "this session isn't saving any changes"
+not_saving = "this browser isn't saving Kiln's configuration"
 
 # Back up and Restore in the web build.
 [backup]
