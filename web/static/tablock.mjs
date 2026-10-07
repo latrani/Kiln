@@ -15,7 +15,11 @@ export function createTabLock({ locks, openChannel, onLost, setTimer = setTimeou
     if (!lock) return undefined;
     return new Promise((r) => { release = r; });
   };
-  const lost = (e) => { if (e?.name === "AbortError") onLost(); };
+  const lost = (e) => {
+    if (e?.name !== "AbortError") return;
+    release = null; // stolen: no longer ours to flush or let go of
+    onLost();
+  };
 
   return {
     // tryTake resolves true when this tab now owns Kiln.
@@ -29,9 +33,9 @@ export function createTabLock({ locks, openChannel, onLost, setTimer = setTimeou
       const ch = openChannel();
       ch.onmessage = async (e) => {
         if (e.data !== "release" || !release) return;
-        await beforeRelease();
         const r = release;
-        release = null;
+        release = null; // before awaiting, so a second message does nothing
+        await beforeRelease();
         r();
         afterRelease();
       };

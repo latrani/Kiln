@@ -89,3 +89,32 @@ test("a frozen holder gets the lock stolen after the timeout, and hears it lost"
   await tick();
   assert.equal(lost, true);
 });
+
+test("a tab that was stolen from doesn't flush when a late release arrives", async () => {
+  const locks = fakeLocks();
+  let ch = null, flushed = 0, lost = false;
+  const a = createTabLock({ locks, openChannel: () => (ch = { onmessage: null, postMessage() {} }), onLost: () => { lost = true; } });
+  await a.tryTake();
+  a.serve(async () => { flushed++; }, () => {});
+  const t = manualTimer();
+  const b = createTabLock({ locks, openChannel: bus(), onLost() {}, setTimer: t.setTimer, clearTimer: t.clearTimer });
+  const took = b.takeOver();
+  await tick();
+  t.fn();
+  await took;
+  await tick();
+  assert.equal(lost, true);
+  await ch.onmessage({ data: "release" });
+  assert.equal(flushed, 0);
+});
+
+test("two release messages flush once", async () => {
+  const locks = fakeLocks();
+  let ch = null, flushed = 0, reloaded = 0;
+  const a = createTabLock({ locks, openChannel: () => (ch = { onmessage: null, postMessage() {} }), onLost() {} });
+  await a.tryTake();
+  a.serve(async () => { flushed++; }, () => { reloaded++; });
+  await Promise.all([ch.onmessage({ data: "release" }), ch.onmessage({ data: "release" })]);
+  assert.equal(flushed, 1);
+  assert.equal(reloaded, 1);
+});
