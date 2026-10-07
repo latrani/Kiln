@@ -67,7 +67,7 @@ type Character struct {
 	Port         int
 	TLS          bool
 	TLSTrust     string // "pin" or "ca"
-	Login        string // template with {name} and {password}; "" = no auto-login
+	Login        string // template with {name} and {password}; "" = no auto-login; default DefaultLogin
 	MaxLineBytes int
 	NewlineMode  string       // "batch" or "flatten"
 	Autoconnect  bool         // connect when Kiln starts
@@ -201,6 +201,9 @@ type worldFile struct {
 const (
 	DefaultMaxLineBytes = 2047 // Fuzzball MAX_COMMAND_LEN (2048) minus the NUL
 	DefaultNewlineMode  = "batch"
+	// DefaultLogin is the login template when none is set: Fuzzball's
+	// (and most MUCKs') connect command. login = "" turns auto-login off.
+	DefaultLogin = "connect {name} {password}" //str:ok
 	// DefaultPasswordStore is used when config.toml sets no password_store.
 	DefaultPasswordStore = "keychain"
 	// DefaultNotifyIdle is used when config.toml sets no notify_idle.
@@ -315,7 +318,7 @@ func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
 		return g, settings{}, Rules{}, err
 	}
-	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(""), Autoconnect: ptr(false), Reconnect: ptr(true), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
+	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
 	base.overlay(g.Defaults.settings)
 	return g, base, Rules{Attention: g.Defaults.Attention, Quiet: g.Defaults.Quiet}, nil
 }
