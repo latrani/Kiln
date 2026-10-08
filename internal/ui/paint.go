@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -13,11 +15,14 @@ import (
 func paint(hl *rules.Highlighter, l app.Line) string {
 	switch l.Kind {
 	case app.Echo:
-		return theme.Paint(theme.ScrollbackEcho, gutterMark+l.Text)
+		return theme.Paint(theme.ScrollbackEcho, gutterMark+l.Text())
 	case app.Sys:
-		return theme.Paint(theme.ScrollbackSys, "* "+l.Text)
+		return theme.Paint(theme.ScrollbackSys, "* "+l.Text())
 	case app.Day:
 		return theme.Paint(theme.ScrollbackDay, "── "+dayLabel(l.Day)+" ──")
+	case app.HistoryEnd:
+		return theme.Paint(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(l.Entry.Time.Format(str.DateDayTime())))
 	}
-	return style.Highlight(l.Text, hl.Runs(l.Plain, l.Tags))
+	text := l.Text()
+	return style.Highlight(text, hl.Runs(ansi.Strip(text), l.Tags))
 }

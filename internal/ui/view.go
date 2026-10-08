@@ -425,7 +425,7 @@ func (m *Model) overview(world string, w, h int) []string {
 			rows, keys = append(rows, theme.Paint(theme.ScrollbackRule, strings.Repeat("─", w))), append(keys, "")
 		}
 		when := str.ViewOverviewQuiet()
-		if t, ok := cs.sb.LastTime(); ok {
+		if t, ok := m.a.LastTime(k); ok {
 			when = m.clock(t)
 		}
 		rows, keys = append(rows, theme.Paint(theme.ScrollbackOverview, cs.Ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when)), append(keys, k)

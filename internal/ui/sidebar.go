@@ -38,7 +38,7 @@ func (m *Model) open(k string) *charState {
 		m.setStatus(true, str.StatusCharError(k, err))
 	}
 	m.chars[k] = cs
-	m.preload(cs)
+	m.showLines(cs)
 	cs.sb.MarkSeen() // history isn't news
 	return cs
 }

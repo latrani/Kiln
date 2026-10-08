@@ -12,11 +12,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
-	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
@@ -27,7 +25,7 @@ import (
 )
 
 // HistoryLines is how many logged lines are preloaded per character.
-const HistoryLines = 200
+const HistoryLines = app.HistoryLines
 
 // Deps are the UI's connections to the outside world. Tests substitute
 // fakes; cmd/kiln wires the real ones.
@@ -109,26 +107,14 @@ type charState struct {
 	sb        Scrollback
 	in        *Input
 	needPW    bool
-	pwDraft   string           // input stashed while the password prompt is up
-	browse    *browse          // non-nil while browse mode is open
-	hidBrowse *browse          // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
-	filter    scene.Filter     // log mode's filter; outlasts a log-mode session
-	collapsed map[string]bool  // filter panel parents folded shut, by tag
-	foldSeen  map[string]bool  // parents the panel has already met; a new one starts folded
-	hist      *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
-	leftover  []logstore.Entry // the preload's unshown start of its oldest day
-	sentGen   int              // hereGen when the last notification went out; -1: none yet
-	lastSent  time.Time        // when the last notification went out
-}
-
-// sbOlderMsg carries older scrollback lines, read and rendered off the UI
-// goroutine by pageOlder.
-type sbOlderMsg struct {
-	key   string
-	hist  *history.Reader // the reader that was asked; stale if it has changed
-	theme *theme.Theme    // the theme active when the read started
-	lines []sbLine
-	more  bool
+	pwDraft   string          // input stashed while the password prompt is up
+	browse    *browse         // non-nil while browse mode is open
+	hidBrowse *browse         // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
+	filter    scene.Filter    // log mode's filter; outlasts a log-mode session
+	collapsed map[string]bool // filter panel parents folded shut, by tag
+	foldSeen  map[string]bool // parents the panel has already met; a new one starts folded
+	sentGen   int             // hereGen when the last notification went out; -1: none yet
+	lastSent  time.Time       // when the last notification went out
 }
 
 // browses is log mode, showing or hidden by Ctrl+L, for what keeps
@@ -317,7 +303,7 @@ func (m *Model) loadTheme() {
 		if err := cs.compileLook(); err != nil { // each highlighter holds the theme it was built on
 			m.setStatus(true, str.StatusCharError(k, err))
 		}
-		cs.sb.Rerender(nil, func(l app.Line) string { return paint(cs.hl, l) })
+		cs.sb.Repaint(func(l app.Line) string { return paint(cs.hl, l) })
 		for _, b := range cs.browses() {
 			b.restyle(func(l app.Line) string { return paint(cs.hl, l) })
 		}
@@ -357,7 +343,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 			m.setStatus(true, str.StatusCharError(k, err))
 		}
 		if !reflect.DeepEqual(styleInputs(before[k]), styleInputs(cs.Ch)) {
-			cs.sb.Rerender(cs.Rules.Reline, func(l app.Line) string { return paint(cs.hl, l) })
+			cs.sb.Repaint(func(l app.Line) string { return paint(cs.hl, l) }) // the core has made them again if the rules changed
 		}
 	}
 	if m.picker != nil {
@@ -389,70 +375,33 @@ func (cs *charState) compileLook() error {
 	return err
 }
 
-// preload fills the scrollback with the tail of the most recent log days
-// and hands everything older to the scrollback to page in on demand, so
-// scrollback is unlimited.
+// preload has the core read cs's history again and shows it: what Open
+// does, kept for tests that write logs after the harness opens Kit.
 func (m *Model) preload(cs *charState) {
-	l, ok := m.a.LogLayout(cs.Ch)
-	if !ok {
-		return
-	}
-	hist, err := history.NewReader(l)
-	if err != nil {
-		return
-	}
-	var entries []logstore.Entry
-	for len(entries) < HistoryLines {
-		es, _, ok, err := hist.LoadOlder()
-		if !ok || err != nil {
-			break
-		}
-		entries = append(es, entries...)
-	}
-	if len(entries) == 0 {
-		return
-	}
-	// entries holds whole days. Keep the newest HistoryLines on screen; the
-	// rest (the start of the oldest day, plus any fuller days before it)
-	// is the first batch paged in when scrolling up.
-	var leftover []logstore.Entry
-	if len(entries) > HistoryLines {
-		leftover = entries[:len(entries)-HistoryLines]
-		entries = entries[len(entries)-HistoryLines:]
-	}
-	// The preload starts a day only if nothing of that day was left over.
-	startsDay := len(leftover) == 0 || leftover[len(leftover)-1].Time.Local().Format("2006-01-02") != entries[0].Time.Local().Format("2006-01-02")
-	for _, l := range renderDays(cs.Rules, cs.hl, cs.Ch.LocalEcho, entries, startsDay) {
-		cs.sb.AppendLine(l)
-	}
-	cs.sb.AppendLine(chromeLine(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
-	cs.hist, cs.leftover = hist, leftover
-	cs.sb.SetMore(leftover != nil || !hist.Exhausted())
+	m.a.Preload(cs.Key)
+	m.showLines(cs)
 }
 
-// pageOlder starts reading the next older batch into the current
-// character's scrollback in a tea.Cmd, when its view has scrolled past
-// the oldest line. The first batch is the preload's leftover; after that,
-// one log day per read.
+// showLines builds cs's view from the core's lines, painted.
+func (m *Model) showLines(cs *charState) {
+	for _, l := range cs.Lines {
+		cs.sb.AppendLine(lineOf(paint(cs.hl, *l), l))
+	}
+	cs.sb.SetMore(cs.More)
+}
+
+// pageOlder has the core read the next older page of the current
+// character's history, when its view has scrolled past the oldest line.
 func (m *Model) pageOlder() tea.Cmd {
 	cs := m.cur()
-	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
+	if cs == nil || cs.browse != nil || !cs.sb.RequestOlder(m.layout().sbH) {
 		return nil
 	}
-	key, h, r, hl, echo, leftover := cs.Key, cs.hist, cs.Rules, cs.hl, cs.Ch.LocalEcho, cs.leftover
-	cs.leftover = nil
-	th := theme.Active()
-	return func() tea.Msg {
-		msg := sbOlderMsg{key: key, hist: h, theme: th}
-		if leftover != nil {
-			msg.lines, msg.more = renderDays(r, hl, echo, leftover, true), !h.Exhausted()
-			return msg
-		}
-		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
-			msg.lines, msg.more = renderDays(r, hl, echo, es, true), !h.Exhausted()
-		}
-		return msg
+	effs := m.a.RequestOlder(cs.Key)
+	if effs == nil { // the core has nothing more after all
+		cs.sb.PrependLines(nil, cs.More)
 	}
+	return m.run(effs)
 }
 
 // echoes reports whether e belongs in the scrollback: everything but sent
@@ -465,17 +414,6 @@ func (cs *charState) echoes(e logstore.Entry) bool {
 func (cs *charState) render(e logstore.Entry) (string, app.Line) {
 	l := cs.Rules.Line(e)
 	return paint(cs.hl, l), l
-}
-
-// renderDays is app.Rules.Days, painted. Like paint it is safe off the
-// UI goroutine.
-func renderDays(r app.Rules, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []sbLine {
-	ls := r.Days(entries, echo, startsDay)
-	out := make([]sbLine, len(ls))
-	for i, l := range ls {
-		out[i] = lineOf(paint(hl, l), l)
-	}
-	return out
 }
 
 // connect starts (or restarts) a character's session.
@@ -620,18 +558,14 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.BlurMsg:
 		m.focused, m.focusSeen = false, true
-	case sbOlderMsg:
-		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
-			if msg.theme != theme.Active() { // made in a theme (and maybe rules) since replaced
-				for i, l := range msg.lines {
-					if l.line != nil {
-						nl := cs.Rules.Reline(*l.line)
-						l.line = &nl
-					}
-					msg.lines[i] = l.repainted(func(l app.Line) string { return paint(cs.hl, l) })
-				}
+	case app.OlderMsg:
+		if lines, ok := m.a.HandleOlder(msg); ok {
+			cs := m.chars[msg.Key]
+			batch := make([]sbLine, len(lines))
+			for i, l := range lines {
+				batch[i] = lineOf(paint(cs.hl, *l), l)
 			}
-			cs.sb.PrependLines(msg.lines, msg.more)
+			cs.sb.PrependLines(batch, cs.More)
 		}
 	case olderMsg:
 		if cs := m.chars[msg.key]; cs != nil && slices.Contains(cs.browses(), msg.b) {
@@ -737,13 +671,13 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	next := m.run(effs)
 	switch ev.Ev.Kind {
 	case session.EventLine:
-		text := paint(cs.hl, ev.Line)
-		switch {
-		case !cs.echoes(ev.Ev.Entry):
-		case ev.Line.Quiet:
-			cs.sb.append(lineOf(text, ev.Line))
-		default:
-			cs.sb.AppendLine(lineOf(text, ev.Line))
+		if ev.Shown {
+			text := paint(cs.hl, *ev.Line)
+			if ev.Line.Quiet {
+				cs.sb.append(lineOf(text, ev.Line))
+			} else {
+				cs.sb.AppendLine(lineOf(text, ev.Line))
+			}
 		}
 		if ev.Key == m.a.Active() {
 			l := m.layout()
@@ -753,11 +687,11 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		for _, b := range cs.browses() {
 			b.appendLive(ev.Ev.Entry)
 		}
-		if n := m.notifyCmd(cs, ev.Line); n != nil {
+		if n := m.notifyCmd(cs, *ev.Line); n != nil {
 			return tea.Batch(n, next)
 		}
 	case session.EventPrompt:
-		cs.sb.SetPrompt(ansi.Sanitize(ev.Ev.Entry.Text))
+		cs.sb.SetPrompt(cs.Prompt)
 	case session.EventState:
 		if ev.Ev.State != session.Connected && cs.needPW {
 			cs.endPassword()
@@ -1029,8 +963,8 @@ func (m *Model) submit() tea.Cmd {
 			return nil
 		}
 		cs.endPassword()
-		if cs.echoes(e) {
-			cs.sb.AppendLine(chromeLine(theme.ScrollbackEcho, gutterMark+e.Text))
+		if l := m.a.Echo(cs.Key, e); l != nil {
+			cs.sb.AppendLine(lineOf(paint(cs.hl, *l), l))
 		}
 		if m.d.SavePassword != nil && pw != "" && m.a.PasswordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
@@ -1076,9 +1010,9 @@ func (m *Model) submit() tea.Cmd {
 			m.setStatus(true, err.Error())
 		}
 		secret = secret || e.Text != line // the session redacted a typed password
-		echoed = cs.echoes(e)
-		if echoed {
-			cs.sb.AppendLine(chromeLine(theme.ScrollbackEcho, gutterMark+ansi.Sanitize(e.Text)))
+		l := m.a.Echo(cs.Key, e)
+		if echoed = l != nil; echoed {
+			cs.sb.AppendLine(lineOf(paint(cs.hl, *l), l))
 		}
 	}
 	if secret {

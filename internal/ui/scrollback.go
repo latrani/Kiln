@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"time"
-
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/str"
@@ -28,9 +26,7 @@ type Scrollback struct {
 
 type sbLine struct {
 	text  string
-	line  *app.Line  // what text was painted from; nil for Kiln's chrome and plain text
-	role  theme.Role // for a line Kiln wrote: its style, and raw its text
-	raw   string
+	line  *app.Line // the core's line text was painted from; nil for plain text
 	rows  []string
 	wrapW int
 	// Plain text and its rows, for the mouse; see plainRows.
@@ -105,7 +101,7 @@ func (s *Scrollback) Append(text string) { s.AppendLine(sbLine{text: text}) }
 func (s *Scrollback) AppendQuiet(text string) { s.append(sbLine{text: text}) }
 
 // AppendLine is Append for a line that may carry the app.Line it was
-// painted from (see Rerender).
+// painted from (see Repaint).
 func (s *Scrollback) AppendLine(l sbLine) {
 	s.append(l)
 	if s.offset > 0 {
@@ -113,8 +109,8 @@ func (s *Scrollback) AppendLine(l sbLine) {
 	}
 }
 
-// lineOf is a line painted from l.
-func lineOf(text string, l app.Line) sbLine { return sbLine{text: text, line: &l} }
+// lineOf is a line painted from the core's l.
+func lineOf(text string, l *app.Line) sbLine { return sbLine{text: text, line: l} }
 
 func (s *Scrollback) append(l sbLine) {
 	s.lines = append(s.lines, l)
@@ -122,12 +118,6 @@ func (s *Scrollback) append(l sbLine) {
 	if s.offset > 0 {
 		s.offset += len(s.lines[len(s.lines)-1].wrap(s.w()))
 	}
-}
-
-// chromeLine is a line Kiln wrote, drawn in r (and redrawn when the theme
-// changes).
-func chromeLine(r theme.Role, raw string) sbLine {
-	return sbLine{text: theme.Paint(r, raw), role: r, raw: raw}
 }
 
 // loadingRow sits above the oldest line while more history may exist.
@@ -187,32 +177,17 @@ func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
 	}
 }
 
-// Rerender redraws every line: lines made from the log are remade with
-// reline first, if it's not nil (the character's rules changed), then
-// painted with paint; Kiln's own lines are painted in their roles. The
-// view keeps its offset; a selection is dropped, since its byte
-// positions may no longer fit.
-func (s *Scrollback) Rerender(reline func(app.Line) app.Line, paint func(app.Line) string) {
+// Repaint redraws every line from its app.Line with paint, after a theme
+// change, or after the core made a character's lines again under new
+// rules. The view keeps its offset; a selection is dropped, since its
+// byte positions may no longer fit.
+func (s *Scrollback) Repaint(paint func(app.Line) string) {
 	for i, l := range s.lines {
-		if reline != nil && l.line != nil {
-			nl := reline(*l.line)
-			l.line = &nl
+		if l.line != nil {
+			s.lines[i] = lineOf(paint(*l.line), l.line)
 		}
-		s.lines[i] = l.repainted(paint)
 	}
 	s.sel, s.hover = nil, nil
-}
-
-// repainted is l drawn afresh: from its line with paint, or in its role.
-// A line with neither is returned as is.
-func (l sbLine) repainted(paint func(app.Line) string) sbLine {
-	switch {
-	case l.line != nil:
-		return lineOf(paint(*l.line), *l.line)
-	case l.role != "":
-		return chromeLine(l.role, l.raw)
-	}
-	return l
 }
 
 // SetPrompt shows an unterminated prompt below the last line.
@@ -228,17 +203,6 @@ func (s *Scrollback) Tail(n int) []string {
 		out = append(out, l.text)
 	}
 	return out
-}
-
-// LastTime is when the newest line from the log was logged; false when
-// there's none.
-func (s *Scrollback) LastTime() (time.Time, bool) {
-	for i := len(s.lines) - 1; i >= 0; i-- {
-		if l := s.lines[i].line; l != nil && l.Kind != app.Day {
-			return l.Entry.Time, true
-		}
-	}
-	return time.Time{}, false
 }
 
 // Scrolled reports whether the view is above the live bottom.

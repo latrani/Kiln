@@ -9,6 +9,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -25,7 +26,7 @@ func TestPaintKinds(t *testing.T) {
 	}
 	r, hl := app.Rules{Classifier: cls}, rules.New(th)
 	server := r.Line(logstore.Entry{Dir: logstore.In, Text: "PAGE: hi"})
-	if got, want := paint(hl, server), style.Highlight(server.Text, hl.Runs(server.Plain, server.Tags)); got != want {
+	if got, want := paint(hl, server), style.Highlight(server.Text(), hl.Runs(server.Plain(), server.Tags)); got != want {
 		t.Errorf("server line = %q, want %q", got, want)
 	}
 	echo := r.Line(logstore.Entry{Dir: logstore.Out, Text: "hi"})
@@ -39,5 +40,10 @@ func TestPaintKinds(t *testing.T) {
 	day := app.Line{Kind: app.Day, Day: app.DayOf(time.Date(2026, 9, 24, 12, 0, 0, 0, time.Local))}
 	if got, want := paint(hl, day), theme.Paint(theme.ScrollbackDay, "── "+dayLabel(day.Day)+" ──"); got != want {
 		t.Errorf("day divider = %q, want %q", got, want)
+	}
+	at := time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
+	end := app.Line{Kind: app.HistoryEnd, Entry: logstore.Entry{Time: at}}
+	if got, want := paint(hl, end), theme.Paint(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(at.Format(str.DateDayTime()))); got != want {
+		t.Errorf("history end = %q, want %q", got, want)
 	}
 }

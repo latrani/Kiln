@@ -247,7 +247,7 @@ func (h *harness) press(code rune, mod tea.KeyMod) tea.Cmd {
 // would, feeding each result back in until no read is in flight.
 func (h *harness) drainScrollback(cmd tea.Cmd) {
 	for cmd != nil {
-		msg, ok := cmd().(sbOlderMsg)
+		msg, ok := cmd().(app.OlderMsg)
 		if !ok {
 			return
 		}
