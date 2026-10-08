@@ -282,7 +282,7 @@ func (m *Model) openWorldEditor(world string) {
 
 // openCharEditor opens the editor for character k.
 func (m *Model) openCharEditor(k string) {
-	ch, ok := m.find(k)
+	ch, ok := m.a.Find(k)
 	if !ok {
 		return
 	}
@@ -304,9 +304,9 @@ func (m *Model) editCommand(cs *charState, arg string) {
 		}
 	}
 	if arg == "world" {
-		m.openWorldEditor(cs.ch.World)
+		m.openWorldEditor(cs.Ch.World)
 	} else {
-		m.openCharEditor(cs.key)
+		m.openCharEditor(cs.Key)
 	}
 	if m.picker.edit != nil {
 		m.picker.edit.closeAll = true
@@ -375,13 +375,13 @@ func (m *Model) parkEditor() {
 	if m.parked == nil {
 		m.parked = map[string]*editor{}
 	}
-	m.parked[m.active] = m.picker.edit
+	m.parked[m.a.Active()] = m.picker.edit
 	m.closePicker()
 }
 
 // unparkEditor shows the editor left open on the active item, if any.
 func (m *Model) unparkEditor() {
-	e := m.parked[m.active]
+	e := m.parked[m.a.Active()]
 	if e == nil {
 		return
 	}
@@ -392,7 +392,7 @@ func (m *Model) unparkEditor() {
 	if m.openPicker(); m.picker == nil {
 		return // openPicker said why; the editor stays parked
 	}
-	delete(m.parked, m.active)
+	delete(m.parked, m.a.Active())
 	m.picker.edit = e
 }
 
@@ -541,7 +541,7 @@ func (m *Model) forgetPassword(e *editor) {
 	if m.d.DeletePassword == nil {
 		return
 	}
-	if err := m.d.DeletePassword(m.passwordStore(), e.world, e.char); err != nil {
+	if err := m.d.DeletePassword(m.a.PasswordStore(), e.world, e.char); err != nil {
 		e.form.reject = err.Error()
 		return
 	}
@@ -562,7 +562,7 @@ func (m *Model) deleteEdited(e *editor) {
 			m.closeEditor() // before close, which would keep it as a draft
 			m.close(key(e.world, e.char))
 			if m.d.DeletePassword != nil {
-				if perr := m.d.DeletePassword(m.passwordStore(), e.world, e.char); perr != nil {
+				if perr := m.d.DeletePassword(m.a.PasswordStore(), e.world, e.char); perr != nil {
 					m.setStatus(true, str.EditorDeletedPasswordKept(what, perr))
 				}
 			}
@@ -583,7 +583,7 @@ func (m *Model) deleteEdited(e *editor) {
 		return
 	}
 	m.closeEditor()
-	status, isErr := m.status, m.statusErr
+	status, isErr := m.a.Status().Text, m.a.Status().Err
 	if m.reloadNow() && !isErr {
 		m.setStatus(false, str.EditorDeleted(what))
 	} else if isErr {

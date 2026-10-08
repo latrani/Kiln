@@ -71,8 +71,8 @@ func TestEditWorldFromPicker(t *testing.T) {
 	if got != want {
 		t.Errorf("file =\n%s\nwant\n%s", got, want)
 	}
-	if kit := h.m.chars["fm/kit"]; kit.ch.MaxLineBytes != 400 || !kit.ch.LocalEcho {
-		t.Errorf("open character not updated: %+v", kit.ch)
+	if kit := h.m.chars["fm/kit"]; kit.Ch.MaxLineBytes != 400 || !kit.Ch.LocalEcho {
+		t.Errorf("open character not updated: %+v", kit.Ch)
 	}
 }
 
@@ -134,8 +134,8 @@ func TestEditKeepsSidebar(t *testing.T) {
 		}
 	}
 	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft})
-	if h.m.picker != nil || h.m.active != "fm/rook" {
-		t.Errorf("click on Rook: picker open %v, active %s", h.m.picker != nil, h.m.active)
+	if h.m.picker != nil || h.m.a.Active() != "fm/rook" {
+		t.Errorf("click on Rook: picker open %v, active %s", h.m.picker != nil, h.m.a.Active())
 	}
 }
 
@@ -164,8 +164,8 @@ func TestEditCharacterCommand(t *testing.T) {
 	if !strings.Contains(got, "id = \"kit\"\nname = \"Kit\"\nautoconnect = false\naliases = [\"Kitty\", \"K\"]\n") {
 		t.Errorf("file:\n%s", got)
 	}
-	if kit := h.m.chars["fm/kit"]; strings.Join(kit.ch.Aliases, ",") != "Kitty,K" {
-		t.Errorf("aliases = %q", kit.ch.Aliases)
+	if kit := h.m.chars["fm/kit"]; strings.Join(kit.Ch.Aliases, ",") != "Kitty,K" {
+		t.Errorf("aliases = %q", kit.Ch.Aliases)
 	}
 	h.typeText("/edit world")
 	h.enter()
@@ -216,7 +216,7 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(h.m.d.LogRoot, "fm", "kit")); err != nil {
 		t.Errorf("logs touched: %v", err)
 	}
-	if _, ok := h.m.find("fm/rook"); !ok {
+	if _, ok := h.m.a.Find("fm/rook"); !ok {
 		t.Fatal("deleted the wrong character")
 	}
 
@@ -243,8 +243,8 @@ func TestDeleteCharacterAndWorld(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(h.dir, "worlds", "fm.toml")); !os.IsNotExist(err) {
 		t.Errorf("world file still there:\n%s", h.screen())
 	}
-	if len(h.m.cfg.Worlds) != 0 {
-		t.Errorf("worlds = %v", h.m.cfg.Worlds)
+	if len(h.m.a.Config().Worlds) != 0 {
+		t.Errorf("worlds = %v", h.m.a.Config().Worlds)
 	}
 }
 
@@ -279,8 +279,8 @@ func TestEditCharacterNotify(t *testing.T) {
 	if got := h.worldFile("fm"); !strings.Contains(got, "name = \"Kit\"\nautoconnect = true\nnotify = \"none\"\n") {
 		t.Errorf("file:\n%s", got)
 	}
-	if kit := h.m.chars["fm/kit"]; kit.ch.Notify != "none" {
-		t.Errorf("Notify = %q", kit.ch.Notify)
+	if kit := h.m.chars["fm/kit"]; kit.Ch.Notify != "none" {
+		t.Errorf("Notify = %q", kit.Ch.Notify)
 	}
 }
 
@@ -306,8 +306,8 @@ func TestEditKeyToggles(t *testing.T) {
 	h.m.switchTo(worldSel("fm")) // and from a world's overview, back to it
 	h.press('t', tea.ModCtrl)
 	h.press('t', tea.ModCtrl)
-	if h.m.picker != nil || h.m.active != worldSel("fm") {
-		t.Errorf("Ctrl+T should go back to the overview: active %q\n%s", h.m.active, h.screen())
+	if h.m.picker != nil || h.m.a.Active() != worldSel("fm") {
+		t.Errorf("Ctrl+T should go back to the overview: active %q\n%s", h.m.a.Active(), h.screen())
 	}
 	if got := h.worldFile("fm"); got != fmWorld {
 		t.Errorf("Ctrl+T saved:\n%s", got)
@@ -370,7 +370,7 @@ func TestEditorStaysOnItsItem(t *testing.T) {
 	h.focusOn(aliasesLabel)
 	h.typeText("kitty")
 	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // fm's row
-	if h.m.active != worldSel("fm") || edit() != nil {
+	if h.m.a.Active() != worldSel("fm") || edit() != nil {
 		t.Fatalf("clicking fm should show its overview:\n%s", h.screen())
 	}
 	h.press(tea.KeyDown, tea.ModCtrl) // to Kit

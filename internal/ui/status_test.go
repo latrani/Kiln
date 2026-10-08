@@ -21,11 +21,11 @@ func TestStatusTimesOut(t *testing.T) {
 	if !strings.Contains(h.screen(), want) {
 		t.Fatalf("no status:\n%s", h.screen())
 	}
-	h.m.Update(statusExpiredMsg(h.m.statusGen - 1)) // an earlier status's timer
+	h.m.Update(statusExpiredMsg(h.m.a.Status().Gen - 1)) // an earlier status's timer
 	if !strings.Contains(h.screen(), want) {
 		t.Error("a stale timer cleared the status")
 	}
-	h.m.Update(statusExpiredMsg(h.m.statusGen))
+	h.m.Update(statusExpiredMsg(h.m.a.Status().Gen))
 	if strings.Contains(h.screen(), want) {
 		t.Errorf("status outlived its timeout:\n%s", h.screen())
 	}
@@ -52,13 +52,13 @@ func TestBottomBarConnectedSince(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	cs := h.m.chars["fm/kit"]
 	got := ansi.Strip(h.m.statusLine(60))
-	if want := str.ViewConnectedSince(cs.connectedAt.Local().Format("15:04")); strings.TrimSpace(got) != want { //str:ok
+	if want := str.ViewConnectedSince(cs.ConnectedAt.Local().Format("15:04")); strings.TrimSpace(got) != want { //str:ok
 		t.Errorf("bottom bar = %q, want %q", got, want)
 	}
-	cs.connectedAt = cs.connectedAt.Add(-48 * time.Hour)
+	cs.ConnectedAt = cs.ConnectedAt.Add(-48 * time.Hour)
 	got = ansi.Strip(h.m.statusLine(60))
-	day := cs.connectedAt.Local().Format(str.DateDay())
-	if want := str.ViewConnectedSinceDay(day, cs.connectedAt.Local().Format("15:04")); strings.TrimSpace(got) != want { //str:ok
+	day := cs.ConnectedAt.Local().Format(str.DateDay())
+	if want := str.ViewConnectedSinceDay(day, cs.ConnectedAt.Local().Format("15:04")); strings.TrimSpace(got) != want { //str:ok
 		t.Errorf("bottom bar = %q, want %q", got, want)
 	}
 }
@@ -170,7 +170,7 @@ func TestLogMessagesExpireAndClear(t *testing.T) {
 	if bar() == str.ViewSelected(len(b.selection())) {
 		t.Fatal("copy set no message")
 	}
-	h.m.Update(statusExpiredMsg(h.m.statusGen))
+	h.m.Update(statusExpiredMsg(h.m.a.Status().Gen))
 	if got, want := bar(), str.ViewSelected(len(b.selection())); got != want {
 		t.Errorf("after the message timed out the bar = %q, want %q", got, want)
 	}

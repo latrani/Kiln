@@ -38,7 +38,7 @@ func withTheme(t *testing.T, src string) *theme.Theme {
 func TestSidebarUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
-	h.m.chars["fm/rook"].unread, h.m.chars["fm/rook"].attention = 2, true
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Attention = 2, true
 	th := withTheme(t, `[ui]
 sidebar = { bg = "#010203" }
 "sidebar.world" = { fg = "#0a0b0c" }
@@ -272,8 +272,8 @@ func TestBrokenThemeAtStartUsesBuiltin(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("[ui\n"), 0o644)
 	cfg, _ := config.Load(dir)
 	m := New(Deps{ConfigDir: dir, Load: config.Load, Now: func() time.Time { return time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local) }}, cfg)
-	if theme.Active().SGR(theme.StatusError) != theme.Builtin().SGR(theme.StatusError) || !strings.Contains(m.status, upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
-		t.Errorf("want the built-in theme and a status, got %q", m.status)
+	if theme.Active().SGR(theme.StatusError) != theme.Builtin().SGR(theme.StatusError) || !strings.Contains(m.a.Status().Text, upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
+		t.Errorf("want the built-in theme and a status, got %q", m.a.Status().Text)
 	}
 }
 
@@ -309,7 +309,7 @@ func TestBrokenThemeDoesNotBlockAddingACharacter(t *testing.T) {
 	h.enter()
 	h.typeText("Ash")
 	h.enter()
-	if cs := h.m.chars["fm/Ash"]; cs == nil || cs.sess == nil || h.m.active != "fm/Ash" {
+	if cs := h.m.chars["fm/Ash"]; cs == nil || cs.Sess == nil || h.m.a.Active() != "fm/Ash" {
 		t.Fatalf("a broken theme stopped Ash from opening:\n%s", h.screen())
 	}
 	if !strings.Contains(h.screen(), upTo(str.StatusThemeNotLoaded(errors.New(mark)))) {
@@ -325,7 +325,7 @@ func TestActiveRowWinsOverItsParts(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
 	h.m.switchTo("fm/rook")
-	h.m.chars["fm/rook"].unread, h.m.chars["fm/rook"].attention = 3, true
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Attention = 3, true
 	withTheme(t, `[ui]
 sidebar = { fg = "#6b6f7a", bg = "#1f2029" }
 "sidebar.char" = { fg = "#0a0b0c" }
@@ -368,9 +368,8 @@ func TestUnchangedThemeReloadKeepsSelection(t *testing.T) {
 // History read under one theme and arriving after a change is restyled.
 func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
 	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
-	dir := t.TempDir()
-	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	for _, d := range []int{22, 23, 24} {
 		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
 		for i := 0; i < 150; i++ {
@@ -378,8 +377,6 @@ func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
 		}
 	}
 	w.Close()
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.d.LogRoot = root
 	cs := h.m.chars["fm/kit"]
 	cs.sb = Scrollback{}
 	h.m.preload(cs)
@@ -528,8 +525,8 @@ func TestBadWorldLookFallsBackToTheme(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	want := str.StatusCharError("fm/kit", errors.New(str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere")))
-	if !strings.Contains(h.m.status, want) {
-		t.Errorf("status = %q, want the bad color reported", h.m.status)
+	if !strings.Contains(h.m.a.Status().Text, want) {
+		t.Errorf("status = %q, want the bad color reported", h.m.a.Status().Text)
 	}
 	h.show("Mira pages: you around?")
 	_, ts, _ := theme.Active().Tag("page/in")
@@ -583,8 +580,8 @@ func TestLightAnswerRestyles(t *testing.T) {
 
 func TestNoAnswerStaysDark(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	if theme.Active().SGR(theme.Sidebar) != theme.Builtin().SGR(theme.Sidebar) || h.m.status != "" {
-		t.Errorf("with no answer: sidebar %q, status %q", theme.Active().SGR(theme.Sidebar), h.m.status)
+	if theme.Active().SGR(theme.Sidebar) != theme.Builtin().SGR(theme.Sidebar) || h.m.a.Status().Text != "" {
+		t.Errorf("with no answer: sidebar %q, status %q", theme.Active().SGR(theme.Sidebar), h.m.a.Status().Text)
 	}
 }
 
@@ -638,8 +635,8 @@ func TestMissingNamedTheme(t *testing.T) {
 	had := theme.Active()
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("theme = \"nope\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
-	if !strings.Contains(h.m.status, str.ThemeNoTheme("nope")) {
-		t.Errorf("status = %q", h.m.status)
+	if !strings.Contains(h.m.a.Status().Text, str.ThemeNoTheme("nope")) {
+		t.Errorf("status = %q", h.m.a.Status().Text)
 	}
 	if theme.Active() != had {
 		t.Error("a missing theme on reload should keep the colors Kiln had")
@@ -776,9 +773,8 @@ var wikiWorld = fmWorld + "\n[[classify]]\ntag = \"wiki\"\npattern = '^\\[Wiki\\
 // change, is made again under the new rules, not just repainted.
 func TestOlderHistoryArrivingAfterRulesAndThemeChange(t *testing.T) {
 	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
-	dir := t.TempDir()
-	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	for _, d := range []int{22, 23, 24} {
 		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
 		for i := 0; i < 150; i++ {
@@ -786,8 +782,6 @@ func TestOlderHistoryArrivingAfterRulesAndThemeChange(t *testing.T) {
 		}
 	}
 	w.Close()
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.d.LogRoot = root
 	cs := h.m.chars["fm/kit"]
 	cs.sb = Scrollback{}
 	h.m.preload(cs)

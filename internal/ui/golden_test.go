@@ -207,7 +207,7 @@ func TestGoldenMain(t *testing.T) {
 	h.show("See https://kiln.test/map for the way")
 	h.typeText(":waves.")
 	h.enter()
-	h.m.chars["fm/rook"].unread, h.m.chars["fm/rook"].attention = 3, true
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Attention = 3, true
 	assertGolden(t, "main", h.drawn())
 }
 
