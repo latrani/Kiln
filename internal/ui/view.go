@@ -62,7 +62,7 @@ func (m *Model) layout() layout {
 	} else {
 		limit, flatten := 0, false
 		if cs != nil {
-			limit, flatten = cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten"
+			limit, flatten = cs.Ch.MaxLineBytes, cs.Ch.NewlineMode == "flatten"
 		}
 		rows, r, c := m.input().Render(l.rw, limit, flatten, false)
 		maxIn := max(1, m.height/3)
@@ -94,9 +94,9 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 	case m.mode == modeSavePassword:
 		name := m.pendingCh[1]
 		if pc := m.chars[key(m.pendingCh[0], m.pendingCh[1])]; pc != nil {
-			name = pc.ch.Name
+			name = pc.Ch.Name
 		}
-		return hint(str.ViewSavePassword(name, storeName(m.passwordStore())))
+		return hint(str.ViewSavePassword(name, storeName(m.a.PasswordStore())))
 	case m.picker != nil:
 		f := m.picker.form
 		if m.picker.edit != nil {
@@ -111,16 +111,16 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 	case cs.needPW:
 		// Bullets for what's typed, between a label and the keys to press.
 		rows, _, c := cs.in.Render(1<<20, 0, false, true)
-		label := str.ViewPasswordLabel(cs.ch.Name)
+		label := str.ViewPasswordLabel(cs.Ch.Name)
 		text := theme.Paint(theme.InputHint, label) + strings.TrimPrefix(rows[0], gutterMark) + theme.Paint(theme.InputHint, str.ViewPasswordKeys())
 		return []string{text}, 0, c - gutterWidth + xansi.StringWidth(label), true
-	case !cs.in.Empty() || cs.state == session.Connected:
+	case !cs.in.Empty() || cs.State == session.Connected:
 		return nil, 0, 0, false
-	case cs.pin != nil:
+	case cs.Pin != nil:
 		return hint(str.ViewCertChanged())
-	case cs.state == session.Connecting:
+	case cs.State == session.Connecting:
 		return hint(str.ViewConnecting())
-	case cs.state == session.Failed:
+	case cs.State == session.Failed:
 		return hint(str.ViewConnectFailed())
 	}
 	return hint(str.ViewDisconnected())
@@ -160,7 +160,7 @@ func fit(s string, w int) string {
 // minute.
 func (m *Model) statusLine(w int) string {
 	cs := m.cur()
-	msg, isErr := m.status, m.statusErr
+	msg, isErr := m.a.Status().Text, m.a.Status().Err
 	switch {
 	case msg != "" && isErr:
 		msg = theme.Paint(theme.StatusError, msg)
@@ -168,10 +168,10 @@ func (m *Model) statusLine(w int) string {
 	case cs == nil:
 	case cs.browse != nil:
 		msg = str.ViewSelected(len(cs.browse.selection()))
-	case cs.state == session.Connected:
+	case cs.State == session.Connected:
 		msg = m.connectedSince(cs)
 	default:
-		msg = stateName(cs.state)
+		msg = stateName(cs.State)
 	}
 	return fitName(msg, w)
 }
@@ -179,7 +179,7 @@ func (m *Model) statusLine(w int) string {
 // connectedSince says when the connection came up: the time, with the day
 // first if that wasn't today.
 func (m *Model) connectedSince(cs *charState) string {
-	at, now := cs.connectedAt.Local(), m.d.Now().Local()
+	at, now := cs.ConnectedAt.Local(), m.d.Now().Local()
 	t := at.Format("15:04")                                  //str:ok
 	if at.Format("2006-01-02") != now.Format("2006-01-02") { //str:ok
 		return str.ViewConnectedSinceDay(at.Format(str.DateDay()), t)
@@ -204,10 +204,10 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip, presenceChip [2
 func (m *Model) topBarFor(w int, p presenceState) (line string, logChip, filterChip, presenceChip [2]int) {
 	cs := m.cur()
 	if cs == nil {
-		world, _ := m.activeWorld() // "" with nothing open
+		world, _ := m.a.ActiveWorld() // "" with nothing open
 		return fitName(world, w), logChip, filterChip, presenceChip
 	}
-	left := cs.ch.World + str.Separator() + cs.ch.Name
+	left := cs.Ch.World + str.Separator() + cs.Ch.Name
 	logRole := theme.StatusLog
 	type part struct {
 		text string
@@ -328,9 +328,9 @@ func (m *Model) View() tea.View {
 		}
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
-		if w, ok := m.activeWorld(); ok {
+		if w, ok := m.a.ActiveWorld(); ok {
 			copy(right[l.top:], m.overview(w, l.rw, l.sbH))
-		} else if len(m.allChars()) == 0 {
+		} else if len(m.a.AllChars()) == 0 {
 			right[l.top] = theme.Paint(theme.ScrollbackEmpty, str.ViewNoCharacters())
 		}
 	} else {
@@ -416,9 +416,9 @@ const overviewLines = 5
 // each row shows in m.ovKeys, for clicks.
 func (m *Model) overview(world string, w, h int) []string {
 	var rows, keys []string
-	for _, k := range m.order {
+	for _, k := range m.a.Order() {
 		cs := m.chars[k]
-		if cs.ch.World != world {
+		if cs.Ch.World != world {
 			continue
 		}
 		if len(rows) > 0 {
@@ -428,7 +428,7 @@ func (m *Model) overview(world string, w, h int) []string {
 		if t, ok := cs.sb.LastTime(); ok {
 			when = m.clock(t)
 		}
-		rows, keys = append(rows, theme.Paint(theme.ScrollbackOverview, cs.ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when)), append(keys, k)
+		rows, keys = append(rows, theme.Paint(theme.ScrollbackOverview, cs.Ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when)), append(keys, k)
 		for _, l := range cs.sb.Tail(overviewLines) {
 			rows, keys = append(rows, xansi.Truncate(l, w, "…")+style.Reset), append(keys, k)
 		}
@@ -447,7 +447,7 @@ func (m *Model) overview(world string, w, h int) []string {
 // overviewing reports whether a world's overview has the pane, with
 // nothing asking in the input area: then there's no input box.
 func (m *Model) overviewing() bool {
-	_, ok := m.activeWorld()
+	_, ok := m.a.ActiveWorld()
 	return ok && m.picker == nil && m.mode == modeNormal
 }
 

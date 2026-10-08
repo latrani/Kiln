@@ -62,8 +62,8 @@ func TestBackupClickAndCommand(t *testing.T) {
 	h, c := webHarness(t)
 	_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: 22, Button: tea.MouseLeft})
 	h.run(cmd)
-	if c.backups != 1 || h.m.status != str.StatusDownloaded("kiln-backup.zip") {
-		t.Errorf("click: backups = %d, status %q", c.backups, h.m.status)
+	if c.backups != 1 || h.m.a.Status().Text != str.StatusDownloaded("kiln-backup.zip") {
+		t.Errorf("click: backups = %d, status %q", c.backups, h.m.a.Status().Text)
 	}
 	h.typeText("/backup")
 	h.run(h.enter())
@@ -77,21 +77,21 @@ func TestRestoreReloadsAndCounts(t *testing.T) {
 	c.restoreN = 3
 	_, cmd := h.m.Update(tea.MouseClickMsg{X: 2, Y: 23, Button: tea.MouseLeft})
 	h.run(cmd)
-	if c.restores != 1 || h.m.status != str.StatusRestored(3) {
-		t.Errorf("restores = %d, status %q", c.restores, h.m.status)
+	if c.restores != 1 || h.m.a.Status().Text != str.StatusRestored(3) {
+		t.Errorf("restores = %d, status %q", c.restores, h.m.a.Status().Text)
 	}
 	c.restoreN, c.restoreErr = 0, nil // cancelled: says nothing
-	h.m.status = ""
+	h.m.a.ClearStatus()
 	h.typeText("/restore")
 	h.run(h.enter())
-	if h.m.status != "" {
-		t.Errorf("cancelled restore said %q", h.m.status)
+	if h.m.a.Status().Text != "" {
+		t.Errorf("cancelled restore said %q", h.m.a.Status().Text)
 	}
 	c.restoreErr = errors.New("bad zip")
 	h.typeText("/restore")
 	h.run(h.enter())
-	if h.m.status != str.StatusRestoreFailed(c.restoreErr) {
-		t.Errorf("failed restore said %q", h.m.status)
+	if h.m.a.Status().Text != str.StatusRestoreFailed(c.restoreErr) {
+		t.Errorf("failed restore said %q", h.m.a.Status().Text)
 	}
 }
 
@@ -100,8 +100,8 @@ func TestBackupCommandsUnknownOnDesktop(t *testing.T) {
 	for _, c := range []string{"/backup", "/restore"} {
 		h.typeText(c)
 		h.enter()
-		if h.m.status != str.StatusUnknownCommand(c) {
-			t.Errorf("%s: status = %q", c, h.m.status)
+		if h.m.a.Status().Text != str.StatusUnknownCommand(c) {
+			t.Errorf("%s: status = %q", c, h.m.a.Status().Text)
 		}
 	}
 }
@@ -109,8 +109,8 @@ func TestBackupCommandsUnknownOnDesktop(t *testing.T) {
 func TestStatusMsg(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.m.Update(StatusMsg{Text: str.WebNotSaving(), Err: true})
-	if h.m.status != str.WebNotSaving() || !h.m.statusErr {
-		t.Errorf("status = %q, err %v", h.m.status, h.m.statusErr)
+	if h.m.a.Status().Text != str.WebNotSaving() || !h.m.a.Status().Err {
+		t.Errorf("status = %q, err %v", h.m.a.Status().Text, h.m.a.Status().Err)
 	}
 }
 
@@ -139,8 +139,8 @@ func TestBackupFailed(t *testing.T) {
 	c.backupErr = errors.New("no space")
 	h.typeText("/backup")
 	h.run(h.enter())
-	if h.m.status != str.StatusBackupFailed(c.backupErr) || !h.m.statusErr {
-		t.Errorf("status = %q, err %v", h.m.status, h.m.statusErr)
+	if h.m.a.Status().Text != str.StatusBackupFailed(c.backupErr) || !h.m.a.Status().Err {
+		t.Errorf("status = %q, err %v", h.m.a.Status().Text, h.m.a.Status().Err)
 	}
 }
 
@@ -153,7 +153,7 @@ func TestBackupCommandsWithNothingOpen(t *testing.T) {
 	h.typeText("/restore")
 	h.run(h.enter())
 	if c.backups != 1 || c.restores != 1 {
-		t.Errorf("backups = %d, restores = %d; status %q", c.backups, c.restores, h.m.status)
+		t.Errorf("backups = %d, restores = %d; status %q", c.backups, c.restores, h.m.a.Status().Text)
 	}
 }
 

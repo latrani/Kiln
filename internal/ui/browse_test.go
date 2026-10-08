@@ -168,7 +168,7 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	exportDir := t.TempDir()
-	h.m.cfg.ExportDir = exportDir
+	h.m.a.Config().ExportDir = exportDir
 	h.key("ctrl+l")
 	// Cursor starts on the last line (Rook yawns). Mark 21:01..21:05.
 	h.keys("up", "m")                   // Rook says lighthouse = end
@@ -723,7 +723,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 	t.Setenv("HOME", home)
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.m.cfg.ExportDir = filepath.Join(home, "scenes")
+	h.m.a.Config().ExportDir = filepath.Join(home, "scenes")
 	h.key("ctrl+l")
 	h.keys("m", "up", "m")
 	b := h.br()
@@ -745,7 +745,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
-	h.m.cfg.ExportDir = ""
+	h.m.a.Config().ExportDir = ""
 	h.key("ctrl+l")
 	h.keys("m", "up", "m")
 	b := h.br()
@@ -794,7 +794,7 @@ func TestLogDirAndNameSettings(t *testing.T) {
 	os.WriteFile(filepath.Join(h.dir, "config.toml"),
 		[]byte("log_dir = \""+logs+"/{world}/{name}/%Y/%m\"\nlog_name = \"%Y-%m-%d.%H.%M.%S\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
-	l, ok := h.m.logLayout(h.m.chars["fm/kit"].ch)
+	l, ok := h.m.a.LogLayout(h.m.chars["fm/kit"].Ch)
 	if !ok {
 		t.Fatal("no log layout")
 	}
@@ -908,7 +908,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	}
 	h.m.switchTo("sp/ash") // another world
 	h.conn("fm/kit").lines <- "Brand new line"
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].unread > 0 })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread > 0 })
 	h.m.switchTo("fm/kit")
 	h.key("ctrl+l")
 	if h.br() != b || b.panel == nil || b.panel.sel != sel || b.cursor != cursor || b.start == nil {
@@ -1092,7 +1092,7 @@ func TestWheelScrollsScrollLines(t *testing.T) {
 	h.writeLog(day24, lines...)
 	cs := h.m.chars["fm/kit"]
 	for _, c := range []struct{ setting, want int }{{config.DefaultScrollLines, 1}, {4, 4}} {
-		h.m.cfg.ScrollLines = c.setting
+		h.m.a.Config().ScrollLines = c.setting
 		l := h.m.layout()
 		cs.sb.ToBottom()
 		h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: l.top + 1, Button: tea.MouseWheelUp})
@@ -1147,7 +1147,7 @@ func TestBrowseRespectsLocalEcho(t *testing.T) {
 		t.Error("cursor landed on a sent line")
 	}
 
-	h.m.chars["fm/kit"].ch.LocalEcho = true
+	h.m.chars["fm/kit"].Ch.LocalEcho = true
 	if s := h.screen(); !strings.Contains(s, "21:03") {
 		t.Errorf("sent line missing with local_echo on:\n%s", s)
 	}

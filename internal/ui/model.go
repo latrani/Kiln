@@ -5,18 +5,15 @@ package ui
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
-	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/history"
@@ -67,31 +64,24 @@ const (
 // Model is the Bubble Tea model.
 type Model struct {
 	d           Deps
-	cfg         *config.Config // the loaded config; the picker lists from it
-	picker      *picker        // non-nil while the open-connection picker is open
-	idle        *Input         // the input box while nothing is open
-	chars       map[string]*charState
-	order       []string // sidebar order of character keys
-	active      string
+	a           *app.App              // what Kiln decides; Model is its terminal front end
+	picker      *picker               // non-nil while the open-connection picker is open
+	idle        *Input                // the input box while nothing is open
+	chars       map[string]*charState // the open characters' views, keyed like the core's
 	width       int
 	height      int
-	status      string
-	statusErr   bool
 	mode        mode
-	pendingPW   string                 // entered password awaiting the save y/n answer
-	pendingCh   [2]string              // world and character id the pending password belongs to
-	confirm     bool                   // next Enter sends an over-limit line anyway
-	resizeGen   int                    // bumped per WindowSizeMsg; see resizeMsg
-	sideTop     int                    // first sidebar row shown when it overflows
-	sideShown   string                 // active character last scrolled into view
-	pwStore     atomic.Pointer[string] // password_store; sessions read it off the UI goroutine
-	recent      []string               // open characters by when last active, most recent first; not the active one
-	quitKey     string                 // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
-	quitGen     int                    // bumped per arming; see quitExpiredMsg
-	statusGen   int                    // bumped by each setStatus; see statusExpiredMsg
-	statusOfLog bool                   // status came from log mode; its next key or click clears it
-	statusTimed int                    // the statusGen whose expiry is scheduled
-	lastClick   struct {               // for spotting a double-click in the sidebar
+	pendingPW   string    // entered password awaiting the save y/n answer
+	pendingCh   [2]string // world and character id the pending password belongs to
+	confirm     bool      // next Enter sends an over-limit line anyway
+	resizeGen   int       // bumped per WindowSizeMsg; see resizeMsg
+	sideTop     int       // first sidebar row shown when it overflows
+	sideShown   string    // active character last scrolled into view
+	quitKey     string    // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen     int       // bumped per arming; see quitExpiredMsg
+	statusOfLog bool      // status came from log mode; its next key or click clears it
+	statusTimed int       // the statusGen whose expiry is scheduled
+	lastClick   struct {  // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
 	}
@@ -110,35 +100,25 @@ type Model struct {
 	ovTop           int                     // first row of a world's overview shown; see overview
 	ovKeys          []string                // the character each overview row shows, from the last draw; "" for a rule
 	drafts          map[string]*editor      // editors hidden by Ctrl+T, unsaved, by target; see hideEditor
-	parked          map[string]*editor      // editors left open on a sidebar item while another is active, by m.active; see parkEditor
+	parked          map[string]*editor      // editors left open on a sidebar item while another is active, by m.a.Active(); see parkEditor
 }
 
 type charState struct {
-	key         string
-	ch          config.Character
-	sess        *session.Session
-	cancel      context.CancelFunc
-	state       session.State
-	rules       app.Rules
-	hl          *rules.Highlighter
-	sb          Scrollback
-	in          *Input
-	unread      int
-	attention   bool
-	pin         *conn.PinMismatchError
-	needPW      bool
-	pwDraft     string           // input stashed while the password prompt is up
-	orphan      bool             // removed from the config; dropped when it disconnects
-	browse      *browse          // non-nil while browse mode is open
-	hidBrowse   *browse          // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
-	filter      scene.Filter     // log mode's filter; outlasts a log-mode session
-	collapsed   map[string]bool  // filter panel parents folded shut, by tag
-	foldSeen    map[string]bool  // parents the panel has already met; a new one starts folded
-	hist        *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
-	leftover    []logstore.Entry // the preload's unshown start of its oldest day
-	sentGen     int              // hereGen when the last notification went out; -1: none yet
-	connectedAt time.Time        // when the current connection came up
-	lastSent    time.Time        // when the last notification went out
+	*app.Char                    // the core's half; ui only reads it
+	hl        *rules.Highlighter // the character's look: the theme with its own looks on top
+	sb        Scrollback
+	in        *Input
+	needPW    bool
+	pwDraft   string           // input stashed while the password prompt is up
+	browse    *browse          // non-nil while browse mode is open
+	hidBrowse *browse          // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
+	filter    scene.Filter     // log mode's filter; outlasts a log-mode session
+	collapsed map[string]bool  // filter panel parents folded shut, by tag
+	foldSeen  map[string]bool  // parents the panel has already met; a new one starts folded
+	hist      *history.Reader  // pages older log days into sb; only an in-flight sbOlderMsg read touches it
+	leftover  []logstore.Entry // the preload's unshown start of its oldest day
+	sentGen   int              // hereGen when the last notification went out; -1: none yet
+	lastSent  time.Time        // when the last notification went out
 }
 
 // sbOlderMsg carries older scrollback lines, read and rendered off the UI
@@ -192,16 +172,10 @@ func (cs *charState) endPassword() {
 	cs.pwDraft = ""
 }
 
-func key(world, char string) string { return world + "/" + char }
+func key(world, char string) string { return app.Key(world, char) }
 
 // Messages.
 type (
-	eventMsg struct {
-		key  string
-		sess *session.Session
-		ev   session.Event
-		ok   bool
-	}
 	reloadMsg struct{}
 	tickMsg   time.Time
 	// quitExpiredMsg fires quitWindow after a quit key is armed; it
@@ -223,6 +197,10 @@ func New(d Deps, cfg *config.Config) *Model {
 		d.Raw = func(seq string) tea.Cmd { return tea.Raw(seq) }
 	}
 	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
+	m.a = app.New(app.Deps{
+		LogRoot: d.LogRoot, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
+		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
+	})
 	m.focused, m.lastHere = true, d.Now()
 	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
@@ -232,7 +210,7 @@ func New(d Deps, cfg *config.Config) *Model {
 		m.setStatus(true, str.StatusThemeNotLoaded(m.themeErr))
 		m.themeErr = nil
 	}
-	for _, ch := range m.allChars() {
+	for _, ch := range m.a.AllChars() {
 		if ch.Autoconnect && !d.NoAutoconnect {
 			m.open(key(ch.World, ch.ID))
 		}
@@ -243,8 +221,8 @@ func New(d Deps, cfg *config.Config) *Model {
 // Init connects autoconnect characters and starts the clock and watcher.
 func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{tick(m.d.Now()), m.watch(), m.askBackground()}
-	for _, k := range m.order {
-		if m.chars[k].ch.Autoconnect && !m.d.NoAutoconnect {
+	for _, k := range m.a.Order() {
+		if m.chars[k].Ch.Autoconnect && !m.d.NoAutoconnect {
 			cmds = append(cmds, m.connect(m.chars[k]))
 		}
 	}
@@ -284,13 +262,6 @@ func (m *Model) watch() tea.Cmd {
 	}
 }
 
-func waitEvent(k string, s *session.Session) tea.Cmd {
-	return func() tea.Msg {
-		ev, ok := <-s.Events()
-		return eventMsg{key: k, sess: s, ev: ev, ok: ok}
-	}
-}
-
 // reloadNow loads the config and theme and applies them, reporting whether
 // the config could be.
 func (m *Model) reloadNow() bool {
@@ -307,7 +278,7 @@ func (m *Model) reloadNow() bool {
 // appearance is the palette to draw with: the setting, or with auto the
 // terminal's last answer (dark until one comes).
 func (m *Model) appearance() theme.Appearance {
-	switch m.cfg.Appearance {
+	switch m.a.Config().Appearance {
 	case "light":
 		return theme.Light
 	case "dark":
@@ -319,7 +290,7 @@ func (m *Model) appearance() theme.Appearance {
 // askBackground asks the terminal for its background, when the
 // appearance is auto.
 func (m *Model) askBackground() tea.Cmd {
-	if m.cfg.Appearance != "auto" {
+	if m.a.Config().Appearance != "auto" {
 		return nil
 	}
 	return tea.RequestBackgroundColor
@@ -331,7 +302,7 @@ func (m *Model) askBackground() tea.Cmd {
 // reported when the update ends (see Update), after any message the
 // caller shows for what it did.
 func (m *Model) loadTheme() {
-	th, err := theme.Load(m.d.ConfigDir, m.cfg.Theme, m.appearance())
+	th, err := theme.Load(m.d.ConfigDir, m.a.Config().Theme, m.appearance())
 	m.themeErr = err
 	if err != nil && m.themed && !m.standIn {
 		return // keep the theme we have
@@ -341,9 +312,9 @@ func (m *Model) loadTheme() {
 		return // restyling would drop a selection for nothing
 	}
 	theme.SetActive(th)
-	for _, k := range m.order { // in order, so which error shows is settled
+	for _, k := range m.a.Order() { // in order, so which error shows is settled
 		cs := m.chars[k]
-		if _, err := cs.compile(); err != nil { // each highlighter holds the theme it was built on
+		if err := cs.compileLook(); err != nil { // each highlighter holds the theme it was built on
 			m.setStatus(true, str.StatusCharError(k, err))
 		}
 		cs.sb.Rerender(nil, func(l app.Line) string { return paint(cs.hl, l) })
@@ -353,42 +324,42 @@ func (m *Model) loadTheme() {
 	}
 }
 
-// applyConfig keeps cfg for the picker and updates open characters to
-// match it. An open character that vanished from the config stays as an
-// orphan while it's connected, until it next disconnects; otherwise it
-// closes.
+// applyConfig hands cfg to the core, then updates the open characters'
+// views: export settings, looks, and lines when what styles them changed.
 func (m *Model) applyConfig(cfg *config.Config) {
-	m.cfg = cfg
-	store := cfg.PasswordStore
-	m.pwStore.Store(&store)
-	for _, k := range slices.Clone(m.order) {
+	keys := slices.Clone(m.a.Order())
+	before := map[string]config.Character{}
+	for _, k := range keys {
+		before[k] = m.chars[k].Ch
+	}
+	prev := m.a.Active()
+	res := m.a.ApplyConfig(cfg)
+	for _, k := range res.Closed {
+		m.closed(k, prev)
+	}
+	m.activated(prev)
+	for _, k := range keys { // in order, so which error shows is settled
 		cs := m.chars[k]
+		if cs == nil {
+			continue
+		}
 		for _, b := range cs.browses() {
 			b.setExport(cfg)
 		}
-		ch, ok := m.find(k)
-		if !ok {
-			if cs.sess != nil && cs.state != session.Disconnected && cs.state != session.Failed {
-				cs.orphan = true
-			} else {
-				m.close(k)
-			}
+		if cs.Orphan {
 			continue
 		}
-		restyle := !reflect.DeepEqual(styleInputs(cs.ch), styleInputs(ch))
-		cs.ch, cs.orphan = ch, false
-		installed, err := cs.compile()
-		if err != nil {
+		if err := res.Errs[k]; err != nil {
+			m.setStatus(true, str.StatusCharError(k, err))
+			continue
+		}
+		if err := cs.compileLook(); err != nil {
 			m.setStatus(true, str.StatusCharError(k, err))
 		}
-		if installed && restyle {
-			cs.sb.Rerender(cs.rules.Reline, func(l app.Line) string { return paint(cs.hl, l) })
-		}
-		if cs.sess != nil {
-			cs.sess.SetChar(ch)
+		if !reflect.DeepEqual(styleInputs(before[k]), styleInputs(cs.Ch)) {
+			cs.sb.Rerender(cs.Rules.Reline, func(l app.Line) string { return paint(cs.hl, l) })
 		}
 	}
-	m.sortOrder() // names may have changed
 	if m.picker != nil {
 		m.fixPick()
 	}
@@ -405,44 +376,24 @@ func styleInputs(ch config.Character) any {
 	}{ch.Rules, ch.Looks, ch.Name, ch.Aliases}
 }
 
-// compile builds cs's classifier, and its highlighter from the active
-// theme with the character's own looks on top, reporting whether it
-// installed them. Looks that don't resolve (a color nobody defines)
-// leave the theme's own tag styles in use; either way the error is
-// returned for the caller to show.
-func (cs *charState) compile() (installed bool, err error) {
-	cls, err := classify.New(cs.ch.Rules.Classify, cs.ch.Name, cs.ch.Aliases)
+// compileLook builds cs's highlighter from the active theme with the
+// character's own looks on top. Looks that don't resolve (a color nobody
+// defines) leave the theme's own tag styles in use; either way the error
+// is returned for the caller to show.
+func (cs *charState) compileLook() error {
+	th, err := theme.Active().With(cs.Ch.Looks...)
 	if err != nil {
-		return false, err
-	}
-	th, lookErr := theme.Active().With(cs.ch.Looks...)
-	if lookErr != nil {
 		th = theme.Active()
 	}
-	cs.rules = app.Rules{Classifier: cls, Judge: rules.Judge{Attention: cs.ch.Rules.Attention, Quiet: cs.ch.Rules.Quiet}}
 	cs.hl = rules.New(th)
-	return true, lookErr
-}
-
-// logLayout is where ch's logs go; ok is false when there's nowhere.
-func (m *Model) logLayout(ch config.Character) (l logstore.Layout, ok bool) {
-	l = logstore.Layout{Root: m.d.LogRoot, Dir: m.cfg.LogDir, Name: m.cfg.LogName,
-		World: ch.World, Char: ch.ID, CharName: ch.Name}
-	return l, m.d.LogRoot != "" || filepath.IsAbs(m.cfg.LogDir)
-}
-
-// mustLayout is logLayout for the log writer, which always has a place
-// to write in the real program (LogRoot is set).
-func (m *Model) mustLayout(ch config.Character) logstore.Layout {
-	l, _ := m.logLayout(ch)
-	return l
+	return err
 }
 
 // preload fills the scrollback with the tail of the most recent log days
 // and hands everything older to the scrollback to page in on demand, so
 // scrollback is unlimited.
 func (m *Model) preload(cs *charState) {
-	l, ok := m.logLayout(cs.ch)
+	l, ok := m.a.LogLayout(cs.Ch)
 	if !ok {
 		return
 	}
@@ -471,7 +422,7 @@ func (m *Model) preload(cs *charState) {
 	}
 	// The preload starts a day only if nothing of that day was left over.
 	startsDay := len(leftover) == 0 || leftover[len(leftover)-1].Time.Local().Format("2006-01-02") != entries[0].Time.Local().Format("2006-01-02")
-	for _, l := range renderDays(cs.rules, cs.hl, cs.ch.LocalEcho, entries, startsDay) {
+	for _, l := range renderDays(cs.Rules, cs.hl, cs.Ch.LocalEcho, entries, startsDay) {
 		cs.sb.AppendLine(l)
 	}
 	cs.sb.AppendLine(chromeLine(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
@@ -488,7 +439,7 @@ func (m *Model) pageOlder() tea.Cmd {
 	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
 		return nil
 	}
-	key, h, r, hl, echo, leftover := cs.key, cs.hist, cs.rules, cs.hl, cs.ch.LocalEcho, cs.leftover
+	key, h, r, hl, echo, leftover := cs.Key, cs.hist, cs.Rules, cs.hl, cs.Ch.LocalEcho, cs.leftover
 	cs.leftover = nil
 	th := theme.Active()
 	return func() tea.Msg {
@@ -507,12 +458,12 @@ func (m *Model) pageOlder() tea.Cmd {
 // echoes reports whether e belongs in the scrollback: everything but sent
 // lines, which only show with local_echo on. They're logged either way.
 func (cs *charState) echoes(e logstore.Entry) bool {
-	return e.Dir != logstore.Out || cs.ch.LocalEcho
+	return e.Dir != logstore.Out || cs.Ch.LocalEcho
 }
 
 // render makes e into a line and paints it.
 func (cs *charState) render(e logstore.Entry) (string, app.Line) {
-	l := cs.rules.Line(e)
+	l := cs.Rules.Line(e)
 	return paint(cs.hl, l), l
 }
 
@@ -528,29 +479,22 @@ func renderDays(r app.Rules, hl *rules.Highlighter, echo bool, entries []logstor
 }
 
 // connect starts (or restarts) a character's session.
-func (m *Model) connect(cs *charState) tea.Cmd {
-	if cs.sess != nil {
-		cs.sess.Reconnect()
-		return nil
+func (m *Model) connect(cs *charState) tea.Cmd { return m.run(m.a.Connect(cs.Key)) }
+
+// run performs the core's effects: blocking work as commands, quitting
+// as tea.Quit.
+func (m *Model) run(effs []app.Effect) tea.Cmd {
+	var cmds []tea.Cmd
+	for _, e := range effs {
+		switch e := e.(type) {
+		case app.Run:
+			f := e.Func
+			cmds = append(cmds, func() tea.Msg { return f() })
+		case app.Quit:
+			cmds = append(cmds, tea.Quit)
+		}
 	}
-	var s *session.Session
-	s = session.New(session.Options{
-		Char: cs.ch,
-		Log:  m.d.NewLog(m.mustLayout(cs.ch)),
-		Dial: func(ctx context.Context) (session.LineConn, error) { return m.d.Dial(ctx, s.Char()) },
-		Password: func() (string, error) {
-			ch := s.Char()
-			return m.d.Password(m.passwordStore(), ch.World, ch.ID)
-		},
-	})
-	if w, h := m.paneSize(); w > 0 {
-		s.Resize(w, h)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cs.sess, cs.cancel = s, cancel
-	cs.state = session.Connecting // until the session says otherwise; no × flash
-	go s.Run(ctx)
-	return waitEvent(cs.key, s)
+	return tea.Batch(cmds...)
 }
 
 // resizeDebounce is how long the window size must hold still before it is
@@ -589,17 +533,6 @@ func (m *Model) paneSize() (w, h int) {
 	return m.layout().rw, m.height
 }
 
-// reportSize tells every session the pane size. Sessions only send it to
-// servers that negotiated NAWS.
-func (m *Model) reportSize() {
-	w, h := m.paneSize()
-	for _, cs := range m.chars {
-		if cs.sess != nil {
-			cs.sess.Resize(w, h)
-		}
-	}
-}
-
 // Update handles one message, then pages in older scrollback if the
 // view has run past it.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -618,10 +551,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setStatus(true, str.StatusThemeNotLoaded(m.themeErr))
 		m.themeErr = nil
 	}
-	if m.statusGen != m.statusTimed { // a new status: time it out
-		m.statusTimed = m.statusGen
-		gen := m.statusGen
-		cmd = tea.Batch(cmd, tea.Tick(statusTimeout, func(time.Time) tea.Msg { return statusExpiredMsg(gen) }))
+	if g := m.a.Status().Gen; g != m.statusTimed { // a new status: time it out
+		m.statusTimed = g
+		cmd = tea.Batch(cmd, tea.Tick(statusTimeout, func(time.Time) tea.Msg { return statusExpiredMsg(g) }))
 	}
 	return m, cmd
 }
@@ -630,12 +562,13 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.a.SetPane(m.paneSize())
 		m.resizeGen++
 		gen := m.resizeGen
 		return m, tea.Tick(resizeDebounce, func(time.Time) tea.Msg { return resizeMsg(gen) })
 	case resizeMsg:
 		if int(msg) == m.resizeGen { // the drag has settled
-			m.reportSize()
+			m.a.ReportSize()
 		}
 	case StatusMsg:
 		m.setStatus(msg.Err, msg.Text)
@@ -660,15 +593,15 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.disarmQuit()
 		}
 	case statusExpiredMsg:
-		if int(msg) == m.statusGen {
-			m.status = ""
+		if int(msg) == m.a.Status().Gen {
+			m.a.ClearStatus()
 		}
 	case reloadMsg:
 		if m.reloadNow() {
 			m.setStatus(false, str.StatusConfigReloaded())
 		}
 		return m, tea.Batch(m.watch(), m.askBackground())
-	case eventMsg:
+	case app.SessionMsg:
 		return m, m.handleEvent(msg)
 	case tea.FocusMsg:
 		m.focused, m.focusSeen = true, true
@@ -681,7 +614,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if ap != m.detected {
 			m.detected = ap
-			if m.cfg.Appearance == "auto" {
+			if m.a.Config().Appearance == "auto" {
 				m.loadTheme()
 			}
 		}
@@ -692,7 +625,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.theme != theme.Active() { // made in a theme (and maybe rules) since replaced
 				for i, l := range msg.lines {
 					if l.line != nil {
-						nl := cs.rules.Reline(*l.line)
+						nl := cs.Rules.Reline(*l.line)
 						l.line = &nl
 					}
 					msg.lines[i] = l.repainted(func(l app.Line) string { return paint(cs.hl, l) })
@@ -724,10 +657,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		m.focused = true
 		m.here()
-		before, gen := m.input().Value(), m.statusGen
+		before, gen := m.input().Value(), m.a.Status().Gen
 		cmd := m.handleKey(msg)
-		if m.statusGen == gen && m.input().Value() != before {
-			m.status = "" // typing again dismisses what was said before
+		if m.a.Status().Gen == gen && m.input().Value() != before {
+			m.a.ClearStatus() // typing again dismisses what was said before
 		}
 		return m, cmd
 	case tea.MouseWheelMsg:
@@ -748,7 +681,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) cur() *charState { return m.chars[m.active] }
+func (m *Model) cur() *charState { return m.chars[m.a.Active()] }
 
 // input is the active character's input box, or the idle one.
 func (m *Model) input() *Input {
@@ -758,21 +691,12 @@ func (m *Model) input() *Input {
 	return m.idle
 }
 
-// passwordStore is the password_store setting.
-func (m *Model) passwordStore() string {
-	if p := m.pwStore.Load(); p != nil && *p != "" {
-		return *p
-	}
-	return config.DefaultPasswordStore
-}
-
 // statusTimeout is how long a status message stays up. Typing clears it
 // sooner.
 const statusTimeout = 30 * time.Second
 
 func (m *Model) setStatus(isErr bool, msg string) {
-	m.status, m.statusErr = msg, isErr
-	m.statusGen++
+	m.a.SetStatus(isErr, msg)
 	m.statusOfLog = false
 }
 
@@ -790,69 +714,55 @@ func (m *Model) takeLogStatus() {
 // as log mode always has.
 func (m *Model) clearLogStatus() {
 	if m.statusOfLog {
-		m.status, m.statusOfLog = "", false
+		m.a.ClearStatus()
+		m.statusOfLog = false
 	}
 }
 
-func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
-	cs, ok := m.chars[msg.key]
-	if !ok || cs.sess != msg.sess || !msg.ok {
+func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
+	prev := m.a.Active()
+	ev, ok, effs := m.a.Handle(msg)
+	if !ok {
 		return nil // stale session, or it has shut down
 	}
-	ev := msg.ev
-	switch ev.Kind {
+	if ev.Closed {
+		m.closed(ev.Key, prev)
+		m.activated(prev)
+		return nil
+	}
+	cs := m.chars[ev.Key]
+	next := m.run(effs)
+	switch ev.Ev.Kind {
 	case session.EventLine:
-		text, l := cs.render(ev.Entry)
+		text := paint(cs.hl, ev.Line)
 		switch {
-		case !cs.echoes(ev.Entry):
-		case l.Quiet:
-			cs.sb.append(lineOf(text, l))
+		case !cs.echoes(ev.Ev.Entry):
+		case ev.Line.Quiet:
+			cs.sb.append(lineOf(text, ev.Line))
 		default:
-			cs.sb.AppendLine(lineOf(text, l))
+			cs.sb.AppendLine(lineOf(text, ev.Line))
 		}
-		if msg.key == m.active {
+		if ev.Key == m.a.Active() {
 			l := m.layout()
 			cs.sb.SetWidth(l.rw) // measure at the pane's width, even before a View
 			cs.sb.Pause(l.sbH)
 		}
 		for _, b := range cs.browses() {
-			b.appendLive(ev.Entry)
+			b.appendLive(ev.Ev.Entry)
 		}
-		if msg.key != m.active && ev.Entry.Dir == logstore.In && !l.Quiet {
-			cs.unread++
-			cs.attention = cs.attention || l.Attention
-		}
-		if n := m.notifyCmd(cs, l); n != nil {
-			return tea.Batch(n, waitEvent(msg.key, msg.sess))
+		if n := m.notifyCmd(cs, ev.Line); n != nil {
+			return tea.Batch(n, next)
 		}
 	case session.EventPrompt:
-		cs.sb.SetPrompt(ansi.Sanitize(ev.Entry.Text))
+		cs.sb.SetPrompt(ansi.Sanitize(ev.Ev.Entry.Text))
 	case session.EventState:
-		cs.state = ev.State
-		if ev.State == session.Connected {
-			cs.connectedAt = m.d.Now()
-		}
-		if cs.orphan && (ev.State == session.Disconnected || ev.State == session.Failed) {
-			m.close(msg.key) // don't reconnect (and log in) a deleted character
-			return nil
-		}
-		var pin *conn.PinMismatchError
-		if ev.State == session.Failed && errors.As(ev.Err, &pin) {
-			cs.pin = pin
-			m.setStatus(true, str.StatusCertChanged(cs.ch.Name))
-		}
-		if ev.State == session.Connected {
-			cs.pin = nil
-		}
-		if ev.State != session.Connected && cs.needPW {
+		if ev.Ev.State != session.Connected && cs.needPW {
 			cs.endPassword()
 		}
-	case session.EventLogError:
-		m.setStatus(true, str.StatusLogWriteFailed(cs.ch.Name, ev.Err))
 	case session.EventNeedPassword:
 		cs.startPassword()
 	}
-	return waitEvent(msg.key, msg.sess)
+	return next
 }
 
 func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
@@ -870,7 +780,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		case "enter", "y", "Y":
 			// Save for the character that was asked about, even if another
 			// one is active now.
-			store := m.passwordStore()
+			store := m.a.PasswordStore()
 			switch err := m.d.SavePassword(store, m.pendingCh[0], m.pendingCh[1], m.pendingPW); {
 			case err != nil && store == "keychain":
 				m.setStatus(true, str.StatusKeychainFailed(err))
@@ -932,7 +842,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case openEditorKey:
 		if cs != nil {
 			m.editCommand(cs, "")
-		} else if w, ok := m.activeWorld(); ok {
+		} else if w, ok := m.a.ActiveWorld(); ok {
 			m.editWorld(w)
 		}
 		return nil
@@ -1009,86 +919,78 @@ func (m *Model) armQuit(key, armed string) tea.Cmd {
 
 // disarmQuit forgets an armed quit key, and its hint if still shown.
 func (m *Model) disarmQuit() {
-	if m.quitKey != "" && m.status == quitHint(m.quitKey) {
-		m.status = ""
+	if m.quitKey != "" && m.a.Status().Text == quitHint(m.quitKey) {
+		m.a.ClearStatus()
 	}
 	m.quitKey = ""
 }
 
-func (m *Model) quit() tea.Cmd {
-	for _, cs := range m.chars {
-		if cs.cancel != nil {
-			cs.cancel()
-		}
-	}
-	return tea.Quit
-}
+func (m *Model) quit() tea.Cmd { return m.run(m.a.Quit()) }
 
 // switchBy moves through the sidebar's worlds and characters.
 func (m *Model) switchBy(delta int) {
-	stops := m.stops()
-	if len(stops) == 0 {
-		return
+	if t := m.a.StepTarget(delta); t != "" {
+		m.switchTo(t)
 	}
-	i := max(0, slices.Index(stops, m.active))
-	i = (i + delta + len(stops)) % len(stops)
-	m.switchTo(stops[i])
 }
 
 // switchToUnread moves to the next character (dir 1) or previous one
-// (dir -1) in sidebar order that has unseen lines, wrapping around. With
-// nothing unread it goes back to the character active before this one,
-// so Tab flips between the last two, like switching apps.
+// (dir -1) with unread lines; see app.UnreadTarget.
 func (m *Model) switchToUnread(dir int) {
-	n := len(m.order)
-	i := slices.Index(m.order, m.active) // -1 when nothing is open
-	for step := 1; step <= n; step++ {
-		k := m.order[((i+dir*step)%n+n)%n]
-		if k != m.active && m.chars[k].unread > 0 {
-			m.switchTo(k)
-			return
-		}
-	}
-	if len(m.recent) > 0 {
-		m.switchTo(m.recent[0])
-	} else if n > 1 { // others are open but none has been active yet
-		m.switchTo(m.order[((i+dir)%n+n)%n])
+	if t := m.a.UnreadTarget(dir); t != "" {
+		m.switchTo(t)
 	}
 }
 
 // switchTo makes k active: a character's key, or a world's selection key
-// (worldSel) for its overview. Tab's history holds only characters.
+// (worldSel) for its overview.
 func (m *Model) switchTo(k string) {
-	cs, ok := m.chars[k]
-	w, isWorld := strings.CutPrefix(k, worldSel(""))
-	if !ok && (!isWorld || !m.worldOpen(w)) {
+	if !m.a.CanSwitch(k) {
 		return
 	}
-	if m.active != k {
+	prev := m.a.Active()
+	if prev != k {
 		m.parkEditor()
-		defer m.unparkEditor()
+		if old := m.cur(); old != nil {
+			old.sb.MarkSeen() // you saw it up to now
+		}
 	}
-	if old := m.cur(); old != nil && m.active != k {
-		old.sb.MarkSeen() // you saw it up to now
-		m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == m.active })
-		m.recent = append([]string{m.active}, m.recent...)
+	m.a.Switch(k)
+	m.confirm = false
+	if prev == k {
+		m.showActive()
+	} else {
+		m.activated(prev)
 	}
-	if m.active != k {
-		m.ovTop = 0 // an overview starts at its top
-	}
-	m.active, m.confirm = k, false
-	if !ok {
+}
+
+// showActive opens the active character's scrollback at the first line
+// you haven't seen, measured at the pane's width; log mode keeps the pane
+// to itself.
+func (m *Model) showActive() {
+	cs := m.cur()
+	if cs == nil {
 		return
 	}
-	m.recent = slices.DeleteFunc(m.recent, func(r string) bool { return r == k })
 	l := m.layout()
 	cs.sb.SetWidth(l.rw)
-	cs.sb.Pause(l.sbH) // open at the first line you haven't seen
+	cs.sb.Pause(l.sbH)
 	if cs.browse != nil && m.picker != nil {
 		m.leaveEditor()
 		m.closePicker() // browse has the pane; the filter would be hidden
 	}
-	cs.unread, cs.attention = 0, false
+}
+
+// activated does the screen's part when the core has moved the active
+// item away from prev: an overview starts at its top, the new character
+// shows, and an editor left open on it comes back.
+func (m *Model) activated(prev string) {
+	if m.a.Active() == prev {
+		return
+	}
+	m.ovTop = 0
+	m.showActive()
+	m.unparkEditor()
 }
 
 // submit handles Enter: a command, a password, or lines for the server.
@@ -1112,7 +1014,7 @@ func (m *Model) submit() tea.Cmd {
 	}
 	if cs.needPW {
 		pw := cs.in.CommitSecret()
-		e, err := cs.sess.Login(pw)
+		e, err := cs.Sess.Login(pw)
 		if err != nil && !isLogErr(err) {
 			m.setStatus(true, str.StatusLoginNotSent(err))
 			return nil
@@ -1121,15 +1023,15 @@ func (m *Model) submit() tea.Cmd {
 		if cs.echoes(e) {
 			cs.sb.AppendLine(chromeLine(theme.ScrollbackEcho, gutterMark+e.Text))
 		}
-		if m.d.SavePassword != nil && pw != "" && m.passwordStore() != "none" {
+		if m.d.SavePassword != nil && pw != "" && m.a.PasswordStore() != "none" {
 			m.mode, m.pendingPW = modeSavePassword, pw
-			m.pendingCh = [2]string{cs.ch.World, cs.ch.ID}
+			m.pendingCh = [2]string{cs.Ch.World, cs.Ch.ID}
 		}
 		return nil
 	}
-	m.status = ""
-	if cs.in.Empty() && cs.state != session.Connected {
-		if cs.state == session.Connecting || cs.pin != nil {
+	m.a.ClearStatus()
+	if cs.in.Empty() && cs.State != session.Connected {
+		if cs.State == session.Connecting || cs.Pin != nil {
 			return nil // nothing Enter can do; the prompt says why
 		}
 		return m.connect(cs)
@@ -1140,23 +1042,23 @@ func (m *Model) submit() tea.Cmd {
 		return m.command(cs, text)
 	}
 	text = strings.TrimPrefix(text, "/") // "//foo" sends "/foo"
-	if cs.sess == nil || cs.state != session.Connected {
-		m.setStatus(true, str.StatusNotConnected(cs.ch.Name))
+	if cs.Sess == nil || cs.State != session.Connected {
+		m.setStatus(true, str.StatusNotConnected(cs.Ch.Name))
 		return nil
 	}
-	if cs.in.OverLimit(cs.ch.MaxLineBytes, cs.ch.NewlineMode == "flatten") && !m.confirm {
+	if cs.in.OverLimit(cs.Ch.MaxLineBytes, cs.Ch.NewlineMode == "flatten") && !m.confirm {
 		m.confirm = true
-		m.setStatus(true, str.StatusOverLimit(cs.ch.MaxLineBytes))
+		m.setStatus(true, str.StatusOverLimit(cs.Ch.MaxLineBytes))
 		return nil
 	}
 	m.confirm = false
 	lines := strings.Split(text, "\n")
-	if cs.ch.NewlineMode == "flatten" {
+	if cs.Ch.NewlineMode == "flatten" {
 		lines = []string{strings.Join(lines, " ")}
 	}
 	secret, echoed := false, false
 	for _, line := range lines {
-		e, err := cs.sess.Send(line)
+		e, err := cs.Sess.Send(line)
 		if err != nil && !isLogErr(err) {
 			m.setStatus(true, str.StatusNotSent(err))
 			break
@@ -1203,31 +1105,31 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 	}
 	switch args[0] {
 	case "/connect":
-		if cs.sess != nil && cs.state == session.Connected {
-			m.setStatus(false, str.StatusAlreadyConnected(cs.ch.Name))
+		if cs.Sess != nil && cs.State == session.Connected {
+			m.setStatus(false, str.StatusAlreadyConnected(cs.Ch.Name))
 			return nil
 		}
 		return m.connect(cs)
 	case "/reconnect":
 		return m.connect(cs)
 	case "/disconnect":
-		if cs.sess != nil {
-			cs.sess.Disconnect()
+		if cs.Sess != nil {
+			cs.Sess.Disconnect()
 		}
 	case "/trust":
-		if cs.pin == nil {
+		if cs.Pin == nil {
 			m.setStatus(true, str.StatusNoChangedCert())
 			return nil
 		}
-		if err := m.d.KnownHosts.Trust(cs.pin.HostPort, cs.pin.Got); err != nil {
+		if err := m.d.KnownHosts.Trust(cs.Pin.HostPort, cs.Pin.Got); err != nil {
 			m.setStatus(true, str.StatusTrustFailed(err))
 			return nil
 		}
-		m.setStatus(false, str.StatusTrusted(cs.pin.HostPort))
-		cs.pin = nil
+		m.setStatus(false, str.StatusTrusted(cs.Pin.HostPort))
+		cs.Pin = nil
 		return m.connect(cs)
 	case "/close":
-		m.close(cs.key)
+		m.close(cs.Key)
 	case "/quit":
 		return m.quit()
 	case "/open":
@@ -1238,7 +1140,7 @@ func (m *Model) command(cs *charState, text string) tea.Cmd {
 		m.editCommand(cs, strings.Join(args[1:], " "))
 	case "/highlight":
 		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), args[0]))
-		if err := config.AppendHighlight(m.d.ConfigDir, cs.ch.World, text); err != nil {
+		if err := config.AppendHighlight(m.d.ConfigDir, cs.Ch.World, text); err != nil {
 			m.setStatus(true, str.StatusHighlightFailed(err))
 			return nil
 		}
@@ -1277,15 +1179,15 @@ func (m *Model) restoreCmd() tea.Cmd {
 func (m *Model) openBrowse(cs *charState) {
 	if cs.hidBrowse != nil { // back as Ctrl+L left it
 		cs.browse, cs.hidBrowse = cs.hidBrowse, nil
-		m.status = ""
+		m.a.ClearStatus()
 		return
 	}
-	l, ok := m.logLayout(cs.ch)
+	l, ok := m.a.LogLayout(cs.Ch)
 	cs.browse = newBrowse(cs, l, ok)
 	cs.browse.copy = m.copyCmd
 	cs.browse.saveFile = m.d.SaveFile
-	cs.browse.setExport(m.cfg)
-	m.status = ""
+	cs.browse.setExport(m.a.Config())
+	m.a.ClearStatus()
 }
 
 // browseBodyH is the number of line rows in browse mode: the screen less
@@ -1345,8 +1247,8 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 
 // scrollLines is the scroll_lines setting: how far a wheel notch scrolls.
 func (m *Model) scrollLines() int {
-	if m.cfg != nil {
-		return m.cfg.ScrollLines
+	if m.a.Config() != nil {
+		return m.a.Config().ScrollLines
 	}
 	return config.DefaultScrollLines
 }
@@ -1387,7 +1289,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 			m.openPicker()
 		case r.kind == rowWorld:
 			m.switchTo(worldSel(r.world))
-			m.sideShown = m.active // clicked, so already in view
+			m.sideShown = m.a.Active() // clicked, so already in view
 		case r.kind == rowGap: // gaps do nothing
 		case msg.X == badgeX && closable(m.chars[r.char]):
 			m.close(r.char)
@@ -1397,7 +1299,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
 			now := m.d.Now()
 			double := m.lastClick.char == r.char && now.Sub(m.lastClick.at) <= doubleClick
 			m.lastClick.char, m.lastClick.at = r.char, now
-			if cs := m.chars[r.char]; double && cs.state != session.Connected && cs.state != session.Connecting {
+			if cs := m.chars[r.char]; double && cs.State != session.Connected && cs.State != session.Connecting {
 				m.lastClick.char = "" // a third click starts over
 				return m.connect(cs)
 			}

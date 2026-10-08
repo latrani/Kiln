@@ -18,11 +18,11 @@ import (
 
 func TestStartupOpensOnlyAutoconnect(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	if got := strings.Join(h.m.order, " "); got != "fm/kit" {
+	if got := strings.Join(h.m.a.Order(), " "); got != "fm/kit" {
 		t.Errorf("order = %q, want only the autoconnect character", got)
 	}
-	if h.m.active != "fm/kit" {
-		t.Errorf("active = %q", h.m.active)
+	if h.m.a.Active() != "fm/kit" {
+		t.Errorf("active = %q", h.m.a.Active())
 	}
 }
 
@@ -32,7 +32,7 @@ func TestOpenKeepsAlphabeticalOrder(t *testing.T) {
 	sp := "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n"
 	h := newHarness(t, map[string]string{"fm": fm, "Sp": sp})
 	h.open("Sp/ash", "fm/rook", "fm/bo")
-	if got, want := strings.Join(h.m.order, " "), "fm/bo fm/kit fm/rook Sp/ash"; got != want {
+	if got, want := strings.Join(h.m.a.Order(), " "), "fm/bo fm/kit fm/rook Sp/ash"; got != want {
 		t.Errorf("order = %q, want %q", got, want)
 	}
 	if h.m.open("fm/nobody") != nil {
@@ -46,16 +46,16 @@ func TestCloseHandsActiveToNeighbor(t *testing.T) {
 	h.open("fm/rook", "sp/ash")
 	h.m.switchTo("fm/rook")
 	h.m.close("fm/rook") // the next one down
-	if h.m.active != "sp/ash" || h.m.chars["fm/rook"] != nil {
-		t.Fatalf("active = %q after closing rook", h.m.active)
+	if h.m.a.Active() != "sp/ash" || h.m.chars["fm/rook"] != nil {
+		t.Fatalf("active = %q after closing rook", h.m.a.Active())
 	}
 	h.m.close("sp/ash") // the last one: the one above
-	if h.m.active != "fm/kit" {
-		t.Fatalf("active = %q after closing ash", h.m.active)
+	if h.m.a.Active() != "fm/kit" {
+		t.Fatalf("active = %q after closing ash", h.m.a.Active())
 	}
 	h.m.close("fm/kit")
-	if h.m.active != "" || len(h.m.order) != 0 || h.m.cur() != nil {
-		t.Errorf("active = %q, order = %v; want nothing open", h.m.active, h.m.order)
+	if h.m.a.Active() != "" || len(h.m.a.Order()) != 0 || h.m.cur() != nil {
+		t.Errorf("active = %q, order = %v; want nothing open", h.m.a.Active(), h.m.a.Order())
 	}
 }
 
@@ -63,13 +63,13 @@ func TestLateEventFromClosedCharacterIgnored(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	sess := h.m.chars["fm/kit"].sess
+	sess := h.m.chars["fm/kit"].Sess
 	h.m.close("fm/kit")
 	deadline := time.After(3 * time.Second)
 	for {
 		select {
 		case ev, ok := <-sess.Events():
-			h.m.Update(eventMsg{key: "fm/kit", sess: sess, ev: ev, ok: ok})
+			h.m.Update(app.SessionMsg{Key: "fm/kit", Sess: sess, Ev: ev, OK: ok})
 			if h.m.chars["fm/kit"] != nil {
 				t.Fatal("a late event reopened the closed character")
 			}
@@ -104,17 +104,17 @@ func TestSidebarBadgesAndActivity(t *testing.T) {
 	if got := strings.TrimSpace(sideRow(h, 4)); got != addLabel {
 		t.Errorf("last row = %q", got)
 	}
-	h.m.chars["fm/rook"].state = session.Connecting
+	h.m.chars["fm/rook"].State = session.Connecting
 	if got := strings.TrimSpace(sideRow(h, 2)); got != "… Rook" {
 		t.Errorf("connecting row = %q", got)
 	}
 	kit := h.m.chars["fm/kit"]
 	h.m.switchTo("fm/rook")
-	kit.unread, kit.attention = 3, true
+	kit.Unread, kit.Attention = 3, true
 	if got := sideRow(h, 1); !strings.HasPrefix(strings.TrimSpace(got), "Kit") || !strings.HasSuffix(got, " ● 3") {
 		t.Errorf("attention row = %q, want the ● with the count on the right", got)
 	}
-	kit.attention = false
+	kit.Attention = false
 	if got := sideRow(h, 1); !strings.HasSuffix(got, " 3") || strings.Contains(got, "●") {
 		t.Errorf("unread row = %q", got)
 	}
@@ -129,7 +129,7 @@ func TestSidebarNamesTruncate(t *testing.T) {
 		t.Errorf("world row = %q, want cut with … at %d cells", got, sw)
 	}
 	cs := h.m.chars["fm-with-a-long-name/kit"]
-	cs.unread, cs.attention = 12, true
+	cs.Unread, cs.Attention = 12, true
 	got := sideRow(h, 1)
 	if xansi.StringWidth(got) != sw || !strings.HasSuffix(got, " ● 12") || !strings.Contains(got, "…") {
 		t.Errorf("char row = %q, want the name cut with … and the activity whole", got)
@@ -148,7 +148,7 @@ func TestClickXClosesAndNameDoesnt(t *testing.T) {
 	}
 	click(6, 2) // rook's name: switch, not close
 	click(6, 2) // double-click: reconnect, not close
-	if h.m.chars["fm/rook"] == nil || h.m.chars["fm/rook"].sess == nil {
+	if h.m.chars["fm/rook"] == nil || h.m.chars["fm/rook"].Sess == nil {
 		t.Fatal("double-clicking the name should connect rook")
 	}
 	h.m.close("fm/rook")
@@ -166,8 +166,8 @@ func TestCloseCommand(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.typeText("/close")
 	h.enter()
-	if h.m.chars["fm/kit"] != nil || h.m.active != "fm/rook" {
-		t.Errorf("active = %q; kit should be closed", h.m.active)
+	if h.m.chars["fm/kit"] != nil || h.m.a.Active() != "fm/rook" {
+		t.Errorf("active = %q; kit should be closed", h.m.a.Active())
 	}
 }
 
@@ -227,12 +227,12 @@ func TestClickingWorldHeaderShowsOverview(t *testing.T) {
 	for _, x := range []int{badgeX, 6, badgeX, 6} { // badge column and name column, twice (a double-click)
 		h.m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
 	}
-	if h.m.active != worldSel("fm") || h.m.chars["fm/kit"] == nil {
-		t.Errorf("active = %q after clicking the world header", h.m.active)
+	if h.m.a.Active() != worldSel("fm") || h.m.chars["fm/kit"] == nil {
+		t.Errorf("active = %q after clicking the world header", h.m.a.Active())
 	}
 	h.m.Update(tea.MouseClickMsg{X: 6, Y: 1, Button: tea.MouseLeft})
-	if h.m.active != "fm/kit" {
-		t.Errorf("active = %q after clicking Kit", h.m.active)
+	if h.m.a.Active() != "fm/kit" {
+		t.Errorf("active = %q after clicking Kit", h.m.a.Active())
 	}
 }
 
@@ -278,7 +278,7 @@ func bigWorld(n int) string {
 func TestWorldOverviewPane(t *testing.T) {
 	h := newHarness(t, map[string]string{"big": bigWorld(6)})
 	h.openAll()
-	for _, k := range h.m.order {
+	for _, k := range h.m.a.Order() {
 		for i := range overviewLines {
 			h.m.chars[k].sb.AppendLine(lineOf(fmt.Sprintf("%s line %d", k, i), app.Line{Entry: logstore.Entry{Time: h.now}}))
 		}
@@ -319,8 +319,8 @@ func TestWorldOverviewPane(t *testing.T) {
 	y := slices.IndexFunc(rows[topH:], func(r string) bool { return strings.Contains(strings.SplitN(r, "│", 2)[1], "Char5") })
 	y += 2 // a line under its name
 	h.m.Update(tea.MouseClickMsg{X: l.sw + 5, Y: l.top + y, Button: tea.MouseLeft})
-	if h.m.active != "big/c5" {
-		t.Fatalf("clicking Char5's lines should open it, active %q", h.m.active)
+	if h.m.a.Active() != "big/c5" {
+		t.Fatalf("clicking Char5's lines should open it, active %q", h.m.a.Active())
 	}
 
 	h.m.switchTo(worldSel("big"))
@@ -346,17 +346,17 @@ func TestSwitchByIncludesWorlds(t *testing.T) {
 	h.openAll()
 	h.m.switchTo(worldSel("fm"))
 	var got []string
-	for range len(h.m.stops()) {
+	for range len(h.m.a.Stops()) {
 		h.press(tea.KeyDown, tea.ModCtrl)
-		got = append(got, h.m.active)
+		got = append(got, h.m.a.Active())
 	}
 	want := []string{"fm/kit", "fm/rook", worldSel("sp"), "sp/ash", worldSel("fm")}
 	if !slices.Equal(got, want) {
 		t.Errorf("Ctrl+Down went %v, want %v", got, want)
 	}
 	h.press(tea.KeyUp, tea.ModCtrl)
-	if h.m.active != "sp/ash" {
-		t.Errorf("Ctrl+Up went to %q", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Errorf("Ctrl+Up went to %q", h.m.a.Active())
 	}
 }
 
@@ -369,8 +369,8 @@ func TestEditWorldFromOverview(t *testing.T) {
 		t.Fatalf("Ctrl+T should edit the world:\n%s", h.screen())
 	}
 	h.press(tea.KeyEscape, 0)
-	if h.m.picker != nil || h.m.active != worldSel("fm") {
-		t.Errorf("Esc should go back to the overview: active %q\n%s", h.m.active, h.screen())
+	if h.m.picker != nil || h.m.a.Active() != worldSel("fm") {
+		t.Errorf("Esc should go back to the overview: active %q\n%s", h.m.a.Active(), h.screen())
 	}
 }
 
@@ -380,14 +380,14 @@ func TestClosingWorldsLastCharacterLeavesOverview(t *testing.T) {
 	h.open("sp/ash")
 	h.m.switchTo(worldSel("fm"))
 	h.m.close("fm/kit")
-	if h.m.active != "sp/ash" {
-		t.Errorf("active = %q", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Errorf("active = %q", h.m.a.Active())
 	}
 	// Tab goes back to the last character, not to a world.
 	h.m.switchTo(worldSel("sp"))
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "sp/ash" {
-		t.Errorf("Tab went to %q", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Errorf("Tab went to %q", h.m.a.Active())
 	}
 }
 

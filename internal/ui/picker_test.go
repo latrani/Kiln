@@ -40,7 +40,7 @@ func TestPickerOpensAndConnects(t *testing.T) {
 	}
 	h.enter()
 	rook := h.m.chars["fm/rook"]
-	if h.m.picker != nil || rook == nil || rook.sess == nil || h.m.active != "fm/rook" {
+	if h.m.picker != nil || rook == nil || rook.Sess == nil || h.m.a.Active() != "fm/rook" {
 		t.Fatalf("Enter should open, connect and switch to rook:\n%s", h.screen())
 	}
 }
@@ -64,8 +64,8 @@ func TestPickerFilter(t *testing.T) {
 	h.m.picker.form.fields[0].in.SetValue("")
 	h.typeText("zzz")
 	h.enter() // + World
-	if h.m.picker == nil || h.m.picker.edit == nil || len(h.m.order) != 1 {
-		t.Errorf("Enter with no matches should only open the world editor: order %v", h.m.order)
+	if h.m.picker == nil || h.m.picker.edit == nil || len(h.m.a.Order()) != 1 {
+		t.Errorf("Enter with no matches should only open the world editor: order %v", h.m.a.Order())
 	}
 }
 
@@ -162,7 +162,7 @@ func TestPickerBlockedInBrowse(t *testing.T) {
 	if s := h.screen(); !strings.Contains(s, browseBlocksPicker) {
 		t.Errorf("Ctrl+O: status not shown in full:\n%s", s)
 	}
-	h.m.status = ""
+	h.m.a.ClearStatus()
 	h.m.openPicker()
 	if s := h.screen(); h.m.picker != nil || !strings.Contains(s, browseBlocksPicker) {
 		t.Errorf("click: status not shown in full:\n%s", s)
@@ -178,8 +178,8 @@ func TestSwitchingIntoBrowseClosesPicker(t *testing.T) {
 	h.m.switchTo("fm/kit")
 	h.press('o', tea.ModCtrl)
 	h.press(tea.KeyDown, tea.ModCtrl) // to rook, who is browsing
-	if h.m.active != "fm/rook" || h.m.picker != nil {
-		t.Errorf("active = %q, picker open = %v; browse would hide the filter", h.m.active, h.m.picker != nil)
+	if h.m.a.Active() != "fm/rook" || h.m.picker != nil {
+		t.Errorf("active = %q, picker open = %v; browse would hide the filter", h.m.a.Active(), h.m.picker != nil)
 	}
 }
 
@@ -222,7 +222,7 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
 		t.Errorf("Ctrl+O: picker opened or no status:\n%s", h.screen())
 	}
-	h.m.status = ""
+	h.m.a.ClearStatus()
 	h.m.Update(tea.MouseClickMsg{X: 4, Y: 3, Button: tea.MouseLeft}) // rows: fm, Kit, a gap, + Connection
 	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
 		t.Errorf("click: picker opened or no status:\n%s", h.screen())
@@ -296,9 +296,9 @@ func TestPickerAddWorld(t *testing.T) {
 		t.Fatal(err)
 	}
 	var w *config.World
-	for i := range h.m.cfg.Worlds {
-		if h.m.cfg.Worlds[i].ID == "newworld" {
-			w = &h.m.cfg.Worlds[i]
+	for i := range h.m.a.Config().Worlds {
+		if h.m.a.Config().Worlds[i].ID == "newworld" {
+			w = &h.m.a.Config().Worlds[i]
 		}
 	}
 	if w == nil {
@@ -351,11 +351,11 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	h.typeText("ien")
 	h.enter()
 	cs := h.m.chars["fm/O_Brien"]
-	if h.m.picker != nil || cs == nil || cs.sess == nil || h.m.active != "fm/O_Brien" {
+	if h.m.picker != nil || cs == nil || cs.Sess == nil || h.m.a.Active() != "fm/O_Brien" {
 		t.Fatalf("saving should open, connect and switch to O'Brien:\n%s", h.screen())
 	}
-	if cs.ch.Name != "O'Brien" {
-		t.Errorf("name = %q", cs.ch.Name)
+	if cs.Ch.Name != "O'Brien" {
+		t.Errorf("name = %q", cs.Ch.Name)
 	}
 }
 

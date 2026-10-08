@@ -67,7 +67,7 @@ func TestTopBarChipsToggle(t *testing.T) {
 
 func TestTopBarNarrow(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.chars["fm/kit"].ch.Name = strings.Repeat("K", 80)
+	h.m.chars["fm/kit"].Ch.Name = strings.Repeat("K", 80)
 	h.m.Update(tea.WindowSizeMsg{Width: MinWidth, Height: 24})
 	top := rightRow(h, 0)
 	if !strings.HasSuffix(top, strings.TrimSpace(chipText(str.ViewLogButton()))) || !strings.Contains(top, "…") {
@@ -91,8 +91,8 @@ func TestClicksLandBelowTheTopBar(t *testing.T) {
 		t.Errorf("a click on a log line's screen row selected %q", b.cursor.Entry.Text)
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft}) // the sidebar doesn't shift: row 1 is Kit
-	if h.m.active != "fm/kit" {
-		t.Errorf("sidebar click: active %s", h.m.active)
+	if h.m.a.Active() != "fm/kit" {
+		t.Errorf("sidebar click: active %s", h.m.a.Active())
 	}
 }
 

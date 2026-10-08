@@ -205,8 +205,8 @@ func (h *harness) settle(k string, pred func() bool) {
 	for !pred() {
 		cs := h.m.chars[k]
 		select {
-		case ev, ok := <-cs.sess.Events():
-			h.m.Update(eventMsg{key: k, sess: cs.sess, ev: ev, ok: ok})
+		case ev, ok := <-cs.Sess.Events():
+			h.m.Update(app.SessionMsg{Key: k, Sess: cs.Sess, Ev: ev, OK: ok})
 		case <-deadline:
 			h.t.Fatalf("timed out; screen:\n%s", h.screen())
 		}
@@ -218,7 +218,7 @@ func (h *harness) settle(k string, pred func() bool) {
 // change) so tests never race it.
 func (h *harness) connected(k string) func() bool {
 	return func() bool {
-		if h.m.chars[k].state != session.Connected {
+		if h.m.chars[k].State != session.Connected {
 			return false
 		}
 		h.mu.Lock()
@@ -272,7 +272,7 @@ func (h *harness) open(keys ...string) {
 
 // openAll opens every configured character.
 func (h *harness) openAll() {
-	for _, ch := range h.m.allChars() {
+	for _, ch := range h.m.a.AllChars() {
 		h.m.open(key(ch.World, ch.ID))
 	}
 }
@@ -321,8 +321,8 @@ func TestNoAutoconnectOpensNothing(t *testing.T) {
 	d := h.deps
 	d.NoAutoconnect = true
 	m := New(d, h.cfg)
-	if len(m.order) != 0 || len(m.chars) != 0 {
-		t.Errorf("opened %q at start", m.order)
+	if len(m.a.Order()) != 0 || len(m.chars) != 0 {
+		t.Errorf("opened %q at start", m.a.Order())
 	}
 	m.Init() // the returned commands would dial; none should exist for kit
 	if len(h.conns) != 0 {
@@ -339,8 +339,8 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	c := h.conn("fm/kit")
 	c.lines <- "Rook says, \"hi\""
 	c.lines <- "Mira pages: \x1b]0;pwned\x07you around?"
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].unread == 2 })
-	if !h.m.chars["fm/kit"].attention {
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread == 2 })
+	if !h.m.chars["fm/kit"].Attention {
 		t.Error("page did not set attention")
 	}
 	if row := sideRow(h, 1); !strings.HasSuffix(row, " ● 2") {
@@ -439,7 +439,7 @@ func TestSlashCommandsAndEscape(t *testing.T) {
 	}
 	h.typeText("/disconnect")
 	h.enter()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].state == session.Disconnected })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].State == session.Disconnected })
 	h.typeText("/connect")
 	h.enter()
 	h.settle("fm/kit", h.connected("fm/kit"))
@@ -474,15 +474,12 @@ func TestNotConnectedStatus(t *testing.T) {
 }
 
 func TestLocalEchoDefaultsOff(t *testing.T) {
-	dir := t.TempDir()
-	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
 	w.Append(logstore.Entry{Time: ts, Dir: logstore.Out, Text: ":yawns."})
 	w.Append(logstore.Entry{Time: ts.Add(time.Minute), Dir: logstore.In, Text: "Kit yawns."})
 	w.Close()
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.d.LogRoot = root
 	h.m.preload(h.m.chars["fm/kit"])
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
@@ -561,14 +558,11 @@ func TestPromptShown(t *testing.T) {
 }
 
 func TestPreloadsHistory(t *testing.T) {
-	dir := t.TempDir()
-	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	ts := time.Date(2026, 9, 23, 20, 0, 0, 0, time.Local)
 	w.Append(logstore.Entry{Time: ts, Dir: logstore.In, Text: "yesterday's news"})
 	w.Close()
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.d.LogRoot = root
 	h.m.preload(h.m.chars["fm/kit"])
 	s := h.screen()
 	if !strings.Contains(s, "yesterday's news") || !strings.Contains(s, str.ScrollbackHistoryEnds("Wed Sep 23 20:00")) {
@@ -581,13 +575,13 @@ func TestReloadAddsCharactersAndKeepsOldOnError(t *testing.T) {
 	p := filepath.Join(h.dir, "worlds", "fm.toml")
 	os.WriteFile(p, []byte(fmWorld+"\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
-	if _, ok := h.m.find("fm/ash"); !ok {
+	if _, ok := h.m.a.Find("fm/ash"); !ok {
 		t.Error("reload didn't pick up the new character")
 	}
 	os.WriteFile(p, []byte("host = \n"), 0o600)
 	h.m.Update(reloadMsg{})
 	s := h.screen()
-	if !strings.Contains(s, "config not reloaded") || func() bool { _, ok := h.m.find("fm/ash"); return !ok }() {
+	if !strings.Contains(s, "config not reloaded") || func() bool { _, ok := h.m.a.Find("fm/ash"); return !ok }() {
 		t.Errorf("screen:\n%s", s)
 	}
 }
@@ -599,15 +593,15 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.open("fm/rook", "sp/ash")
 	cs := h.m.chars["fm/kit"]
-	sess := cs.sess
+	sess := cs.Sess
 
 	noKit := strings.Replace(fmWorld, "[[characters]]\nid = \"kit\"\nname = \"Kit\"\nautoconnect = true\n", "", 1)
 	os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(noKit), 0o600)
 	h.m.Update(reloadMsg{})
-	if !cs.orphan || h.m.chars["fm/kit"] != cs {
+	if !cs.Orphan || h.m.chars["fm/kit"] != cs {
 		t.Fatal("connected character should stay as an orphan")
 	}
-	if got := strings.Join(h.m.order, " "); got != "fm/kit fm/rook sp/ash" {
+	if got := strings.Join(h.m.a.Order(), " "); got != "fm/kit fm/rook sp/ash" {
 		t.Errorf("order = %s, want the orphan kept in alphabetical order", got)
 	}
 	if n := slices.Index(sideRows(h), "fm"); n < 0 || slices.Index(sideRows(h)[n+1:], "fm") >= 0 {
@@ -619,13 +613,13 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 	for h.m.chars["fm/kit"] != nil {
 		select {
 		case ev, ok := <-sess.Events():
-			h.m.Update(eventMsg{key: "fm/kit", sess: sess, ev: ev, ok: ok})
+			h.m.Update(app.SessionMsg{Key: "fm/kit", Sess: sess, Ev: ev, OK: ok})
 		case <-deadline:
 			t.Fatal("orphan not dropped after disconnect")
 		}
 	}
-	if slices.Contains(h.m.order, "fm/kit") {
-		t.Errorf("order = %v", h.m.order)
+	if slices.Contains(h.m.a.Order(), "fm/kit") {
+		t.Errorf("order = %v", h.m.a.Order())
 	}
 	for { // the session is stopped: it must not redial and log in again
 		select {
@@ -660,8 +654,8 @@ func TestSidebarScrolls(t *testing.T) {
 	for range 25 {
 		h.press(tea.KeyDown, tea.ModCtrl)
 	}
-	if h.m.active != "big/c25" || side(22) != "× C25" || side(0) != "▲ 5 more" {
-		t.Fatalf("active %s not in view:\n%s", h.m.active, h.screen())
+	if h.m.a.Active() != "big/c25" || side(22) != "× C25" || side(0) != "▲ 5 more" {
+		t.Fatalf("active %s not in view:\n%s", h.m.a.Active(), h.screen())
 	}
 	if side(23) != "▼ 6 more" {
 		t.Errorf("bottom row = %q", side(23))
@@ -682,8 +676,8 @@ func TestSidebarScrolls(t *testing.T) {
 
 	// Clicks map through the scroll offset; the hint scrolls a page.
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft})
-	if want := "big/c" + strings.TrimPrefix(top, "× C"); h.m.active != want {
-		t.Errorf("clicked %q, active = %s", top, h.m.active)
+	if want := "big/c" + strings.TrimPrefix(top, "× C"); h.m.a.Active() != want {
+		t.Errorf("clicked %q, active = %s", top, h.m.a.Active())
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
 	if side(0) != "big" {
@@ -762,8 +756,8 @@ func TestSidebarClick(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // row 2 = Rook
-	if h.m.active != "fm/rook" {
-		t.Errorf("active = %q", h.m.active)
+	if h.m.a.Active() != "fm/rook" {
+		t.Errorf("active = %q", h.m.a.Active())
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft}) // the fm header: nothing happens
 	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" || !strings.Contains(h.screen(), "× Kit") {
@@ -775,7 +769,7 @@ func TestTrustAfterPinMismatch(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.dialErr["fm/kit"] = &conn.PinMismatchError{HostPort: "muck.test:8888", Pinned: "sha256:aa", Got: "sha256:bb"}
 	h.init()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].pin != nil })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Pin != nil })
 	if !strings.Contains(h.screen(), "/trust to accept") {
 		t.Errorf("screen:\n%s", h.screen())
 	}
@@ -937,9 +931,8 @@ func TestConnectWhenAlreadyConnected(t *testing.T) {
 }
 
 func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
-	dir := t.TempDir()
-	root := filepath.Join(dir, "logs")
-	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
 	for _, d := range []int{23, 24} {
 		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
 		for i := 0; i < 150; i++ {
@@ -947,8 +940,6 @@ func TestScrollbackPagesHistoryAcrossPartialDay(t *testing.T) {
 		}
 	}
 	w.Close()
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.d.LogRoot = root
 	cs := h.m.chars["fm/kit"]
 	cs.sb = Scrollback{}
 	h.m.preload(cs)
@@ -1038,7 +1029,7 @@ func TestPasswordStoreNoneNeverOffers(t *testing.T) {
 func TestEnterOnEmptyInputConnects(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.enter()
-	if h.m.chars["fm/kit"].sess == nil {
+	if h.m.chars["fm/kit"].Sess == nil {
 		t.Fatal("Enter did not connect")
 	}
 	h.settle("fm/kit", h.connected("fm/kit"))
@@ -1066,15 +1057,15 @@ func TestDoubleClickSidebarConnects(t *testing.T) {
 	}
 	click()
 	now = now.Add(time.Second)
-	if click() != nil || h.m.chars["fm/rook"].sess != nil {
+	if click() != nil || h.m.chars["fm/rook"].Sess != nil {
 		t.Fatal("two slow clicks connected")
 	}
 	now = now.Add(200 * time.Millisecond)
-	if click() == nil || h.m.chars["fm/rook"].sess == nil {
+	if click() == nil || h.m.chars["fm/rook"].Sess == nil {
 		t.Error("double-click did not connect")
 	}
-	if h.m.active != "fm/rook" {
-		t.Errorf("active = %q", h.m.active)
+	if h.m.a.Active() != "fm/rook" {
+		t.Errorf("active = %q", h.m.a.Active())
 	}
 }
 
@@ -1088,14 +1079,14 @@ func TestConnectHintFollowsState(t *testing.T) {
 		{session.Connecting, "│" + str.ViewConnecting()},
 		{session.Failed, "│" + str.ViewConnectFailed()},
 	} {
-		cs.state = c.state
+		cs.State = c.state
 		if s := h.screen(); !strings.Contains(s, c.want) {
 			t.Errorf("state %v: screen missing %q:\n%s", c.state, c.want, s)
 		}
 	}
-	cs.state = session.Connecting
+	cs.State = session.Connecting
 	h.enter() // nothing to do while connecting
-	if cs.sess != nil {
+	if cs.Sess != nil {
 		t.Error("Enter while connecting started a session")
 	}
 }
@@ -1117,37 +1108,37 @@ func TestRenderLineMatchScope(t *testing.T) {
 func TestTabJumpsToUnread(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
 	h.open("fm/rook", "sp/ash")
-	if got := strings.Join(h.m.order, " "); got != "fm/kit fm/rook sp/ash" {
+	if got := strings.Join(h.m.a.Order(), " "); got != "fm/kit fm/rook sp/ash" {
 		t.Fatalf("order = %s", got)
 	}
 	h.m.switchTo("fm/kit")
-	h.m.chars["fm/rook"].unread, h.m.chars["sp/ash"].unread = 1, 3
+	h.m.chars["fm/rook"].Unread, h.m.chars["sp/ash"].Unread = 1, 3
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "fm/rook" || h.m.chars["fm/rook"].unread != 0 {
-		t.Fatalf("Tab: active %s, want fm/rook with its unread seen", h.m.active)
+	if h.m.a.Active() != "fm/rook" || h.m.chars["fm/rook"].Unread != 0 {
+		t.Fatalf("Tab: active %s, want fm/rook with its unread seen", h.m.a.Active())
 	}
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "sp/ash" {
-		t.Fatalf("Tab: active %s, want sp/ash", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Fatalf("Tab: active %s, want sp/ash", h.m.a.Active())
 	}
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "fm/rook" {
-		t.Errorf("Tab with nothing unread should go back to fm/rook, the last one viewed; active %s", h.m.active)
+	if h.m.a.Active() != "fm/rook" {
+		t.Errorf("Tab with nothing unread should go back to fm/rook, the last one viewed; active %s", h.m.a.Active())
 	}
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "sp/ash" {
-		t.Errorf("and again flips back to sp/ash; active %s", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Errorf("and again flips back to sp/ash; active %s", h.m.a.Active())
 	}
-	h.m.chars["fm/kit"].unread, h.m.chars["sp/ash"].unread = 2, 0
-	h.m.chars["fm/rook"].unread = 0
+	h.m.chars["fm/kit"].Unread, h.m.chars["sp/ash"].Unread = 2, 0
+	h.m.chars["fm/rook"].Unread = 0
 	h.press(tea.KeyTab, 0) // wraps past the end
-	if h.m.active != "fm/kit" {
-		t.Errorf("Tab should wrap to fm/kit, active %s", h.m.active)
+	if h.m.a.Active() != "fm/kit" {
+		t.Errorf("Tab should wrap to fm/kit, active %s", h.m.a.Active())
 	}
-	h.m.chars["sp/ash"].unread, h.m.chars["fm/rook"].unread = 1, 1
+	h.m.chars["sp/ash"].Unread, h.m.chars["fm/rook"].Unread = 1, 1
 	h.press(tea.KeyTab, tea.ModShift) // backwards, wrapping
-	if h.m.active != "sp/ash" {
-		t.Errorf("Shift+Tab should wrap back to sp/ash, active %s", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Errorf("Shift+Tab should wrap back to sp/ash, active %s", h.m.a.Active())
 	}
 }
 
@@ -1158,13 +1149,13 @@ func TestTabWithNothingUnreadGoesToLastViewed(t *testing.T) {
 	h.m.switchTo("sp/ash")
 	h.m.switchTo("fm/rook") // viewed: kit, ash, rook
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "sp/ash" {
-		t.Fatalf("active %s, want sp/ash, viewed just before", h.m.active)
+	if h.m.a.Active() != "sp/ash" {
+		t.Fatalf("active %s, want sp/ash, viewed just before", h.m.a.Active())
 	}
 	h.m.close("fm/rook") // the one Tab would flip back to
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "fm/kit" {
-		t.Errorf("active %s, want fm/kit once rook is closed", h.m.active)
+	if h.m.a.Active() != "fm/kit" {
+		t.Errorf("active %s, want fm/kit once rook is closed", h.m.a.Active())
 	}
 	if strings.Contains(h.screen(), "nothing unread") {
 		t.Error("Tab shouldn't say nothing unread anymore")
@@ -1174,13 +1165,13 @@ func TestTabWithNothingUnreadGoesToLastViewed(t *testing.T) {
 func TestTabWithOneCharacterStays(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "fm/kit" || h.m.status != "" {
-		t.Errorf("active %s, status %q", h.m.active, h.m.status)
+	if h.m.a.Active() != "fm/kit" || h.m.a.Status().Text != "" {
+		t.Errorf("active %s, status %q", h.m.a.Active(), h.m.a.Status().Text)
 	}
 	h.open("fm/rook") // open but never viewed: Tab still has somewhere to go
 	h.press(tea.KeyTab, 0)
-	if h.m.active != "fm/rook" {
-		t.Errorf("active %s, want fm/rook", h.m.active)
+	if h.m.a.Active() != "fm/rook" {
+		t.Errorf("active %s, want fm/rook", h.m.a.Active())
 	}
 }
 
@@ -1199,8 +1190,8 @@ func TestQuietLinesDontCountAsUnread(t *testing.T) {
 	h.settle("fm/kit", func() bool { // both lines are in once the page, sent second, is
 		return strings.Contains(strings.Join(kit.sb.View(20), "\n"), "is down again")
 	})
-	if kit.unread != 1 || !kit.attention {
-		t.Errorf("unread %d, attention %v; want only the page counted", kit.unread, kit.attention)
+	if kit.Unread != 1 || !kit.Attention {
+		t.Errorf("unread %d, attention %v; want only the page counted", kit.Unread, kit.Attention)
 	}
 	if !strings.Contains(strings.Join(kit.sb.View(20), "\n"), "[Wiki] Kit edited") {
 		t.Error("quiet lines should still be shown")

@@ -118,7 +118,7 @@ func (b *browse) setExport(cfg *config.Config) {
 	b.exportDir, b.exportName, b.exportFormat = cfg.ExportDir, cfg.ExportName, cfg.ExportFormat
 }
 
-func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.rules, b.cs.hl, e) }
+func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.Rules, b.cs.hl, e) }
 
 // makeLine makes and paints e. Like paint it only reads its arguments,
 // so older days can be prepared off the UI goroutine.
@@ -145,7 +145,7 @@ func (b *browse) loadOlder() bool {
 	if b.histDone {
 		return false
 	}
-	b.prepend(readOlder(b.hist, b.cs.rules, b.cs.hl))
+	b.prepend(readOlder(b.hist, b.cs.Rules, b.cs.hl))
 	return true
 }
 
@@ -171,7 +171,7 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 		return nil
 	}
 	b.loading = true
-	h, r, hl, key, th := b.hist, b.cs.rules, b.cs.hl, b.cs.key, theme.Active()
+	h, r, hl, key, th := b.hist, b.cs.Rules, b.cs.hl, b.cs.Key, theme.Active()
 	return func() tea.Msg {
 		msg := readOlder(h, r, hl)
 		msg.key, msg.b, msg.theme = key, b, th
@@ -184,7 +184,7 @@ func (b *browse) receive(msg olderMsg) tea.Cmd {
 	b.loading = false
 	if msg.theme != theme.Active() { // made in a theme (and maybe rules) since replaced
 		for _, l := range msg.lines {
-			l.Line = b.cs.rules.Reline(l.Line)
+			l.Line = b.cs.Rules.Reline(l.Line)
 			l.tags, l.text = l.TagNames(), paint(b.cs.hl, l.Line)
 		}
 	}
@@ -593,7 +593,7 @@ func (b *browse) selection() []logstore.Entry {
 }
 
 func (b *browse) title() string {
-	ch := b.cs.ch
+	ch := b.cs.Ch
 	when := ""
 	if b.start != nil {
 		when = " — " + b.start.Entry.Time.Local().Format(str.DateDayYear())
@@ -807,7 +807,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			if b.saveFile != nil {
 				dir = "" // a download: just a name
 			}
-			b.pin.SetValue(scene.FileName(dir, b.exportName, sel[0].Time.Local(), b.cs.ch.World, b.cs.ch.Name, f))
+			b.pin.SetValue(scene.FileName(dir, b.exportName, sel[0].Time.Local(), b.cs.Ch.World, b.cs.Ch.Name, f))
 		}
 		return nil
 	}

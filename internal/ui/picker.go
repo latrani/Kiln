@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
@@ -30,7 +31,7 @@ func addCharSel(world string) string { return "+" + world }
 
 // worldSel is the selection key of world's header row, which opens the
 // world's editor.
-func worldSel(world string) string { return "=" + world }
+func worldSel(world string) string { return app.WorldSel(world) }
 
 // browseBlocksPicker is the status when the picker can't open because
 // browse mode has the pane. Short, so it fits after browse mode's
@@ -109,7 +110,7 @@ func matches(ch config.Character, f string) bool {
 // its characters, even with no characters to offer.
 func (m *Model) pickerRows() []sidebarRow {
 	f := strings.ToLower(strings.TrimSpace(m.picker.form.value(0)))
-	chars := m.allChars()
+	chars := m.a.AllChars()
 	var rows []sidebarRow
 	for _, w := range m.worldIDs() {
 		wr := []sidebarRow{{kind: rowWorld, world: w}}
@@ -129,8 +130,8 @@ func (m *Model) pickerRows() []sidebarRow {
 // worldIDs is every configured world, in sidebar order.
 func (m *Model) worldIDs() []string {
 	var ids []string
-	if m.cfg != nil {
-		for _, w := range m.cfg.Worlds {
+	if m.a.Config() != nil {
+		for _, w := range m.a.Config().Worlds {
 			ids = append(ids, w.ID)
 		}
 	}
@@ -290,7 +291,7 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 		}
 		return fit(indent+chip(role, label), w)
 	}
-	ch, _ := m.find(r.char)
+	ch, _ := m.a.Find(r.char)
 	line := fitName(" "+ch.Name, w)
 	if sel {
 		return theme.Paint(theme.PickerSelected, line)

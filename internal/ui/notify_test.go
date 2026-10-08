@@ -132,7 +132,7 @@ func TestNotifyIdleFallback(t *testing.T) {
 
 func TestNotifyIdleOff(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
-	h.m.cfg.NotifyIdle = 0
+	h.m.a.Config().NotifyIdle = 0
 	h.advance(time.Hour)
 	h.line("Rook says, \"hi\"")
 	if got := h.notified(); len(got) != 0 {
@@ -187,7 +187,7 @@ func TestNotifySanitizesInjection(t *testing.T) {
 func TestNotifyTmuxAndMethod(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
 	h.m.d.Tmux = true
-	h.m.cfg.NotifyMethod = "both"
+	h.m.a.Config().NotifyMethod = "both"
 	h.m.Update(tea.BlurMsg{})
 	h.line("hi")
 	want := "\x1bPtmux;\x1b\x1b]9;Kit: hi\x07\x1b\\\x07"
