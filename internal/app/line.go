@@ -15,10 +15,11 @@ import (
 type Kind int
 
 const (
-	Server Kind = iota // a line from the server
-	Echo               // a line you sent
-	Sys                // Kiln's own note in the log (connected, closed, …)
-	Day                // a divider before the first line of a day
+	Server     Kind = iota // a line from the server
+	Echo                   // a line you sent
+	Sys                    // Kiln's own note in the log (connected, closed, …)
+	Day                    // a divider before the first line of a day
+	HistoryEnd             // where preloaded history ends; Entry.Time is its newest line's
 )
 
 // Line is a log entry and what Kiln made of it. Nothing in it depends on
@@ -27,8 +28,6 @@ type Line struct {
 	Kind  Kind
 	Entry logstore.Entry // zero for a Day
 	Day   string         // the local day, "2006-01-02"
-	Text  string         // Entry.Text sanitized, the server's SGR kept
-	Plain string         // Text without SGR
 	Tags  []classify.Tag // a Server line's tags, with where they matched
 	rules.Verdict
 }
@@ -41,6 +40,12 @@ func (l Line) TagNames() []string {
 	}
 	return names
 }
+
+// Text is the entry's text sanitized, the server's SGR kept.
+func (l Line) Text() string { return ansi.Sanitize(l.Entry.Text) }
+
+// Plain is Text without SGR: what the tags' spans index.
+func (l Line) Plain() string { return ansi.Strip(l.Text()) }
 
 // DayOf is the local day t falls on, as Line.Day has it.
 func DayOf(t time.Time) string { return t.Local().Format("2006-01-02") }
@@ -55,8 +60,7 @@ type Rules struct {
 
 // Line makes e into a line. Only lines from the server are classified.
 func (r Rules) Line(e logstore.Entry) Line {
-	text := ansi.Sanitize(e.Text)
-	l := Line{Entry: e, Day: DayOf(e.Time), Text: text, Plain: ansi.Strip(text)}
+	l := Line{Entry: e, Day: DayOf(e.Time)}
 	switch e.Dir {
 	case logstore.Out:
 		l.Kind = Echo
@@ -64,7 +68,7 @@ func (r Rules) Line(e logstore.Entry) Line {
 		l.Kind = Sys
 	default:
 		l.Kind = Server
-		l.Tags = r.Classifier.Tags(l.Plain)
+		l.Tags = r.Classifier.Tags(l.Plain())
 		l.Verdict = r.Judge.Of(l.Tags)
 	}
 	return l
@@ -92,9 +96,10 @@ func (r Rules) Days(entries []logstore.Entry, echo, startsDay bool) []Line {
 }
 
 // Reline is l made again from its entry under r, for when a character's
-// rules change. A Day divider has no entry and comes back as it was.
+// rules change. Kiln's own lines (dividers, the end of history) have no
+// entry to remake and come back as they were.
 func (r Rules) Reline(l Line) Line {
-	if l.Kind == Day {
+	if l.Kind == Day || l.Kind == HistoryEnd {
 		return l
 	}
 	return r.Line(l.Entry)

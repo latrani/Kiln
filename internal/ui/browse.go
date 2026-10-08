@@ -124,7 +124,7 @@ func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.Rules, 
 // so older days can be prepared off the UI goroutine.
 func makeLine(r app.Rules, hl *rules.Highlighter, e logstore.Entry) *bline {
 	l := r.Line(e)
-	return &bline{Line: l, tags: l.TagNames(), text: paint(hl, l), lower: strings.ToLower(l.Plain)}
+	return &bline{Line: l, tags: l.TagNames(), text: paint(hl, l), lower: strings.ToLower(l.Plain())}
 }
 
 // readOlder reads and renders the next older day. Only one call may run

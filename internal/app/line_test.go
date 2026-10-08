@@ -1,6 +1,7 @@
 package app
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -26,11 +27,11 @@ func TestServerLineIsClassified(t *testing.T) {
 	if l.Kind != Server {
 		t.Errorf("Kind = %v, want Server", l.Kind)
 	}
-	if l.Plain != "PAGE: hi" {
-		t.Errorf("Plain = %q", l.Plain)
+	if l.Plain() != "PAGE: hi" {
+		t.Errorf("Plain = %q", l.Plain())
 	}
-	if l.Text != "PAGE: \x1b[31mhi\x1b[0m" {
-		t.Errorf("Text = %q, want the server's SGR kept and the bell dropped", l.Text)
+	if l.Text() != "PAGE: \x1b[31mhi\x1b[0m" {
+		t.Errorf("Text = %q, want the server's SGR kept and the bell dropped", l.Text())
 	}
 	if !slices.Contains(l.TagNames(), "page") || !l.Attention {
 		t.Errorf("tags %v attention %v, want page and attention", l.TagNames(), l.Attention)
@@ -92,5 +93,25 @@ func TestRelineUsesNewRules(t *testing.T) {
 	day := Line{Kind: Day, Day: "2026-09-24"}
 	if got := old.Reline(day); got.Kind != Day || got.Day != day.Day {
 		t.Errorf("Reline(day) = %+v, want it unchanged", got)
+	}
+}
+
+// A line keeps its entry, not copies of its text: Text and Plain are
+// worked out from the entry when asked.
+func TestLineStoresNoTextCopies(t *testing.T) {
+	typ := reflect.TypeOf(Line{})
+	for i := range typ.NumField() {
+		f := typ.Field(i)
+		if f.Type.Kind() == reflect.String && f.Name != "Day" {
+			t.Errorf("Line stores a string field %s", f.Name)
+		}
+	}
+}
+
+func TestRelineKeepsChrome(t *testing.T) {
+	r := testRules(t)
+	end := Line{Kind: HistoryEnd, Entry: logstore.Entry{Time: time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)}}
+	if got := r.Reline(end); got.Kind != HistoryEnd || !got.Entry.Time.Equal(end.Entry.Time) {
+		t.Errorf("Reline(history end) = %+v", got)
 	}
 }
