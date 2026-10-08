@@ -91,9 +91,10 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		return []string{theme.Paint(theme.InputHint, s)}, 0, 0, true
 	}
 	switch {
-	case m.mode == modeSavePassword:
-		name := m.pendingCh[1]
-		if pc := m.chars[key(m.pendingCh[0], m.pendingCh[1])]; pc != nil {
+	case m.asking():
+		world, char, _ := m.a.PendingSave()
+		name := char
+		if pc := m.chars[key(world, char)]; pc != nil {
 			name = pc.Ch.Name
 		}
 		return hint(str.ViewSavePassword(name, storeName(m.a.PasswordStore())))
@@ -108,7 +109,7 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		return hint(str.ViewNothingOpen())
 	case cs == nil:
 		return nil, 0, 0, false
-	case cs.needPW:
+	case cs.NeedPW:
 		// Bullets for what's typed, between a label and the keys to press.
 		rows, _, c := cs.in.Render(1<<20, 0, false, true)
 		label := str.ViewPasswordLabel(cs.Ch.Name)
@@ -448,7 +449,13 @@ func (m *Model) overview(world string, w, h int) []string {
 // nothing asking in the input area: then there's no input box.
 func (m *Model) overviewing() bool {
 	_, ok := m.a.ActiveWorld()
-	return ok && m.picker == nil && m.mode == modeNormal
+	return ok && m.picker == nil && !m.asking()
+}
+
+// asking reports whether the save-password question has the input area.
+func (m *Model) asking() bool {
+	_, _, ok := m.a.PendingSave()
+	return ok
 }
 
 // scrollOverview moves the overview by delta rows; the next draw clamps it.

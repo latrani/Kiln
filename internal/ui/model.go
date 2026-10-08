@@ -4,7 +4,6 @@ package ui
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"slices"
 	"strings"
@@ -52,13 +51,6 @@ type Deps struct {
 	Now            func() time.Time
 }
 
-type mode int
-
-const (
-	modeNormal mode = iota
-	modeSavePassword
-)
-
 // Model is the Bubble Tea model.
 type Model struct {
 	d           Deps
@@ -68,18 +60,14 @@ type Model struct {
 	chars       map[string]*charState // the open characters' views, keyed like the core's
 	width       int
 	height      int
-	mode        mode
-	pendingPW   string    // entered password awaiting the save y/n answer
-	pendingCh   [2]string // world and character id the pending password belongs to
-	confirm     bool      // next Enter sends an over-limit line anyway
-	resizeGen   int       // bumped per WindowSizeMsg; see resizeMsg
-	sideTop     int       // first sidebar row shown when it overflows
-	sideShown   string    // active character last scrolled into view
-	quitKey     string    // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
-	quitGen     int       // bumped per arming; see quitExpiredMsg
-	statusOfLog bool      // status came from log mode; its next key or click clears it
-	statusTimed int       // the statusGen whose expiry is scheduled
-	lastClick   struct {  // for spotting a double-click in the sidebar
+	resizeGen   int      // bumped per WindowSizeMsg; see resizeMsg
+	sideTop     int      // first sidebar row shown when it overflows
+	sideShown   string   // active character last scrolled into view
+	quitKey     string   // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen     int      // bumped per arming; see quitExpiredMsg
+	statusOfLog bool     // status came from log mode; its next key or click clears it
+	statusTimed int      // the statusGen whose expiry is scheduled
+	lastClick   struct { // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
 	}
@@ -106,8 +94,6 @@ type charState struct {
 	hl        *rules.Highlighter // the character's look: the theme with its own looks on top
 	sb        Scrollback
 	in        *Input
-	needPW    bool
-	pwDraft   string          // input stashed while the password prompt is up
 	browse    *browse         // non-nil while browse mode is open
 	hidBrowse *browse         // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
 	filter    scene.Filter    // log mode's filter; outlasts a log-mode session
@@ -138,26 +124,6 @@ func (cs *charState) hideBrowse() {
 	cs.browse, cs.hidBrowse = nil, cs.browse
 }
 
-// startPassword shows the masked password prompt, stashing any draft so
-// it neither becomes part of the password nor is lost.
-func (cs *charState) startPassword() {
-	if cs.needPW {
-		return
-	}
-	cs.needPW = true
-	cs.pwDraft = cs.in.Value()
-	cs.in.Reset()
-}
-
-// endPassword leaves the password prompt (submitted, skipped, or the
-// connection dropped), clearing anything typed and restoring the draft.
-func (cs *charState) endPassword() {
-	cs.needPW = false
-	cs.in.Reset()
-	cs.in.SetValue(cs.pwDraft)
-	cs.pwDraft = ""
-}
-
 func key(world, char string) string { return app.Key(world, char) }
 
 // Messages.
@@ -184,9 +150,11 @@ func New(d Deps, cfg *config.Config) *Model {
 	}
 	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
 	m.a = app.New(app.Deps{
+		ConfigDir: d.ConfigDir, KnownHosts: d.KnownHosts, SavePassword: d.SavePassword,
 		LogRoot: d.LogRoot, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
 		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
 	})
+	m.idle.hist = m.a.IdleHistory()
 	m.focused, m.lastHere = true, d.Now()
 	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
@@ -430,6 +398,8 @@ func (m *Model) run(effs []app.Effect) tea.Cmd {
 			cmds = append(cmds, func() tea.Msg { return f() })
 		case app.Quit:
 			cmds = append(cmds, tea.Quit)
+		case app.Do:
+			cmds = append(cmds, m.do(e))
 		}
 	}
 	return tea.Batch(cmds...)
@@ -584,15 +554,17 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
 				cs.browse.pin.InsertText(oneLine(msg.Content))
 			}
-		} else if m.mode == modeNormal && !m.overviewing() {
+		} else if _, _, asking := m.a.PendingSave(); !asking && !m.overviewing() {
 			m.input().InsertText(msg.Content)
-			m.confirm = false
+			m.a.Unconfirm()
+			m.pushInput()
 		}
 	case tea.KeyPressMsg:
 		m.focused = true
 		m.here()
 		before, gen := m.input().Value(), m.a.Status().Gen
 		cmd := m.handleKey(msg)
+		m.pushInput()
 		if m.a.Status().Gen == gen && m.input().Value() != before {
 			m.a.ClearStatus() // typing again dismisses what was said before
 		}
@@ -668,6 +640,7 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		return nil
 	}
 	cs := m.chars[ev.Key]
+	m.pullInput(cs) // the password prompt may have started or ended
 	next := m.run(effs)
 	switch ev.Ev.Kind {
 	case session.EventLine:
@@ -692,12 +665,6 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		}
 	case session.EventPrompt:
 		cs.sb.SetPrompt(cs.Prompt)
-	case session.EventState:
-		if ev.Ev.State != session.Connected && cs.needPW {
-			cs.endPassword()
-		}
-	case session.EventNeedPassword:
-		cs.startPassword()
 	}
 	return next
 }
@@ -712,29 +679,15 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		m.disarmQuit() // any key but the armed one again starts over
 	}
 	cs := m.cur()
-	if m.mode == modeSavePassword {
+	if _, _, asking := m.a.PendingSave(); asking {
 		switch k.String() {
 		case "enter", "y", "Y":
-			// Save for the character that was asked about, even if another
-			// one is active now.
-			store := m.a.PasswordStore()
-			switch err := m.d.SavePassword(store, m.pendingCh[0], m.pendingCh[1], m.pendingPW); {
-			case err != nil && store == "keychain":
-				m.setStatus(true, str.StatusKeychainFailed(err))
-			case err != nil:
-				m.setStatus(true, str.StatusPasswordNotSavedErr(err))
-			default:
-				m.setStatus(false, str.StatusPasswordSaved())
-			}
+			m.a.AnswerSave(true)
 		case "n", "N", "esc", "ctrl+c":
-			m.setStatus(false, str.StatusPasswordNotSaved())
+			m.a.AnswerSave(false)
 		case openPickerKey:
 			m.openPicker() // says why not
-			return nil
-		default:
-			return nil
 		}
-		m.mode, m.pendingPW, m.pendingCh = modeNormal, "", [2]string{}
 		return nil
 	}
 	switch k.String() {
@@ -803,10 +756,10 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			m.scrollOverview(max(1, m.layout().sbH-1))
 		}
 	case "esc":
-		m.confirm = false
-		if cs != nil && cs.needPW {
-			cs.endPassword()
-			m.setStatus(false, str.StatusSkippedLogin())
+		m.a.Unconfirm()
+		if m.a.SkipLogin() {
+			m.statusOfLog = false
+			m.pullInput(cs)
 		} else if cs != nil && cs.sb.Scrolled() {
 			cs.sb.ToBottom() // back to live, from a pause or a scroll
 		}
@@ -829,7 +782,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 	}
-	m.confirm = false
+	m.a.Unconfirm()
 	return nil
 }
 
@@ -893,7 +846,6 @@ func (m *Model) switchTo(k string) {
 		}
 	}
 	m.a.Switch(k)
-	m.confirm = false
 	if prev == k {
 		m.showActive()
 	} else {
@@ -927,7 +879,6 @@ func (m *Model) activated(prev string) {
 	if m.a.Active() == prev {
 		return
 	}
-	m.confirm = false
 	if strings.HasPrefix(prev, worldSel("")) {
 		m.leaveEditor()
 	}
@@ -936,166 +887,95 @@ func (m *Model) activated(prev string) {
 	m.unparkEditor()
 }
 
-// submit handles Enter: a command, a password, or lines for the server.
+// submit handles Enter: on a world's overview, or an empty input with
+// nothing open, the picker; otherwise the core's Submit.
 func (m *Model) submit() tea.Cmd {
 	if m.overviewing() {
 		m.openPicker() // as on an empty input with nothing open
 		return nil
 	}
-	cs := m.cur()
-	if cs == nil {
-		switch text := m.idle.Value(); {
-		case text == "":
-			m.openPicker()
-		case strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "//"):
-			m.idle.Commit()
-			return m.command(nil, text)
-		default:
-			m.setStatus(true, str.StatusNothingOpen())
-		}
+	m.pushInput()
+	if m.cur() == nil && m.a.Text() == "" {
+		m.openPicker()
 		return nil
 	}
-	if cs.needPW {
-		pw := cs.in.CommitSecret()
-		e, err := cs.Sess.Login(pw)
-		if err != nil && !isLogErr(err) {
-			m.setStatus(true, str.StatusLoginNotSent(err))
+	prev := m.a.Active()
+	res, effs := m.a.Submit()
+	cmd := m.run(effs)
+	m.afterCore(prev)
+	if cs := m.cur(); cs != nil && res.Sent {
+		cs.sb.ToBottomKeeping(res.Echoed) // what you send is where the pager picks up
+	}
+	return cmd
+}
+
+// afterCore catches the screen up with a core call that may have closed
+// characters, moved the active item, added lines or changed texts.
+func (m *Model) afterCore(prev string) {
+	for k := range m.chars {
+		if m.a.Char(k) == nil {
+			m.closed(k, prev)
+		}
+	}
+	m.activated(prev)
+	if cs := m.cur(); cs != nil {
+		m.syncLines(cs)
+		m.pullInput(cs)
+	}
+	m.pullIdle()
+}
+
+// pushInput tells the core the active input's text, as the widget has it.
+func (m *Model) pushInput() { m.a.SetInput(m.input().Value()) }
+
+// pullInput puts cs's core text in its widget, if the core changed it.
+func (m *Model) pullInput(cs *charState) {
+	if cs != nil && cs.in.Value() != cs.Text {
+		cs.in.Reset()
+		cs.in.SetValue(cs.Text)
+	}
+}
+
+// pullIdle is pullInput for the input used while nothing is open.
+func (m *Model) pullIdle() {
+	if m.cur() == nil && m.idle.Value() != m.a.Text() {
+		m.idle.Reset()
+		m.idle.SetValue(m.a.Text())
+	}
+}
+
+// syncLines shows lines the core has added to cs's scrollback since the
+// view last caught up (what you sent, echoed).
+func (m *Model) syncLines(cs *charState) {
+	for _, l := range cs.Lines[cs.sb.Len():] {
+		cs.sb.AppendLine(lineOf(paint(cs.hl, *l), l))
+	}
+}
+
+// do carries out a command the core hands back.
+func (m *Model) do(d app.Do) tea.Cmd {
+	cs := m.chars[d.Key]
+	switch d.Cmd {
+	case "/backup", "/restore":
+		if (d.Cmd == "/backup" && m.d.Backup == nil) || (d.Cmd == "/restore" && m.d.Restore == nil) {
+			m.setStatus(true, str.StatusUnknownCommand(d.Cmd)) // web-only, so unknown here
 			return nil
 		}
-		cs.endPassword()
-		if l := m.a.Echo(cs.Key, e); l != nil {
-			cs.sb.AppendLine(lineOf(paint(cs.hl, *l), l))
+		if d.Cmd == "/backup" {
+			return m.backupCmd()
 		}
-		if m.d.SavePassword != nil && pw != "" && m.a.PasswordStore() != "none" {
-			m.mode, m.pendingPW = modeSavePassword, pw
-			m.pendingCh = [2]string{cs.Ch.World, cs.Ch.ID}
-		}
-		return nil
-	}
-	m.a.ClearStatus()
-	if cs.in.Empty() && cs.State != session.Connected {
-		if cs.State == session.Connecting || cs.Pin != nil {
-			return nil // nothing Enter can do; the prompt says why
-		}
-		return m.connect(cs)
-	}
-	text := cs.in.Value()
-	if strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "//") {
-		cs.in.Commit()
-		return m.command(cs, text)
-	}
-	text = strings.TrimPrefix(text, "/") // "//foo" sends "/foo"
-	if cs.Sess == nil || cs.State != session.Connected {
-		m.setStatus(true, str.StatusNotConnected(cs.Ch.Name))
-		return nil
-	}
-	if cs.in.OverLimit(cs.Ch.MaxLineBytes, cs.Ch.NewlineMode == "flatten") && !m.confirm {
-		m.confirm = true
-		m.setStatus(true, str.StatusOverLimit(cs.Ch.MaxLineBytes))
-		return nil
-	}
-	m.confirm = false
-	lines := strings.Split(text, "\n")
-	if cs.Ch.NewlineMode == "flatten" {
-		lines = []string{strings.Join(lines, " ")}
-	}
-	secret, echoed := false, false
-	for _, line := range lines {
-		e, err := cs.Sess.Send(line)
-		if err != nil && !isLogErr(err) {
-			m.setStatus(true, str.StatusNotSent(err))
-			break
-		}
-		if err != nil {
-			m.setStatus(true, err.Error())
-		}
-		secret = secret || e.Text != line // the session redacted a typed password
-		l := m.a.Echo(cs.Key, e)
-		if echoed = l != nil; echoed {
-			cs.sb.AppendLine(lineOf(paint(cs.hl, *l), l))
-		}
-	}
-	if secret {
-		cs.in.CommitSecret()
-	} else {
-		cs.in.Commit()
-	}
-	cs.sb.ToBottomKeeping(echoed) // what you send is where the pager picks up
-	return nil
-}
-
-func isLogErr(err error) bool {
-	var le *session.LogError
-	return errors.As(err, &le)
-}
-
-// command runs a slash command. text is the whole input line, so commands
-// that take free text (/highlight) can keep its spacing.
-func (m *Model) command(cs *charState, text string) tea.Cmd {
-	args := strings.Fields(text)
-	if (args[0] == "/backup" && m.d.Backup == nil) || (args[0] == "/restore" && m.d.Restore == nil) {
-		m.setStatus(true, str.StatusUnknownCommand(args[0])) // web-only, so unknown here
-		return nil
-	}
-	if args[0] == "/away" {
+		return m.restoreCmd()
+	case "/away":
 		m.awayNow = true
 		m.setStatus(false, str.StatusAway())
-		return nil
-	}
-	if cs == nil && args[0] != "/quit" && args[0] != "/open" && args[0] != "/backup" && args[0] != "/restore" {
-		m.setStatus(true, str.StatusNeedsCharacter(args[0]))
-		return nil
-	}
-	switch args[0] {
-	case "/connect":
-		if cs.Sess != nil && cs.State == session.Connected {
-			m.setStatus(false, str.StatusAlreadyConnected(cs.Ch.Name))
-			return nil
-		}
-		return m.connect(cs)
-	case "/reconnect":
-		return m.connect(cs)
-	case "/disconnect":
-		if cs.Sess != nil {
-			cs.Sess.Disconnect()
-		}
-	case "/trust":
-		if cs.Pin == nil {
-			m.setStatus(true, str.StatusNoChangedCert())
-			return nil
-		}
-		if err := m.d.KnownHosts.Trust(cs.Pin.HostPort, cs.Pin.Got); err != nil {
-			m.setStatus(true, str.StatusTrustFailed(err))
-			return nil
-		}
-		m.setStatus(false, str.StatusTrusted(cs.Pin.HostPort))
-		cs.Pin = nil
-		return m.connect(cs)
-	case "/close":
-		m.close(cs.Key)
-	case "/quit":
-		return m.quit()
 	case "/open":
 		m.openPicker() // says why not
 	case "/log":
 		m.openBrowse(cs)
 	case "/edit":
-		m.editCommand(cs, strings.Join(args[1:], " "))
-	case "/highlight":
-		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), args[0]))
-		if err := config.AppendHighlight(m.d.ConfigDir, cs.Ch.World, text); err != nil {
-			m.setStatus(true, str.StatusHighlightFailed(err))
-			return nil
-		}
-		m.setStatus(false, str.StatusHighlightAdded(text))
+		m.editCommand(cs, strings.Join(d.Args, " "))
 	case "/notify":
-		m.notifyCommand(cs, args[1:])
-	case "/backup":
-		return m.backupCmd()
-	case "/restore":
-		return m.restoreCmd()
-	default:
-		m.setStatus(true, str.StatusUnknownCommand(args[0]))
+		m.notifyCommand(cs, d.Args)
 	}
 	return nil
 }

@@ -212,10 +212,10 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	h.enter()
-	if h.m.mode != modeSavePassword {
+	if !h.m.asking() {
 		t.Fatal("no save-password question")
 	}
 	h.press('o', tea.ModCtrl)
@@ -227,7 +227,7 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
 		t.Errorf("click: picker opened or no status:\n%s", h.screen())
 	}
-	if h.m.mode != modeSavePassword || len(h.saved) != 0 {
+	if !h.m.asking() || len(h.saved) != 0 {
 		t.Error("the question should still be waiting")
 	}
 }

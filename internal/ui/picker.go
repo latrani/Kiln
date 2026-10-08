@@ -71,7 +71,7 @@ func selKey(r sidebarRow) string {
 // mode, which has the pane (and the input area) to itself, or the
 // save-password question owns the input area.
 func (m *Model) openPicker() {
-	if m.mode == modeSavePassword {
+	if _, _, asking := m.a.PendingSave(); asking {
 		m.setStatus(true, questionBlocksPicker)
 		return
 	}

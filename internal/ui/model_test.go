@@ -502,7 +502,7 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": echoWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	s := h.screen()
 	if !strings.Contains(s, "│"+str.ViewPasswordLabel("Kit")+"••••••"+str.ViewPasswordKeys()) || strings.Contains(s, "s3cret") || strings.Contains(s, "> ") {
@@ -531,7 +531,7 @@ func TestPasswordPromptKeepsDraft(t *testing.T) {
 		h.init()
 		h.typeText("half a pose")
 		cs := h.m.chars["fm/kit"]
-		h.settle("fm/kit", func() bool { return cs.needPW })
+		h.settle("fm/kit", func() bool { return cs.NeedPW })
 		if v := cs.in.Value(); v != "" {
 			t.Fatalf("password prompt starts with %q", v)
 		}
@@ -544,8 +544,8 @@ func TestPasswordPromptKeepsDraft(t *testing.T) {
 				t.Errorf("sent %q", got)
 			}
 		}
-		if v := cs.in.Value(); v != "half a pose" || cs.needPW {
-			t.Errorf("skip=%v: input = %q, needPW = %v; want the draft back", skip, v, cs.needPW)
+		if v := cs.in.Value(); v != "half a pose" || cs.NeedPW {
+			t.Errorf("skip=%v: input = %q, needPW = %v; want the draft back", skip, v, cs.NeedPW)
 		}
 	}
 }
@@ -892,7 +892,7 @@ func TestSavePasswordAnswerBindsToPromptingCharacter(t *testing.T) {
 	delete(h.pw, "fm/kit")
 	h.init()
 	h.open("fm/rook")
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	h.enter()
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // click Rook mid-question
@@ -993,19 +993,19 @@ func TestSavePasswordPromptDefaultsToYes(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	h.enter()
 	if s := h.screen(); !strings.Contains(s, "│"+str.ViewSavePassword("Kit", str.ViewStoreKeychain())) {
 		t.Errorf("no save prompt:\n%s", s)
 	}
 	h.typeText("q") // not an answer; the question stays
-	if h.m.mode != modeSavePassword {
+	if !h.m.asking() {
 		t.Fatal("stray key answered the question")
 	}
 	h.enter()
-	if h.saved["fm/kit"] != "s3cret" || h.m.mode != modeNormal {
-		t.Errorf("saved = %q, mode = %v", h.saved, h.m.mode)
+	if h.saved["fm/kit"] != "s3cret" || h.m.asking() {
+		t.Errorf("saved = %q, asking = %v", h.saved, h.m.asking())
 	}
 }
 
@@ -1019,10 +1019,10 @@ func TestPasswordStoreNoneNeverOffers(t *testing.T) {
 	h.m.applyConfig(cfg)
 	delete(h.pw, "fm/kit")
 	h.init()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	h.enter()
-	if h.m.mode != modeNormal || strings.Contains(h.screen(), "Save password") {
+	if h.m.asking() || strings.Contains(h.screen(), "Save password") {
 		t.Errorf("offered to save:\n%s", h.screen())
 	}
 }
@@ -1220,12 +1220,18 @@ func TestCoreStatusOutlastsLogModeKeys(t *testing.T) {
 // Closing the active character moves on to another one, and Enter there
 // asks again before sending an over-limit line.
 func TestClosingResetsTheOverLimitConfirm(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // max_line_bytes = 20
 	h.open("fm/rook")
-	h.m.confirm = true
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("a line well over twenty bytes")
+	h.enter() // the warning: Enter again sends it
+	if !h.m.a.Confirming() {
+		t.Fatal("Enter on an over-limit line didn't ask first")
+	}
 	h.m.close("fm/kit")
-	if h.m.a.Active() != "fm/rook" || h.m.confirm {
-		t.Errorf("active %q confirm %v; want Rook, and no confirm carried over", h.m.a.Active(), h.m.confirm)
+	if h.m.a.Active() != "fm/rook" || h.m.a.Confirming() {
+		t.Errorf("active %q confirming %v; want Rook, and no confirm carried over", h.m.a.Active(), h.m.a.Confirming())
 	}
 }
 
