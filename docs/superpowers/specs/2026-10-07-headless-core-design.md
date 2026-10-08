@@ -80,18 +80,24 @@ highlight rules, which look up each tag's style in the theme and produce
 SGR. The core can't do that, since a web page paints with CSS.
 
 - **`app.Line`** is a log entry plus what Kiln made of it: the kind
-  (server, echo, sys, day divider), its tags, attention and quiet, and
-  highlight runs as `{Start, End, Tag}`. A run names the tag whose style
-  wins, not an SGR. The server's own colors stay in the entry's text.
-- **`rules` stops using the theme.** `rules.New` takes the attention and
-  quiet lists only, and `Result.Runs` carries tags. Choosing which tag
-  wins a span (the existing precedence) stays in `rules`.
-- **The TUI paints.** A tag's run becomes the theme's SGR for that tag,
-  and `style.Highlight` draws it over the server text, as today. Echo and
-  sys lines get their roles (`ScrollbackEcho`, `ScrollbackSys`), and day
-  dividers `ScrollbackDay`. The painted text is cached per line in `ui`.
-- **A theme change** clears the TUI's paint cache. `Scrollback.Rerender`
-  and `browse.restyle` go away; the core has nothing to redo.
+  (server, echo, sys, day divider), its tags with the spans they matched,
+  and attention and quiet. The server's own colors stay in the entry's
+  text. Nothing in a line depends on the theme.
+- **`rules` splits in two.** `rules.Judge` (the attention and quiet lists)
+  decides attention and quiet from tag names, and belongs to the core.
+  `rules.Highlighter` keeps the look: it reads the theme for which styled
+  name each tag falls back to and whether it styles the whole line or
+  only its match, and folds those into runs. It runs when a line is
+  painted, so it's the front end's.
+- **The TUI paints.** `Highlighter.Runs` folds the line's tags into SGR
+  runs and `style.Highlight` draws them over the server text, as today.
+  Echo and sys lines get their roles (`ScrollbackEcho`, `ScrollbackSys`),
+  and day dividers `ScrollbackDay`. The painted text is cached per line
+  in `ui`.
+- **A theme change** only repaints in the TUI: no line is classified
+  again. A change to a character's rules (classify patterns, attention,
+  quiet, name, aliases) remakes its lines from their entries in the core,
+  then repaints.
 - **Scrollback splits.** `app` holds each character's `[]Line`, whether
   older days remain, whether a page is loading, and the unseen count.
   `ui.Scrollback` keeps the width, wrapping, the scroll offset, mouse
