@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -12,6 +13,7 @@ import (
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
@@ -40,7 +42,14 @@ type Char struct {
 	Pin         *conn.PinMismatchError
 	Orphan      bool      // removed from the config; closed when it disconnects
 	ConnectedAt time.Time // when the current connection came up
+	Lines       []*Line   // the scrollback, oldest first; front ends may keep the pointers
+	Prompt      string    // an unterminated prompt from the server, sanitized; "" when there's none
+	More        bool      // older history exists that isn't in Lines yet; see RequestOlder
+	Loading     bool      // a page of older history is being read
 	cancel      context.CancelFunc
+	hist        *history.Reader  // pages older log days in; only an in-flight RequestOlder read touches it
+	leftover    []logstore.Entry // the preload's unshown start of its oldest day
+	rulesGen    int              // bumped whenever Rules changes, so a page read under older ones is made again
 }
 
 // compile builds c's rules from its configuration. On an error c keeps
@@ -51,6 +60,7 @@ func (c *Char) compile() error {
 		return err
 	}
 	c.Rules = Rules{Classifier: cls, Judge: rules.Judge{Attention: c.Ch.Rules.Attention, Quiet: c.Ch.Rules.Quiet}}
+	c.rulesGen++
 	return nil
 }
 
@@ -127,9 +137,14 @@ func (a *App) ApplyConfig(cfg *config.Config) ConfigResult {
 			}
 			continue
 		}
+		retag := !reflect.DeepEqual(tagInputs(c.Ch), tagInputs(ch))
 		c.Ch, c.Orphan = ch, false
 		if err := c.compile(); err != nil {
 			res.Errs[k] = err
+		} else if retag {
+			for _, l := range c.Lines {
+				*l = c.Rules.Reline(*l)
+			}
 		}
 		if c.Sess != nil {
 			c.Sess.SetChar(ch)
@@ -137,6 +152,15 @@ func (a *App) ApplyConfig(cfg *config.Config) ConfigResult {
 	}
 	a.sortOrder() // names may have changed
 	return res
+}
+
+// tagInputs is what a character's lines' tags and verdicts depend on.
+func tagInputs(ch config.Character) any {
+	return struct {
+		rules   config.Rules
+		name    string
+		aliases []string
+	}{ch.Rules, ch.Name, ch.Aliases}
 }
 
 // Config is the config last applied; nil before the first.
@@ -189,6 +213,7 @@ func (a *App) Open(k string) (*Char, error) {
 	a.chars[k] = c
 	a.order = append(a.order, k)
 	a.sortOrder()
+	a.Preload(k)
 	if a.active == "" {
 		a.active = k
 	}

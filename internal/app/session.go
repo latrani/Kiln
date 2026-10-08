@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
@@ -23,8 +24,9 @@ type SessionMsg struct {
 type Event struct {
 	Key    string
 	Ev     session.Event
-	Line   Line // for an EventLine, what Kiln made of its entry
-	Closed bool // the character was an orphan and has closed
+	Line   *Line // for an EventLine, what Kiln made of its entry
+	Shown  bool  // the line went into the scrollback (Lines)
+	Closed bool  // the character was an orphan and has closed
 }
 
 // wait is the Run that waits for s's next event.
@@ -80,7 +82,11 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 	ev = Event{Key: msg.Key, Ev: msg.Ev}
 	switch msg.Ev.Kind {
 	case session.EventLine:
-		ev.Line = c.Rules.Line(msg.Ev.Entry)
+		l := c.Rules.Line(msg.Ev.Entry)
+		ev.Line = &l
+		if c.shows(msg.Ev.Entry) {
+			ev.Line, ev.Shown = c.add(l), true
+		}
 		if msg.Key != a.active && msg.Ev.Entry.Dir == logstore.In && !ev.Line.Quiet {
 			c.Unread++
 			c.Attention = c.Attention || ev.Line.Attention
@@ -103,6 +109,8 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 		if c.State == session.Connected {
 			c.Pin = nil
 		}
+	case session.EventPrompt:
+		c.Prompt = ansi.Sanitize(msg.Ev.Entry.Text)
 	case session.EventLogError:
 		a.SetStatus(true, str.StatusLogWriteFailed(c.Ch.Name, msg.Ev.Err))
 	}

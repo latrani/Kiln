@@ -737,13 +737,13 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	next := m.run(effs)
 	switch ev.Ev.Kind {
 	case session.EventLine:
-		text := paint(cs.hl, ev.Line)
+		text := paint(cs.hl, *ev.Line)
 		switch {
 		case !cs.echoes(ev.Ev.Entry):
 		case ev.Line.Quiet:
-			cs.sb.append(lineOf(text, ev.Line))
+			cs.sb.append(lineOf(text, *ev.Line))
 		default:
-			cs.sb.AppendLine(lineOf(text, ev.Line))
+			cs.sb.AppendLine(lineOf(text, *ev.Line))
 		}
 		if ev.Key == m.a.Active() {
 			l := m.layout()
@@ -753,7 +753,7 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		for _, b := range cs.browses() {
 			b.appendLive(ev.Ev.Entry)
 		}
-		if n := m.notifyCmd(cs, ev.Line); n != nil {
+		if n := m.notifyCmd(cs, *ev.Line); n != nil {
 			return tea.Batch(n, next)
 		}
 	case session.EventPrompt:
