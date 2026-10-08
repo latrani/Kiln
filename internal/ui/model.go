@@ -689,9 +689,13 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focused, m.focusSeen = false, true
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
-			if msg.theme != theme.Active() { // painted in a theme since replaced
-				for i := range msg.lines {
-					msg.lines[i] = msg.lines[i].repainted(func(l app.Line) string { return paint(cs.hl, l) })
+			if msg.theme != theme.Active() { // made in a theme (and maybe rules) since replaced
+				for i, l := range msg.lines {
+					if l.line != nil {
+						nl := cs.rules.Reline(*l.line)
+						l.line = &nl
+					}
+					msg.lines[i] = l.repainted(func(l app.Line) string { return paint(cs.hl, l) })
 				}
 			}
 			cs.sb.PrependLines(msg.lines, msg.more)

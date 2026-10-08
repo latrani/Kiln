@@ -182,9 +182,10 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 // receive prepends a day read by requestOlder and runs what was waiting.
 func (b *browse) receive(msg olderMsg) tea.Cmd {
 	b.loading = false
-	if msg.theme != theme.Active() { // painted in a theme since replaced
+	if msg.theme != theme.Active() { // made in a theme (and maybe rules) since replaced
 		for _, l := range msg.lines {
-			l.text = paint(b.cs.hl, l.Line)
+			l.Line = b.cs.rules.Reline(l.Line)
+			l.tags, l.text = l.TagNames(), paint(b.cs.hl, l.Line)
 		}
 	}
 	b.prepend(msg)

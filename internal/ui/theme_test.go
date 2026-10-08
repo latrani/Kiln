@@ -768,3 +768,87 @@ func TestDayDividersRepaintAndAreNotTheNewestLine(t *testing.T) {
 		t.Errorf("LastTime = %v, %v; want %v (today's line)", got, ok, day24)
 	}
 }
+
+// wikiWorld is fmWorld with a rule tagging "[Wiki]" lines, styled.
+var wikiWorld = fmWorld + "\n[[classify]]\ntag = \"wiki\"\npattern = '^\\[Wiki\\]'\n\n[tags]\nwiki = { fg = \"#0a0b0c\" }\n"
+
+// History read under old rules and an old theme, arriving after both
+// change, is made again under the new rules, not just repainted.
+func TestOlderHistoryArrivingAfterRulesAndThemeChange(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	dir := t.TempDir()
+	root := filepath.Join(dir, "logs")
+	w := logstore.NewWriter(logstore.Layout{Root: root, World: "fm", Char: "kit", CharName: "Kit"})
+	for _, d := range []int{22, 23, 24} {
+		start := time.Date(2026, 9, d, 8, 0, 0, 0, time.Local)
+		for i := 0; i < 150; i++ {
+			w.Append(logstore.Entry{Time: start.Add(time.Duration(i) * time.Minute), Dir: logstore.In, Text: fmt.Sprintf("[Wiki] d%d-%03d", d, i)})
+		}
+	}
+	w.Close()
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.d.LogRoot = root
+	cs := h.m.chars["fm/kit"]
+	cs.sb = Scrollback{}
+	h.m.preload(cs)
+	var msg sbOlderMsg
+	for i := 0; i < 100 && msg.lines == nil; i++ {
+		if cmd := h.press(tea.KeyPgUp, 0); cmd != nil {
+			msg = cmd().(sbOlderMsg) // read under the old rules and theme...
+		}
+		h.screen()
+	}
+	if msg.lines == nil {
+		t.Fatal("no older batch was read")
+	}
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(wikiWorld), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{}) // ...both change...
+	h.m.Update(msg)         // ...then the batch arrives
+	for _, l := range cs.sb.lines {
+		if l.line == nil || l.line.Kind != app.Server {
+			continue
+		}
+		if !slices.Contains(l.line.TagNames(), "wiki") {
+			t.Fatalf("%q arrived without the new rule's tag", l.line.Entry.Text)
+		}
+		if want, _ := cs.render(l.line.Entry); l.text != want {
+			t.Fatalf("%q isn't drawn as the new rules draw it", l.line.Entry.Text)
+		}
+	}
+}
+
+// Log mode's day arriving after a rules and theme change is made again
+// under the new rules too: its look and its tags (for the filters).
+func TestBrowseOlderDayAfterRulesAndThemeChange(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for d := 21; d <= 24; d++ {
+		lines := make([]string, 150)
+		for i := range lines {
+			lines[i] = fmt.Sprintf("[Wiki] day %d line %d", d, i)
+		}
+		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
+	}
+	h.key("ctrl+l")
+	b := h.br()
+	_, cmd := h.m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
+	if cmd == nil {
+		t.Fatal("Home should start a background load")
+	}
+	msg := cmd() // read under the old rules and theme...
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(wikiWorld), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{}) // ...both change...
+	h.m.Update(msg)         // ...then the day arrives
+	cs := h.m.chars["fm/kit"]
+	for _, l := range b.lines[:150] { // the day that arrived
+		if want, _ := cs.render(l.Entry); l.text != want || !slices.Contains(l.tags, "wiki") {
+			t.Fatalf("%q kept the old rules (tags %v)", l.Entry.Text, l.tags)
+		}
+	}
+}
