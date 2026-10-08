@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/latrani/Kiln/internal/ansi"
-	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -298,7 +298,7 @@ func TestRerenderRepaintsChromeLines(t *testing.T) {
 	s := sb(20)
 	s.AppendLine(chromeLine(theme.ScrollbackDay, "── Thu Sep 24 ──"))
 	th := withTheme(t, "[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
-	s.Rerender(func(logstore.Entry) string { return "" })
+	s.Rerender(nil, func(app.Line) string { return "" })
 	if !strings.HasPrefix(s.lines[0].text, th.SGR(theme.ScrollbackDay)) {
 		t.Errorf("chrome line not repainted: %q", s.lines[0].text)
 	}

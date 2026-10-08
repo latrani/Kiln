@@ -6,10 +6,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/notify"
-	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -96,22 +96,23 @@ func (m *Model) notifyName(cs *charState) string {
 // notifyCmd writes a notification for an incoming line if you're away
 // and cs's level wants one. Only what arrives while you're away notifies:
 // what came while you were here, you saw.
-func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Verdict) tea.Cmd {
-	if e.Dir != logstore.In || res.Quiet || !m.away() {
+func (m *Model) notifyCmd(cs *charState, l app.Line) tea.Cmd {
+	e := l.Entry
+	if e.Dir != logstore.In || l.Quiet || !m.away() {
 		return nil
 	}
 	now := m.d.Now()
-	if !res.Attention && (now.Sub(cs.connectedAt) < connectGrace || now.Sub(cs.lastSent) < burstGap) {
+	if !l.Attention && (now.Sub(cs.connectedAt) < connectGrace || now.Sub(cs.lastSent) < burstGap) {
 		return nil
 	}
 	switch m.notifyLevel(cs) {
 	case notify.All:
 	case notify.First:
-		if !res.Attention && cs.sentGen == m.hereGen {
+		if !l.Attention && cs.sentGen == m.hereGen {
 			return nil
 		}
 	case notify.Attention:
-		if !res.Attention {
+		if !l.Attention {
 			return nil
 		}
 	default:

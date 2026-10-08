@@ -13,7 +13,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/ansi"
-	"github.com/latrani/Kiln/internal/classify"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
@@ -31,11 +31,10 @@ const browseInitialLines = 200
 const browsePrefixW = 8
 
 type bline struct {
-	e     logstore.Entry
-	tags  []string
-	text  string // sanitized and styled for display
-	lower string // plain text, lowercased, for text filters
-	day   string // local "2006-01-02"
+	app.Line
+	tags  []string // TagNames, kept for the filters
+	text  string   // painted for display
+	lower string   // plain text, lowercased, for text filters
 }
 
 type promptKind int
@@ -108,7 +107,7 @@ func newBrowse(cs *charState, l logstore.Layout, hasLogs bool) *browse {
 	}
 	b.cursor = b.lastVisible()
 	if l := b.last(); l != nil {
-		b.loadedTo = l.e.Time
+		b.loadedTo = l.Entry.Time
 	}
 	cs.filter.ResetSeen() // this session's items light by the filter as it stands
 	return b
@@ -119,27 +118,22 @@ func (b *browse) setExport(cfg *config.Config) {
 	b.exportDir, b.exportName, b.exportFormat = cfg.ExportDir, cfg.ExportName, cfg.ExportFormat
 }
 
-func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.cls, b.cs.judge, b.cs.hl, e) }
+func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.rules, b.cs.hl, e) }
 
-// makeLine renders and classifies e. Like renderLine it only reads cls
-// and hl, so older days can be prepared off the UI goroutine.
-func makeLine(cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter, e logstore.Entry) *bline {
-	text, _ := renderLine(cls, judge, hl, e)
-	plain := ansi.Strip(ansi.Sanitize(e.Text))
-	var tags []string
-	if e.Dir == logstore.In {
-		tags = cls.Classify(plain)
-	}
-	return &bline{e: e, tags: tags, text: text, lower: strings.ToLower(plain), day: e.Time.Local().Format("2006-01-02")}
+// makeLine makes and paints e. Like paint it only reads its arguments,
+// so older days can be prepared off the UI goroutine.
+func makeLine(r app.Rules, hl *rules.Highlighter, e logstore.Entry) *bline {
+	l := r.Line(e)
+	return &bline{Line: l, tags: l.TagNames(), text: paint(hl, l), lower: strings.ToLower(l.Plain)}
 }
 
 // readOlder reads and renders the next older day. Only one call may run
 // at a time, and nothing else may touch h meanwhile.
-func readOlder(h *history.Reader, cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter) olderMsg {
+func readOlder(h *history.Reader, r app.Rules, hl *rules.Highlighter) olderMsg {
 	es, _, _, err := h.LoadOlder()
 	msg := olderMsg{done: h.Exhausted(), err: err}
 	for _, e := range es {
-		msg.lines = append(msg.lines, makeLine(cls, judge, hl, e))
+		msg.lines = append(msg.lines, makeLine(r, hl, e))
 	}
 	return msg
 }
@@ -151,7 +145,7 @@ func (b *browse) loadOlder() bool {
 	if b.histDone {
 		return false
 	}
-	b.prepend(readOlder(b.hist, b.cs.cls, b.cs.judge, b.cs.hl))
+	b.prepend(readOlder(b.hist, b.cs.rules, b.cs.hl))
 	return true
 }
 
@@ -177,9 +171,9 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 		return nil
 	}
 	b.loading = true
-	h, cls, judge, hl, key, th := b.hist, b.cs.cls, b.cs.judge, b.cs.hl, b.cs.key, theme.Active()
+	h, r, hl, key, th := b.hist, b.cs.rules, b.cs.hl, b.cs.key, theme.Active()
 	return func() tea.Msg {
-		msg := readOlder(h, cls, judge, hl)
+		msg := readOlder(h, r, hl)
 		msg.key, msg.b, msg.theme = key, b, th
 		return msg
 	}
@@ -188,9 +182,9 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 // receive prepends a day read by requestOlder and runs what was waiting.
 func (b *browse) receive(msg olderMsg) tea.Cmd {
 	b.loading = false
-	if msg.theme != theme.Active() { // rendered in a theme since replaced
+	if msg.theme != theme.Active() { // painted in a theme since replaced
 		for _, l := range msg.lines {
-			l.text, _ = b.cs.render(l.e)
+			l.text = paint(b.cs.hl, l.Line)
 		}
 	}
 	b.prepend(msg)
@@ -214,7 +208,7 @@ func (b *browse) appendLive(e logstore.Entry) {
 	t := e.Time.Truncate(time.Millisecond)
 	if !b.loadedTo.IsZero() && !t.After(b.loadedTo) {
 		for _, l := range b.lines[max(0, len(b.lines)-dedupeTail):] {
-			if l.e.Text == e.Text && l.e.Dir == e.Dir && l.e.Time.Truncate(time.Millisecond).Equal(t) {
+			if l.Entry.Text == e.Text && l.Entry.Dir == e.Dir && l.Entry.Time.Truncate(time.Millisecond).Equal(t) {
 				return
 			}
 		}
@@ -332,7 +326,7 @@ func (b *browse) findStatus() string {
 // (they're logged either way), and whatever the filter lets through. The
 // lines stay loaded, so turning local_echo on brings them back.
 func (b *browse) shows(l *bline) bool {
-	return b.cs.echoes(l.e) && b.cs.filter.Visible(l.tags, l.lower)
+	return b.cs.echoes(l.Entry) && b.cs.filter.Visible(l.tags, l.lower)
 }
 
 // moveCursor moves by delta visible lines. Moving up past the oldest
@@ -509,7 +503,7 @@ func (b *browse) searchedTo() string {
 	if len(b.lines) == 0 {
 		return ""
 	}
-	return dayLabel(b.lines[0].day)
+	return dayLabel(b.lines[0].Day)
 }
 
 // stopSearch ends a find that's reading older days, leaving the cursor
@@ -567,11 +561,11 @@ func (b *browse) gotoDate(day string) tea.Cmd {
 		b.setStatus(true, str.BrowseDateFormat())
 		return nil
 	}
-	if (len(b.lines) == 0 || b.lines[0].day > day) && !b.histDone {
+	if (len(b.lines) == 0 || b.lines[0].Day > day) && !b.histDone {
 		return b.requestOlder(func() tea.Cmd { return b.gotoDate(day) })
 	}
 	for _, l := range b.visible() {
-		if l.day >= day {
+		if l.Day >= day {
 			b.cursor = l
 			b.top = l
 			b.status = ""
@@ -590,8 +584,8 @@ func (b *browse) selection() []logstore.Entry {
 	}
 	var out []logstore.Entry
 	for _, l := range b.lines[b.index(b.start) : b.index(b.end)+1] {
-		if !b.excluded[l] && b.shows(l) && scene.Exportable(l.e) {
-			out = append(out, l.e)
+		if !b.excluded[l] && b.shows(l) && scene.Exportable(l.Entry) {
+			out = append(out, l.Entry)
 		}
 	}
 	return out
@@ -601,7 +595,7 @@ func (b *browse) title() string {
 	ch := b.cs.ch
 	when := ""
 	if b.start != nil {
-		when = " — " + b.start.e.Time.Local().Format(str.DateDayYear())
+		when = " — " + b.start.Entry.Time.Local().Format(str.DateDayYear())
 	}
 	return ch.World + " " + ch.Name + when
 }
@@ -865,7 +859,7 @@ func (b *browse) promptLabel() string {
 // rowsFor is how many body rows a line takes, including a day divider.
 func (b *browse) rowsFor(l *bline, prev *bline, w int) int {
 	n := len(ansi.Wrap(l.text, max(1, w-browsePrefixW)))
-	if prev == nil || prev.day != l.day {
+	if prev == nil || prev.Day != l.Day {
 		n++
 	}
 	return n
@@ -964,14 +958,14 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	}
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
-		if i == max(0, start) || v[i-1].day != l.day { // the top line's day always shows, so the date stays in sight
-			rows = append(rows, theme.Paint(theme.LogDay, "── "+dayLabel(l.day)+" ──"))
+		if i == max(0, start) || v[i-1].Day != l.Day { // the top line's day always shows, so the date stays in sight
+			rows = append(rows, theme.Paint(theme.LogDay, "── "+dayLabel(l.Day)+" ──"))
 			b.rowLines = append(b.rowLines, nil)
 			if len(b.rowLines) >= bodyH {
 				break
 			}
 		}
-		ts := l.e.Time.Local().Format("15:04")
+		ts := l.Entry.Time.Local().Format("15:04")
 		if l == b.cursor {
 			ts = theme.Paint(theme.LogCursor, ts)
 		} else {
@@ -1033,10 +1027,10 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	return rows, curX, curY, showCur
 }
 
-// restyle redraws every line's text with render, after a theme change.
-func (b *browse) restyle(render func(logstore.Entry) string) {
+// restyle repaints every line with paint, after a theme change.
+func (b *browse) restyle(paint func(app.Line) string) {
 	for _, l := range b.lines {
-		l.text = render(l.e)
+		l.text = paint(l.Line)
 	}
 }
 

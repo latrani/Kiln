@@ -14,6 +14,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -397,7 +399,7 @@ func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
 	day := theme.Active().SGR(theme.ScrollbackDay)
 	n := 0
 	for _, l := range cs.sb.lines {
-		if l.role == theme.ScrollbackDay {
+		if l.line != nil && l.line.Kind == app.Day {
 			n++
 			if !strings.HasPrefix(l.text, day) {
 				t.Errorf("divider %q kept the old style", l.text)
@@ -684,8 +686,8 @@ func TestBrowseOlderDayAfterThemeChange(t *testing.T) {
 	h.m.Update(msg)         // ...then the day arrives
 	cs := h.m.chars["fm/kit"]
 	for _, l := range b.lines {
-		if want, _ := cs.render(l.e); l.text != want {
-			t.Fatalf("%q kept its old style", l.e.Text)
+		if want, _ := cs.render(l.Entry); l.text != want {
+			t.Fatalf("%q kept its old style", l.Entry.Text)
 		}
 	}
 }
@@ -717,5 +719,52 @@ func TestStandInBuiltinFollowsAnswer(t *testing.T) {
 	m.Update(lightBG)
 	if theme.Active() != theme.BuiltinFor(theme.Light) {
 		t.Error("the stand-in built-in should turn light with a light answer")
+	}
+}
+
+// Adding a classify rule tags lines already on screen, not just new ones.
+func TestClassifyEditRetagsLinesOnScreen(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.show("[Wiki] Tapestries edited")
+	world := fmWorld + "\n[[classify]]\ntag = \"wiki\"\npattern = '^\\[Wiki\\]'\n\n[tags]\nwiki = { fg = \"#0a0b0c\" }\n"
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(world), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.m.Update(reloadMsg{})
+	if s := h.drawn(); !strings.Contains(s, "38;2;10;11;12m[Wiki] Tapestries") {
+		t.Errorf("the line on screen wasn't tagged by the new rule:\n%q", s)
+	}
+}
+
+// Day dividers take a theme change, and the newest line from the log is
+// a real line, never a divider.
+func TestDayDividersRepaintAndAreNotTheNewestLine(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24.AddDate(0, 0, -1), "yesterday")
+	h.writeLog(day24, "today")
+	cs := h.m.chars["fm/kit"]
+	cs.sb = Scrollback{}
+	h.m.preload(cs)
+	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	day := theme.Active().SGR(theme.ScrollbackDay)
+	n := 0
+	for _, l := range cs.sb.lines {
+		if strings.HasPrefix(ansi.Strip(l.text), "── ") { // not "─── history ends"
+			n++
+			if !strings.HasPrefix(l.text, day) {
+				t.Errorf("divider %q kept the old style", l.text)
+			}
+		}
+	}
+	if n != 2 {
+		t.Errorf("dividers = %d, want one per day", n)
+	}
+	if got, ok := cs.sb.LastTime(); !ok || !got.Equal(day24) {
+		t.Errorf("LastTime = %v, %v; want %v (today's line)", got, ok, day24)
 	}
 }

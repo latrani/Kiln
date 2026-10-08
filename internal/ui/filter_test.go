@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
@@ -314,7 +315,7 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	b := h.br()
 	for i := range 50000 {
 		tag := fmt.Sprintf("p%d/c%d", i%10, i%4)
-		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, tags: []string{tag}, text: "x", lower: "x", day: "2026-09-24"})
+		b.lines = append(b.lines, &bline{Line: app.Line{Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, tags: []string{tag}, text: "x", lower: "x"})
 	}
 	b.cursor = b.lines[len(b.lines)-1]
 	h.key("f")

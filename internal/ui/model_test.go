@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
@@ -1106,7 +1107,8 @@ func TestRenderLineMatchScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	hl := rules.New(th)
-	got, res := renderLine(cls, rules.Judge{Attention: []string{"page"}}, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
+	l := app.Rules{Classifier: cls, Judge: rules.Judge{Attention: []string{"page"}}}.Line(logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
+	got, res := paint(hl, l), l.Verdict
 	if want := "\x1b[1;38;2;32;83;255mPAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Attention {
 		t.Errorf("renderLine = %q, %v; want %q, true", got, res.Attention, want)
 	}

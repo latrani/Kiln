@@ -83,12 +83,12 @@ func TestClicksLandBelowTheTopBar(t *testing.T) {
 	b := h.br()
 	l := h.m.layout()
 	for row, bl := range b.rowLines {
-		if bl != nil && bl.e.Text == scene1[1] {
+		if bl != nil && bl.Entry.Text == scene1[1] {
 			h.m.Update(tea.MouseClickMsg{X: l.sw + 11, Y: l.top + row, Button: tea.MouseLeft})
 		}
 	}
-	if b.cursor.e.Text != scene1[1] {
-		t.Errorf("a click on a log line's screen row selected %q", b.cursor.e.Text)
+	if b.cursor.Entry.Text != scene1[1] {
+		t.Errorf("a click on a log line's screen row selected %q", b.cursor.Entry.Text)
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft}) // the sidebar doesn't shift: row 1 is Kit
 	if h.m.active != "fm/kit" {

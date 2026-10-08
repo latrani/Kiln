@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
@@ -25,7 +26,6 @@ import (
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
-	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -119,9 +119,8 @@ type charState struct {
 	sess        *session.Session
 	cancel      context.CancelFunc
 	state       session.State
-	cls         *classify.Classifier
+	rules       app.Rules
 	hl          *rules.Highlighter
-	judge       rules.Judge
 	sb          Scrollback
 	in          *Input
 	unread      int
@@ -347,10 +346,9 @@ func (m *Model) loadTheme() {
 		if _, err := cs.compile(); err != nil { // each highlighter holds the theme it was built on
 			m.setStatus(true, str.StatusCharError(k, err))
 		}
-		render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
-		cs.sb.Rerender(render)
+		cs.sb.Rerender(nil, func(l app.Line) string { return paint(cs.hl, l) })
 		for _, b := range cs.browses() {
-			b.restyle(render)
+			b.restyle(func(l app.Line) string { return paint(cs.hl, l) })
 		}
 	}
 }
@@ -384,7 +382,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 			m.setStatus(true, str.StatusCharError(k, err))
 		}
 		if installed && restyle {
-			cs.sb.Rerender(func(e logstore.Entry) string { text, _ := cs.render(e); return text })
+			cs.sb.Rerender(cs.rules.Reline, func(l app.Line) string { return paint(cs.hl, l) })
 		}
 		if cs.sess != nil {
 			cs.sess.SetChar(ch)
@@ -421,8 +419,8 @@ func (cs *charState) compile() (installed bool, err error) {
 	if lookErr != nil {
 		th = theme.Active()
 	}
-	cs.cls, cs.hl = cls, rules.New(th)
-	cs.judge = rules.Judge{Attention: cs.ch.Rules.Attention, Quiet: cs.ch.Rules.Quiet}
+	cs.rules = app.Rules{Classifier: cls, Judge: rules.Judge{Attention: cs.ch.Rules.Attention, Quiet: cs.ch.Rules.Quiet}}
+	cs.hl = rules.New(th)
 	return true, lookErr
 }
 
@@ -473,7 +471,7 @@ func (m *Model) preload(cs *charState) {
 	}
 	// The preload starts a day only if nothing of that day was left over.
 	startsDay := len(leftover) == 0 || leftover[len(leftover)-1].Time.Local().Format("2006-01-02") != entries[0].Time.Local().Format("2006-01-02")
-	for _, l := range cs.renderDays(entries, startsDay) {
+	for _, l := range renderDays(cs.rules, cs.hl, cs.ch.LocalEcho, entries, startsDay) {
 		cs.sb.AppendLine(l)
 	}
 	cs.sb.AppendLine(chromeLine(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(entries[len(entries)-1].Time.Format(str.DateDayTime()))))
@@ -490,48 +488,20 @@ func (m *Model) pageOlder() tea.Cmd {
 	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
 		return nil
 	}
-	key, h, cls, judge, hl, echo, leftover := cs.key, cs.hist, cs.cls, cs.judge, cs.hl, cs.ch.LocalEcho, cs.leftover
+	key, h, r, hl, echo, leftover := cs.key, cs.hist, cs.rules, cs.hl, cs.ch.LocalEcho, cs.leftover
 	cs.leftover = nil
 	th := theme.Active()
 	return func() tea.Msg {
 		msg := sbOlderMsg{key: key, hist: h, theme: th}
 		if leftover != nil {
-			msg.lines, msg.more = renderDays(cls, judge, hl, echo, leftover, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(r, hl, echo, leftover, true), !h.Exhausted()
 			return msg
 		}
 		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
-			msg.lines, msg.more = renderDays(cls, judge, hl, echo, es, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(r, hl, echo, es, true), !h.Exhausted()
 		}
 		return msg
 	}
-}
-
-// renderDays renders log entries with a dim divider before the first line
-// of each day. The very first entry gets one only if startsDay, i.e. it
-// really is the first line of its day. Sent lines are left out unless the
-// character has local_echo on.
-func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []sbLine {
-	return renderDays(cs.cls, cs.judge, cs.hl, cs.ch.LocalEcho, entries, startsDay)
-}
-
-// renderDays is charState.renderDays with the given rules; like
-// renderLine it is safe off the UI goroutine.
-func renderDays(cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []sbLine {
-	out := make([]sbLine, 0, len(entries)+2)
-	prev := ""
-	for i, e := range entries {
-		if e.Dir == logstore.Out && !echo {
-			continue
-		}
-		day := e.Time.Local().Format("2006-01-02")
-		if day != prev && (i > 0 || startsDay) {
-			out = append(out, chromeLine(theme.ScrollbackDay, "── "+dayLabel(day)+" ──"))
-		}
-		prev = day
-		text, _ := renderLine(cls, judge, hl, e)
-		out = append(out, entryLine(text, e))
-	}
-	return out
 }
 
 // echoes reports whether e belongs in the scrollback: everything but sent
@@ -540,25 +510,21 @@ func (cs *charState) echoes(e logstore.Entry) bool {
 	return e.Dir != logstore.Out || cs.ch.LocalEcho
 }
 
-// render turns a log entry into a drawable line, with what the highlight
-// rules made of it (attention, quiet).
-func (cs *charState) render(e logstore.Entry) (string, rules.Verdict) {
-	return renderLine(cs.cls, cs.judge, cs.hl, e)
+// render makes e into a line and paints it.
+func (cs *charState) render(e logstore.Entry) (string, app.Line) {
+	l := cs.rules.Line(e)
+	return paint(cs.hl, l), l
 }
 
-// renderLine styles e with the given rules. It only reads its arguments
-// (compiled once, never mutated), so it is safe off the UI goroutine.
-func renderLine(cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter, e logstore.Entry) (string, rules.Verdict) {
-	text := ansi.Sanitize(e.Text)
-	switch e.Dir {
-	case logstore.Out:
-		return theme.Paint(theme.ScrollbackEcho, gutterMark+text), rules.Verdict{}
-	case logstore.Sys:
-		return theme.Paint(theme.ScrollbackSys, "* "+text), rules.Verdict{}
+// renderDays is app.Rules.Days, painted. Like paint it is safe off the
+// UI goroutine.
+func renderDays(r app.Rules, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []sbLine {
+	ls := r.Days(entries, echo, startsDay)
+	out := make([]sbLine, len(ls))
+	for i, l := range ls {
+		out[i] = lineOf(paint(hl, l), l)
 	}
-	plain := ansi.Strip(text)
-	tags := cls.Tags(plain)
-	return style.Highlight(text, hl.Runs(plain, tags)), judge.Of(tags)
+	return out
 }
 
 // connect starts (or restarts) a character's session.
@@ -723,10 +689,9 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focused, m.focusSeen = false, true
 	case sbOlderMsg:
 		if cs := m.chars[msg.key]; cs != nil && cs.hist == msg.hist {
-			if msg.theme != theme.Active() { // rendered in a theme since replaced
-				render := func(e logstore.Entry) string { text, _ := cs.render(e); return text }
-				for i, l := range msg.lines {
-					msg.lines[i] = l.restyled(render)
+			if msg.theme != theme.Active() { // painted in a theme since replaced
+				for i := range msg.lines {
+					msg.lines[i] = msg.lines[i].repainted(func(l app.Line) string { return paint(cs.hl, l) })
 				}
 			}
 			cs.sb.PrependLines(msg.lines, msg.more)
@@ -833,13 +798,13 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 	ev := msg.ev
 	switch ev.Kind {
 	case session.EventLine:
-		text, res := cs.render(ev.Entry)
+		text, l := cs.render(ev.Entry)
 		switch {
 		case !cs.echoes(ev.Entry):
-		case res.Quiet:
-			cs.sb.append(entryLine(text, ev.Entry))
+		case l.Quiet:
+			cs.sb.append(lineOf(text, l))
 		default:
-			cs.sb.AppendLine(entryLine(text, ev.Entry))
+			cs.sb.AppendLine(lineOf(text, l))
 		}
 		if msg.key == m.active {
 			l := m.layout()
@@ -849,11 +814,11 @@ func (m *Model) handleEvent(msg eventMsg) tea.Cmd {
 		for _, b := range cs.browses() {
 			b.appendLive(ev.Entry)
 		}
-		if msg.key != m.active && ev.Entry.Dir == logstore.In && !res.Quiet {
+		if msg.key != m.active && ev.Entry.Dir == logstore.In && !l.Quiet {
 			cs.unread++
-			cs.attention = cs.attention || res.Attention
+			cs.attention = cs.attention || l.Attention
 		}
-		if n := m.notifyCmd(cs, ev.Entry, res); n != nil {
+		if n := m.notifyCmd(cs, l); n != nil {
 			return tea.Batch(n, waitEvent(msg.key, msg.sess))
 		}
 	case session.EventPrompt:
