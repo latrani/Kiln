@@ -22,11 +22,14 @@ import (
 // Deps are the core's connections to the outside world. Tests substitute
 // fakes; each front end wires the real ones.
 type Deps struct {
-	LogRoot  string // where log_dir is relative to; "" (and no absolute log_dir): no logs to read
-	Dial     func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog   func(l logstore.Layout) session.Appender // l from LogLayout
-	Password func(store, world, char string) (string, error)
-	Now      func() time.Time
+	ConfigDir    string
+	KnownHosts   conn.KnownHosts
+	SavePassword func(store, world, char, password string) error // nil: never offer
+	LogRoot      string                                          // where log_dir is relative to; "" (and no absolute log_dir): no logs to read
+	Dial         func(ctx context.Context, ch config.Character) (session.LineConn, error)
+	NewLog       func(l logstore.Layout) session.Appender // l from LogLayout
+	Password     func(store, world, char string) (string, error)
+	Now          func() time.Time
 }
 
 // Char is one open character. Front ends read its fields; only App
@@ -46,6 +49,10 @@ type Char struct {
 	Prompt      string    // an unterminated prompt from the server, sanitized; "" when there's none
 	More        bool      // older history exists that isn't in Lines yet; see RequestOlder
 	Loading     bool      // a page of older history is being read
+	History     History   // what's been sent from this character's input
+	Text        string    // the input's text, as the front end last said
+	NeedPW      bool      // the password prompt is up
+	pwDraft     string    // Text stashed while the password prompt is up
 	cancel      context.CancelFunc
 	hist        *history.Reader  // pages older log days in; only an in-flight RequestOlder read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
@@ -84,7 +91,14 @@ type App struct {
 	status       Status
 	pwStore      atomic.Pointer[string] // password_store; sessions read it off the loop
 	paneW, paneH int                    // where server text is shown; 0×0 until known
+	idleText     string                 // the input's text while nothing is open
+	idleHist     History                // its history
+	confirm      bool                   // the next Submit sends an over-limit line anyway
+	pending      *pendingSave
 }
+
+// pendingSave is a password just used, awaiting the answer to "save it?".
+type pendingSave struct{ world, char, pw string }
 
 // Key is a character's key: its world and id.
 func Key(world, char string) string { return world + "/" + char }
@@ -215,7 +229,7 @@ func (a *App) Open(k string) (*Char, error) {
 	a.sortOrder()
 	a.Preload(k)
 	if a.active == "" {
-		a.active = k
+		a.active, a.confirm = k, false
 	}
 	return c, err
 }
@@ -241,7 +255,7 @@ func (a *App) Close(k string) {
 	if a.active != k {
 		return
 	}
-	a.active = ""
+	a.active, a.confirm = "", false // as Switch does: the next Enter asks again
 	if len(a.order) > 0 {
 		a.Switch(a.order[min(i, len(a.order)-1)])
 	}
@@ -288,7 +302,7 @@ func (a *App) Switch(k string) bool {
 		a.recent = slices.DeleteFunc(a.recent, func(r string) bool { return r == a.active })
 		a.recent = append([]string{a.active}, a.recent...)
 	}
-	a.active = k
+	a.active, a.confirm = k, false
 	if c := a.chars[k]; c != nil {
 		a.recent = slices.DeleteFunc(a.recent, func(r string) bool { return r == k })
 		c.Unread, c.Attention = 0, false

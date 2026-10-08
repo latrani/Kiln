@@ -276,7 +276,7 @@ func TestGoldenPassword(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": goldenWorld})
 	delete(h.pw, "fm/kit")
 	h.init()
-	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].needPW })
+	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	assertGolden(t, "password", h.drawn())
 }
