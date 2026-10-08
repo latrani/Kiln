@@ -121,6 +121,7 @@ type charState struct {
 	state       session.State
 	cls         *classify.Classifier
 	hl          *rules.Highlighter
+	judge       rules.Judge
 	sb          Scrollback
 	in          *Input
 	unread      int
@@ -420,7 +421,8 @@ func (cs *charState) compile() (installed bool, err error) {
 	if lookErr != nil {
 		th = theme.Active()
 	}
-	cs.cls, cs.hl = cls, rules.New(th, cs.ch.Rules.Attention, cs.ch.Rules.Quiet)
+	cs.cls, cs.hl = cls, rules.New(th)
+	cs.judge = rules.Judge{Attention: cs.ch.Rules.Attention, Quiet: cs.ch.Rules.Quiet}
 	return true, lookErr
 }
 
@@ -488,17 +490,17 @@ func (m *Model) pageOlder() tea.Cmd {
 	if cs == nil || cs.browse != nil || cs.hist == nil || !cs.sb.RequestOlder(m.layout().sbH) {
 		return nil
 	}
-	key, h, cls, hl, echo, leftover := cs.key, cs.hist, cs.cls, cs.hl, cs.ch.LocalEcho, cs.leftover
+	key, h, cls, judge, hl, echo, leftover := cs.key, cs.hist, cs.cls, cs.judge, cs.hl, cs.ch.LocalEcho, cs.leftover
 	cs.leftover = nil
 	th := theme.Active()
 	return func() tea.Msg {
 		msg := sbOlderMsg{key: key, hist: h, theme: th}
 		if leftover != nil {
-			msg.lines, msg.more = renderDays(cls, hl, echo, leftover, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(cls, judge, hl, echo, leftover, true), !h.Exhausted()
 			return msg
 		}
 		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
-			msg.lines, msg.more = renderDays(cls, hl, echo, es, true), !h.Exhausted()
+			msg.lines, msg.more = renderDays(cls, judge, hl, echo, es, true), !h.Exhausted()
 		}
 		return msg
 	}
@@ -509,12 +511,12 @@ func (m *Model) pageOlder() tea.Cmd {
 // really is the first line of its day. Sent lines are left out unless the
 // character has local_echo on.
 func (cs *charState) renderDays(entries []logstore.Entry, startsDay bool) []sbLine {
-	return renderDays(cs.cls, cs.hl, cs.ch.LocalEcho, entries, startsDay)
+	return renderDays(cs.cls, cs.judge, cs.hl, cs.ch.LocalEcho, entries, startsDay)
 }
 
 // renderDays is charState.renderDays with the given rules; like
 // renderLine it is safe off the UI goroutine.
-func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []sbLine {
+func renderDays(cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter, echo bool, entries []logstore.Entry, startsDay bool) []sbLine {
 	out := make([]sbLine, 0, len(entries)+2)
 	prev := ""
 	for i, e := range entries {
@@ -526,7 +528,7 @@ func renderDays(cls *classify.Classifier, hl *rules.Highlighter, echo bool, entr
 			out = append(out, chromeLine(theme.ScrollbackDay, "── "+dayLabel(day)+" ──"))
 		}
 		prev = day
-		text, _ := renderLine(cls, hl, e)
+		text, _ := renderLine(cls, judge, hl, e)
 		out = append(out, entryLine(text, e))
 	}
 	return out
@@ -540,23 +542,23 @@ func (cs *charState) echoes(e logstore.Entry) bool {
 
 // render turns a log entry into a drawable line, with what the highlight
 // rules made of it (attention, quiet).
-func (cs *charState) render(e logstore.Entry) (string, rules.Result) {
-	return renderLine(cs.cls, cs.hl, e)
+func (cs *charState) render(e logstore.Entry) (string, rules.Verdict) {
+	return renderLine(cs.cls, cs.judge, cs.hl, e)
 }
 
-// renderLine styles e with the given rules. It only reads cls and hl
+// renderLine styles e with the given rules. It only reads its arguments
 // (compiled once, never mutated), so it is safe off the UI goroutine.
-func renderLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry) (string, rules.Result) {
+func renderLine(cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter, e logstore.Entry) (string, rules.Verdict) {
 	text := ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
-		return theme.Paint(theme.ScrollbackEcho, gutterMark+text), rules.Result{}
+		return theme.Paint(theme.ScrollbackEcho, gutterMark+text), rules.Verdict{}
 	case logstore.Sys:
-		return theme.Paint(theme.ScrollbackSys, "* "+text), rules.Result{}
+		return theme.Paint(theme.ScrollbackSys, "* "+text), rules.Verdict{}
 	}
 	plain := ansi.Strip(text)
-	res := hl.Apply(plain, cls.Tags(plain))
-	return style.Highlight(text, res.Runs), res
+	tags := cls.Tags(plain)
+	return style.Highlight(text, hl.Runs(plain, tags)), judge.Of(tags)
 }
 
 // connect starts (or restarts) a character's session.

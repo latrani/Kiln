@@ -1,5 +1,6 @@
-// Package rules works out how a classified line looks and behaves: its
-// tags' styles from the theme, and attention and quiet from tag lists.
+// Package rules works out what a classified line asks for (Judge:
+// attention and quiet, from tag lists) and how it looks (Highlighter:
+// its tags' styles from the theme).
 package rules
 
 import (
@@ -12,24 +13,41 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// Highlighter is one character's look and behavior for its lines.
+// Judge decides what a line asks for from its tags. It doesn't depend
+// on the theme.
+type Judge struct {
+	Attention, Quiet []string
+}
+
+// Verdict is what a line asks for.
+type Verdict struct {
+	Attention bool // never with Quiet
+	Quiet     bool // not unread, no attention, no notification
+}
+
+// Of works out what a line with tags asks for. A line asks for attention
+// (or is quiet) when one of its tags is in the list, or is under one:
+// "page" covers "page/in". Quiet wins over attention.
+func (j Judge) Of(tags []classify.Tag) Verdict {
+	var v Verdict
+	for _, t := range tags {
+		v.Attention = v.Attention || in(j.Attention, t.Name)
+		v.Quiet = v.Quiet || in(j.Quiet, t.Name)
+	}
+	if v.Quiet {
+		v.Attention = false
+	}
+	return v
+}
+
+// Highlighter draws a character's tags in a theme's styles.
 type Highlighter struct {
-	th               *theme.Theme
-	attention, quiet []string
+	th *theme.Theme
 }
 
-// Result is how a line is drawn and what it asks for.
-type Result struct {
-	Runs      []style.Run // nil: the line as the server sent it
-	Attention bool        // never with Quiet
-	Quiet     bool        // not unread, no attention, no notification
-}
-
-// New makes a Highlighter drawing tags in th's styles. A line asks for
-// attention (or is quiet) when one of its tags is in the list, or is
-// under one: "page" covers "page/in".
-func New(th *theme.Theme, attention, quiet []string) *Highlighter {
-	return &Highlighter{th: th, attention: attention, quiet: quiet}
+// New makes a Highlighter drawing tags in th's styles.
+func New(th *theme.Theme) *Highlighter {
+	return &Highlighter{th: th}
 }
 
 // in reports whether tag is in list or under one of its entries.
@@ -51,18 +69,16 @@ func (h *Highlighter) Styled(tag string) (styled string, ok bool) {
 	return styled, ok
 }
 
-// Apply works out plain's runs and behavior from its tags. Each tag
-// takes the style of the most specific styled name up its slashes; tags
-// that land on the same name count once. Whole-line styles fold first,
-// in tag order, then match-scope ones on top of the text they matched.
-// Later colors win and attributes add up. Quiet wins over attention.
-func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
-	var res Result
+// Runs works out plain's styled runs from its tags; nil means the line
+// as the server sent it. Each tag takes the style of the most specific
+// styled name up its slashes; tags that land on the same name count
+// once. Whole-line styles fold first, in tag order, then match-scope
+// ones on top of the text they matched. Later colors win and attributes
+// add up.
+func (h *Highlighter) Runs(plain string, tags []classify.Tag) []style.Run {
 	var hits []hit
 	at := map[string]int{}
 	for _, t := range tags {
-		res.Attention = res.Attention || in(h.attention, t.Name)
-		res.Quiet = res.Quiet || in(h.quiet, t.Name)
 		name, ts, ok := h.th.Tag(t.Name)
 		if !ok {
 			continue
@@ -74,12 +90,9 @@ func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
 		at[name] = len(hits)
 		hits = append(hits, hit{ts: ts, spans: slices.Clone(t.Spans)})
 	}
-	if res.Quiet {
-		res.Attention = false
-	}
 	hits = slices.DeleteFunc(hits, func(h hit) bool { return h.ts.Match && len(h.spans) == 0 })
 	if len(hits) == 0 {
-		return res
+		return nil
 	}
 	slices.SortStableFunc(hits, func(a, b hit) int { return cmp.Compare(b2i(a.ts.Match), b2i(b.ts.Match)) })
 	cuts := []int{0, len(plain)}
@@ -92,6 +105,7 @@ func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
 	}
 	slices.Sort(cuts)
 	cuts = slices.Compact(cuts)
+	var runs []style.Run
 	for i := 0; i+1 < len(cuts); i++ {
 		var st theme.Style
 		for _, h := range hits {
@@ -100,16 +114,16 @@ func (h *Highlighter) Apply(plain string, tags []classify.Tag) Result {
 			}
 		}
 		run := style.Run{Start: cuts[i], End: cuts[i+1], SGR: st.SGR()}
-		if n := len(res.Runs); n > 0 && res.Runs[n-1].SGR == run.SGR {
-			res.Runs[n-1].End = run.End
+		if n := len(runs); n > 0 && runs[n-1].SGR == run.SGR {
+			runs[n-1].End = run.End
 			continue
 		}
-		res.Runs = append(res.Runs, run)
+		runs = append(runs, run)
 	}
-	if len(res.Runs) == 1 && res.Runs[0].SGR == "" {
-		res.Runs = nil // styles that set nothing
+	if len(runs) == 1 && runs[0].SGR == "" {
+		return nil // styles that set nothing
 	}
-	return res
+	return runs
 }
 
 func b2i(b bool) int {

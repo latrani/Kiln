@@ -1105,8 +1105,8 @@ func TestRenderLineMatchScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hl := rules.New(th, []string{"page"}, nil)
-	got, res := renderLine(cls, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
+	hl := rules.New(th)
+	got, res := renderLine(cls, rules.Judge{Attention: []string{"page"}}, hl, logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
 	if want := "\x1b[1;38;2;32;83;255mPAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Attention {
 		t.Errorf("renderLine = %q, %v; want %q, true", got, res.Attention, want)
 	}

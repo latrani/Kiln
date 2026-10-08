@@ -119,12 +119,12 @@ func (b *browse) setExport(cfg *config.Config) {
 	b.exportDir, b.exportName, b.exportFormat = cfg.ExportDir, cfg.ExportName, cfg.ExportFormat
 }
 
-func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.cls, b.cs.hl, e) }
+func (b *browse) newLine(e logstore.Entry) *bline { return makeLine(b.cs.cls, b.cs.judge, b.cs.hl, e) }
 
 // makeLine renders and classifies e. Like renderLine it only reads cls
 // and hl, so older days can be prepared off the UI goroutine.
-func makeLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry) *bline {
-	text, _ := renderLine(cls, hl, e)
+func makeLine(cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter, e logstore.Entry) *bline {
+	text, _ := renderLine(cls, judge, hl, e)
 	plain := ansi.Strip(ansi.Sanitize(e.Text))
 	var tags []string
 	if e.Dir == logstore.In {
@@ -135,11 +135,11 @@ func makeLine(cls *classify.Classifier, hl *rules.Highlighter, e logstore.Entry)
 
 // readOlder reads and renders the next older day. Only one call may run
 // at a time, and nothing else may touch h meanwhile.
-func readOlder(h *history.Reader, cls *classify.Classifier, hl *rules.Highlighter) olderMsg {
+func readOlder(h *history.Reader, cls *classify.Classifier, judge rules.Judge, hl *rules.Highlighter) olderMsg {
 	es, _, _, err := h.LoadOlder()
 	msg := olderMsg{done: h.Exhausted(), err: err}
 	for _, e := range es {
-		msg.lines = append(msg.lines, makeLine(cls, hl, e))
+		msg.lines = append(msg.lines, makeLine(cls, judge, hl, e))
 	}
 	return msg
 }
@@ -151,7 +151,7 @@ func (b *browse) loadOlder() bool {
 	if b.histDone {
 		return false
 	}
-	b.prepend(readOlder(b.hist, b.cs.cls, b.cs.hl))
+	b.prepend(readOlder(b.hist, b.cs.cls, b.cs.judge, b.cs.hl))
 	return true
 }
 
@@ -177,9 +177,9 @@ func (b *browse) requestOlder(then func() tea.Cmd) tea.Cmd {
 		return nil
 	}
 	b.loading = true
-	h, cls, hl, key, th := b.hist, b.cs.cls, b.cs.hl, b.cs.key, theme.Active()
+	h, cls, judge, hl, key, th := b.hist, b.cs.cls, b.cs.judge, b.cs.hl, b.cs.key, theme.Active()
 	return func() tea.Msg {
-		msg := readOlder(h, cls, hl)
+		msg := readOlder(h, cls, judge, hl)
 		msg.key, msg.b, msg.theme = key, b, th
 		return msg
 	}

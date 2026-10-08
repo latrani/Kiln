@@ -96,7 +96,7 @@ func (m *Model) notifyName(cs *charState) string {
 // notifyCmd writes a notification for an incoming line if you're away
 // and cs's level wants one. Only what arrives while you're away notifies:
 // what came while you were here, you saw.
-func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Result) tea.Cmd {
+func (m *Model) notifyCmd(cs *charState, e logstore.Entry, res rules.Verdict) tea.Cmd {
 	if e.Dir != logstore.In || res.Quiet || !m.away() {
 		return nil
 	}
