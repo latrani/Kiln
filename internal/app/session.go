@@ -109,8 +109,13 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 		if c.State == session.Connected {
 			c.Pin = nil
 		}
+		if c.State != session.Connected && c.NeedPW {
+			c.endPassword()
+		}
 	case session.EventPrompt:
 		c.Prompt = ansi.Sanitize(msg.Ev.Entry.Text)
+	case session.EventNeedPassword:
+		c.startPassword()
 	case session.EventLogError:
 		a.SetStatus(true, str.StatusLogWriteFailed(c.Ch.Name, msg.Ev.Err))
 	}
