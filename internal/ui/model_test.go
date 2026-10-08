@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"maps"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1195,5 +1196,55 @@ func TestQuietLinesDontCountAsUnread(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(kit.sb.View(20), "\n"), "[Wiki] Kit edited") {
 		t.Error("quiet lines should still be shown")
+	}
+}
+
+// An error the core reports while log mode's own status is up is news:
+// the next key in log mode doesn't wipe it, as it would log mode's own.
+func TestCoreStatusOutlastsLogModeKeys(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	cs := h.m.chars["fm/kit"]
+	h.m.openBrowse(cs)
+	cs.browse.setStatus(false, str.StatusCopied())
+	h.m.Update(tea.FocusMsg{}) // log mode's status moves to the bar
+	err := errors.New("disk full")
+	h.m.Update(app.SessionMsg{Key: "fm/kit", Sess: cs.Sess, Ev: session.Event{Kind: session.EventLogError, Err: err}, OK: true})
+	h.press(tea.KeyDown, 0)
+	if got, want := h.m.a.Status().Text, str.StatusLogWriteFailed("Kit", err); got != want {
+		t.Errorf("status = %q after a log-mode key, want %q", got, want)
+	}
+}
+
+// Closing the active character moves on to another one, and Enter there
+// asks again before sending an over-limit line.
+func TestClosingResetsTheOverLimitConfirm(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.m.confirm = true
+	h.m.close("fm/kit")
+	if h.m.a.Active() != "fm/rook" || h.m.confirm {
+		t.Errorf("active %q confirm %v; want Rook, and no confirm carried over", h.m.a.Active(), h.m.confirm)
+	}
+}
+
+// A world's editor open on its overview is hidden, its edits kept as a
+// draft, when the world's last character closes.
+func TestClosingAWorldsLastCharacterHidesItsEditor(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.open("sp/ash")
+	h.m.switchTo(worldSel("sp"))
+	h.press('t', tea.ModCtrl)
+	if h.m.picker == nil || h.m.picker.edit == nil {
+		t.Fatal("Ctrl+T on the overview didn't open the world's editor")
+	}
+	target := h.m.picker.edit.target()
+	h.m.close("sp/ash")
+	if h.m.picker != nil {
+		t.Errorf("the editor stayed open over %q", h.m.a.Active())
+	}
+	if h.m.drafts[target] == nil && !slices.ContainsFunc(slices.Collect(maps.Values(h.m.parked)), func(e *editor) bool { return e.target() == target }) {
+		t.Error("the editor's edits weren't kept")
 	}
 }

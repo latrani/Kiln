@@ -720,10 +720,13 @@ func (m *Model) clearLogStatus() {
 }
 
 func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
-	prev := m.a.Active()
+	prev, gen := m.a.Active(), m.a.Status().Gen
 	ev, ok, effs := m.a.Handle(msg)
 	if !ok {
 		return nil // stale session, or it has shut down
+	}
+	if m.a.Status().Gen != gen {
+		m.statusOfLog = false // the core's news, not log mode's: a log-mode key doesn't clear it
 	}
 	if ev.Closed {
 		m.closed(ev.Key, prev)
@@ -982,11 +985,17 @@ func (m *Model) showActive() {
 }
 
 // activated does the screen's part when the core has moved the active
-// item away from prev: an overview starts at its top, the new character
-// shows, and an editor left open on it comes back.
+// item away from prev: Enter asks again before an over-limit line, an
+// overview starts at its top, the new character shows, and an editor left
+// open on it comes back. An editor still open on prev's overview (its
+// world's last character closed) keeps its edits as a draft.
 func (m *Model) activated(prev string) {
 	if m.a.Active() == prev {
 		return
+	}
+	m.confirm = false
+	if strings.HasPrefix(prev, worldSel("")) {
+		m.leaveEditor()
 	}
 	m.ovTop = 0
 	m.showActive()
