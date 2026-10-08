@@ -296,9 +296,9 @@ func TestPrependKeepsSeen(t *testing.T) {
 
 func TestRerenderRepaintsChromeLines(t *testing.T) {
 	s := sb(20)
-	s.AppendLine(chromeLine(theme.ScrollbackDay, "── Thu Sep 24 ──"))
+	s.AppendLine(lineOf("── Thu Sep 24 ──", &app.Line{Kind: app.Day, Day: "2026-09-24"}))
 	th := withTheme(t, "[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
-	s.Rerender(nil, func(app.Line) string { return "" })
+	s.Repaint(func(l app.Line) string { return paint(nil, l) }) // a divider never asks the highlighter
 	if !strings.HasPrefix(s.lines[0].text, th.SGR(theme.ScrollbackDay)) {
 		t.Errorf("chrome line not repainted: %q", s.lines[0].text)
 	}

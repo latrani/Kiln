@@ -380,14 +380,14 @@ func TestOlderHistoryArrivingAfterThemeChange(t *testing.T) {
 	cs := h.m.chars["fm/kit"]
 	cs.sb = Scrollback{}
 	h.m.preload(cs)
-	var msg sbOlderMsg
-	for i := 0; i < 100 && msg.lines == nil; i++ {
+	var msg app.OlderMsg
+	for i := 0; i < 100 && msg.Key == ""; i++ {
 		if cmd := h.press(tea.KeyPgUp, 0); cmd != nil {
-			msg = cmd().(sbOlderMsg) // read under the old theme...
+			msg = cmd().(app.OlderMsg) // read under the old theme...
 		}
 		h.screen()
 	}
-	if msg.lines == nil {
+	if msg.Key == "" {
 		t.Fatal("no older batch was read")
 	}
 	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.day\" = { fg = \"#0a0b0c\" }\n")
@@ -761,7 +761,7 @@ func TestDayDividersRepaintAndAreNotTheNewestLine(t *testing.T) {
 	if n != 2 {
 		t.Errorf("dividers = %d, want one per day", n)
 	}
-	if got, ok := cs.sb.LastTime(); !ok || !got.Equal(day24) {
+	if got, ok := h.m.a.LastTime("fm/kit"); !ok || !got.Equal(day24) {
 		t.Errorf("LastTime = %v, %v; want %v (today's line)", got, ok, day24)
 	}
 }
@@ -785,14 +785,14 @@ func TestOlderHistoryArrivingAfterRulesAndThemeChange(t *testing.T) {
 	cs := h.m.chars["fm/kit"]
 	cs.sb = Scrollback{}
 	h.m.preload(cs)
-	var msg sbOlderMsg
-	for i := 0; i < 100 && msg.lines == nil; i++ {
+	var msg app.OlderMsg
+	for i := 0; i < 100 && msg.Key == ""; i++ {
 		if cmd := h.press(tea.KeyPgUp, 0); cmd != nil {
-			msg = cmd().(sbOlderMsg) // read under the old rules and theme...
+			msg = cmd().(app.OlderMsg) // read under the old rules and theme...
 		}
 		h.screen()
 	}
-	if msg.lines == nil {
+	if msg.Key == "" {
 		t.Fatal("no older batch was read")
 	}
 	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(wikiWorld), 0o600); err != nil {
