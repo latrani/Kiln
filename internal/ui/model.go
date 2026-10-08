@@ -65,7 +65,7 @@ type Model struct {
 	sideShown   string   // active character last scrolled into view
 	quitKey     string   // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
 	quitGen     int      // bumped per arming; see quitExpiredMsg
-	statusOfLog bool     // status came from log mode; its next key or click clears it
+	logStatus   int      // the status Gen of a message log mode put up; its next key or click clears that one
 	statusTimed int      // the statusGen whose expiry is scheduled
 	lastClick   struct { // for spotting a double-click in the sidebar
 		char string
@@ -601,38 +601,33 @@ func (m *Model) input() *Input {
 // sooner.
 const statusTimeout = 30 * time.Second
 
-func (m *Model) setStatus(isErr bool, msg string) {
-	m.a.SetStatus(isErr, msg)
-	m.statusOfLog = false
-}
+func (m *Model) setStatus(isErr bool, msg string) { m.a.SetStatus(isErr, msg) }
 
 // takeLogStatus moves a message log mode just set into the bottom bar's
 // status, so it times out like any other and the newest message wins.
 func (m *Model) takeLogStatus() {
 	if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.status != "" {
 		m.setStatus(cs.browse.statusErr, cs.browse.status)
-		m.statusOfLog = true
+		m.logStatus = m.a.Status().Gen
 		cs.browse.status = ""
 	}
 }
 
 // clearLogStatus drops a message from log mode when you act in it again,
-// as log mode always has.
+// as log mode always has. A newer message (log mode's or anyone's)
+// stays: it's news.
 func (m *Model) clearLogStatus() {
-	if m.statusOfLog {
+	if m.logStatus != 0 && m.a.Status().Gen == m.logStatus {
 		m.a.ClearStatus()
-		m.statusOfLog = false
 	}
+	m.logStatus = 0
 }
 
 func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
-	prev, gen := m.a.Active(), m.a.Status().Gen
+	prev := m.a.Active()
 	ev, ok, effs := m.a.Handle(msg)
 	if !ok {
 		return nil // stale session, or it has shut down
-	}
-	if m.a.Status().Gen != gen {
-		m.statusOfLog = false // the core's news, not log mode's: a log-mode key doesn't clear it
 	}
 	if ev.Closed {
 		m.closed(ev.Key, prev)
@@ -758,7 +753,6 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		m.a.Unconfirm()
 		if m.a.SkipLogin() {
-			m.statusOfLog = false
 			m.pullInput(cs)
 		} else if cs != nil && cs.sb.Scrolled() {
 			cs.sb.ToBottom() // back to live, from a pause or a scroll
