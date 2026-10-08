@@ -34,6 +34,7 @@ import (
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 	"github.com/latrani/Kiln/internal/ui"
 	"github.com/latrani/Kiln/internal/version"
@@ -189,7 +190,8 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 	if err != nil {
 		return err
 	}
-	hl := rules.New(lookTheme(ch, os.Stderr), ch.Rules.Attention, ch.Rules.Quiet)
+	hl := rules.New(lookTheme(ch, os.Stderr))
+	judge := rules.Judge{Attention: ch.Rules.Attention, Quiet: ch.Rules.Quiet}
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		w, h = 80, 24
@@ -223,7 +225,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 				fmt.Fprintln(os.Stderr, theme.Paint(theme.ScrollbackSys, "* "+str.CliNotSent(err)))
 				continue
 			}
-			fmt.Println(render(e, rules.Result{}))
+			fmt.Println(render(e, nil, false))
 		}
 		stop() // stdin closed: quit
 	}()
@@ -232,12 +234,14 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 	for ev := range s.Events() {
 		switch ev.Kind {
 		case session.EventLine:
-			var res rules.Result
+			var runs []style.Run
+			attention := false
 			if ev.Entry.Dir == logstore.In {
 				plain := ansi.Strip(ansi.Sanitize(ev.Entry.Text)) // as render draws it
-				res = hl.Apply(plain, cls.Tags(plain))
+				tags := cls.Tags(plain)
+				runs, attention = hl.Runs(plain, tags), judge.Of(tags).Attention
 			}
-			fmt.Println(render(ev.Entry, res))
+			fmt.Println(render(ev.Entry, runs, attention))
 		case session.EventLogError:
 			fmt.Fprintln(os.Stderr, theme.Paint(theme.StatusError, "* "+str.CliLogWriteFailed(ev.Err)))
 		case session.EventState:

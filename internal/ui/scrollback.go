@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/latrani/Kiln/internal/ansi"
-	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -28,8 +28,8 @@ type Scrollback struct {
 
 type sbLine struct {
 	text  string
-	entry *logstore.Entry // what text was rendered from; nil for dividers and such
-	role  theme.Role      // for a line Kiln wrote: its style, and raw its text
+	line  *app.Line  // what text was painted from; nil for Kiln's chrome and plain text
+	role  theme.Role // for a line Kiln wrote: its style, and raw its text
 	raw   string
 	rows  []string
 	wrapW int
@@ -104,8 +104,8 @@ func (s *Scrollback) Append(text string) { s.AppendLine(sbLine{text: text}) }
 // as unseen.
 func (s *Scrollback) AppendQuiet(text string) { s.append(sbLine{text: text}) }
 
-// AppendLine is Append for a line that may carry the entry it was
-// rendered from (see Rerender).
+// AppendLine is Append for a line that may carry the app.Line it was
+// painted from (see Rerender).
 func (s *Scrollback) AppendLine(l sbLine) {
 	s.append(l)
 	if s.offset > 0 {
@@ -113,8 +113,8 @@ func (s *Scrollback) AppendLine(l sbLine) {
 	}
 }
 
-// entryLine is a line rendered from e.
-func entryLine(text string, e logstore.Entry) sbLine { return sbLine{text: text, entry: &e} }
+// lineOf is a line painted from l.
+func lineOf(text string, l app.Line) sbLine { return sbLine{text: text, line: &l} }
 
 func (s *Scrollback) append(l sbLine) {
 	s.lines = append(s.lines, l)
@@ -176,7 +176,7 @@ func (s *Scrollback) Prepend(lines []string, more bool) {
 	s.PrependLines(batch, more)
 }
 
-// PrependLines is Prepend for lines that may carry their entries.
+// PrependLines is Prepend for lines that may carry their app.Lines.
 func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
 	s.loading, s.more = false, more
 	s.lines = append(batch, s.lines...)
@@ -187,23 +187,28 @@ func (s *Scrollback) PrependLines(batch []sbLine, more bool) {
 	}
 }
 
-// Rerender redraws every line from the current rules and theme: lines
-// rendered from a log entry with render, and Kiln's own lines in their
-// roles. The view keeps its offset; a selection is dropped, since its
-// byte positions may no longer fit.
-func (s *Scrollback) Rerender(render func(logstore.Entry) string) {
+// Rerender redraws every line: lines made from the log are remade with
+// reline first, if it's not nil (the character's rules changed), then
+// painted with paint; Kiln's own lines are painted in their roles. The
+// view keeps its offset; a selection is dropped, since its byte
+// positions may no longer fit.
+func (s *Scrollback) Rerender(reline func(app.Line) app.Line, paint func(app.Line) string) {
 	for i, l := range s.lines {
-		s.lines[i] = l.restyled(render)
+		if reline != nil && l.line != nil {
+			nl := reline(*l.line)
+			l.line = &nl
+		}
+		s.lines[i] = l.repainted(paint)
 	}
 	s.sel, s.hover = nil, nil
 }
 
-// restyled is l drawn afresh: from its entry with render, or in its role.
+// repainted is l drawn afresh: from its line with paint, or in its role.
 // A line with neither is returned as is.
-func (l sbLine) restyled(render func(logstore.Entry) string) sbLine {
+func (l sbLine) repainted(paint func(app.Line) string) sbLine {
 	switch {
-	case l.entry != nil:
-		return sbLine{text: render(*l.entry), entry: l.entry}
+	case l.line != nil:
+		return lineOf(paint(*l.line), *l.line)
 	case l.role != "":
 		return chromeLine(l.role, l.raw)
 	}
@@ -229,8 +234,8 @@ func (s *Scrollback) Tail(n int) []string {
 // there's none.
 func (s *Scrollback) LastTime() (time.Time, bool) {
 	for i := len(s.lines) - 1; i >= 0; i-- {
-		if e := s.lines[i].entry; e != nil {
-			return e.Time, true
+		if l := s.lines[i].line; l != nil && l.Kind != app.Day {
+			return l.Entry.Time, true
 		}
 	}
 	return time.Time{}, false

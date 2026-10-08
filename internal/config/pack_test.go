@@ -30,7 +30,8 @@ func TestStarterPackPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hl := rules.New(theme.Builtin(), kit.Rules.Attention, kit.Rules.Quiet)
+	hl := rules.New(theme.Builtin())
+	judge := rules.Judge{Attention: kit.Rules.Attention, Quiet: kit.Rules.Quiet}
 	for _, c := range []struct {
 		line string
 		dir  string // e.g. "page/in" or "whisper/out"
@@ -50,11 +51,12 @@ func TestStarterPackPages(t *testing.T) {
 		if !slices.Contains(tags, kind) || !slices.Contains(tags, c.dir) {
 			t.Errorf("%q: tags %v, want %s and %s", c.line, tags, kind, c.dir)
 		}
-		res := hl.Apply(c.line, cls.Tags(c.line))
+		ts := cls.Tags(c.line)
+		attention, runs := judge.Of(ts).Attention, hl.Runs(c.line, ts)
 		// Only pages and whispers to you ask for attention; the built-in
 		// theme styles both ways alike.
-		if res.Attention != c.in || res.Runs == nil {
-			t.Errorf("%q: attention %v, styled %v; want attention %v, styled", c.line, res.Attention, res.Runs != nil, c.in)
+		if attention != c.in || runs == nil {
+			t.Errorf("%q: attention %v, styled %v; want attention %v, styled", c.line, attention, runs != nil, c.in)
 		}
 	}
 }

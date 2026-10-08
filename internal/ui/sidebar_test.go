@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
@@ -243,7 +244,7 @@ func TestWorldOverview(t *testing.T) {
 	kit := h.m.chars["fm/kit"]
 	for i := range overviewLines + 2 {
 		at := h.now.Add(time.Duration(i-10) * time.Minute)
-		kit.sb.AppendLine(entryLine(fmt.Sprintf("kit line %d", i), logstore.Entry{Time: at, Text: "x"}))
+		kit.sb.AppendLine(lineOf(fmt.Sprintf("kit line %d", i), app.Line{Entry: logstore.Entry{Time: at, Text: "x"}}))
 	}
 	h.m.switchTo(worldSel("fm"))
 	s := h.screen()
@@ -256,7 +257,7 @@ func TestWorldOverview(t *testing.T) {
 	if !strings.Contains(s, "Rook"+str.Separator()+str.ViewOverviewQuiet()) {
 		t.Errorf("Rook should have no activity yet:\n%s", s)
 	}
-	h.m.chars["fm/kit"].sb.AppendLine(entryLine("old", logstore.Entry{Time: h.now.AddDate(0, 0, -2)}))
+	h.m.chars["fm/kit"].sb.AppendLine(lineOf("old", app.Line{Entry: logstore.Entry{Time: h.now.AddDate(0, 0, -2)}}))
 	if s := h.screen(); !strings.Contains(s, h.now.AddDate(0, 0, -2).Format(str.DateDayTime())) {
 		t.Errorf("an older last line should say the day:\n%s", s)
 	}
@@ -279,7 +280,7 @@ func TestWorldOverviewPane(t *testing.T) {
 	h.openAll()
 	for _, k := range h.m.order {
 		for i := range overviewLines {
-			h.m.chars[k].sb.AppendLine(entryLine(fmt.Sprintf("%s line %d", k, i), logstore.Entry{Time: h.now}))
+			h.m.chars[k].sb.AppendLine(lineOf(fmt.Sprintf("%s line %d", k, i), app.Line{Entry: logstore.Entry{Time: h.now}}))
 		}
 	}
 	h.m.switchTo(worldSel("big"))

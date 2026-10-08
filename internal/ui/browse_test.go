@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -263,25 +264,25 @@ func TestBrowseFind(t *testing.T) {
 	h.typeText("rook")
 	h.key("enter")
 	b := h.br()
-	if b.cursor.e.Text != scene1[6] || !strings.Contains(h.screen(), str.BrowseFindStatus("rook", 1, 3)) {
-		t.Errorf("first match should be the newest: %q\n%s", b.cursor.e.Text, h.screen())
+	if b.cursor.Entry.Text != scene1[6] || !strings.Contains(h.screen(), str.BrowseFindStatus("rook", 1, 3)) {
+		t.Errorf("first match should be the newest: %q\n%s", b.cursor.Entry.Text, h.screen())
 	}
 	h.key("n")
-	if b.cursor.e.Text != scene1[5] {
-		t.Errorf("n went to %q", b.cursor.e.Text)
+	if b.cursor.Entry.Text != scene1[5] {
+		t.Errorf("n went to %q", b.cursor.Entry.Text)
 	}
 	h.key("n")
 	h.key("n") // past the oldest
-	if b.cursor.e.Text != scene1[0] || !strings.Contains(h.screen(), str.BrowseNoOlderMatches("rook")) {
-		t.Errorf("n past the oldest match should stay, and say so: %q\n%s", b.cursor.e.Text, h.screen())
+	if b.cursor.Entry.Text != scene1[0] || !strings.Contains(h.screen(), str.BrowseNoOlderMatches("rook")) {
+		t.Errorf("n past the oldest match should stay, and say so: %q\n%s", b.cursor.Entry.Text, h.screen())
 	}
 	h.key("N")
-	if b.cursor.e.Text != scene1[5] {
-		t.Errorf("N went to %q", b.cursor.e.Text)
+	if b.cursor.Entry.Text != scene1[5] {
+		t.Errorf("N went to %q", b.cursor.Entry.Text)
 	}
 	h.keys("N", "N") // past the newest
-	if b.cursor.e.Text != scene1[6] || !strings.Contains(h.screen(), str.BrowseNoNewerMatches("rook")) {
-		t.Errorf("N past the newest match should stay, and say so: %q\n%s", b.cursor.e.Text, h.screen())
+	if b.cursor.Entry.Text != scene1[6] || !strings.Contains(h.screen(), str.BrowseNoNewerMatches("rook")) {
+		t.Errorf("N past the newest match should stay, and say so: %q\n%s", b.cursor.Entry.Text, h.screen())
 	}
 	if !strings.Contains(h.m.View().Content, theme.SGR(theme.LogFind)+"Rook") {
 		t.Error("matches not highlighted")
@@ -317,12 +318,12 @@ func TestBrowseFindSearchesOlderHistory(t *testing.T) {
 	h.key("/")
 	h.typeText("lighthouse")
 	h.key("enter")
-	if b.cursor.e.Text != lines[10] || !strings.Contains(h.screen(), str.BrowseFindStatusMore("lighthouse", 1, 1)) {
-		t.Errorf("first match, with more history to search: %q\n%s", b.cursor.e.Text, h.screen())
+	if b.cursor.Entry.Text != lines[10] || !strings.Contains(h.screen(), str.BrowseFindStatusMore("lighthouse", 1, 1)) {
+		t.Errorf("first match, with more history to search: %q\n%s", b.cursor.Entry.Text, h.screen())
 	}
 	h.key("n")
-	if b.cursor.e.Text != "Rook says, \"lighthouse\"" || !strings.Contains(h.screen(), str.BrowseFindStatus("lighthouse", 2, 2)) {
-		t.Errorf("n should read in the older day for its match: %q\n%s", b.cursor.e.Text, h.screen())
+	if b.cursor.Entry.Text != "Rook says, \"lighthouse\"" || !strings.Contains(h.screen(), str.BrowseFindStatus("lighthouse", 2, 2)) {
+		t.Errorf("n should read in the older day for its match: %q\n%s", b.cursor.Entry.Text, h.screen())
 	}
 }
 
@@ -382,8 +383,8 @@ func TestBrowseLoadsOlderDaysOffTheUIGoroutine(t *testing.T) {
 	if cmd == nil || !b.loading {
 		t.Fatal("Home should start a background load")
 	}
-	if len(b.lines) != 300 || b.cursor.e.Text != "day 23 line 0" {
-		t.Errorf("Update must not load synchronously: %d lines, cursor %q", len(b.lines), b.cursor.e.Text)
+	if len(b.lines) != 300 || b.cursor.Entry.Text != "day 23 line 0" {
+		t.Errorf("Update must not load synchronously: %d lines, cursor %q", len(b.lines), b.cursor.Entry.Text)
 	}
 	if s := h.screen(); !strings.Contains(s, str.BrowseLoading()) || strings.Contains(s, "⋯") {
 		t.Errorf("no loading row:\n%s", h.screen())
@@ -398,8 +399,8 @@ func TestBrowseLoadsOlderDaysOffTheUIGoroutine(t *testing.T) {
 		t.Fatalf("after one day: %d lines, next cmd %v", len(b.lines), cmd != nil)
 	}
 	h.drainLoads(cmd)
-	if b.loading || !b.histDone || b.cursor.e.Text != "day 21 line 0" {
-		t.Errorf("loading=%v done=%v cursor=%q", b.loading, b.histDone, b.cursor.e.Text)
+	if b.loading || !b.histDone || b.cursor.Entry.Text != "day 21 line 0" {
+		t.Errorf("loading=%v done=%v cursor=%q", b.loading, b.histDone, b.cursor.Entry.Text)
 	}
 	if strings.Contains(h.screen(), "loading older history") {
 		t.Errorf("loading row left behind:\n%s", h.screen())
@@ -445,11 +446,11 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 	h.key("g")
 	h.typeText("2026-09-21")
 	h.key("enter")
-	if b.cursor.e.Text != "day 21 line 0" {
-		t.Errorf("date jump landed on %q", b.cursor.e.Text)
+	if b.cursor.Entry.Text != "day 21 line 0" {
+		t.Errorf("date jump landed on %q", b.cursor.Entry.Text)
 	}
-	if !b.histDone || b.lines[0].day != "2026-09-21" {
-		t.Errorf("after loading everything: done %v, oldest %s", b.histDone, b.lines[0].day)
+	if !b.histDone || b.lines[0].Day != "2026-09-21" {
+		t.Errorf("after loading everything: done %v, oldest %s", b.histDone, b.lines[0].Day)
 	}
 	h.key("g")
 	h.typeText("yesterday")
@@ -480,7 +481,7 @@ func TestBrowseLiveLinesArrive(t *testing.T) {
 	h.key("ctrl+l")
 	h.conn("fm/kit").lines <- "Brand new line"
 	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Brand new line") })
-	if h.br().cursor.e.Text != "Brand new line" {
+	if h.br().cursor.Entry.Text != "Brand new line" {
 		t.Error("cursor at the bottom should follow live lines")
 	}
 }
@@ -494,7 +495,7 @@ func TestBrowseMouse(t *testing.T) {
 	l := h.m.layout()
 	rowOf := func(text string) int {
 		for i, bl := range b.rowLines {
-			if bl != nil && bl.e.Text == text {
+			if bl != nil && bl.Entry.Text == text {
 				return i + 2
 			}
 		}
@@ -503,11 +504,11 @@ func TestBrowseMouse(t *testing.T) {
 	}
 	x := l.sw + 1 + 10
 	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(scene1[1]), Button: tea.MouseLeft})
-	if b.cursor.e.Text != scene1[1] {
-		t.Errorf("click moved cursor to %q", b.cursor.e.Text)
+	if b.cursor.Entry.Text != scene1[1] {
+		t.Errorf("click moved cursor to %q", b.cursor.Entry.Text)
 	}
 	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(scene1[4]), Button: tea.MouseLeft, Mod: tea.ModShift})
-	if b.start == nil || b.end == nil || b.start.e.Text != scene1[1] || b.end.e.Text != scene1[4] {
+	if b.start == nil || b.end == nil || b.start.Entry.Text != scene1[1] || b.end.Entry.Text != scene1[4] {
 		t.Fatalf("shift-click range wrong")
 	}
 	h.screen()
@@ -671,7 +672,7 @@ func TestBrowseLiveDedupeAtMillisecondPrecision(t *testing.T) {
 	b.appendLive(logstore.Entry{Time: base.Add(5 * time.Second), Dir: logstore.In, Text: "four"})
 	var got []string
 	for _, l := range b.lines {
-		got = append(got, l.e.Text)
+		got = append(got, l.Entry.Text)
 	}
 	if strings.Join(got, ",") != "one,two,three,four" {
 		t.Errorf("lines = %q", got)
@@ -687,7 +688,7 @@ func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
 		if i == 0 {
 			text = "the line" // the only match, at the far end
 		}
-		b.lines = append(b.lines, &bline{e: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, text: text, day: "2026-09-24"})
+		b.lines = append(b.lines, &bline{Line: app.Line{Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, Day: "2026-09-24"}, text: text})
 	}
 	b.find = "the"
 	start := time.Now()
@@ -840,19 +841,19 @@ func TestBrowseHidingCursorLineKeepsPlace(t *testing.T) {
 	h.keys("home", "down", "down") // Mira pages
 	b := h.br()
 	f := h.kitFilter()
-	if b.cursor.e.Text != "Mira pages: you around?" {
-		t.Fatalf("cursor on %q", b.cursor.e.Text)
+	if b.cursor.Entry.Text != "Mira pages: you around?" {
+		t.Fatalf("cursor on %q", b.cursor.Entry.Text)
 	}
 	f.ToggleHide(scene.Item{Name: "page"}, b.items())
 	b.refilter()
-	if got := b.cursor.e.Text; got != "> :grins." && got != ":grins." {
+	if got := b.cursor.Entry.Text; got != "> :grins." && got != ":grins." {
 		t.Errorf("cursor moved to %q, want the next line", got)
 	}
 	f.ToggleHide(scene.Item{Name: "page"}, b.items()) // shown again
 	h.keys("end")                                     // Rook yawns, the last line
 	f.PressOnly(scene.Item{Name: "page"}, b.items())
 	b.refilter()
-	if got := b.cursor.e.Text; got != "Mira pages: you around?" {
+	if got := b.cursor.Entry.Text; got != "Mira pages: you around?" {
 		t.Errorf("cursor moved to %q, want the previous visible line", got)
 	}
 }
@@ -913,8 +914,8 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	if h.br() != b || b.panel == nil || b.panel.sel != sel || b.cursor != cursor || b.start == nil {
 		t.Fatalf("log mode not as left:\n%s", h.screen())
 	}
-	if b.last().e.Text != "Brand new line" {
-		t.Errorf("hidden log mode missed a live line: last %q", b.last().e.Text)
+	if b.last().Entry.Text != "Brand new line" {
+		t.Errorf("hidden log mode missed a live line: last %q", b.last().Entry.Text)
 	}
 	h.key("esc") // the panel
 	h.key("esc") // log mode
@@ -1046,8 +1047,8 @@ func TestLogWheelScrolls(t *testing.T) {
 	bottom := b.cursor
 	top := b.top
 	wheel(tea.MouseWheelUp)
-	if b.top == top || b.top.e.Text != lines[slices.IndexFunc(lines, func(s string) bool { return s == top.e.Text })-1] {
-		t.Errorf("one notch up should scroll one line: top %q, was %q", b.top.e.Text, top.e.Text)
+	if b.top == top || b.top.Entry.Text != lines[slices.IndexFunc(lines, func(s string) bool { return s == top.Entry.Text })-1] {
+		t.Errorf("one notch up should scroll one line: top %q, was %q", b.top.Entry.Text, top.Entry.Text)
 	}
 	if b.cursor == bottom {
 		t.Error("the cursor on the newest line, now scrolled out of view, should be dragged up with it")
@@ -1059,18 +1060,18 @@ func TestLogWheelScrolls(t *testing.T) {
 	cursor := b.cursor
 	wheel(tea.MouseWheelUp)
 	if b.cursor != cursor {
-		t.Errorf("a cursor in view shouldn't move: %q", b.cursor.e.Text)
+		t.Errorf("a cursor in view shouldn't move: %q", b.cursor.Entry.Text)
 	}
 	for range 100 {
 		wheel(tea.MouseWheelUp)
 	}
 	if b.top != b.visible()[0] || b.cursor != b.rowLines[len(b.rowLines)-1] {
-		t.Errorf("scrolled to the oldest line, the cursor is the last line shown: top %q cursor %q", b.top.e.Text, b.cursor.e.Text)
+		t.Errorf("scrolled to the oldest line, the cursor is the last line shown: top %q cursor %q", b.top.Entry.Text, b.cursor.Entry.Text)
 	}
 	h.key("home") // the cursor on the top edge
 	wheel(tea.MouseWheelDown)
 	if b.cursor != b.top {
-		t.Errorf("scrolling down, the cursor is dragged along at the top edge: top %q cursor %q", b.top.e.Text, b.cursor.e.Text)
+		t.Errorf("scrolling down, the cursor is dragged along at the top edge: top %q cursor %q", b.top.Entry.Text, b.cursor.Entry.Text)
 	}
 	for range 100 {
 		wheel(tea.MouseWheelDown)
@@ -1134,15 +1135,15 @@ func TestBrowseRespectsLocalEcho(t *testing.T) {
 	}
 	b := h.br()
 	for _, l := range b.visible() {
-		if l.e.Dir == logstore.Out {
-			t.Errorf("visible sent line %q", l.e.Text)
+		if l.Entry.Dir == logstore.Out {
+			t.Errorf("visible sent line %q", l.Entry.Text)
 		}
 	}
 	b.cursor = b.lastVisible()
 	for range scene1 {
 		h.key("up")
 	}
-	if b.cursor.e.Dir == logstore.Out {
+	if b.cursor.Entry.Dir == logstore.Out {
 		t.Error("cursor landed on a sent line")
 	}
 

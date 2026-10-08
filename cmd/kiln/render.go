@@ -7,7 +7,6 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
-	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
@@ -16,9 +15,9 @@ import (
 // render formats one entry for plain terminal output. Styled lines are
 // drawn in their tags' styles; attention lines get a "» " marker, which
 // is never styled. Sent lines are dimmed and sys lines are prefixed with
-// "* ". Text is sanitized first, so res must be computed on
+// "* ". Text is sanitized first, so runs must be computed on
 // ansi.Strip(ansi.Sanitize(…)).
-func render(e logstore.Entry, res rules.Result) string {
+func render(e logstore.Entry, runs []style.Run, attention bool) string {
 	e.Text = ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
@@ -27,10 +26,10 @@ func render(e logstore.Entry, res rules.Result) string {
 		return theme.Paint(theme.ScrollbackSys, "* "+e.Text)
 	}
 	marker := ""
-	if res.Attention {
+	if attention {
 		marker = "» "
 	}
-	return marker + style.Highlight(e.Text, res.Runs) // runs index e.Text, not the marker
+	return marker + style.Highlight(e.Text, runs) // runs index e.Text, not the marker
 }
 
 // lookTheme is the active theme with ch's own looks on top. Looks that
