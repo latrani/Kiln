@@ -137,8 +137,8 @@ func TestInputHistorySkipsSecretsAndRepeats(t *testing.T) {
 	in.Commit()
 	in.InsertText("look")
 	in.Commit()
-	if !reflect.DeepEqual(in.history, []string{"look"}) {
-		t.Errorf("history = %q", in.history)
+	if !reflect.DeepEqual(in.hist.Lines(), []string{"look"}) {
+		t.Errorf("history = %q", in.hist.Lines())
 	}
 }
 
@@ -300,8 +300,8 @@ func TestInputUpDownWrappedRows(t *testing.T) {
 	in.InsertText("abcdefghij")
 	in.Home()
 	in.Up() // top row: history
-	if in.Value() != "abcdefghij" || in.hist != 0 {
-		t.Errorf("Up on the top row should recall history (hist=%d)", in.hist)
+	if in.Value() != "abcdefghij" || in.hist.Pos() != 0 {
+		t.Errorf("Up on the top row should recall history (hist=%d)", in.hist.Pos())
 	}
 }
 

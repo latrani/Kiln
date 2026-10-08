@@ -9,6 +9,7 @@ import (
 	"github.com/rivo/uniseg"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -24,20 +25,18 @@ const (
 // moves, and Backspace/Delete remove, whole grapheme clusters, so emoji
 // ZWJ sequences, flags and skin-tone modifiers act as one character.
 type Input struct {
-	lines   [][]rune // never empty
-	row     int
-	col     int // rune index into lines[row], always on a cluster boundary
-	history []string
-	hist    int    // position while browsing history; len(history) = not browsing
-	draft   string // text being typed before history browsing started
-	goal    int    // screen column Up/Down aim for; -1 = the cursor's own
-	width   int    // text width of the last Render; 0 = no wrapping
-	masked  bool   // the last Render showed bullets
-	sel     *inSel // a mouse selection; see StartSelect
+	lines  [][]rune // never empty
+	row    int
+	col    int          // rune index into lines[row], always on a cluster boundary
+	hist   *app.History // its history: the core's, for a character's input
+	goal   int          // screen column Up/Down aim for; -1 = the cursor's own
+	width  int          // text width of the last Render; 0 = no wrapping
+	masked bool         // the last Render showed bullets
+	sel    *inSel       // a mouse selection; see StartSelect
 }
 
 // NewInput returns an empty editor.
-func NewInput() *Input { return &Input{lines: [][]rune{nil}, goal: -1} }
+func NewInput() *Input { return &Input{lines: [][]rune{nil}, goal: -1, hist: &app.History{}} }
 
 // Value is the full text, lines joined with "\n".
 func (in *Input) Value() string {
@@ -62,18 +61,16 @@ func (in *Input) SetValue(s string) {
 	in.goal = -1
 }
 
-// Reset clears the text and leaves history browsing.
+// Reset clears the text and stops browsing history.
 func (in *Input) Reset() {
 	in.SetValue("")
-	in.hist = len(in.history)
+	in.hist.Stop()
 }
 
 // Commit returns the text, records it in history, and clears the editor.
 func (in *Input) Commit() string {
 	v := in.Value()
-	if v != "" && (len(in.history) == 0 || in.history[len(in.history)-1] != v) {
-		in.history = append(in.history, v)
-	}
+	in.hist.Add(v)
 	in.Reset()
 	return v
 }
@@ -335,14 +332,9 @@ func (in *Input) Up() {
 		in.moveTo(rows[r-1], x)
 		return
 	}
-	if in.hist == 0 || len(in.history) == 0 {
-		return
+	if v, ok := in.hist.Older(in.Value()); ok {
+		in.SetValue(v)
 	}
-	if in.hist == len(in.history) {
-		in.draft = in.Value()
-	}
-	in.hist--
-	in.SetValue(in.history[in.hist])
 }
 
 // Down moves down a screen row, or on the bottom row recalls newer history
@@ -353,14 +345,8 @@ func (in *Input) Down() {
 		in.moveTo(rows[r+1], x)
 		return
 	}
-	if in.hist >= len(in.history) {
-		return
-	}
-	in.hist++
-	if in.hist == len(in.history) {
-		in.SetValue(in.draft)
-	} else {
-		in.SetValue(in.history[in.hist])
+	if v, ok := in.hist.Newer(); ok {
+		in.SetValue(v)
 	}
 }
 
