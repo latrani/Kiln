@@ -149,3 +149,19 @@ func TestEchoWithLocalEcho(t *testing.T) {
 		t.Errorf("Echo = %+v", l)
 	}
 }
+
+// "Last seen" is the last line that arrived: what you sent doesn't move
+// it, whether it's from the log or sent just now.
+func TestLastTimeIgnoresWhatYouSent(t *testing.T) {
+	echo := strings.Replace(fmWorld, "tls = true\n", "tls = true\nlocal_echo = true\n", 1)
+	a := sessionApp(t, map[string]string{"fm": echo})
+	writeLog(t, a, day23, "one", "> sent")
+	openAll(t, a, "fm/kit")
+	if at, ok := a.LastTime("fm/kit"); !ok || !at.Equal(day23) {
+		t.Errorf("after the preload: LastTime = %v, %v; want the received line's", at, ok)
+	}
+	a.Echo("fm/kit", logstore.Entry{Time: day23.Add(time.Hour), Dir: logstore.Out, Text: "say hi"})
+	if at, _ := a.LastTime("fm/kit"); !at.Equal(day23) {
+		t.Errorf("after sending: LastTime = %v; want it unmoved", at)
+	}
+}

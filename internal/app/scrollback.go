@@ -138,12 +138,13 @@ func (c *Char) add(l Line) *Line {
 	return &l
 }
 
-// LastTime is when k's newest line from the log was logged; false when
-// there's none.
+// LastTime is when the newest line that arrived for k was logged: from
+// the server, or Kiln's own notes (connected, closed); what you sent
+// doesn't count. false when there's none.
 func (a *App) LastTime(k string) (time.Time, bool) {
 	if c := a.chars[k]; c != nil {
 		for i := len(c.Lines) - 1; i >= 0; i-- {
-			if l := c.Lines[i]; l.Kind != Day && l.Kind != HistoryEnd {
+			if l := c.Lines[i]; l.Kind == Server || l.Kind == Sys {
 				return l.Entry.Time, true
 			}
 		}
