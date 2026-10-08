@@ -229,7 +229,7 @@ func (a *App) Open(k string) (*Char, error) {
 	a.sortOrder()
 	a.Preload(k)
 	if a.active == "" {
-		a.active = k
+		a.active, a.confirm = k, false
 	}
 	return c, err
 }
@@ -255,7 +255,7 @@ func (a *App) Close(k string) {
 	if a.active != k {
 		return
 	}
-	a.active = ""
+	a.active, a.confirm = "", false // as Switch does: the next Enter asks again
 	if len(a.order) > 0 {
 		a.Switch(a.order[min(i, len(a.order)-1)])
 	}

@@ -181,3 +181,18 @@ func TestSkippingTheLogin(t *testing.T) {
 		t.Error("SkipLogin with no prompt up did something")
 	}
 }
+
+// Closing the last character asks again before an over-limit line, as
+// switching does: nothing carries over to whatever opens next.
+func TestClosingTheLastCharacterUnconfirms(t *testing.T) {
+	a, _, _ := submitApp(t, strings.Replace(fmWorld, "tls = true\n", "tls = true\nmax_line_bytes = 5\n", 1))
+	a.SetInput("too long")
+	a.Submit()
+	if !a.Confirming() {
+		t.Fatal("Enter on an over-limit line didn't ask first")
+	}
+	a.Close("fm/kit")
+	if a.Active() != "" || a.Confirming() {
+		t.Errorf("active %q confirming %v after closing the last character", a.Active(), a.Confirming())
+	}
+}
