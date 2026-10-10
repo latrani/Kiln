@@ -229,7 +229,7 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterCh
 			left += "   " + f
 		}
 		role := theme.StatusFilter
-		if b.panel != nil {
+		if b.Panel != nil {
 			role = theme.StatusFilterOn
 		}
 		parts = append(parts, part{chip(role, str.ViewFilterButton()), &filterChip})
@@ -370,7 +370,7 @@ func (m *Model) View() tea.View {
 		side = theme.Picker
 	}
 	var panel []string
-	if cs != nil && cs.browse != nil && cs.browse.panel != nil {
+	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 		side = theme.Filter
 		panel = cs.browse.panelView(l.sw, m.height)
 	}

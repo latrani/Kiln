@@ -90,10 +90,8 @@ type charState struct {
 	hl        *rules.Highlighter // the character's look: the theme with its own looks on top
 	sb        Scrollback
 	in        *Input
-	browse    *browse         // non-nil while browse mode is open
-	hidBrowse *browse         // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
-	collapsed map[string]bool // filter panel parents folded shut, by tag
-	foldSeen  map[string]bool // parents the panel has already met; a new one starts folded
+	browse    *browse // non-nil while browse mode is open
+	hidBrowse *browse // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
 }
 
 // browses is log mode, showing or hidden by Ctrl+L, for what keeps
@@ -1051,7 +1049,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		return nil
 	}
 	if msg.X < l.sw {
-		if cs != nil && cs.browse != nil && cs.browse.panel != nil {
+		if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 			switch msg.Button {
 			case tea.MouseWheelUp:
 				cs.browse.panelScroll(-3, m.height)
@@ -1106,7 +1104,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
-		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.panel != nil {
+		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 			cs.browse.panelClick(msg.X, msg.Y, m.height)
 			return nil
 		}

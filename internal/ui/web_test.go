@@ -269,7 +269,7 @@ func TestFooterHiddenUnderFilterPanel(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	if h.br().panel == nil {
+	if h.br().Panel == nil {
 		t.Fatal("panel didn't open")
 	}
 	if s := h.screen(); strings.Contains(s, str.SidebarBackUp()) || strings.Contains(s, str.SidebarRestore()) {

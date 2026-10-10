@@ -6,33 +6,17 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
-	"github.com/latrani/Kiln/internal/scene"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// filterSel is the highlighted panel entry: an item, or the + Text row.
-type filterSel struct {
-	item scene.Item
-	add  bool
-}
-
-// filterPanel is log mode's filter panel, open in the sidebar column.
+// filterPanel is the filter panel's scroll, the terminal's half of it:
+// the core's Log.Panel holds the rest.
 type filterPanel struct {
-	sel    filterSel
 	top    int  // first row drawn
 	follow bool // scroll the selection into view on the next draw
 }
-
-// panelEntry is one item in the panel, or the + Text row.
-type panelEntry struct {
-	item   scene.Item
-	add    bool
-	depth  int  // slashes in a tag; 0 for text
-	parent bool // a tag with children
-}
-
-func (e panelEntry) sel() filterSel { return filterSel{item: e.item, add: e.add} }
 
 type panelRowKind int
 
@@ -44,99 +28,17 @@ const (
 )
 
 type panelRow struct {
-	text  string    // drawn, not yet fitted
-	entry int       // index into entries()
-	sel   filterSel // the entry's, on its name or + Text row
+	text  string        // drawn, not yet fitted
+	entry int           // index into entries()
+	sel   app.FilterSel // the entry's, on its name or + Text row
 	kind  panelRowKind
 }
 
-// togglePanel opens or closes the filter panel.
+// togglePanel opens or closes the filter panel, scrolled to its
+// highlight when it opens.
 func (b *browse) togglePanel() {
-	if b.panel != nil {
-		b.panel = nil
-		return
-	}
-	b.panel = &filterPanel{follow: true}
-	if es := b.entries(); len(es) > 0 {
-		b.panel.sel = es[0].sel()
-	}
-}
-
-// entries is what the panel lists: tags (children of a collapsed parent
-// left out), text rows, then + Text.
-func (b *browse) entries() []panelEntry { return b.entriesOf(b.Items()) }
-
-// entriesOf is entries for items already in hand.
-func (b *browse) entriesOf(items []scene.Item) []panelEntry {
-	b.foldNew(items)
-	var out []panelEntry
-	for i, it := range items {
-		if !it.Text && b.foldedAway(it.Name) {
-			continue
-		}
-		e := panelEntry{item: it}
-		if !it.Text {
-			e.depth = strings.Count(it.Name, "/")
-			e.parent = i+1 < len(items) && !items[i+1].Text && strings.HasPrefix(items[i+1].Name, it.Name+"/")
-		}
-		out = append(out, e)
-	}
-	return append(out, panelEntry{add: true})
-}
-
-// foldNew folds each parent tag, at any depth, the first time the panel
-// sees it; after that it stays as the reader left it.
-func (b *browse) foldNew(items []scene.Item) {
-	cs := b.cs
-	for i, it := range items {
-		if it.Text || i+1 >= len(items) || items[i+1].Text || !strings.HasPrefix(items[i+1].Name, it.Name+"/") || cs.foldSeen[it.Name] {
-			continue
-		}
-		if cs.foldSeen == nil {
-			cs.foldSeen, cs.collapsed = map[string]bool{}, nilToEmpty(cs.collapsed)
-		}
-		cs.foldSeen[it.Name] = true
-		cs.collapsed[it.Name] = true
-	}
-}
-
-func nilToEmpty(m map[string]bool) map[string]bool {
-	if m == nil {
-		return map[string]bool{}
-	}
-	return m
-}
-
-// hasChildren reports whether any loaded tag sits under tag.
-func (b *browse) hasChildren(tag string) bool {
-	for _, it := range b.Items() {
-		if !it.Text && strings.HasPrefix(it.Name, tag+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// foldedAway reports whether tag sits under a collapsed parent.
-func (b *browse) foldedAway(tag string) bool {
-	for p := scene.Parent(tag); p != ""; p = scene.Parent(p) {
-		if b.cs.collapsed[p] {
-			return true
-		}
-	}
-	return false
-}
-
-// filteredUnder reports whether any tag under parent is hidden or has Only.
-func (b *browse) filteredUnder(parent string, items []scene.Item) bool {
-	f := &b.cs.Filter
-	only, hasOnly := f.Only()
-	for _, it := range items {
-		if !it.Text && strings.HasPrefix(it.Name, parent+"/") && (f.Hidden(it) || hasOnly && only == it) {
-			return true
-		}
-	}
-	return false
+	b.TogglePanel()
+	b.pv = filterPanel{follow: true}
 }
 
 // panelRows lays the panel out: per entry its name and its
@@ -147,45 +49,45 @@ func (b *browse) panelRows(w int) []panelRow {
 	f := &b.cs.Filter
 	only, hasOnly := f.Only()
 	items := b.Items()
-	es := b.entriesOf(items)
+	es := b.EntriesOf(items)
 	for i, e := range es {
-		if e.add {
-			rows = append(rows, panelRow{text: " " + theme.Paint(theme.FilterAdd, str.FilterAddText()), entry: i, sel: e.sel(), kind: prAdd})
+		if e.Add {
+			rows = append(rows, panelRow{text: " " + theme.Paint(theme.FilterAdd, str.FilterAddText()), entry: i, sel: e.Sel(), kind: prAdd})
 			continue
 		}
-		indent := strings.Repeat(" ", 1+2*e.depth)
-		name := e.item.Name
-		if e.item.Untagged {
+		indent := strings.Repeat(" ", 1+2*e.Depth)
+		name := e.Item.Name
+		if e.Item.Untagged {
 			name = str.FilterUntagged()
-		} else if e.item.Text {
+		} else if e.Item.Text {
 			name = glyphRemove + " " + str.FilterTextItem(name)
 		} else if i := strings.LastIndex(name, "/"); i >= 0 {
 			name = name[i+1:]
 		}
 		switch {
-		case e.parent && b.cs.collapsed[e.item.Name]:
+		case e.Parent && b.cs.Collapsed[e.Item.Name]:
 			name = glyphCollapsed + " " + name
-			if b.filteredUnder(e.item.Name, items) {
+			if b.FilteredUnder(e.Item.Name, items) {
 				name += " " + glyphFiltered
 			}
-		case e.parent:
+		case e.Parent:
 			name = glyphOpen + " " + name
 		}
 		role := theme.FilterItem
-		if b.panel != nil && b.panel.sel == e.sel() {
+		if b.Panel != nil && b.Panel.Sel == e.Sel() {
 			role = theme.FilterSelected
 		}
 		hide, onlyRole := theme.FilterButton, theme.FilterButton
-		if f.Hidden(e.item) {
+		if f.Hidden(e.Item) {
 			hide = theme.FilterButtonOn
 		}
-		if hasOnly && only == e.item {
+		if hasOnly && only == e.Item {
 			onlyRole = theme.FilterButtonOn
 		}
 		rows = append(rows,
-			panelRow{text: indent + theme.Paint(role, name), entry: i, sel: e.sel(), kind: prName},
+			panelRow{text: indent + theme.Paint(role, name), entry: i, sel: e.Sel(), kind: prName},
 			panelRow{text: indent + " " + theme.Paint(hide, str.FilterHide()) + " " + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
-		if next := es[i+1]; next.depth == 0 { // a blank row ends a top-level group
+		if next := es[i+1]; next.Depth == 0 { // a blank row ends a top-level group
 			rows = append(rows, panelRow{entry: i, kind: prBlank})
 		}
 	}
@@ -197,12 +99,12 @@ func (b *browse) panelRows(w int) []panelRow {
 // edge rows when it overflows, as in the sidebar.
 func (b *browse) panelView(w, h int) []string {
 	rows := b.panelRows(w)
-	p := b.panel
+	p := &b.pv
 	selRow := -1 // keep the scroll where the wheel left it
 	if p.follow {
 		p.follow = false
 		for i, r := range rows {
-			if (r.kind == prName || r.kind == prAdd) && r.sel == p.sel {
+			if (r.kind == prName || r.kind == prAdd) && r.sel == b.Panel.Sel {
 				selRow = i
 				break
 			}
@@ -229,7 +131,7 @@ func (b *browse) panelView(w, h int) []string {
 // rows, keeping row sel (and the button row under it) in view, and
 // stores the top it settles on.
 func (b *browse) panelWindow(total, h, sel int) (top int, above, below bool, avail int) {
-	p := b.panel
+	p := &b.pv
 	if total <= h {
 		p.top = 0
 		return 0, false, false, total
@@ -262,75 +164,41 @@ func (b *browse) panelWindow(total, h, sel int) (top int, above, below bool, ava
 
 // panelKey handles a key while the filter panel is open.
 func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
-	f := &b.cs.Filter
-	sel := b.panel.sel
+	sel := b.Panel.Sel
 	switch k.String() {
 	case "esc", "ctrl+c", openFilterKey: // as they back out of log mode
-		b.panel = nil
+		b.TogglePanel() // it's open: this closes it
 		return nil
 	case "up", "k":
-		b.movePanel(-1)
+		b.MovePanel(-1)
+		b.pv.follow = true
 	case "down", "j":
-		b.movePanel(1)
+		b.MovePanel(1)
+		b.pv.follow = true
 	case "h":
-		if !sel.add {
-			f.ToggleHide(sel.item, b.Items())
+		if !sel.Add {
+			b.ToggleHide(sel.Item)
 		}
 	case "o":
-		if !sel.add {
-			f.PressOnly(sel.item, b.Items())
+		if !sel.Add {
+			b.PressOnly(sel.Item)
 		}
 	case "left":
-		b.setCollapsed(sel, true)
+		b.SetCollapsed(sel, true)
 	case "right":
-		b.setCollapsed(sel, false)
+		b.SetCollapsed(sel, false)
 	case "enter":
-		if sel.add {
+		if sel.Add {
 			b.prompt = promptFilterText
 			b.pin.SetValue("")
 		}
 	case "x", "delete":
-		b.removeText(sel)
+		if b.RemoveText(sel) {
+			b.pv.follow = true
+		}
 	}
 	b.Refilter()
 	return nil
-}
-
-// removeText drops sel if it's a text row.
-func (b *browse) removeText(sel filterSel) {
-	if !sel.item.Text {
-		return
-	}
-	b.movePanel(1) // keep a highlight when the row goes
-	b.cs.Filter.RemoveText(sel.item.Name)
-}
-
-// movePanel moves the highlight by delta entries, stopping at the ends.
-func (b *browse) movePanel(delta int) {
-	b.panel.follow = true
-	es := b.entries()
-	i := 0
-	for j, e := range es {
-		if e.sel() == b.panel.sel {
-			i = j
-		}
-	}
-	b.panel.sel = es[min(max(0, i+delta), len(es)-1)].sel()
-}
-
-// setCollapsed folds a parent tag shut or open.
-func (b *browse) setCollapsed(sel filterSel, shut bool) {
-	if sel.add || sel.item.Text || !b.hasChildren(sel.item.Name) {
-		return
-	}
-	if b.cs.collapsed == nil {
-		b.cs.collapsed = map[string]bool{}
-	}
-	if shut {
-		b.cs.collapsed[sel.item.Name] = true
-	} else {
-		delete(b.cs.collapsed, sel.item.Name)
-	}
 }
 
 // panelClick handles a click at (x, y) in the sidebar column, h rows
@@ -357,37 +225,38 @@ func (b *browse) panelClick(x, y, h int) {
 	if i < 0 || i >= len(rows) || rows[i].entry < 0 {
 		return
 	}
-	es := b.entries()
+	es := b.Entries()
 	e := es[rows[i].entry]
-	f := &b.cs.Filter
-	indent := 1 + 2*e.depth
+	indent := 1 + 2*e.Depth
 	switch rows[i].kind {
 	case prAdd:
-		b.panel.sel = e.sel()
+		b.Select(e.Sel())
 		b.prompt = promptFilterText
 		b.pin.SetValue("")
 	case prName:
 		onGlyph := x >= indent && x < indent+1
 		switch {
-		case e.item.Text && onGlyph:
-			b.panel.sel = e.sel()
-			b.removeText(e.sel())
+		case e.Item.Text && onGlyph:
+			b.Select(e.Sel())
+			if b.RemoveText(e.Sel()) {
+				b.pv.follow = true
+			}
 			b.Refilter()
 			return
-		case e.parent && onGlyph:
-			b.setCollapsed(e.sel(), !b.cs.collapsed[e.item.Name])
+		case e.Parent && onGlyph:
+			b.SetCollapsed(e.Sel(), !b.cs.Collapsed[e.Item.Name])
 		}
-		b.panel.sel = e.sel()
+		b.Select(e.Sel())
 	case prButtons:
 		hx := indent + 1
 		ox := hx + xansi.StringWidth(str.FilterHide()) + 1
 		switch {
 		case x >= hx && x < ox-1:
-			f.ToggleHide(e.item, b.Items())
+			b.ToggleHide(e.Item)
 		case x >= ox && x < ox+xansi.StringWidth(str.FilterOnly()):
-			f.PressOnly(e.item, b.Items())
+			b.PressOnly(e.Item)
 		}
-		b.panel.sel = e.sel()
+		b.Select(e.Sel())
 	}
 	b.Refilter()
 }
@@ -395,5 +264,5 @@ func (b *browse) panelClick(x, y, h int) {
 // panelScroll moves the panel's view by delta rows.
 func (b *browse) panelScroll(delta, h int) {
 	rows := b.panelRows(0)
-	b.panel.top = min(max(0, b.panel.top+delta), max(0, len(rows)-h+1))
+	b.pv.top = min(max(0, b.pv.top+delta), max(0, len(rows)-h+1))
 }

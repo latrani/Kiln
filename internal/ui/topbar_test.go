@@ -52,11 +52,11 @@ func TestTopBarChipsToggle(t *testing.T) {
 	}
 	_, _, filt, _ := h.m.topBar(l.rw)
 	click(filt[0] + 1)
-	if h.br().panel == nil {
+	if h.br().Panel == nil {
 		t.Fatal("clicking Filter should open the panel")
 	}
 	click(filt[0] + 1)
-	if h.br().panel != nil {
+	if h.br().Panel != nil {
 		t.Error("clicking Filter again should close it")
 	}
 	_, logc, _, _ = h.m.topBar(l.rw)

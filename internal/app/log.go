@@ -43,9 +43,10 @@ type Log struct {
 	Find       string
 	Status     string // log mode's message; the front end shows it and clears it
 	StatusErr  bool
-	HistDone   bool // every log day is loaded (or there is no history)
-	Loading    bool // an older day is being read
-	Searching  bool // a find is reading older days for a match
+	HistDone   bool   // every log day is loaded (or there is no history)
+	Loading    bool   // an older day is being read
+	Searching  bool   // a find is reading older days for a match
+	Panel      *Panel // the filter panel, while it's open
 	// Shown is a line's text as the front end shows it, unstyled: what
 	// find matches. nil: Line.Plain.
 	Shown func(*LogLine) string
