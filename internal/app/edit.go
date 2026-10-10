@@ -112,8 +112,9 @@ func (a *App) DeleteWorld(world string) error {
 	return config.DeleteWorld(a.d.ConfigDir, world)
 }
 
-// DeleteCharacter deletes world's character char from the config, closing
-// it first if it's open, then its saved password. Logs are never touched.
+// DeleteCharacter deletes world's character char from the config, then
+// closes it if it's open and deletes its saved password. Nothing closes
+// unless the config delete worked. Logs are never touched.
 // err is the config's; pwErr is a password that couldn't be deleted, for
 // the front end to say after it reloads.
 func (a *App) DeleteCharacter(world, char string) (pwErr, err error) {

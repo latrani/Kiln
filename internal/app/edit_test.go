@@ -2,6 +2,8 @@ package app
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -105,5 +107,17 @@ func TestForgetPassword(t *testing.T) {
 	a.d.DeletePassword = func(string, string, string) error { return nil }
 	if !a.CanForgetPasswords() || a.ForgetPassword("fm", "kit") != nil {
 		t.Error("ForgetPassword failed")
+	}
+}
+
+// A world whose settings can't be written is taken back, so a failed add
+// leaves no half-made world behind.
+func TestAddWorldTakesBackAHalfMadeWorld(t *testing.T) {
+	a, dir := reloadApp(t)
+	if err := a.AddWorld("zz", config.WorldSettings{Host: "zz.test", Port: 7777, TLS: true, TLSTrust: "bogus"}); err == nil {
+		t.Fatal("bad settings were written")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "worlds", "zz.toml")); !os.IsNotExist(err) {
+		t.Errorf("the half-made world is still there: %v", err)
 	}
 }
