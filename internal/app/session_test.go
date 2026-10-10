@@ -36,6 +36,12 @@ var now = time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local)
 // sessionApp is an App over fm and zz whose sessions dial lineConns.
 func sessionApp(t *testing.T, worlds map[string]string) *App {
 	t.Helper()
+	return sessionAppAt(t, worlds, func() time.Time { return now })
+}
+
+// sessionAppAt is sessionApp on the clock clock.
+func sessionAppAt(t *testing.T, worlds map[string]string, clock func() time.Time) *App {
+	t.Helper()
 	dir := configDir(t, worlds)
 	a := New(Deps{
 		LogRoot: filepath.Join(dir, "logs"),
@@ -44,7 +50,7 @@ func sessionApp(t *testing.T, worlds map[string]string) *App {
 		},
 		NewLog:   func(logstore.Layout) session.Appender { return nopLog{} },
 		Password: func(string, string, string) (string, error) { return "", errors.New("none") },
-		Now:      func() time.Time { return now },
+		Now:      clock,
 	})
 	a.ApplyConfig(load(t, dir))
 	return a

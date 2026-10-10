@@ -101,7 +101,7 @@ func TestCommandsInTheCore(t *testing.T) {
 	for _, c := range []struct {
 		text string
 		do   string // a Do the front end carries out; "" for none
-	}{{"/log", "/log"}, {"/edit world", "/edit"}, {"/notify all", "/notify"}, {"/away", "/away"}, {"/backup", "/backup"}, {"/frob", ""}} {
+	}{{"/log", "/log"}, {"/edit world", "/edit"}, {"/backup", "/backup"}, {"/frob", ""}} {
 		a.SetInput(c.text)
 		_, effs := a.Submit()
 		var got string

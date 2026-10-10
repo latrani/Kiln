@@ -71,22 +71,16 @@ type Model struct {
 		char string
 		at   time.Time
 	}
-	backingUp       bool                    // a Back up is running; another is ignored until it's done
-	focused         bool                    // the terminal has focus, as far as we know
-	focusSeen       bool                    // the terminal has sent a focus-in or focus-out, so it reports focus
-	lastHere        time.Time               // latest focus-in or input; see here
-	awayNow         bool                    // set by /away until the next input; see away
-	shownPresence   presenceState           // what the presence chip shows; see Update
-	themed          bool                    // a theme has been loaded; see loadTheme
-	standIn         bool                    // the theme is the built-in standing in for a broken one; see loadTheme
-	themeErr        error                   // why the theme didn't load, to report once the update is done
-	detected        theme.Appearance        // the terminal's last answer about its background; Dark until one comes
-	hereGen         int                     // bumped by each here; re-arms "first"
-	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
-	ovTop           int                     // first row of a world's overview shown; see overview
-	ovKeys          []string                // the character each overview row shows, from the last draw; "" for a rule
-	drafts          map[string]*editor      // editors hidden by Ctrl+T, unsaved, by target; see hideEditor
-	parked          map[string]*editor      // editors left open on a sidebar item while another is active, by m.a.Active(); see parkEditor
+	backingUp     bool               // a Back up is running; another is ignored until it's done
+	shownPresence app.Presence       // what the presence chip shows; see Update
+	themed        bool               // a theme has been loaded; see loadTheme
+	standIn       bool               // the theme is the built-in standing in for a broken one; see loadTheme
+	themeErr      error              // why the theme didn't load, to report once the update is done
+	detected      theme.Appearance   // the terminal's last answer about its background; Dark until one comes
+	ovTop         int                // first row of a world's overview shown; see overview
+	ovKeys        []string           // the character each overview row shows, from the last draw; "" for a rule
+	drafts        map[string]*editor // editors hidden by Ctrl+T, unsaved, by target; see hideEditor
+	parked        map[string]*editor // editors left open on a sidebar item while another is active, by m.a.Active(); see parkEditor
 }
 
 type charState struct {
@@ -99,8 +93,6 @@ type charState struct {
 	filter    scene.Filter    // log mode's filter; outlasts a log-mode session
 	collapsed map[string]bool // filter panel parents folded shut, by tag
 	foldSeen  map[string]bool // parents the panel has already met; a new one starts folded
-	sentGen   int             // hereGen when the last notification went out; -1: none yet
-	lastSent  time.Time       // when the last notification went out
 }
 
 // browses is log mode, showing or hidden by Ctrl+L, for what keeps
@@ -155,10 +147,8 @@ func New(d Deps, cfg *config.Config) *Model {
 		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
 	})
 	m.idle.hist = m.a.IdleHistory()
-	m.focused, m.lastHere = true, d.Now()
-	m.notifyOverrides = map[string]notify.Level{}
 	m.applyConfig(cfg)
-	m.shownPresence = m.presence()
+	m.shownPresence = m.a.Presence()
 	m.loadTheme() // at start a broken theme falls back to the built-in, and says so
 	if m.themeErr != nil {
 		m.setStatus(true, str.StatusThemeNotLoaded(m.themeErr))
@@ -400,6 +390,8 @@ func (m *Model) run(effs []app.Effect) tea.Cmd {
 			cmds = append(cmds, tea.Quit)
 		case app.Do:
 			cmds = append(cmds, m.do(e))
+		case app.Notify:
+			cmds = append(cmds, m.encode(notify.Message(e.Title, e.Body)))
 		}
 	}
 	return tea.Batch(cmds...)
@@ -449,7 +441,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Switching away leaves the chip be: nobody's looking, and in tmux
 		// redrawing it would flag the window as active every time you left.
 		// It catches up with whatever next changes.
-		m.shownPresence = m.presence()
+		m.shownPresence = m.a.Presence()
 	}
 	m.takeLogStatus()
 	if older := m.pageOlder(); older != nil {
@@ -512,8 +504,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case app.SessionMsg:
 		return m, m.handleEvent(msg)
 	case tea.FocusMsg:
-		m.focused, m.focusSeen = true, true
-		m.here()
+		m.a.Focus(true)
 		return m, m.askBackground() // the terminal may have gone light or dark meanwhile
 	case tea.BackgroundColorMsg:
 		ap := theme.Light
@@ -527,7 +518,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.BlurMsg:
-		m.focused, m.focusSeen = false, true
+		m.a.Focus(false)
 	case app.OlderMsg:
 		if lines, ok := m.a.HandleOlder(msg); ok {
 			cs := m.chars[msg.Key]
@@ -542,8 +533,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, msg.b.receive(msg)
 		}
 	case tea.PasteMsg:
-		m.focused = true // only a focused window gets input, even if its focus-in was lost
-		m.here()
+		m.a.Here() // only a focused window gets input, even if its focus-in was lost
 		if m.picker != nil && m.picker.edit != nil {
 			m.picker.edit.form.paste(msg.Content)
 		} else if m.picker != nil {
@@ -560,8 +550,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pushInput()
 		}
 	case tea.KeyPressMsg:
-		m.focused = true
-		m.here()
+		m.a.Here()
 		before, gen := m.input().Value(), m.a.Status().Gen
 		cmd := m.handleKey(msg)
 		m.pushInput()
@@ -570,14 +559,11 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	case tea.MouseWheelMsg:
-		if m.focused { // macOS scrolls windows in the background
-			m.here()
-		}
+		m.a.Scrolled()
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
-		was := m.shownPresence // as drawn, before here() clears an Away that a click on the chip toggles
-		m.focused = true
-		m.here()
+		was := m.shownPresence // as drawn, before Here clears an Away that a click on the chip toggles
+		m.a.Here()
 		return m, m.handleClick(msg, was)
 	case tea.MouseMotionMsg:
 		m.handleDrag(msg.Mouse())
@@ -654,9 +640,6 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		}
 		for _, b := range cs.browses() {
 			b.appendLive(ev.Ev.Entry)
-		}
-		if n := m.notifyCmd(cs, *ev.Line); n != nil {
-			return tea.Batch(n, next)
 		}
 	case session.EventPrompt:
 		cs.sb.SetPrompt(cs.Prompt)
@@ -959,17 +942,12 @@ func (m *Model) do(d app.Do) tea.Cmd {
 			return m.backupCmd()
 		}
 		return m.restoreCmd()
-	case "/away":
-		m.awayNow = true
-		m.setStatus(false, str.StatusAway())
 	case "/open":
 		m.openPicker() // says why not
 	case "/log":
 		m.openBrowse(cs)
 	case "/edit":
 		m.editCommand(cs, strings.Join(d.Args, " "))
-	case "/notify":
-		m.notifyCommand(cs, d.Args)
 	}
 	return nil
 }
@@ -1073,7 +1051,7 @@ func (m *Model) scrollLines() int {
 // doubleClick is the longest gap between the clicks of a double-click.
 const doubleClick = 400 * time.Millisecond
 
-func (m *Model) handleClick(msg tea.MouseClickMsg, was presenceState) tea.Cmd {
+func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	if msg.Button != tea.MouseLeft {
 		return nil
 	}

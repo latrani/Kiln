@@ -121,11 +121,11 @@ func TestAwayDoesNotChangePaging(t *testing.T) {
 	h := pagerHarness(t)
 	h.typeText("/away")
 	h.enter()
-	if !h.m.away() || !strings.Contains(h.screen(), str.StatusAway()) {
+	if !h.m.a.Away() || !strings.Contains(h.screen(), str.StatusAway()) {
 		t.Fatalf("/away didn't take:\n%s", h.screen())
 	}
 	h.typeText("x")
-	if h.m.away() {
+	if h.m.a.Away() {
 		t.Error("a key should end /away")
 	}
 }
@@ -134,7 +134,7 @@ func TestAwayWithNothingOpen(t *testing.T) {
 	h := newHarness(t, nil)
 	h.typeText("/away")
 	h.enter()
-	if !h.m.away() {
+	if !h.m.a.Away() {
 		t.Errorf("/away needs no character:\n%s", h.screen())
 	}
 }

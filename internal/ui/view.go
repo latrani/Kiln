@@ -9,6 +9,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
@@ -202,7 +203,7 @@ func (m *Model) topBar(w int) (line string, logChip, filterChip, presenceChip [2
 
 // topBarFor is topBar with the presence chip as it is for p, which
 // decides the chip's width; a click lands on the layout it was made on.
-func (m *Model) topBarFor(w int, p presenceState) (line string, logChip, filterChip, presenceChip [2]int) {
+func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterChip, presenceChip [2]int) {
 	cs := m.cur()
 	if cs == nil {
 		world, _ := m.a.ActiveWorld() // "" with nothing open
@@ -216,9 +217,9 @@ func (m *Model) topBarFor(w int, p presenceState) (line string, logChip, filterC
 	}
 	presLabel, presRole := str.ViewPresenceUnknown(), theme.StatusPresenceUnknown
 	switch p {
-	case presenceHere:
+	case app.PresenceHere:
 		presLabel, presRole = str.ViewPresenceHere(), theme.StatusPresenceHere
-	case presenceAway:
+	case app.PresenceAway:
 		presLabel, presRole = str.ViewPresenceAway(), theme.StatusPresenceAway
 	}
 	parts := []part{{chip(presRole, presLabel), &presenceChip}}
@@ -269,7 +270,7 @@ func (m *Model) topBarFor(w int, p presenceState) (line string, logChip, filterC
 // presence before the click counted as you being here: clicking the
 // presence chip sets Away unless you already were, and then it's the
 // click itself that ended it.
-func (m *Model) topClick(x int, was presenceState) {
+func (m *Model) topClick(x int, was app.Presence) {
 	cs := m.cur()
 	if cs == nil {
 		return
@@ -277,9 +278,8 @@ func (m *Model) topClick(x int, was presenceState) {
 	_, logc, filt, pres := m.topBarFor(m.layout().rw, was)
 	switch {
 	case x >= pres[0] && x < pres[1]:
-		if was != presenceAway {
-			m.awayNow = true
-			m.setStatus(false, str.StatusAway())
+		if was != app.PresenceAway {
+			m.a.SetAway()
 		}
 	case x >= logc[0] && x < logc[1]:
 		if cs.browse != nil {
