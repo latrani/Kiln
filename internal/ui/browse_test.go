@@ -866,7 +866,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.key("f")
 	h.key("down")
 	b := h.br()
-	cursor, sel := b.Cursor, b.panel.sel
+	cursor, sel := b.Cursor, b.Panel.Sel
 	h.key("ctrl+l")
 	if h.br() != nil {
 		t.Fatal("Ctrl+L should leave log mode")
@@ -876,7 +876,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread > 0 })
 	h.m.switchTo("fm/kit")
 	h.key("ctrl+l")
-	if h.br() != b || b.panel == nil || b.panel.sel != sel || b.Cursor != cursor || b.Start == nil {
+	if h.br() != b || b.Panel == nil || b.Panel.Sel != sel || b.Cursor != cursor || b.Start == nil {
 		t.Fatalf("log mode not as left:\n%s", h.screen())
 	}
 	if b.Last().Entry.Text != "Brand new line" {
@@ -885,7 +885,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.key("esc") // the panel
 	h.key("esc") // log mode
 	h.key("ctrl+l")
-	if h.br() == b || h.br().panel != nil || h.br().Start != nil {
+	if h.br() == b || h.br().Panel != nil || h.br().Start != nil {
 		t.Errorf("after Esc, log mode should start fresh:\n%s", h.screen())
 	}
 }
@@ -907,7 +907,7 @@ func TestLogModeKeptAcrossChipAndCommand(t *testing.T) {
 	}
 	h.typeText("/log")
 	h.enter()
-	if h.br() != b || b.panel == nil {
+	if h.br() != b || b.Panel == nil {
 		t.Errorf("/log should bring log mode back as the chip left it:\n%s", h.screen())
 	}
 }

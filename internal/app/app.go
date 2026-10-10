@@ -48,18 +48,20 @@ type Char struct {
 	Unread      int
 	Attention   bool
 	Pin         *conn.PinMismatchError
-	Orphan      bool         // removed from the config; closed when it disconnects
-	ConnectedAt time.Time    // when the current connection came up
-	Lines       []*Line      // the scrollback, oldest first; front ends may keep the pointers
-	Prompt      string       // an unterminated prompt from the server, sanitized; "" when there's none
-	More        bool         // older history exists that isn't in Lines yet; see RequestOlder
-	Loading     bool         // a page of older history is being read
-	History     History      // what's been sent from this character's input
-	Text        string       // the input's text, as the front end last said
-	NeedPW      bool         // the password prompt is up
-	Log         *Log         // log mode, while it's open (shown or hidden)
-	Filter      scene.Filter // log mode's filter; outlasts a log-mode session
-	pwDraft     string       // Text stashed while the password prompt is up
+	Orphan      bool            // removed from the config; closed when it disconnects
+	ConnectedAt time.Time       // when the current connection came up
+	Lines       []*Line         // the scrollback, oldest first; front ends may keep the pointers
+	Prompt      string          // an unterminated prompt from the server, sanitized; "" when there's none
+	More        bool            // older history exists that isn't in Lines yet; see RequestOlder
+	Loading     bool            // a page of older history is being read
+	History     History         // what's been sent from this character's input
+	Text        string          // the input's text, as the front end last said
+	NeedPW      bool            // the password prompt is up
+	Log         *Log            // log mode, while it's open (shown or hidden)
+	Filter      scene.Filter    // log mode's filter; outlasts a log-mode session
+	Collapsed   map[string]bool // filter panel parents folded shut, by tag
+	FoldSeen    map[string]bool // parents the panel has already met; a new one starts folded
+	pwDraft     string          // Text stashed while the password prompt is up
 	cancel      context.CancelFunc
 	hist        *history.Reader  // pages older log days in; only an in-flight RequestOlder read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day

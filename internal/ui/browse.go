@@ -10,7 +10,6 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
-	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -40,7 +39,7 @@ type browse struct {
 	painted   map[*app.LogLine]string // each line as painted, once it's been needed; see text
 	prompt    promptKind
 	pin       *Input
-	panel     *filterPanel // non-nil while the filter panel is open
+	pv        filterPanel // the filter panel's scroll, while it's open
 	format    string
 	run       func([]app.Effect) tea.Cmd // the model's run
 	cfg       func() *config.Config      // the config as it is now, for the export settings
@@ -91,7 +90,7 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	if b.prompt != promptNone {
 		return b.promptKey(k), false
 	}
-	if b.panel != nil {
+	if b.Panel != nil {
 		return b.panelKey(k), false
 	}
 	if s == openFilterKey {
@@ -203,9 +202,8 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptFilename:
 			return b.save(v)
 		case promptFilterText:
-			if b.cs.Filter.AddText(v, b.Items()) && b.panel != nil {
-				b.panel.sel = filterSel{item: scene.Item{Name: v, Text: true}}
-				b.panel.follow = true
+			if b.AddText(v) {
+				b.pv.follow = true
 			}
 			b.Refilter()
 		}
@@ -399,7 +397,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	default: // messages go to the bottom bar
 
 		hints := str.BrowseHints()
-		if b.panel != nil {
+		if b.Panel != nil {
 			hints = str.FilterHints()
 		}
 		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, hints), w))

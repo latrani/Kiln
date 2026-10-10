@@ -28,8 +28,8 @@ func panelSide(h *harness) []string {
 // unfold opens every parent the panel has met, for tests that aren't
 // about folding: parents start folded.
 func unfold(h *harness) {
-	h.br().entries()
-	clear(h.m.chars["fm/kit"].collapsed)
+	h.br().Entries()
+	clear(h.m.chars["fm/kit"].Collapsed)
 }
 
 func buttons() string { return str.FilterHide() + " " + str.FilterOnly() }
@@ -55,12 +55,12 @@ func TestPanelOpensAndCloses(t *testing.T) {
 		}
 	}
 	h.key("f")
-	if h.br().panel != nil || panelSide(h)[0] != "fm" {
+	if h.br().Panel != nil || panelSide(h)[0] != "fm" {
 		t.Errorf("f should close the panel:\n%s", h.screen())
 	}
 	h.key("f")
 	h.key("esc")
-	if h.br() == nil || h.br().panel != nil {
+	if h.br() == nil || h.br().Panel != nil {
 		t.Error("Esc should close the panel and stay in log mode")
 	}
 	// The chip toggles it too (TestTopBarChipsToggle).
@@ -89,8 +89,8 @@ func TestPanelKeys(t *testing.T) {
 	b, f := h.br(), h.kitFilter()
 	page, in, self := scene.Item{Name: "page"}, scene.Item{Name: "page/in"}, scene.Item{Name: "self"}
 	h.key("down") // past Untagged
-	if b.panel.sel.item != page {
-		t.Fatalf("starts on %v", b.panel.sel)
+	if b.Panel.Sel.Item != page {
+		t.Fatalf("starts on %v", b.Panel.Sel)
 	}
 	h.key("h")
 	if !f.Hidden(page) || !f.Hidden(in) || strings.Contains(h.screen(), "Mira pages") {
@@ -110,11 +110,11 @@ func TestPanelKeys(t *testing.T) {
 	}
 	h.keys("up", "up") // back to page
 	h.key("left")      // collapse
-	if !h.m.chars["fm/kit"].collapsed["page"] || slices.Contains(panelSide(h), "in") {
+	if !h.m.chars["fm/kit"].Collapsed["page"] || slices.Contains(panelSide(h), "in") {
 		t.Errorf("← should collapse page:\n%s", h.screen())
 	}
 	h.key("right")
-	if h.m.chars["fm/kit"].collapsed["page"] {
+	if h.m.chars["fm/kit"].Collapsed["page"] {
 		t.Error("→ should expand page")
 	}
 }
@@ -152,12 +152,12 @@ func TestPanelClicks(t *testing.T) {
 		t.Error("clicking page's Only")
 	}
 	click(1, 3) // the ▼
-	if !h.m.chars["fm/kit"].collapsed["page"] {
+	if !h.m.chars["fm/kit"].Collapsed["page"] {
 		t.Error("clicking ▼ should collapse page")
 	}
 	click(4, 8-2) // rows moved up two: self's name is now row 6
-	if h.br().panel.sel.item != (scene.Item{Name: "self"}) {
-		t.Errorf("clicking a name selects it: %v", h.br().panel.sel)
+	if h.br().Panel.Sel.Item != (scene.Item{Name: "self"}) {
+		t.Errorf("clicking a name selects it: %v", h.br().Panel.Sel)
 	}
 }
 
@@ -194,16 +194,16 @@ func TestPanelScrolls(t *testing.T) {
 	for range 40 {
 		h.key("down")
 	}
-	if !h.br().panel.sel.add {
-		t.Fatalf("down should reach + Text: %v", h.br().panel.sel)
+	if !h.br().Panel.Sel.Add {
+		t.Fatalf("down should reach + Text: %v", h.br().Panel.Sel)
 	}
 	if !slices.Contains(panelSide(h), str.FilterAddText()) {
 		t.Errorf("+ Text not scrolled into view:\n%s", h.screen())
 	}
-	before := h.br().panel.top
+	before := h.br().pv.top
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
-	if h.br().panel.top >= before {
-		t.Errorf("wheel up: top %d, was %d", h.br().panel.top, before)
+	if h.br().pv.top >= before {
+		t.Errorf("wheel up: top %d, was %d", h.br().pv.top, before)
 	}
 }
 
@@ -278,18 +278,18 @@ func TestPanelWheelScrollsAndStays(t *testing.T) {
 		h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 		h.screen() // a redraw must not pull the view back to the selection
 	}
-	if top := h.br().panel.top; top != 9 {
+	if top := h.br().pv.top; top != 9 {
 		t.Errorf("three wheel-downs of 3: top = %d, want 9", top)
 	}
 }
 
 func TestPanelClickOnBottomHintScrolls(t *testing.T) {
 	h := manyTagsHarness(t)
-	sel := h.br().panel.sel
+	sel := h.br().Panel.Sel
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: h.m.height - 1, Button: tea.MouseLeft})
 	h.screen()
-	if h.br().panel.top == 0 || h.br().panel.sel != sel || h.kitFilter().Active() {
-		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().panel.top, h.br().panel.sel, h.kitFilter().Active())
+	if h.br().pv.top == 0 || h.br().Panel.Sel != sel || h.kitFilter().Active() {
+		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().pv.top, h.br().Panel.Sel, h.kitFilter().Active())
 	}
 }
 
@@ -320,7 +320,7 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	b.Cursor = b.Lines[len(b.Lines)-1]
 	h.key("f")
 	for i := range 5 {
-		h.br().setCollapsed(filterSel{item: scene.Item{Name: fmt.Sprintf("p%d", i)}}, true)
+		h.br().SetCollapsed(app.FilterSel{Item: scene.Item{Name: fmt.Sprintf("p%d", i)}}, true)
 	}
 	for range 60 {
 		h.key("down") // to + Text
@@ -342,15 +342,15 @@ func TestPanelLogModeKeys(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	h.keys("down", "j") // past Untagged, then j
-	if h.br().panel.sel.item != (scene.Item{Name: "page/in"}) {
-		t.Errorf("j should move down: %v", h.br().panel.sel)
+	if h.br().Panel.Sel.Item != (scene.Item{Name: "page/in"}) {
+		t.Errorf("j should move down: %v", h.br().Panel.Sel)
 	}
 	h.key("k")
-	if h.br().panel.sel.item != (scene.Item{Name: "page"}) {
-		t.Errorf("k should move up: %v", h.br().panel.sel)
+	if h.br().Panel.Sel.Item != (scene.Item{Name: "page"}) {
+		t.Errorf("k should move up: %v", h.br().Panel.Sel)
 	}
 	h.key("ctrl+c")
-	if h.br() == nil || h.br().panel != nil {
+	if h.br() == nil || h.br().Panel != nil {
 		t.Error("Ctrl+C should close the panel and stay in log mode")
 	}
 }
@@ -363,7 +363,7 @@ func TestLeftOnLeafDoesNotFold(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	h.keys("down", "down", "left") // self
-	if h.m.chars["fm/kit"].collapsed["self"] {
+	if h.m.chars["fm/kit"].Collapsed["self"] {
 		t.Error("← on self (no children) recorded a fold")
 	}
 }
@@ -377,8 +377,8 @@ func TestPanelUntaggedRow(t *testing.T) {
 	if side := panelSide(h); side[0] != str.FilterUntagged() || side[1] != buttons() {
 		t.Fatalf("first rows = %q, %q:\n%s", side[0], side[1], h.screen())
 	}
-	if h.br().panel.sel.item != (scene.Item{Untagged: true}) {
-		t.Errorf("the panel should open on Untagged: %v", h.br().panel.sel)
+	if h.br().Panel.Sel.Item != (scene.Item{Untagged: true}) {
+		t.Errorf("the panel should open on Untagged: %v", h.br().Panel.Sel)
 	}
 	h.key("o")
 	s := h.screen()
@@ -420,7 +420,7 @@ func TestPanelTextRowRemovesWithClickOnX(t *testing.T) {
 	}
 	rowOf := func() int {
 		for i, r := range b.panelRows(0) {
-			if r.kind == prName && r.sel.item.Text {
+			if r.kind == prName && r.sel.Item.Text {
 				return i
 			}
 		}
@@ -445,22 +445,22 @@ func TestNestedParentsStartFolded(t *testing.T) {
 	h.key("ctrl+l")
 	b, cs := h.br(), h.m.chars["fm/kit"]
 	items := []scene.Item{{Name: "a"}, {Name: "a/b"}, {Name: "a/b/c"}, {Name: "z"}}
-	b.entriesOf(items)
-	if !cs.collapsed["a"] || !cs.collapsed["a/b"] || cs.collapsed["a/b/c"] || cs.collapsed["z"] {
-		t.Errorf("collapsed = %v, want a and a/b only", cs.collapsed)
+	b.EntriesOf(items)
+	if !cs.Collapsed["a"] || !cs.Collapsed["a/b"] || cs.Collapsed["a/b/c"] || cs.Collapsed["z"] {
+		t.Errorf("collapsed = %v, want a and a/b only", cs.Collapsed)
 	}
 	var names []string
-	for _, e := range b.entriesOf(items) {
-		if !e.add {
-			names = append(names, e.item.Name)
+	for _, e := range b.EntriesOf(items) {
+		if !e.Add {
+			names = append(names, e.Item.Name)
 		}
 	}
 	if strings.Join(names, " ") != "a z" {
 		t.Errorf("listed %v, want just a and z", names)
 	}
-	delete(cs.collapsed, "a") // the reader opens a
-	b.entriesOf(items)
-	if cs.collapsed["a"] || !cs.collapsed["a/b"] {
-		t.Errorf("after opening a: %v, a should stay open", cs.collapsed)
+	delete(cs.Collapsed, "a") // the reader opens a
+	b.EntriesOf(items)
+	if cs.Collapsed["a"] || !cs.Collapsed["a/b"] {
+		t.Errorf("after opening a: %v, a should stay open", cs.Collapsed)
 	}
 }
