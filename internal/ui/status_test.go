@@ -148,7 +148,7 @@ func TestLogMessagesExpireAndClear(t *testing.T) {
 	l := h.m.layout()
 	rowOf := func(i int) int {
 		for row, bl := range b.rowLines {
-			if bl == b.lines[i] {
+			if bl == b.Lines[i] {
 				return l.top + row
 			}
 		}
@@ -163,15 +163,15 @@ func TestLogMessagesExpireAndClear(t *testing.T) {
 		t.Fatalf("bar = %q", got)
 	}
 	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(2), Button: tea.MouseLeft, Mod: tea.ModShift}) // leave line 2 out
-	if got, want := bar(), str.ViewSelected(len(b.selection())); got != want {
+	if got, want := bar(), str.ViewSelected(len(b.Selection())); got != want {
 		t.Errorf("after excluding a line the bar = %q, want %q", got, want)
 	}
 	h.key("c") // "copied N lines"
-	if bar() == str.ViewSelected(len(b.selection())) {
+	if bar() == str.ViewSelected(len(b.Selection())) {
 		t.Fatal("copy set no message")
 	}
 	h.m.Update(statusExpiredMsg(h.m.a.Status().Gen))
-	if got, want := bar(), str.ViewSelected(len(b.selection())); got != want {
+	if got, want := bar(), str.ViewSelected(len(b.Selection())); got != want {
 		t.Errorf("after the message timed out the bar = %q, want %q", got, want)
 	}
 }

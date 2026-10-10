@@ -190,7 +190,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 			t.Errorf("log mode doesn't draw %s", role)
 		}
 	}
-	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items())
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().Items())
 	h.key("/")
 	h.typeText("Mira") // only pages show
 	h.key("enter")
@@ -682,8 +682,8 @@ func TestBrowseOlderDayAfterThemeChange(t *testing.T) {
 	h.m.Update(reloadMsg{}) // ...the theme changes...
 	h.m.Update(msg)         // ...then the day arrives
 	cs := h.m.chars["fm/kit"]
-	for _, l := range b.lines {
-		if want, _ := cs.render(l.Entry); l.text != want {
+	for _, l := range b.Lines {
+		if want, _ := cs.render(l.Entry); b.text(l) != want {
 			t.Fatalf("%q kept its old style", l.Entry.Text)
 		}
 	}
@@ -840,9 +840,9 @@ func TestBrowseOlderDayAfterRulesAndThemeChange(t *testing.T) {
 	h.m.Update(reloadMsg{}) // ...both change...
 	h.m.Update(msg)         // ...then the day arrives
 	cs := h.m.chars["fm/kit"]
-	for _, l := range b.lines[:150] { // the day that arrived
-		if want, _ := cs.render(l.Entry); l.text != want || !slices.Contains(l.tags, "wiki") {
-			t.Fatalf("%q kept the old rules (tags %v)", l.Entry.Text, l.tags)
+	for _, l := range b.Lines[:150] { // the day that arrived
+		if want, _ := cs.render(l.Entry); b.text(l) != want || !slices.Contains(l.Tags, "wiki") {
+			t.Fatalf("%q kept the old rules (tags %v)", l.Entry.Text, l.Tags)
 		}
 	}
 }

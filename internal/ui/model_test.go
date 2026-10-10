@@ -1166,7 +1166,7 @@ func TestCoreStatusOutlastsLogModeKeys(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	cs := h.m.chars["fm/kit"]
 	h.m.openBrowse(cs)
-	cs.browse.setStatus(false, str.StatusCopied())
+	cs.browse.SetStatus(false, str.StatusCopied())
 	h.m.Update(tea.FocusMsg{}) // log mode's status moves to the bar
 	err := errors.New("disk full")
 	h.m.Update(app.SessionMsg{Key: "fm/kit", Sess: cs.Sess, Ev: session.Event{Kind: session.EventLogError, Err: err}, OK: true})

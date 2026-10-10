@@ -92,6 +92,9 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 			c.Unread++
 			c.Attention = c.Attention || ev.Line.Attention
 		}
+		if c.Log != nil {
+			c.Log.appendLive(msg.Ev.Entry)
+		}
 		note = a.notifyFor(c, *ev.Line)
 	case session.EventState:
 		c.State = msg.Ev.State

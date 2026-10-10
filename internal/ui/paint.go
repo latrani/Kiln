@@ -19,10 +19,22 @@ func paint(hl *rules.Highlighter, l app.Line) string {
 	case app.Sys:
 		return theme.Paint(theme.ScrollbackSys, "* "+l.Text())
 	case app.Day:
-		return theme.Paint(theme.ScrollbackDay, "── "+dayLabel(l.Day)+" ──")
+		return theme.Paint(theme.ScrollbackDay, "── "+app.DayLabel(l.Day)+" ──")
 	case app.HistoryEnd:
 		return theme.Paint(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(l.Entry.Time.Format(str.DateDayTime())))
 	}
 	text := l.Text()
 	return style.Highlight(text, hl.Runs(ansi.Strip(text), l.Tags))
+}
+
+// plainShown is l as paint draws it, without the styling: what find
+// matches in log mode.
+func plainShown(l app.Line) string {
+	switch l.Kind {
+	case app.Echo:
+		return gutterMark + l.Plain()
+	case app.Sys:
+		return "* " + l.Plain()
+	}
+	return l.Plain()
 }

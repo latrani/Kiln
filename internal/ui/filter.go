@@ -64,7 +64,7 @@ func (b *browse) togglePanel() {
 
 // entries is what the panel lists: tags (children of a collapsed parent
 // left out), text rows, then + Text.
-func (b *browse) entries() []panelEntry { return b.entriesOf(b.items()) }
+func (b *browse) entries() []panelEntry { return b.entriesOf(b.Items()) }
 
 // entriesOf is entries for items already in hand.
 func (b *browse) entriesOf(items []scene.Item) []panelEntry {
@@ -109,7 +109,7 @@ func nilToEmpty(m map[string]bool) map[string]bool {
 
 // hasChildren reports whether any loaded tag sits under tag.
 func (b *browse) hasChildren(tag string) bool {
-	for _, it := range b.items() {
+	for _, it := range b.Items() {
 		if !it.Text && strings.HasPrefix(it.Name, tag+"/") {
 			return true
 		}
@@ -129,7 +129,7 @@ func (b *browse) foldedAway(tag string) bool {
 
 // filteredUnder reports whether any tag under parent is hidden or has Only.
 func (b *browse) filteredUnder(parent string, items []scene.Item) bool {
-	f := &b.cs.filter
+	f := &b.cs.Filter
 	only, hasOnly := f.Only()
 	for _, it := range items {
 		if !it.Text && strings.HasPrefix(it.Name, parent+"/") && (f.Hidden(it) || hasOnly && only == it) {
@@ -144,9 +144,9 @@ func (b *browse) filteredUnder(parent string, items []scene.Item) bool {
 // and its children, or a text row); + Text last.
 func (b *browse) panelRows(w int) []panelRow {
 	var rows []panelRow
-	f := &b.cs.filter
+	f := &b.cs.Filter
 	only, hasOnly := f.Only()
-	items := b.items()
+	items := b.Items()
 	es := b.entriesOf(items)
 	for i, e := range es {
 		if e.add {
@@ -262,7 +262,7 @@ func (b *browse) panelWindow(total, h, sel int) (top int, above, below bool, ava
 
 // panelKey handles a key while the filter panel is open.
 func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
-	f := &b.cs.filter
+	f := &b.cs.Filter
 	sel := b.panel.sel
 	switch k.String() {
 	case "esc", "ctrl+c", openFilterKey: // as they back out of log mode
@@ -274,11 +274,11 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 		b.movePanel(1)
 	case "h":
 		if !sel.add {
-			f.ToggleHide(sel.item, b.items())
+			f.ToggleHide(sel.item, b.Items())
 		}
 	case "o":
 		if !sel.add {
-			f.PressOnly(sel.item, b.items())
+			f.PressOnly(sel.item, b.Items())
 		}
 	case "left":
 		b.setCollapsed(sel, true)
@@ -292,7 +292,7 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 	case "x", "delete":
 		b.removeText(sel)
 	}
-	b.refilter()
+	b.Refilter()
 	return nil
 }
 
@@ -302,7 +302,7 @@ func (b *browse) removeText(sel filterSel) {
 		return
 	}
 	b.movePanel(1) // keep a highlight when the row goes
-	b.cs.filter.RemoveText(sel.item.Name)
+	b.cs.Filter.RemoveText(sel.item.Name)
 }
 
 // movePanel moves the highlight by delta entries, stopping at the ends.
@@ -359,7 +359,7 @@ func (b *browse) panelClick(x, y, h int) {
 	}
 	es := b.entries()
 	e := es[rows[i].entry]
-	f := &b.cs.filter
+	f := &b.cs.Filter
 	indent := 1 + 2*e.depth
 	switch rows[i].kind {
 	case prAdd:
@@ -372,7 +372,7 @@ func (b *browse) panelClick(x, y, h int) {
 		case e.item.Text && onGlyph:
 			b.panel.sel = e.sel()
 			b.removeText(e.sel())
-			b.refilter()
+			b.Refilter()
 			return
 		case e.parent && onGlyph:
 			b.setCollapsed(e.sel(), !b.cs.collapsed[e.item.Name])
@@ -383,13 +383,13 @@ func (b *browse) panelClick(x, y, h int) {
 		ox := hx + xansi.StringWidth(str.FilterHide()) + 1
 		switch {
 		case x >= hx && x < ox-1:
-			f.ToggleHide(e.item, b.items())
+			f.ToggleHide(e.item, b.Items())
 		case x >= ox && x < ox+xansi.StringWidth(str.FilterOnly()):
-			f.PressOnly(e.item, b.items())
+			f.PressOnly(e.item, b.Items())
 		}
 		b.panel.sel = e.sel()
 	}
-	b.refilter()
+	b.Refilter()
 }
 
 // panelScroll moves the panel's view by delta rows.

@@ -72,7 +72,7 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	unfold(h)
-	h.kitFilter().PressOnly(scene.Item{Name: "self"}, h.br().items())
+	h.kitFilter().PressOnly(scene.Item{Name: "self"}, h.br().Items())
 	s := h.drawn()
 	on := func(label string) string { return theme.Paint(theme.FilterButtonOn, label) }
 	if strings.Count(s, on(str.FilterHide())) != 3 || strings.Count(s, on(str.FilterOnly())) != 1 {
@@ -315,9 +315,9 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	b := h.br()
 	for i := range 50000 {
 		tag := fmt.Sprintf("p%d/c%d", i%10, i%4)
-		b.lines = append(b.lines, &bline{Line: app.Line{Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, tags: []string{tag}, text: "x", lower: "x"})
+		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, Tags: []string{tag}, Lower: "x"})
 	}
-	b.cursor = b.lines[len(b.lines)-1]
+	b.Cursor = b.Lines[len(b.Lines)-1]
 	h.key("f")
 	for i := range 5 {
 		h.br().setCollapsed(filterSel{item: scene.Item{Name: fmt.Sprintf("p%d", i)}}, true)
@@ -393,7 +393,7 @@ func TestPanelListsFilteredTagsNotLoaded(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.kitFilter().PressOnly(scene.Item{Name: "whisper/in"}, h.br().items())
+	h.kitFilter().PressOnly(scene.Item{Name: "whisper/in"}, h.br().Items())
 	h.key("f")
 	unfold(h)
 	side := panelSide(h)

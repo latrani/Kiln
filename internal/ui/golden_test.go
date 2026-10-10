@@ -241,7 +241,7 @@ func TestGoldenLog(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.keys("m", "up", "m")                                            // a range
-	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items()) // the Filter chip on
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().Items()) // the Filter chip on
 	h.key("/")
 	h.typeText("Mira") // the page the chip shows
 	h.key("enter")     // find
