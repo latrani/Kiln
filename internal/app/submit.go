@@ -222,8 +222,11 @@ func (a *App) command(c *Char, text string) []Effect {
 	}
 	do := func() []Effect { return []Effect{Do{Cmd: args[0], Args: args[1:], Key: key}} }
 	switch args[0] {
-	case "/backup", "/restore", "/away": // need no character; the front end knows whether it has them
+	case "/backup", "/restore": // need no character; the front end knows whether it has them
 		return do()
+	case "/away":
+		a.SetAway()
+		return nil
 	}
 	if c == nil && args[0] != "/quit" && args[0] != "/open" {
 		a.SetStatus(true, str.StatusNeedsCharacter(args[0]))
@@ -258,8 +261,10 @@ func (a *App) command(c *Char, text string) []Effect {
 		a.Close(c.Key)
 	case "/quit":
 		return a.Quit()
-	case "/open", "/log", "/edit", "/notify":
+	case "/open", "/log", "/edit":
 		return do()
+	case "/notify":
+		a.notifyCommand(c, args[1:])
 	case "/highlight":
 		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), args[0]))
 		if err := config.AppendHighlight(a.d.ConfigDir, c.Ch.World, text); err != nil {

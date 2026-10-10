@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -188,24 +189,24 @@ func TestPresenceChipClickTogglesAway(t *testing.T) {
 		_, _, _, pres := h.m.topBar(l.rw)
 		h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + pres[0] + 1, Y: 0, Button: tea.MouseLeft})
 	}
-	if h.m.presence() != presenceUnknown {
-		t.Fatalf("starts as %v", h.m.presence())
+	if h.m.a.Presence() != app.PresenceUnknown {
+		t.Fatalf("starts as %v", h.m.a.Presence())
 	}
 	click()
-	if h.m.presence() != presenceAway || !strings.Contains(h.screen(), str.StatusAway()) {
+	if h.m.a.Presence() != app.PresenceAway || !strings.Contains(h.screen(), str.StatusAway()) {
 		t.Errorf("clicking in can't-tell should set Away:\n%s", h.screen())
 	}
 	click()
-	if h.m.presence() == presenceAway {
+	if h.m.a.Presence() == app.PresenceAway {
 		t.Error("clicking while away should end it")
 	}
 	h.m.Update(tea.FocusMsg{})
 	click()
-	if h.m.presence() != presenceAway {
+	if h.m.a.Presence() != app.PresenceAway {
 		t.Error("clicking while here should set Away")
 	}
 	click()
-	if h.m.presence() != presenceHere {
-		t.Errorf("after ending it: %v", h.m.presence())
+	if h.m.a.Presence() != app.PresenceHere {
+		t.Errorf("after ending it: %v", h.m.a.Presence())
 	}
 }

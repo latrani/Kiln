@@ -145,3 +145,32 @@ func TestNotifyTitleNamesTheWorldWhenAmbiguous(t *testing.T) {
 		t.Errorf("got %v, want title Kit@fm", got)
 	}
 }
+
+func TestAwayAndNotifyCommands(t *testing.T) {
+	a, _ := clockApp(t, map[string]string{"fm": fmWorld})
+	a.SetInput("/away") // with nothing open
+	if _, effs := a.Submit(); effs != nil || !a.Away() || a.Status().Text != str.StatusAway() {
+		t.Errorf("/away with nothing open: effects %v, away %v, status %q", effs, a.Away(), a.Status().Text)
+	}
+	openAll(t, a, "fm/kit")
+	a.SetInput("/notify none")
+	if _, effs := a.Submit(); effs != nil || a.NotifyLevel("fm/kit") != "none" {
+		t.Errorf("/notify none: effects %v, level %q", effs, a.NotifyLevel("fm/kit"))
+	}
+	a.SetInput("/notify bogus")
+	if a.Submit(); !a.Status().Err {
+		t.Error("/notify bogus wasn't an error")
+	}
+}
+
+func TestNotifyOverrideOutlivesClose(t *testing.T) {
+	a, _ := clockApp(t, map[string]string{"fm": fmWorld})
+	openAll(t, a, "fm/kit")
+	a.SetInput("/notify all")
+	a.Submit()
+	a.Close("fm/kit")
+	openAll(t, a, "fm/kit")
+	if l := a.NotifyLevel("fm/kit"); l != "all" {
+		t.Errorf("after reopening: %q, want the override", l)
+	}
+}

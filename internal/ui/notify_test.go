@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -24,7 +25,7 @@ func notifyHarness(t *testing.T, level string, extra map[string]string) *harness
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.notified()
-	h.advance(connectGrace) // past the login banner
+	h.advance(app.ConnectGrace) // past the login banner
 	return h
 }
 
@@ -212,7 +213,7 @@ func TestNotifyCommand(t *testing.T) {
 	}
 	h.typeText("/notify none")
 	h.enter()
-	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "none" {
+	if lvl := h.m.a.NotifyLevel("fm/kit"); lvl != "none" {
 		t.Errorf("level = %q", lvl)
 	}
 	h.typeText("/notify")
@@ -228,7 +229,7 @@ func TestNotifyCommand(t *testing.T) {
 	h.m.Update(tea.FocusMsg{})
 	h.typeText("/notify default")
 	h.enter()
-	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "first" {
+	if lvl := h.m.a.NotifyLevel("fm/kit"); lvl != "first" {
 		t.Errorf("after default, level = %q", lvl)
 	}
 	h.typeText("/notify loud")
@@ -245,7 +246,7 @@ func TestNotifyOverrideSurvivesReload(t *testing.T) {
 	if !h.m.reloadNow() {
 		t.Fatal("reload failed")
 	}
-	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "all" {
+	if lvl := h.m.a.NotifyLevel("fm/kit"); lvl != "all" {
 		t.Errorf("after reload, level = %q", lvl)
 	}
 }
@@ -268,7 +269,7 @@ func TestNotifyOverrideSurvivesClose(t *testing.T) {
 	h.typeText("/close")
 	h.enter()
 	h.open("fm/kit")
-	if lvl := h.m.notifyLevel(h.m.chars["fm/kit"]); lvl != "none" {
+	if lvl := h.m.a.NotifyLevel("fm/kit"); lvl != "none" {
 		t.Errorf("after close and reopen, level = %q", lvl)
 	}
 }
@@ -291,7 +292,7 @@ func TestComingBackRearmsAtTheSameInstant(t *testing.T) {
 	h.line("Rook says, \"one\"")
 	h.m.Update(tea.FocusMsg{}) // same clock reading as the notification
 	h.m.Update(tea.BlurMsg{})
-	h.advance(burstGap) // so the next line isn't part of a burst
+	h.advance(app.BurstGap) // so the next line isn't part of a burst
 	h.line("Rook says, \"two\"")
 	if got := h.notified(); len(got) != 2 {
 		t.Errorf("got %q, want two notifications", got)
@@ -306,7 +307,7 @@ func TestLoginBannerDoesntNotify(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.line("Welcome to FurryMUCK!")
 	h.line("Mira pages: welcome back")
-	h.advance(connectGrace)
+	h.advance(app.ConnectGrace)
 	h.line("Rook says, \"hi\"")
 	want := []string{osc("Kit: Mira pages: welcome back"), osc("Kit: Rook says, \"hi\"")}
 	if got := h.notified(); !slices.Equal(got, want) {
@@ -321,7 +322,7 @@ func TestBurstNotifiesOnce(t *testing.T) {
 	h.advance(10 * time.Millisecond)
 	h.line("A cozy room full of cushions.")
 	h.line("Mira pages: nice den") // attention gets through a burst
-	h.advance(burstGap)
+	h.advance(app.BurstGap)
 	h.line("Rook says, \"hi\"")
 	want := []string{osc("Kit: Rook's Den"), osc("Kit: Mira pages: nice den"), osc("Kit: Rook says, \"hi\"")}
 	if got := h.notified(); !slices.Equal(got, want) {
@@ -363,26 +364,26 @@ func TestIdleNotifiesOnlyWhatArrivesAfterIt(t *testing.T) {
 func TestPresenceStates(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
 	m := h.m
-	if m.presence() != presenceUnknown {
-		t.Errorf("before any focus event: %v, want can't tell", m.presence())
+	if m.a.Presence() != app.PresenceUnknown {
+		t.Errorf("before any focus event: %v, want can't tell", m.a.Presence())
 	}
 	m.Update(tea.FocusMsg{})
-	if m.presence() != presenceHere {
-		t.Errorf("after focus-in: %v", m.presence())
+	if m.a.Presence() != app.PresenceHere {
+		t.Errorf("after focus-in: %v", m.a.Presence())
 	}
 	m.Update(tea.BlurMsg{})
-	if m.presence() != presenceAway {
-		t.Errorf("after blur: %v", m.presence())
+	if m.a.Presence() != app.PresenceAway {
+		t.Errorf("after blur: %v", m.a.Presence())
 	}
 	h.typeText("x") // input implies focus, and events have been seen
-	if m.presence() != presenceHere {
-		t.Errorf("typing after a blur: %v", m.presence())
+	if m.a.Presence() != app.PresenceHere {
+		t.Errorf("typing after a blur: %v", m.a.Presence())
 	}
 	h.key("backspace")
 	h.typeText("/away")
 	h.enter()
-	if m.presence() != presenceAway {
-		t.Errorf("/away: %v", m.presence())
+	if m.a.Presence() != app.PresenceAway {
+		t.Errorf("/away: %v", m.a.Presence())
 	}
 }
 
@@ -407,7 +408,7 @@ func TestBlurRepaintsNothing(t *testing.T) {
 func TestPresenceIdleWithoutFocusEvents(t *testing.T) {
 	h := notifyHarness(t, "all", nil)
 	h.advance(6 * time.Minute)
-	if h.m.presence() != presenceAway {
-		t.Errorf("idle past notify_idle: %v", h.m.presence())
+	if h.m.a.Presence() != app.PresenceAway {
+		t.Errorf("idle past notify_idle: %v", h.m.a.Presence())
 	}
 }
