@@ -143,11 +143,11 @@ func New(d Deps, cfg *config.Config) *Model {
 	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
 	m.a = app.New(app.Deps{
 		ConfigDir: d.ConfigDir, KnownHosts: d.KnownHosts, SavePassword: d.SavePassword,
-		LogRoot: d.LogRoot, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
+		LogRoot: d.LogRoot, Load: d.Load, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
 		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
 	})
 	m.idle.hist = m.a.IdleHistory()
-	m.applyConfig(cfg)
+	m.applyWith(func() (app.ConfigResult, bool) { return m.a.ApplyConfig(cfg), true })
 	m.shownPresence = m.a.Presence()
 	m.loadTheme() // at start a broken theme falls back to the built-in, and says so
 	if m.themeErr != nil {
@@ -209,12 +209,9 @@ func (m *Model) watch() tea.Cmd {
 // reloadNow loads the config and theme and applies them, reporting whether
 // the config could be.
 func (m *Model) reloadNow() bool {
-	cfg, err := m.d.Load(m.d.ConfigDir)
-	if err != nil {
-		m.setStatus(true, str.StatusConfigNotReloaded(err))
-		return false
+	if !m.applyWith(m.a.Reload) {
+		return false // Reload said why
 	}
-	m.applyConfig(cfg)
 	m.loadTheme() // a broken theme doesn't stop the config; see themeErr
 	return true
 }
@@ -268,16 +265,20 @@ func (m *Model) loadTheme() {
 	}
 }
 
-// applyConfig hands cfg to the core, then updates the open characters'
-// views: export settings, looks, and lines when what styles them changed.
-func (m *Model) applyConfig(cfg *config.Config) {
+// applyWith hands a config to the core through apply, then updates the
+// open characters' views: export settings, looks, and lines when what
+// styles them changed. It reports false if apply changed nothing.
+func (m *Model) applyWith(apply func() (app.ConfigResult, bool)) bool {
 	keys := slices.Clone(m.a.Order())
 	before := map[string]config.Character{}
 	for _, k := range keys {
 		before[k] = m.chars[k].Ch
 	}
 	prev := m.a.Active()
-	res := m.a.ApplyConfig(cfg)
+	res, ok := apply()
+	if !ok {
+		return false
+	}
 	for _, k := range res.Closed {
 		m.closed(k, prev)
 	}
@@ -288,7 +289,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 			continue
 		}
 		for _, b := range cs.browses() {
-			b.setExport(cfg)
+			b.setExport(m.a.Config())
 		}
 		if cs.Orphan {
 			continue
@@ -307,6 +308,7 @@ func (m *Model) applyConfig(cfg *config.Config) {
 	if m.picker != nil {
 		m.fixPick()
 	}
+	return true
 }
 
 // styleInputs is what a character's scrollback styling depends on: the

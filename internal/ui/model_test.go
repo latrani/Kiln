@@ -1012,11 +1012,9 @@ func TestSavePasswordPromptDefaultsToYes(t *testing.T) {
 func TestPasswordStoreNoneNeverOffers(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("password_store = \"none\"\n"), 0o600)
-	cfg, err := config.Load(h.dir)
-	if err != nil {
-		t.Fatal(err)
+	if !h.m.reloadNow() {
+		t.Fatal(h.m.a.Status().Text)
 	}
-	h.m.applyConfig(cfg)
 	delete(h.pw, "fm/kit")
 	h.init()
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
