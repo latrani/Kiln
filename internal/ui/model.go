@@ -4,6 +4,9 @@ package ui
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -286,9 +289,6 @@ func (m *Model) applyWith(apply func() (app.ConfigResult, bool)) bool {
 		if cs == nil {
 			continue
 		}
-		for _, b := range cs.browses() {
-			b.setExport(m.a.Config())
-		}
 		if cs.Orphan {
 			continue
 		}
@@ -384,6 +384,10 @@ func (m *Model) run(effs []app.Effect) tea.Cmd {
 			cmds = append(cmds, tea.Quit)
 		case app.Do:
 			cmds = append(cmds, m.do(e))
+		case app.Copy:
+			cmds = append(cmds, m.copyCmd(e.Text))
+		case app.SaveFile:
+			m.saveFile(e)
 		case app.Notify:
 			cmds = append(cmds, m.encode(notify.Message(e.Title, e.Body)))
 		}
@@ -970,10 +974,64 @@ func (m *Model) openBrowse(cs *charState) {
 	g := m.a.OpenLog(cs.Key)
 	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
-	cs.browse.copy = m.copyCmd
-	cs.browse.saveFile = m.d.SaveFile
-	cs.browse.setExport(m.a.Config())
+	cs.browse.cfg, cs.browse.downloads = m.a.Config, m.d.SaveFile != nil
 	m.a.ClearStatus()
+}
+
+// saveFile offers a file: through Deps.SaveFile (the web build) a
+// download named after the name's last element, else a file at the
+// name, "~/" expanded and a relative one placed in export_dir, never
+// overwriting. How it went goes on the asking log's status.
+func (m *Model) saveFile(e app.SaveFile) {
+	say := m.setStatus
+	if c := m.a.Char(e.Key); c != nil && c.Log != nil {
+		say = c.Log.SetStatus
+	}
+	if m.d.SaveFile != nil {
+		name := filepath.Base(e.Name)
+		if err := m.d.SaveFile(name, e.Data); err != nil {
+			say(true, err.Error())
+			return
+		}
+		say(false, str.StatusDownloaded(name))
+		return
+	}
+	path, err := config.ExpandHome(e.Name)
+	if err != nil {
+		say(true, err.Error())
+		return
+	}
+	if !filepath.IsAbs(path) {
+		dir := m.a.Config().ExportDir
+		if dir == "" {
+			say(true, str.BrowseNoExportDir())
+			return
+		}
+		path = filepath.Join(dir, path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		say(true, err.Error())
+		return
+	}
+	// O_EXCL makes "never overwrite" atomic: no window between checking
+	// for the file and creating it.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		say(true, str.BrowseFileExists(filepath.Base(path)))
+		return
+	} else if err != nil {
+		say(true, err.Error())
+		return
+	}
+	_, err = f.Write(e.Data)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		say(true, err.Error())
+		return
+	}
+	say(false, str.BrowseSaved(path))
 }
 
 // browseBodyH is the number of line rows in browse mode: the screen less

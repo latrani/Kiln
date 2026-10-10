@@ -1,9 +1,6 @@
 package ui
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -36,21 +33,18 @@ const (
 // the core's log.
 type browse struct {
 	*app.Log
-	cs           *charState
-	top          *app.LogLine            // first line drawn at the top of the body
-	scrolled     bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
-	rowLines     []*app.LogLine          // body row → line (nil for dividers), from the last draw
-	painted      map[*app.LogLine]string // each line as painted, once it's been needed; see text
-	prompt       promptKind
-	pin          *Input
-	panel        *filterPanel // non-nil while the filter panel is open
-	format       string
-	run          func([]app.Effect) tea.Cmd           // the model's run
-	copy         func(text string) tea.Cmd            // the model's clipboard write; nil: plain OSC 52
-	saveFile     func(name string, data []byte) error // Deps.SaveFile; set, saving downloads instead
-	exportDir    string
-	exportName   string // file name template; see config.ExportNameVars
-	exportFormat string // preselected format; "" asks
+	cs        *charState
+	top       *app.LogLine            // first line drawn at the top of the body
+	scrolled  bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
+	rowLines  []*app.LogLine          // body row → line (nil for dividers), from the last draw
+	painted   map[*app.LogLine]string // each line as painted, once it's been needed; see text
+	prompt    promptKind
+	pin       *Input
+	panel     *filterPanel // non-nil while the filter panel is open
+	format    string
+	run       func([]app.Effect) tea.Cmd // the model's run
+	cfg       func() *config.Config      // the config as it is now, for the export settings
+	downloads bool                       // saving downloads (the web build) instead of writing under export_dir
 }
 
 // text is l painted, painting it the first time it's needed.
@@ -61,19 +55,6 @@ func (b *browse) text(l *app.LogLine) string {
 		b.painted[l] = s
 	}
 	return s
-}
-
-// setExport takes the export settings from cfg.
-func (b *browse) setExport(cfg *config.Config) {
-	b.exportDir, b.exportName, b.exportFormat = cfg.ExportDir, cfg.ExportName, cfg.ExportFormat
-}
-
-// copyCmd puts text on the clipboard, by the model's way of doing it.
-func (b *browse) copyCmd(text string) tea.Cmd {
-	if b.copy == nil {
-		return tea.SetClipboard(text)
-	}
-	return b.copy(text)
 }
 
 // scrollBy scrolls the view by delta lines, as the wheel does, leaving
@@ -98,71 +79,8 @@ func (b *browse) scrollBy(delta int) []app.Effect {
 	return nil
 }
 
-// save writes the export to path, refusing to overwrite. "~/" is
-// expanded and a relative path is placed in the export directory. With
-// saveFile set (the web build) it offers a download named after path's
-// last element instead.
-func (b *browse) save(path string) {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		b.SetStatus(true, str.BrowseNoFileName())
-		return
-	}
-	if b.saveFile != nil {
-		sel := b.Selection()
-		if len(sel) == 0 {
-			b.SetStatus(true, str.BrowseNothingToExport())
-			return
-		}
-		name := filepath.Base(path)
-		if err := b.saveFile(name, []byte(scene.Render(b.format, sel, b.Title()))); err != nil {
-			b.SetStatus(true, err.Error())
-			return
-		}
-		b.SetStatus(false, str.StatusDownloaded(name))
-		return
-	}
-	path, err := config.ExpandHome(path)
-	if err != nil {
-		b.SetStatus(true, err.Error())
-		return
-	}
-	if !filepath.IsAbs(path) {
-		if b.exportDir == "" {
-			b.SetStatus(true, str.BrowseNoExportDir())
-			return
-		}
-		path = filepath.Join(b.exportDir, path)
-	}
-	sel := b.Selection()
-	if len(sel) == 0 {
-		b.SetStatus(true, str.BrowseNothingToExport())
-		return
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		b.SetStatus(true, err.Error())
-		return
-	}
-	// O_EXCL makes "never overwrite" atomic: no window between checking
-	// for the file and creating it.
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-	if errors.Is(err, os.ErrExist) {
-		b.SetStatus(true, str.BrowseFileExists(filepath.Base(path)))
-		return
-	} else if err != nil {
-		b.SetStatus(true, err.Error())
-		return
-	}
-	_, err = f.WriteString(scene.Render(b.format, sel, b.Title()))
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		b.SetStatus(true, err.Error())
-		return
-	}
-	b.SetStatus(false, str.BrowseSaved(path))
-}
+// save offers the export as a file called path; see Model.saveFile.
+func (b *browse) save(path string) { b.run(b.Export(b.format, path)) }
 
 // key handles a key press in browse mode. It returns (cmd, close).
 func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
@@ -211,19 +129,12 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		b.prompt = promptDate
 		b.pin.SetValue("")
 	case actExport:
-		if len(b.Selection()) == 0 {
-			b.SetStatus(true, str.BrowseMarkRange())
+		if !b.ExportReady() {
 			break
 		}
 		b.prompt = promptFormat
 	case actCopy:
-		sel := b.Selection()
-		if len(sel) == 0 {
-			b.SetStatus(true, str.BrowseMarkRange())
-			break
-		}
-		b.SetStatus(false, str.BrowseCopied(len(sel)))
-		return b.copyCmd(scene.Plain(sel)), false
+		return b.run(b.Copy()), false
 	case actTags:
 		if b.Cursor != nil {
 			b.SetStatus(false, b.lineTags(b.Cursor))
@@ -260,23 +171,22 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	if b.prompt == promptFormat {
 		f, ok := exportFormatKeys[s]
-		if s == "enter" && b.exportFormat != "" {
-			f, ok = b.exportFormat, true
+		if def := b.cfg().ExportFormat; s == "enter" && def != "" {
+			f, ok = def, true
 		}
 		if ok {
-			sel := b.Selection()
-			if len(sel) == 0 {
+			dir := b.cfg().ExportDir
+			if b.downloads {
+				dir = "" // a download: just a name
+			}
+			name, ok := b.ExportFileName(f, dir)
+			if !ok {
 				b.prompt = promptNone
-				b.SetStatus(true, str.BrowseNothingLeft())
 				return nil
 			}
 			b.format = f
 			b.prompt = promptFilename
-			dir := b.exportDir
-			if b.saveFile != nil {
-				dir = "" // a download: just a name
-			}
-			b.pin.SetValue(scene.FileName(dir, b.exportName, sel[0].Time.Local(), b.cs.Ch.World, b.cs.Ch.Name, f))
+			b.pin.SetValue(name)
 		}
 		return nil
 	}
@@ -313,8 +223,8 @@ func (b *browse) promptLabel() string {
 	case promptDate:
 		return str.BrowseDatePrompt()
 	case promptFormat:
-		if b.exportFormat != "" {
-			return str.BrowseFormatPromptDefault(b.exportFormat)
+		if def := b.cfg().ExportFormat; def != "" {
+			return str.BrowseFormatPromptDefault(def)
 		}
 		return str.BrowseFormatPrompt()
 	case promptFilename:

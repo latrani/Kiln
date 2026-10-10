@@ -439,6 +439,56 @@ func (g *Log) Title() string {
 	return ch.World + " " + ch.Name + when
 }
 
+// Copy puts the selection on the clipboard as plain text, or says to
+// mark a range first.
+func (g *Log) Copy() []Effect {
+	sel := g.Selection()
+	if len(sel) == 0 {
+		g.SetStatus(true, str.BrowseMarkRange())
+		return nil
+	}
+	g.SetStatus(false, str.BrowseCopied(len(sel)))
+	return []Effect{Copy{Text: scene.Plain(sel)}}
+}
+
+// ExportReady reports whether there's a selection to export, and if not
+// says to mark a range first.
+func (g *Log) ExportReady() bool {
+	if len(g.Selection()) == 0 {
+		g.SetStatus(true, str.BrowseMarkRange())
+		return false
+	}
+	return true
+}
+
+// ExportFileName is the file name an export in format starts with, from
+// export_name, in dir ("" for a download: just a name). false, saying
+// so, if nothing's left to export.
+func (g *Log) ExportFileName(format, dir string) (string, bool) {
+	sel := g.Selection()
+	if len(sel) == 0 {
+		g.SetStatus(true, str.BrowseNothingLeft())
+		return "", false
+	}
+	return scene.FileName(dir, g.a.cfg.ExportName, sel[0].Time.Local(), g.c.Ch.World, g.c.Ch.Name, format), true
+}
+
+// Export renders the selection in format and offers it as a file called
+// name.
+func (g *Log) Export(format, name string) []Effect {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		g.SetStatus(true, str.BrowseNoFileName())
+		return nil
+	}
+	sel := g.Selection()
+	if len(sel) == 0 {
+		g.SetStatus(true, str.BrowseNothingToExport())
+		return nil
+	}
+	return []Effect{SaveFile{Key: g.c.Key, Name: name, Data: []byte(scene.Render(format, sel, g.Title()))}}
+}
+
 // FindRE matches a find term literally and case-insensitively. Match
 // offsets always index the original text: lowercasing a copy and reusing
 // its offsets breaks on letters whose case forms differ in byte length.

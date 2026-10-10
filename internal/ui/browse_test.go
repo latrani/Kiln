@@ -731,8 +731,8 @@ func TestReloadUpdatesOpenBrowseExportDir(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
-	if h.br().exportDir != dir {
-		t.Errorf("open browse exportDir = %q, want %q", h.br().exportDir, dir)
+	if h.br().cfg().ExportDir != dir {
+		t.Errorf("open browse exportDir = %q, want %q", h.br().cfg().ExportDir, dir)
 	}
 }
 
@@ -1154,5 +1154,25 @@ func TestBrowseKeyToggles(t *testing.T) {
 	h.key("ctrl+l")
 	if h.br() != nil {
 		t.Errorf("Ctrl+L should close log mode from a prompt:\n%s", h.screen())
+	}
+}
+
+// Saving says how it went on log mode's status, so the next log-mode key
+// clears it like any log message.
+func TestSaveFileStatusIsTheLogs(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.a.Config().ExportDir = t.TempDir()
+	h.writeLog(day24, "a", "b")
+	h.key("ctrl+l")
+	b := h.br()
+	b.SetCursor(b.Lines[0])
+	b.Mark()
+	b.SetCursor(b.Lines[1])
+	b.Mark()
+	b.format = "plain"
+	b.ClearStatus()
+	b.save("scene.txt")
+	if want := str.BrowseSaved(filepath.Join(h.m.a.Config().ExportDir, "scene.txt")); b.Status != want {
+		t.Errorf("log status %q, want %q", b.Status, want)
 	}
 }

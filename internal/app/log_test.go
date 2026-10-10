@@ -9,6 +9,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -197,5 +198,39 @@ func TestSelectionIsReceivedShownUnexcludedLines(t *testing.T) {
 	g.ToggleExclude(nil)
 	if !g.StatusErr {
 		t.Error("excluding nothing didn't say why not")
+	}
+}
+
+func TestCopyAndExportAreEffects(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	openAll(t, a, "fm/kit")
+	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, logDay, "a", "b")
+	g := a.OpenLog("fm/kit")
+	if effs := g.Copy(); effs != nil || g.Status != str.BrowseMarkRange() {
+		t.Errorf("copy with no range: %v, %q", effs, g.Status)
+	}
+	if g.ExportReady() || g.Status != str.BrowseMarkRange() {
+		t.Error("export ready with no range")
+	}
+	g.SetCursor(g.Lines[0])
+	g.Mark()
+	g.SetCursor(g.Lines[1])
+	g.Mark()
+	if effs := g.Copy(); len(effs) != 1 || effs[0] != (Copy{Text: scene.Plain(g.Selection())}) || g.Status != str.BrowseCopied(2) {
+		t.Errorf("copy: %v, %q", effs, g.Status)
+	}
+	if name, ok := g.ExportFileName("txt", ""); !ok || name == "" || strings.Contains(name, "/") {
+		t.Errorf("default download name %q, %v", name, ok)
+	}
+	if effs := g.Export("txt", "  "); effs != nil || g.Status != str.BrowseNoFileName() {
+		t.Errorf("empty name: %v, %q", effs, g.Status)
+	}
+	effs := g.Export("txt", " scene.txt ")
+	if len(effs) != 1 {
+		t.Fatalf("export: %v", effs)
+	}
+	if s, ok := effs[0].(SaveFile); !ok || s.Key != "fm/kit" || s.Name != "scene.txt" || string(s.Data) != scene.Render("txt", g.Selection(), g.Title()) {
+		t.Errorf("SaveFile = %+v", effs[0])
 	}
 }
