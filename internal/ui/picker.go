@@ -225,7 +225,7 @@ func (m *Model) choose(sel string) tea.Cmd {
 // connects it.
 func (m *Model) saveCharacter() tea.Cmd {
 	e := m.picker.edit
-	id, err := config.AddCharacter(m.d.ConfigDir, e.world, e.form.value(0))
+	id, err := m.a.AddCharacter(e.world, e.form.value(0))
 	if err != nil {
 		e.form.reject = err.Error()
 		return nil

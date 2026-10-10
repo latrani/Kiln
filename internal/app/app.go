@@ -18,19 +18,22 @@ import (
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // Deps are the core's connections to the outside world. Tests substitute
 // fakes; each front end wires the real ones.
 type Deps struct {
-	ConfigDir    string
-	KnownHosts   conn.KnownHosts
-	SavePassword func(store, world, char, password string) error // nil: never offer
-	LogRoot      string                                          // where log_dir is relative to; "" (and no absolute log_dir): no logs to read
-	Dial         func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog       func(l logstore.Layout) session.Appender // l from LogLayout
-	Password     func(store, world, char string) (string, error)
-	Now          func() time.Time
+	ConfigDir      string
+	Load           func(dir string) (*config.Config, error) // reads the config; Reload uses it
+	KnownHosts     conn.KnownHosts
+	SavePassword   func(store, world, char, password string) error // nil: never offer
+	LogRoot        string                                          // where log_dir is relative to; "" (and no absolute log_dir): no logs to read
+	Dial           func(ctx context.Context, ch config.Character) (session.LineConn, error)
+	NewLog         func(l logstore.Layout) session.Appender // l from LogLayout
+	Password       func(store, world, char string) (string, error)
+	DeletePassword func(store, world, char string) error // nil: passwords can't be forgotten
+	Now            func() time.Time
 }
 
 // Char is one open character. Front ends read its fields; only App
@@ -177,6 +180,17 @@ func (a *App) ApplyConfig(cfg *config.Config) ConfigResult {
 	}
 	a.sortOrder() // names may have changed
 	return res
+}
+
+// Reload reads the config again and applies it. If it can't be read, it
+// says why on the status line, changes nothing, and reports false.
+func (a *App) Reload() (ConfigResult, bool) {
+	cfg, err := a.d.Load(a.d.ConfigDir)
+	if err != nil {
+		a.SetStatus(true, str.StatusConfigNotReloaded(err))
+		return ConfigResult{}, false
+	}
+	return a.ApplyConfig(cfg), true
 }
 
 // tagInputs is what a character's lines' tags and verdicts depend on.

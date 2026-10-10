@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -415,5 +416,43 @@ func TestPickerClickKeepsDraft(t *testing.T) {
 	h.press('t', tea.ModCtrl)
 	if got := aliases(); got != "kitty" {
 		t.Errorf("draft lost to a click in the picker: aliases %q", got)
+	}
+}
+
+// Deleting the active character from its /edit editor leaves no draft of
+// that editor behind, and the next character down becomes active.
+func TestDeletingTheActiveCharacterLeavesNoDraft(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.open("fm/rook")
+	h.typeText("/edit")
+	h.enter()
+	h.focusOn(delCharLabel)
+	h.enter()
+	h.enter()
+	if h.m.chars["fm/kit"] != nil || h.m.a.Active() != "fm/rook" {
+		t.Fatalf("Kit open %v, active %q", h.m.chars["fm/kit"] != nil, h.m.a.Active())
+	}
+	for _, d := range h.m.drafts {
+		if d.world == "fm" && d.char == "kit" {
+			t.Error("Kit's editor was kept as a draft")
+		}
+	}
+}
+
+// A password that couldn't be deleted is still what the status line
+// says after the reload, not "Deleted".
+func TestDeleteSaysWhenThePasswordWasKept(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.pwDelErr = errors.New("locked")
+	h.typeText("/edit")
+	h.enter()
+	h.focusOn(delCharLabel)
+	h.enter()
+	h.enter()
+	if h.m.chars["fm/kit"] != nil {
+		t.Fatal("Kit not deleted")
+	}
+	if s := h.m.a.Status(); !s.Err || s.Text != str.EditorDeletedPasswordKept("fm/kit", h.pwDelErr) {
+		t.Errorf("status = %+v", s)
 	}
 }

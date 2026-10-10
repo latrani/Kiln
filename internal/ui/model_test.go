@@ -73,18 +73,19 @@ type memLog struct{}
 func (memLog) Append(logstore.Entry) error { return nil }
 
 type harness struct {
-	t       *testing.T
-	m       *Model
-	dir     string
-	mu      sync.Mutex
-	conns   map[string]*testConn
-	dialErr map[string]error
-	saved   map[string]string
-	pw      map[string]string
-	now     time.Time // what Deps.Now returns; tests may move it
-	raw     []string  // sequences written with Deps.Raw
-	deps    Deps      // what New was given, for tests that start another model
-	cfg     *config.Config
+	t        *testing.T
+	m        *Model
+	dir      string
+	mu       sync.Mutex
+	conns    map[string]*testConn
+	dialErr  map[string]error
+	saved    map[string]string
+	pw       map[string]string
+	pwDelErr error     // what Deps.DeletePassword returns; nil deletes
+	now      time.Time // what Deps.Now returns; tests may move it
+	raw      []string  // sequences written with Deps.Raw
+	deps     Deps      // what New was given, for tests that start another model
+	cfg      *config.Config
 }
 
 const fmWorld = `host = "muck.test"
@@ -155,6 +156,9 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 		DeletePassword: func(store, world, char string) error {
 			h.mu.Lock()
 			defer h.mu.Unlock()
+			if h.pwDelErr != nil {
+				return h.pwDelErr
+			}
 			delete(h.saved, key(world, char))
 			delete(h.pw, key(world, char))
 			return nil
@@ -1012,11 +1016,9 @@ func TestSavePasswordPromptDefaultsToYes(t *testing.T) {
 func TestPasswordStoreNoneNeverOffers(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("password_store = \"none\"\n"), 0o600)
-	cfg, err := config.Load(h.dir)
-	if err != nil {
-		t.Fatal(err)
+	if !h.m.reloadNow() {
+		t.Fatal(h.m.a.Status().Text)
 	}
-	h.m.applyConfig(cfg)
 	delete(h.pw, "fm/kit")
 	h.init()
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
