@@ -143,7 +143,7 @@ func New(d Deps, cfg *config.Config) *Model {
 	m := &Model{d: d, chars: map[string]*charState{}, idle: NewInput()}
 	m.a = app.New(app.Deps{
 		ConfigDir: d.ConfigDir, KnownHosts: d.KnownHosts, SavePassword: d.SavePassword,
-		LogRoot: d.LogRoot, Load: d.Load, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
+		LogRoot: d.LogRoot, Load: d.Load, DeletePassword: d.DeletePassword, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
 		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
 	})
 	m.idle.hist = m.a.IdleHistory()

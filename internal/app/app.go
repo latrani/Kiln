@@ -24,15 +24,16 @@ import (
 // Deps are the core's connections to the outside world. Tests substitute
 // fakes; each front end wires the real ones.
 type Deps struct {
-	ConfigDir    string
-	Load         func(dir string) (*config.Config, error) // reads the config; Reload uses it
-	KnownHosts   conn.KnownHosts
-	SavePassword func(store, world, char, password string) error // nil: never offer
-	LogRoot      string                                          // where log_dir is relative to; "" (and no absolute log_dir): no logs to read
-	Dial         func(ctx context.Context, ch config.Character) (session.LineConn, error)
-	NewLog       func(l logstore.Layout) session.Appender // l from LogLayout
-	Password     func(store, world, char string) (string, error)
-	Now          func() time.Time
+	ConfigDir      string
+	Load           func(dir string) (*config.Config, error) // reads the config; Reload uses it
+	KnownHosts     conn.KnownHosts
+	SavePassword   func(store, world, char, password string) error // nil: never offer
+	LogRoot        string                                          // where log_dir is relative to; "" (and no absolute log_dir): no logs to read
+	Dial           func(ctx context.Context, ch config.Character) (session.LineConn, error)
+	NewLog         func(l logstore.Layout) session.Appender // l from LogLayout
+	Password       func(store, world, char string) (string, error)
+	DeletePassword func(store, world, char string) error // nil: passwords can't be forgotten
+	Now            func() time.Time
 }
 
 // Char is one open character. Front ends read its fields; only App

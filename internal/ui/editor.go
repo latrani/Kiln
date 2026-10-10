@@ -1,16 +1,15 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -61,23 +60,6 @@ var (
 	aliasesLabel   = str.EditorAliases()
 )
 
-var (
-	worldIDChar = regexp.MustCompile(`^[A-Za-z0-9_-]*$`) //str:ok
-	portChar    = regexp.MustCompile(`^[0-9]{0,5}$`)
-	numChar     = regexp.MustCompile(`^[0-9]{0,9}$`)
-	packsChar   = regexp.MustCompile(`^[A-Za-z0-9_, -]*$`) //str:ok
-)
-
-// onlyMatching accepts what re matches, and otherwise says why.
-func onlyMatching(re *regexp.Regexp, why string) func(string) error {
-	return func(s string) error {
-		if !re.MatchString(s) {
-			return errors.New(why)
-		}
-		return nil
-	}
-}
-
 func onOff(b bool) string {
 	if b {
 		return "on"
@@ -125,35 +107,24 @@ func (f *form) optBool(label string) *bool {
 	return nil
 }
 
-// list splits a comma- or space-separated field into its items.
-func list(s string) []string {
-	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })
-}
-
 // worldForm builds the form for a new world (add) or an existing one.
 func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited) *form {
 	var fields []field
 	if add {
 		world := textField(worldLabel)
-		world.accept = onlyMatching(worldIDChar, str.EditorWorldIdChars())
+		world.accept = app.AcceptWorldID
 		fields = append(fields, world)
 	}
 	host, port := textField(hostLabel), textField(portLabel)
-	host.accept = func(s string) error {
-		if strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r > '~' }) {
-			return errors.New(str.EditorHostSpaces())
-		}
-		return nil
-	}
-	port.accept = onlyMatching(portChar, str.EditorPortNumber())
+	host.accept, port.accept = app.AcceptHost, app.AcceptPort
 	packs := withHint(textField(packsLabel), str.EditorNone())
-	packs.accept = onlyMatching(packsChar, str.EditorPacksList())
+	packs.accept = app.AcceptPacks
 	login := str.EditorNone()
 	if inh.Login != "" {
 		login = inh.Login
 	}
 	maxBytes := withHint(textField(maxBytesLabel), str.EditorDefaultHint(inh.MaxLineBytes))
-	maxBytes.accept = onlyMatching(numChar, str.EditorBytesNumber())
+	maxBytes.accept = app.AcceptByteCount
 	fields = append(fields, host, port, toggleField(tlsLabel), sectionField(extraLabel),
 		asExtra(inheritChoice(trustLabel, "pin", "pin", "ca")),
 		asExtra(packs),
@@ -196,13 +167,13 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 
 // worldSettings reads a world form.
 func worldSettings(f *form) (config.WorldSettings, error) {
-	port, err := strconv.Atoi(f.value(f.field(portLabel)))
-	if err != nil || port < 1 || port > 65535 {
-		return config.WorldSettings{}, errors.New(str.EditorPortRange())
+	port, err := app.ParsePort(f.value(f.field(portLabel)))
+	if err != nil {
+		return config.WorldSettings{}, err
 	}
 	s := config.WorldSettings{
 		Host: f.value(f.field(hostLabel)), Port: port, TLS: f.on(f.field(tlsLabel)),
-		TLSTrust: f.chosen(f.field(trustLabel)), Use: list(f.value(f.field(packsLabel))),
+		TLSTrust: f.chosen(f.field(trustLabel)), Use: app.List(f.value(f.field(packsLabel))),
 		Autoconnect: f.optBool(autoconnLabel), Reconnect: f.optBool(reconnectLabel),
 		LocalEcho: f.optBool(echoLabel),
 	}
@@ -225,14 +196,7 @@ func worldSettings(f *form) (config.WorldSettings, error) {
 // charForm builds the form for editing a character.
 func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inherited) *form {
 	aliases := withHint(textField(aliasesLabel), str.EditorNone())
-	aliases.accept = func(v string) error {
-		for _, a := range list(v) {
-			if err := config.NameChars(a); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
+	aliases.accept = app.AcceptAliases
 	// Every character setting is an extra one, so none hide behind a
 	// section header.
 	f := newForm(str.EditorHint(), aliases,
@@ -467,10 +431,11 @@ func (m *Model) editorEnter(e *editor) tea.Cmd {
 
 // deleteWarning says what a delete will do, asking for Enter again.
 func (m *Model) deleteWarning(e *editor) string {
-	if e.kind == editWorld {
-		return str.EditorDeleteWorldWarning(e.world)
+	char := ""
+	if e.kind == editChar {
+		char = e.char
 	}
-	return str.EditorDeleteCharacterWarning(e.world + "/" + e.char)
+	return app.DeleteWarning(e.world, char)
 }
 
 // saveNewWorld writes the new world, then highlights its row for adding a
@@ -483,12 +448,7 @@ func (m *Model) saveNewWorld() {
 		return
 	}
 	id := f.value(f.field(worldLabel))
-	if err := config.AddWorld(m.d.ConfigDir, id, s.Host, s.Port, s.TLS); err != nil {
-		f.reject = err.Error()
-		return
-	}
-	if err := config.WriteWorld(m.d.ConfigDir, id, s); err != nil {
-		config.DeleteWorld(m.d.ConfigDir, id) // take back the half-made world
+	if err := m.a.AddWorld(id, s); err != nil {
 		f.reject = err.Error()
 		return
 	}
@@ -504,7 +464,7 @@ func (m *Model) saveWorld() {
 	e := m.picker.edit
 	s, err := worldSettings(e.form)
 	if err == nil {
-		err = config.WriteWorld(m.d.ConfigDir, e.world, s)
+		err = m.a.SaveWorld(e.world, s)
 	}
 	if err != nil {
 		e.form.reject = err.Error()
@@ -520,13 +480,13 @@ func (m *Model) saveWorld() {
 func (m *Model) saveCharSettings() {
 	e := m.picker.edit
 	f := e.form
-	s := config.CharacterSettings{Aliases: list(f.value(f.field(aliasesLabel))),
+	s := config.CharacterSettings{Aliases: app.List(f.value(f.field(aliasesLabel))),
 		Autoconnect: f.optBool(autoconnLabel), Reconnect: f.optBool(reconnectLabel),
 		LocalEcho: f.optBool(echoLabel)}
 	if v := f.chosen(f.field(notifyLabel)); v != "" {
 		s.Notify = &v
 	}
-	if err := config.WriteCharacter(m.d.ConfigDir, e.world, e.char, s); err != nil {
+	if err := m.a.SaveCharacter(e.world, e.char, s); err != nil {
 		f.reject = err.Error()
 		return
 	}
@@ -538,10 +498,10 @@ func (m *Model) saveCharSettings() {
 
 // forgetPassword deletes the edited character's saved password.
 func (m *Model) forgetPassword(e *editor) {
-	if m.d.DeletePassword == nil {
+	if !m.a.CanForgetPasswords() {
 		return
 	}
-	if err := m.d.DeletePassword(m.a.PasswordStore(), e.world, e.char); err != nil {
+	if err := m.a.ForgetPassword(e.world, e.char); err != nil {
 		e.form.reject = err.Error()
 		return
 	}
@@ -557,18 +517,22 @@ func (m *Model) deleteEdited(e *editor) {
 	what := e.world
 	if e.kind == editChar {
 		what = e.world + "/" + e.char
-		err = config.DeleteCharacter(m.d.ConfigDir, e.world, e.char)
+		k := key(e.world, e.char)
+		prev := m.a.Active()
+		var perr error
+		perr, err = m.a.DeleteCharacter(e.world, e.char)
 		if err == nil {
-			m.closeEditor() // before close, which would keep it as a draft
-			m.close(key(e.world, e.char))
-			if m.d.DeletePassword != nil {
-				if perr := m.d.DeletePassword(m.a.PasswordStore(), e.world, e.char); perr != nil {
-					m.setStatus(true, str.EditorDeletedPasswordKept(what, perr))
-				}
+			m.closeEditor() // before the screen's part of closing, which would keep it as a draft
+			if m.chars[k] != nil {
+				m.closed(k, prev)
+				m.activated(prev)
+			}
+			if perr != nil {
+				m.setStatus(true, str.EditorDeletedPasswordKept(what, perr))
 			}
 		}
 	} else {
-		err = config.DeleteWorld(m.d.ConfigDir, e.world)
+		err = m.a.DeleteWorld(e.world)
 		if err == nil {
 			for t, d := range m.drafts { // drafts for the world are moot; one would reappear for a new one by its name
 				if d.world == e.world {
