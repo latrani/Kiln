@@ -6,48 +6,28 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// sentConn records what's sent.
-type sentConn struct {
-	lineConn
-	mu   sync.Mutex
-	sent []string
-}
-
-func (c *sentConn) Send(l string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.sent = append(c.sent, l)
-	return nil
-}
-
-func (c *sentConn) Sent() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return slices.Clone(c.sent)
-}
-
-// submitApp is an App over fm with Kit connected to a sentConn; saved
+// submitApp is an App over fm with Kit connected to a kilntest.Conn; saved
 // collects SavePassword calls.
-func submitApp(t *testing.T, world string) (*App, *sentConn, map[string]string) {
+func submitApp(t *testing.T, world string) (*App, *kilntest.Conn, map[string]string) {
 	t.Helper()
 	dir := configDir(t, map[string]string{"fm": world})
-	c := &sentConn{lineConn: lineConn{lines: make(chan string)}}
+	c := kilntest.NewConn()
 	saved := map[string]string{}
 	a := New(Deps{
 		ConfigDir: dir,
 		LogRoot:   filepath.Join(dir, "logs"),
 		Dial:      func(context.Context, config.Character) (session.LineConn, error) { return c, nil },
-		NewLog:    func(logstore.Layout) session.Appender { return nopLog{} },
+		NewLog:    func(logstore.Layout) session.Appender { return kilntest.NopLog{} },
 		Password:  func(string, string, string) (string, error) { return "", errors.New("none") },
 		SavePassword: func(_, world, char, pw string) error {
 			saved[Key(world, char)] = pw

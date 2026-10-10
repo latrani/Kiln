@@ -17,6 +17,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/session"
@@ -30,17 +31,7 @@ var day24 = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
 // writeLog puts entries in fm/kit's log, one minute apart from start.
 func (h *harness) writeLog(start time.Time, lines ...string) {
 	h.t.Helper()
-	w := logstore.NewWriter(logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"})
-	defer w.Close()
-	for i, l := range lines {
-		dir := logstore.In
-		if strings.HasPrefix(l, "> ") {
-			dir, l = logstore.Out, strings.TrimPrefix(l, "> ")
-		}
-		if err := w.Append(logstore.Entry{Time: start.Add(time.Duration(i) * time.Minute), Dir: dir, Text: l}); err != nil {
-			h.t.Fatal(err)
-		}
-	}
+	kilntest.WriteLog(h.t, logstore.Layout{Root: h.m.d.LogRoot, World: "fm", Char: "kit", CharName: "Kit"}, start, lines...)
 }
 
 func (h *harness) key(s string) tea.Cmd {
@@ -479,7 +470,7 @@ func TestBrowseLiveLinesArrive(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.key("ctrl+l")
-	h.conn("fm/kit").lines <- "Brand new line"
+	h.conn("fm/kit").Feed("Brand new line")
 	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Brand new line") })
 	if h.br().cursor.Entry.Text != "Brand new line" {
 		t.Error("cursor at the bottom should follow live lines")
@@ -867,7 +858,7 @@ func TestFilterNewTagUnderOnlyArrivesHidden(t *testing.T) {
 	b := h.br()
 	f := h.kitFilter()
 	f.PressOnly(scene.Item{Name: "whisper"}, b.items())
-	h.conn("fm/kit").lines <- "Mira pages: you around?"
+	h.conn("fm/kit").Feed("Mira pages: you around?")
 	h.settle("fm/kit", func() bool { return slices.Contains(b.items(), scene.Item{Name: "page"}) })
 	if !f.Hidden(scene.Item{Name: "page"}) || strings.Contains(h.screen(), "Mira pages") {
 		t.Errorf("a tag arriving under Only whisper should arrive hidden:\n%s", h.screen())
@@ -907,7 +898,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 		t.Fatal("Ctrl+L should leave log mode")
 	}
 	h.m.switchTo("sp/ash") // another world
-	h.conn("fm/kit").lines <- "Brand new line"
+	h.conn("fm/kit").Feed("Brand new line")
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread > 0 })
 	h.m.switchTo("fm/kit")
 	h.key("ctrl+l")

@@ -32,7 +32,7 @@ func notifyHarness(t *testing.T, level string, extra map[string]string) *harness
 // line feeds one incoming line for Kit and waits until it's shown.
 func (h *harness) line(s string) {
 	h.t.Helper()
-	h.conn("fm/kit").lines <- s
+	h.conn("fm/kit").Feed(s)
 	want := h.m.chars["fm/kit"].sb.Len() + 1
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].sb.Len() >= want })
 }
