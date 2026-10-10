@@ -80,7 +80,7 @@ func (b *browse) scrollBy(delta int) []app.Effect {
 }
 
 // save offers the export as a file called path; see Model.saveFile.
-func (b *browse) save(path string) { b.run(b.Export(b.format, path)) }
+func (b *browse) save(path string) tea.Cmd { return b.run(b.Export(b.format, path)) }
 
 // key handles a key press in browse mode. It returns (cmd, close).
 func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
@@ -201,7 +201,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptDate:
 			return b.run(b.GotoDate(v, func(l *app.LogLine) { b.top = l }))
 		case promptFilename:
-			b.save(v)
+			return b.save(v)
 		case promptFilterText:
 			if b.cs.Filter.AddText(v, b.Items()) && b.panel != nil {
 				b.panel.sel = filterSel{item: scene.Item{Name: v, Text: true}}

@@ -846,3 +846,23 @@ func TestBrowseOlderDayAfterRulesAndThemeChange(t *testing.T) {
 		}
 	}
 }
+
+// Log-mode lines already drawn repaint when the theme changes, hidden
+// log mode's too.
+func TestBrowseDrawnLinesRestyle(t *testing.T) {
+	t.Cleanup(func() { theme.SetActive(theme.Builtin()) })
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, "Mira pages: hello", "Mira pages: again")
+	h.key("ctrl+l")
+	b := h.br()
+	h.screen() // paints what shows
+	l := b.Lines[0]
+	before := b.text(l)
+	h.key("ctrl+l") // hidden while the theme changes
+	writeUserTheme(t, h, "extends = \"kiln\"\n[tags]\n\"page/in\" = { fg = \"#0a0b0c\" }\n")
+	h.m.Update(reloadMsg{})
+	cs := h.m.chars["fm/kit"]
+	if want, _ := cs.render(l.Entry); b.text(l) != want || want == before {
+		t.Errorf("drawn line kept its old style: %q (was %q)", b.text(l), before)
+	}
+}

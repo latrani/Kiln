@@ -34,7 +34,7 @@ func makeLogLine(r Rules, e logstore.Entry) *LogLine {
 
 // Log is one character's log mode. Lines are referenced by pointer so
 // paging in older history never disturbs marks or exclusions. Front ends
-// read its fields; only its methods change them.
+// read its fields and set Shown; only its methods change the rest.
 type Log struct {
 	Lines      []*LogLine // oldest first
 	Cursor     *LogLine
