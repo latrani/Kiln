@@ -80,6 +80,7 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 		return Event{}, false, nil
 	}
 	ev = Event{Key: msg.Key, Ev: msg.Ev}
+	var note []Effect
 	switch msg.Ev.Kind {
 	case session.EventLine:
 		l := c.Rules.Line(msg.Ev.Entry)
@@ -91,6 +92,7 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 			c.Unread++
 			c.Attention = c.Attention || ev.Line.Attention
 		}
+		note = a.notifyFor(c, *ev.Line)
 	case session.EventState:
 		c.State = msg.Ev.State
 		if c.State == session.Connected {
@@ -119,7 +121,7 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 	case session.EventLogError:
 		a.SetStatus(true, str.StatusLogWriteFailed(c.Ch.Name, msg.Ev.Err))
 	}
-	return ev, true, []Effect{wait(msg.Key, msg.Sess)}
+	return ev, true, append([]Effect{wait(msg.Key, msg.Sess)}, note...)
 }
 
 // Quit stops every session and ends the program.

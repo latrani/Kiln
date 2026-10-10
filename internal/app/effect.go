@@ -21,6 +21,12 @@ type Do struct {
 	Key  string
 }
 
-func (Do) effect()   {}
-func (Run) effect()  {}
-func (Quit) effect() {}
+// Notify is a notification to show. Title is the character's name (with
+// @world when needed); Body is the line's text as it arrived, server
+// colors and all, for the front end to clean up for its medium.
+type Notify struct{ Title, Body string }
+
+func (Do) effect()     {}
+func (Run) effect()    {}
+func (Quit) effect()   {}
+func (Notify) effect() {}

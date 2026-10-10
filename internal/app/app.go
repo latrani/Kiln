@@ -15,6 +15,7 @@ import (
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
 )
@@ -57,6 +58,8 @@ type Char struct {
 	hist        *history.Reader  // pages older log days in; only an in-flight RequestOlder read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
 	rulesGen    int              // bumped whenever Rules changes, so a page read under older ones is made again
+	sentGen     int              // App.hereGen when the last notification went out; -1: none yet
+	lastSent    time.Time        // when the last notification went out
 }
 
 // compile builds c's rules from its configuration. On an error c keeps
@@ -95,6 +98,13 @@ type App struct {
 	idleHist     History                // its history
 	confirm      bool                   // the next Submit sends an over-limit line anyway
 	pending      *pendingSave
+
+	focused         bool                    // the front end has focus, as far as we know
+	focusSeen       bool                    // a focus-in or focus-out has arrived, so the front end reports focus
+	lastHere        time.Time               // latest focus-in or input; see Here
+	awayNow         bool                    // set by /away until the next Here
+	hereGen         int                     // bumped by each Here; re-arms "first"
+	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
 }
 
 // pendingSave is a password just used, awaiting the answer to "save it?".
@@ -122,7 +132,8 @@ func New(d Deps) *App {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	return &App{d: d, chars: map[string]*Char{}}
+	return &App{d: d, chars: map[string]*Char{}, focused: true, lastHere: d.Now(),
+		notifyOverrides: map[string]notify.Level{}}
 }
 
 // ConfigResult is what ApplyConfig did to the open characters.
@@ -222,7 +233,7 @@ func (a *App) Open(k string) (*Char, error) {
 	if !ok {
 		return nil, nil
 	}
-	c := &Char{Key: k, Ch: ch}
+	c := &Char{Key: k, Ch: ch, sentGen: -1}
 	err := c.compile()
 	a.chars[k] = c
 	a.order = append(a.order, k)
