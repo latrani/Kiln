@@ -12,11 +12,8 @@ import (
 // clockApp is sessionApp with a clock the test moves.
 func clockApp(t *testing.T, worlds map[string]string) (*App, *time.Time) {
 	t.Helper()
-	a := sessionApp(t, worlds)
 	clk := now
-	a.d.Now = func() time.Time { return clk }
-	a.lastHere = clk
-	return a, &clk
+	return sessionAppAt(t, worlds, func() time.Time { return clk }), &clk
 }
 
 func withLevel(world, level string) string {
@@ -172,5 +169,22 @@ func TestNotifyOverrideOutlivesClose(t *testing.T) {
 	openAll(t, a, "fm/kit")
 	if l := a.NotifyLevel("fm/kit"); l != "all" {
 		t.Errorf("after reopening: %q, want the override", l)
+	}
+}
+
+// Scrolling counts as being here only while focused: macOS scrolls
+// windows in the background.
+func TestScrollingCountsOnlyWhileFocused(t *testing.T) {
+	a, _ := clockApp(t, map[string]string{"fm": fmWorld})
+	a.Focus(false)
+	a.Scrolled()
+	if !a.Away() || a.Focused() {
+		t.Error("scrolling an unfocused window counted as here")
+	}
+	a.Focus(true)
+	a.SetAway()
+	a.Scrolled()
+	if a.Away() {
+		t.Error("scrolling a focused window didn't end /away")
 	}
 }

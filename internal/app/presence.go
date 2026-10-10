@@ -27,13 +27,21 @@ const (
 	PresenceAway
 )
 
-// Here records that you're at the keyboard: a key, paste or click, or a
-// wheel while focused. Input implies focus, even if the focus-in was
-// lost. It ends /away and re-arms "first" for every character.
+// Here records that you're at the keyboard: a key, paste or click. Input
+// implies focus, even if the focus-in was lost. It ends /away and
+// re-arms "first" for every character.
 func (a *App) Here() {
 	a.focused = true
 	a.lastHere, a.awayNow = a.d.Now(), false
 	a.hereGen++
+}
+
+// Scrolled records a scroll: Here, but only while focused, since macOS
+// scrolls windows in the background.
+func (a *App) Scrolled() {
+	if a.focused {
+		a.Here()
+	}
 }
 
 // Focus reports the front end gaining (in) or losing focus. Gaining it

@@ -559,9 +559,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	case tea.MouseWheelMsg:
-		if m.a.Focused() { // macOS scrolls windows in the background
-			m.a.Here()
-		}
+		m.a.Scrolled()
 		return m, m.handleWheel(msg)
 	case tea.MouseClickMsg:
 		was := m.shownPresence // as drawn, before Here clears an Away that a click on the chip toggles
