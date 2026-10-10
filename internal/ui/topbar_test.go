@@ -88,8 +88,8 @@ func TestClicksLandBelowTheTopBar(t *testing.T) {
 			h.m.Update(tea.MouseClickMsg{X: l.sw + 11, Y: l.top + row, Button: tea.MouseLeft})
 		}
 	}
-	if b.cursor.Entry.Text != scene1[1] {
-		t.Errorf("a click on a log line's screen row selected %q", b.cursor.Entry.Text)
+	if b.Cursor.Entry.Text != scene1[1] {
+		t.Errorf("a click on a log line's screen row selected %q", b.Cursor.Entry.Text)
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft}) // the sidebar doesn't shift: row 1 is Kit
 	if h.m.a.Active() != "fm/kit" {
@@ -128,7 +128,7 @@ func TestNoLogsYetWaitsForHistory(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.key("ctrl+l")
 	b := h.br()
-	b.histDone, b.loading = false, true // an older day on its way
+	b.HistDone, b.Loading = false, true // an older day on its way
 	rows, _, _, _ := b.view(60, 20)
 	if strings.Contains(ansi.Strip(strings.Join(rows, "\n")), str.BrowseNoLogs()) {
 		t.Error("no logs yet shown while history is still loading")

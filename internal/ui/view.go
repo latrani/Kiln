@@ -169,7 +169,7 @@ func (m *Model) statusLine(w int) string {
 	case msg != "":
 	case cs == nil:
 	case cs.browse != nil:
-		msg = str.ViewSelected(len(cs.browse.selection()))
+		msg = str.ViewSelected(len(cs.browse.Selection()))
 	case cs.State == session.Connected:
 		msg = m.connectedSince(cs)
 	default:
@@ -225,7 +225,7 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterCh
 	parts := []part{{chip(presRole, presLabel), &presenceChip}}
 	if b := cs.browse; b != nil {
 		logRole = theme.StatusLogOn
-		if f := b.findStatus(); f != "" {
+		if f := b.FindStatus(); f != "" {
 			left += "   " + f
 		}
 		role := theme.StatusFilter

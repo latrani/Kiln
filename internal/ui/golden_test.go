@@ -181,7 +181,7 @@ var goldenWorld = strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_byte
 // show feeds Kit a line and waits until it's in the scrollback.
 func (h *harness) show(line string) {
 	h.t.Helper()
-	h.conn("fm/kit").lines <- line
+	h.conn("fm/kit").Feed(line)
 	h.settle("fm/kit", func() bool {
 		for _, l := range h.m.chars["fm/kit"].sb.lines {
 			if strings.Contains(ansi.Strip(l.text), line) {
@@ -241,7 +241,7 @@ func TestGoldenLog(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.keys("m", "up", "m")                                            // a range
-	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().items()) // the Filter chip on
+	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().Items()) // the Filter chip on
 	h.key("/")
 	h.typeText("Mira") // the page the chip shows
 	h.key("enter")     // find

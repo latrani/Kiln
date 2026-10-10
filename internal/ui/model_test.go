@@ -20,6 +20,7 @@ import (
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/session"
@@ -28,56 +29,12 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// testConn is a scripted server connection.
-type testConn struct {
-	lines     chan string
-	prompts   chan string
-	mu        sync.Mutex
-	sent      []string
-	sizes     [][2]int
-	closeOnce sync.Once
-}
-
-func newTestConn() *testConn {
-	return &testConn{lines: make(chan string, 100), prompts: make(chan string, 1)}
-}
-func (c *testConn) Lines() <-chan string   { return c.lines }
-func (c *testConn) Prompts() <-chan string { return c.prompts }
-func (c *testConn) Err() error             { return nil }
-func (c *testConn) Close() error           { c.closeOnce.Do(func() { close(c.lines) }); return nil }
-func (c *testConn) Send(l string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.sent = append(c.sent, l)
-	return nil
-}
-func (c *testConn) Resize(w, h int) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.sizes = append(c.sizes, [2]int{w, h})
-	return nil
-}
-func (c *testConn) Sizes() [][2]int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([][2]int(nil), c.sizes...)
-}
-func (c *testConn) Sent() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]string(nil), c.sent...)
-}
-
-type memLog struct{}
-
-func (memLog) Append(logstore.Entry) error { return nil }
-
 type harness struct {
 	t        *testing.T
 	m        *Model
 	dir      string
 	mu       sync.Mutex
-	conns    map[string]*testConn
+	conns    map[string]*kilntest.Conn
 	dialErr  map[string]error
 	saved    map[string]string
 	pw       map[string]string
@@ -118,7 +75,7 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := &harness{t: t, dir: dir, conns: map[string]*testConn{}, dialErr: map[string]error{},
+	h := &harness{t: t, dir: dir, conns: map[string]*kilntest.Conn{}, dialErr: map[string]error{},
 		saved: map[string]string{}, pw: map[string]string{"fm/kit": "hunter2", "fm/rook": "pw"}}
 	h.now = time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local)
 	d := Deps{
@@ -134,11 +91,11 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 				delete(h.dialErr, k)
 				return nil, err
 			}
-			c := newTestConn()
+			c := kilntest.NewConn()
 			h.conns[k] = c
 			return c, nil
 		},
-		NewLog: func(logstore.Layout) session.Appender { return memLog{} },
+		NewLog: func(logstore.Layout) session.Appender { return kilntest.NopLog{} },
 		Password: func(store, world, char string) (string, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
@@ -197,7 +154,7 @@ func (h *harness) notified() []string {
 	return r
 }
 
-func (h *harness) conn(k string) *testConn {
+func (h *harness) conn(k string) *kilntest.Conn {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.conns[k]
@@ -342,8 +299,8 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.press(tea.KeyDown, tea.ModCtrl) // look at rook; kit is now in the background
 	c := h.conn("fm/kit")
-	c.lines <- "Rook says, \"hi\""
-	c.lines <- "Mira pages: \x1b]0;pwned\x07you around?"
+	c.Feed("Rook says, \"hi\"")
+	c.Feed("Mira pages: \x1b]0;pwned\x07you around?")
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread == 2 })
 	if !h.m.chars["fm/kit"].Attention {
 		t.Error("page did not set attention")
@@ -558,7 +515,7 @@ func TestPromptShown(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	h.conn("fm/kit").prompts <- "Name: "
+	h.conn("fm/kit").FeedPrompt("Name: ")
 	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Name: ") })
 }
 
@@ -728,7 +685,7 @@ func TestScrollPill(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	c := h.conn("fm/kit")
 	for i := 0; i < 60; i++ {
-		c.lines <- "filler"
+		c.Feed("filler")
 	}
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].sb.Len() >= 61 })
 	if !h.m.chars["fm/kit"].sb.Scrolled() {
@@ -742,7 +699,7 @@ func TestScrollPill(t *testing.T) {
 	if !strings.Contains(h.screen(), str.ViewPillMore()) {
 		t.Errorf("no pill:\n%s", h.screen())
 	}
-	c.lines <- "fresh"
+	c.Feed("fresh")
 	h.settle("fm/kit", func() bool {
 		sb := &h.m.chars["fm/kit"].sb
 		return strings.Contains(sb.lines[sb.Len()-1].text, "fresh")
@@ -1187,8 +1144,8 @@ func TestQuietLinesDontCountAsUnread(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.m.switchTo("fm/rook")
 	kit := h.m.chars["fm/kit"]
-	h.conn("fm/kit").lines <- "[Wiki] Kit edited Tapestries"     // quiet, though it names Kit (self wants attention)
-	h.conn("fm/kit").lines <- "Mira pages: [Wiki] is down again" // not quiet: only lines starting [Wiki] are
+	h.conn("fm/kit").Feed("[Wiki] Kit edited Tapestries")     // quiet, though it names Kit (self wants attention)
+	h.conn("fm/kit").Feed("Mira pages: [Wiki] is down again") // not quiet: only lines starting [Wiki] are
 	kit.sb.SetWidth(80)
 	h.settle("fm/kit", func() bool { // both lines are in once the page, sent second, is
 		return strings.Contains(strings.Join(kit.sb.View(20), "\n"), "is down again")
@@ -1209,7 +1166,7 @@ func TestCoreStatusOutlastsLogModeKeys(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	cs := h.m.chars["fm/kit"]
 	h.m.openBrowse(cs)
-	cs.browse.setStatus(false, str.StatusCopied())
+	cs.browse.SetStatus(false, str.StatusCopied())
 	h.m.Update(tea.FocusMsg{}) // log mode's status moves to the bar
 	err := errors.New("disk full")
 	h.m.Update(app.SessionMsg{Key: "fm/kit", Sess: cs.Sess, Ev: session.Event{Kind: session.EventLogError, Err: err}, OK: true})

@@ -5,35 +5,20 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 )
 
-type nopLog struct{}
-
-func (nopLog) Append(logstore.Entry) error { return nil }
-
-// lineConn is a connection that sends nothing until it's closed.
-type lineConn struct {
-	lines chan string
-	once  sync.Once
-}
-
-func (c *lineConn) Lines() <-chan string { return c.lines }
-func (c *lineConn) Err() error           { return nil }
-func (c *lineConn) Send(string) error    { return nil }
-func (c *lineConn) Close() error         { c.once.Do(func() { close(c.lines) }); return nil }
-
 var now = time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local)
 
-// sessionApp is an App over fm and zz whose sessions dial lineConns.
+// sessionApp is an App over fm and zz whose sessions dial kilntest.Conns.
 func sessionApp(t *testing.T, worlds map[string]string) *App {
 	t.Helper()
 	return sessionAppAt(t, worlds, func() time.Time { return now })
@@ -46,9 +31,9 @@ func sessionAppAt(t *testing.T, worlds map[string]string, clock func() time.Time
 	a := New(Deps{
 		LogRoot: filepath.Join(dir, "logs"),
 		Dial: func(context.Context, config.Character) (session.LineConn, error) {
-			return &lineConn{lines: make(chan string)}, nil
+			return kilntest.NewConn(), nil
 		},
-		NewLog:   func(logstore.Layout) session.Appender { return nopLog{} },
+		NewLog:   func(logstore.Layout) session.Appender { return kilntest.NopLog{} },
 		Password: func(string, string, string) (string, error) { return "", errors.New("none") },
 		Now:      clock,
 	})
@@ -60,7 +45,7 @@ func sessionAppAt(t *testing.T, worlds map[string]string, clock func() time.Time
 // can be handed to Handle.
 func attach(a *App, k string) *session.Session {
 	c := a.Char(k)
-	c.Sess = session.New(session.Options{Char: c.Ch, Log: nopLog{}})
+	c.Sess = session.New(session.Options{Char: c.Ch, Log: kilntest.NopLog{}})
 	return c.Sess
 }
 
@@ -100,7 +85,7 @@ func TestHandleIgnoresStaleSessions(t *testing.T) {
 	a := sessionApp(t, map[string]string{"fm": fmWorld})
 	openAll(t, a, "fm/kit")
 	attach(a, "fm/kit")
-	old := session.New(session.Options{Char: a.Char("fm/kit").Ch, Log: nopLog{}})
+	old := session.New(session.Options{Char: a.Char("fm/kit").Ch, Log: kilntest.NopLog{}})
 	if _, ok, effs := a.Handle(lineMsg("fm/kit", old, "hi")); ok || effs != nil {
 		t.Error("handled an event from a replaced session")
 	}

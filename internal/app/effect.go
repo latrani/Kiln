@@ -25,7 +25,21 @@ type Do struct {
 // colors and all, for the front end to clean up for its medium.
 type Notify struct{ Title, Body string }
 
-func (Do) effect()     {}
-func (Run) effect()    {}
-func (Quit) effect()   {}
-func (Notify) effect() {}
+// Copy puts Text on the clipboard.
+type Copy struct{ Text string }
+
+// SaveFile offers Data as a file: in a browser a download named after
+// Name's last element; in the terminal a file at Name (relative to
+// export_dir, "~/" expanded), never overwriting one. Key is the
+// character whose log mode asked, for where to say how it went.
+type SaveFile struct {
+	Key, Name string
+	Data      []byte
+}
+
+func (Do) effect()       {}
+func (Run) effect()      {}
+func (Quit) effect()     {}
+func (Notify) effect()   {}
+func (Copy) effect()     {}
+func (SaveFile) effect() {}

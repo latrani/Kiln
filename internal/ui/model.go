@@ -4,6 +4,9 @@ package ui
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -17,7 +20,6 @@ import (
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/rules"
-	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
@@ -90,7 +92,6 @@ type charState struct {
 	in        *Input
 	browse    *browse         // non-nil while browse mode is open
 	hidBrowse *browse         // browse mode as Ctrl+L left it, kept up to date; the next Ctrl+L brings it back
-	filter    scene.Filter    // log mode's filter; outlasts a log-mode session
 	collapsed map[string]bool // filter panel parents folded shut, by tag
 	foldSeen  map[string]bool // parents the panel has already met; a new one starts folded
 }
@@ -110,8 +111,8 @@ func (cs *charState) browses() []*browse {
 // hideBrowse leaves log mode as it is, filter panel, cursor, marks and
 // all, to come back on the next Ctrl+L. Esc closes it for good.
 func (cs *charState) hideBrowse() {
-	if cs.browse.stopSearch() {
-		cs.browse.status = "" // not news by the time it's back
+	if cs.browse.StopSearch() {
+		cs.browse.ClearStatus() // not news by the time it's back
 	}
 	cs.browse, cs.hidBrowse = nil, cs.browse
 }
@@ -260,7 +261,7 @@ func (m *Model) loadTheme() {
 		}
 		cs.sb.Repaint(func(l app.Line) string { return paint(cs.hl, l) })
 		for _, b := range cs.browses() {
-			b.restyle(func(l app.Line) string { return paint(cs.hl, l) })
+			b.restyle()
 		}
 	}
 }
@@ -287,9 +288,6 @@ func (m *Model) applyWith(apply func() (app.ConfigResult, bool)) bool {
 		cs := m.chars[k]
 		if cs == nil {
 			continue
-		}
-		for _, b := range cs.browses() {
-			b.setExport(m.a.Config())
 		}
 		if cs.Orphan {
 			continue
@@ -364,12 +362,6 @@ func (m *Model) pageOlder() tea.Cmd {
 	return m.run(effs)
 }
 
-// echoes reports whether e belongs in the scrollback: everything but sent
-// lines, which only show with local_echo on. They're logged either way.
-func (cs *charState) echoes(e logstore.Entry) bool {
-	return e.Dir != logstore.Out || cs.Ch.LocalEcho
-}
-
 // render makes e into a line and paints it.
 func (cs *charState) render(e logstore.Entry) (string, app.Line) {
 	l := cs.Rules.Line(e)
@@ -392,6 +384,10 @@ func (m *Model) run(effs []app.Effect) tea.Cmd {
 			cmds = append(cmds, tea.Quit)
 		case app.Do:
 			cmds = append(cmds, m.do(e))
+		case app.Copy:
+			cmds = append(cmds, m.copyCmd(e.Text))
+		case app.SaveFile:
+			m.saveFile(e)
 		case app.Notify:
 			cmds = append(cmds, m.encode(notify.Message(e.Title, e.Body)))
 		}
@@ -530,10 +526,8 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cs.sb.PrependLines(batch, cs.More)
 		}
-	case olderMsg:
-		if cs := m.chars[msg.key]; cs != nil && slices.Contains(cs.browses(), msg.b) {
-			return m, msg.b.receive(msg)
-		}
+	case app.LogOlderMsg:
+		return m, m.run(m.a.HandleLogOlder(msg))
 	case tea.PasteMsg:
 		m.a.Here() // only a focused window gets input, even if its focus-in was lost
 		if m.picker != nil && m.picker.edit != nil {
@@ -594,10 +588,10 @@ func (m *Model) setStatus(isErr bool, msg string) { m.a.SetStatus(isErr, msg) }
 // takeLogStatus moves a message log mode just set into the bottom bar's
 // status, so it times out like any other and the newest message wins.
 func (m *Model) takeLogStatus() {
-	if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.status != "" {
-		m.setStatus(cs.browse.statusErr, cs.browse.status)
+	if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Status != "" {
+		m.setStatus(cs.browse.StatusErr, cs.browse.Status)
 		m.logStatus = m.a.Status().Gen
-		cs.browse.status = ""
+		cs.browse.ClearStatus()
 	}
 }
 
@@ -639,9 +633,6 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 			l := m.layout()
 			cs.sb.SetWidth(l.rw) // measure at the pane's width, even before a View
 			cs.sb.Pause(l.sbH)
-		}
-		for _, b := range cs.browses() {
-			b.appendLive(ev.Ev.Entry)
 		}
 	case session.EventPrompt:
 		cs.sb.SetPrompt(cs.Prompt)
@@ -700,6 +691,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		cmd, closed := cs.browse.key(k, m.browseBodyH())
 		if closed {
 			cs.browse = nil
+			m.a.CloseLog(cs.Key)
 		}
 		return cmd
 	}
@@ -979,12 +971,67 @@ func (m *Model) openBrowse(cs *charState) {
 		m.a.ClearStatus()
 		return
 	}
-	l, ok := m.a.LogLayout(cs.Ch)
-	cs.browse = newBrowse(cs, l, ok)
-	cs.browse.copy = m.copyCmd
-	cs.browse.saveFile = m.d.SaveFile
-	cs.browse.setExport(m.a.Config())
+	g := m.a.OpenLog(cs.Key)
+	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
+	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
+	cs.browse.cfg, cs.browse.downloads = m.a.Config, m.d.SaveFile != nil
 	m.a.ClearStatus()
+}
+
+// saveFile offers a file: through Deps.SaveFile (the web build) a
+// download named after the name's last element, else a file at the
+// name, "~/" expanded and a relative one placed in export_dir, never
+// overwriting. How it went goes on the asking log's status.
+func (m *Model) saveFile(e app.SaveFile) {
+	say := m.setStatus
+	if c := m.a.Char(e.Key); c != nil && c.Log != nil {
+		say = c.Log.SetStatus
+	}
+	if m.d.SaveFile != nil {
+		name := filepath.Base(e.Name)
+		if err := m.d.SaveFile(name, e.Data); err != nil {
+			say(true, err.Error())
+			return
+		}
+		say(false, str.StatusDownloaded(name))
+		return
+	}
+	path, err := config.ExpandHome(e.Name)
+	if err != nil {
+		say(true, err.Error())
+		return
+	}
+	if !filepath.IsAbs(path) {
+		dir := m.a.Config().ExportDir
+		if dir == "" {
+			say(true, str.BrowseNoExportDir())
+			return
+		}
+		path = filepath.Join(dir, path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		say(true, err.Error())
+		return
+	}
+	// O_EXCL makes "never overwrite" atomic: no window between checking
+	// for the file and creating it.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		say(true, str.BrowseFileExists(filepath.Base(path)))
+		return
+	} else if err != nil {
+		say(true, err.Error())
+		return
+	}
+	_, err = f.Write(e.Data)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		say(true, err.Error())
+		return
+	}
+	say(false, str.BrowseSaved(path))
 }
 
 // browseBodyH is the number of line rows in browse mode: the screen less
@@ -997,9 +1044,9 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	if cs != nil && cs.browse != nil && msg.X > l.sw {
 		switch msg.Button {
 		case tea.MouseWheelUp:
-			return cs.browse.scrollBy(-m.scrollLines())
+			return m.run(cs.browse.scrollBy(-m.scrollLines()))
 		case tea.MouseWheelDown:
-			return cs.browse.scrollBy(m.scrollLines())
+			return m.run(cs.browse.scrollBy(m.scrollLines()))
 		}
 		return nil
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
@@ -38,12 +39,30 @@ func TestPaintKinds(t *testing.T) {
 		t.Errorf("sys line = %q, want %q", got, want)
 	}
 	day := app.Line{Kind: app.Day, Day: app.DayOf(time.Date(2026, 9, 24, 12, 0, 0, 0, time.Local))}
-	if got, want := paint(hl, day), theme.Paint(theme.ScrollbackDay, "── "+dayLabel(day.Day)+" ──"); got != want {
+	if got, want := paint(hl, day), theme.Paint(theme.ScrollbackDay, "── "+app.DayLabel(day.Day)+" ──"); got != want {
 		t.Errorf("day divider = %q, want %q", got, want)
 	}
 	at := time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
 	end := app.Line{Kind: app.HistoryEnd, Entry: logstore.Entry{Time: at}}
 	if got, want := paint(hl, end), theme.Paint(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(at.Format(str.DateDayTime()))); got != want {
 		t.Errorf("history end = %q, want %q", got, want)
+	}
+}
+
+// Find matches what's drawn: plainShown must be paint with the styling
+// stripped, for every kind of line log mode shows, highlighted ones too.
+func TestPlainShownIsPaintUnstyled(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	cs := h.m.chars["fm/kit"]
+	for _, e := range []logstore.Entry{
+		{Dir: logstore.In, Text: "Rook pages, \"Kit, you there?\""},
+		{Dir: logstore.In, Text: "\x1b[1mbold\x1b[0m and plain"},
+		{Dir: logstore.Out, Text: "look"},
+		{Dir: logstore.Sys, Text: "connected"},
+	} {
+		l := cs.Rules.Line(e)
+		if got, want := plainShown(l), ansi.Strip(paint(cs.hl, l)); got != want {
+			t.Errorf("%q: plainShown %q, paint shows %q", e.Text, got, want)
+		}
 	}
 }
