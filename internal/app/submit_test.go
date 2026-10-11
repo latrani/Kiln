@@ -61,18 +61,37 @@ func TestSubmitSendsAndRecords(t *testing.T) {
 	}
 }
 
-func TestOverLimitAsksFirst(t *testing.T) {
+func TestOverLimitConfirmIsKeyedToTheText(t *testing.T) {
 	a, c, _ := submitApp(t, strings.Replace(fmWorld, "tls = true\n", "tls = true\nmax_line_bytes = 5\n", 1))
 	a.SetInput("too long")
 	if res, _ := a.Submit(); res.Sent || !a.Confirming() || a.Status().Text != str.StatusOverLimit(5) {
 		t.Fatalf("first Enter: %+v confirming %v status %q", res, a.Confirming(), a.Status().Text)
 	}
-	a.Unconfirm()
+	a.SetInput("too long!") // an edit
 	if res, _ := a.Submit(); res.Sent {
-		t.Error("an edit in between should ask again")
+		t.Error("a changed line should ask again")
 	}
-	if res, _ := a.Submit(); !res.Sent || !slices.Equal(c.Sent(), []string{"too long"}) {
-		t.Errorf("second Enter: %+v sent %q", res, c.Sent())
+	a.SetInput("too long!x") // an edit taken back: "too long!" is what was refused
+	a.SetInput("too long!")
+	if res, _ := a.Submit(); !res.Sent || !slices.Equal(c.Sent(), []string{"too long!"}) {
+		t.Errorf("Enter on the refused text: %+v sent %q", res, c.Sent())
+	}
+	a.SetInput("still too long")
+	a.Submit()
+	a.Unconfirm() // Esc
+	if res, _ := a.Submit(); res.Sent {
+		t.Error("Esc should drop the confirmation")
+	}
+}
+
+func TestOverLimitIsExported(t *testing.T) {
+	ch := config.Character{MaxLineBytes: 5, NewlineMode: "batch"}
+	if OverLimit("12345", ch) || !OverLimit("123456", ch) || OverLimit("123\n456", ch) {
+		t.Error("batch: each line on its own")
+	}
+	ch.NewlineMode = "flatten"
+	if !OverLimit("123\n45", ch) {
+		t.Error("flatten: joined with a space")
 	}
 }
 

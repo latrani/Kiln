@@ -540,7 +540,6 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if _, _, asking := m.a.PendingSave(); !asking && !m.overviewing() {
 			m.input().InsertText(msg.Content)
-			m.a.Unconfirm()
 			m.pushInput()
 		}
 	case tea.KeyPressMsg:
@@ -764,11 +763,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "down":
 		in.Down()
 	default:
-		if !editKey(in, k) {
-			return nil
-		}
+		editKey(in, k)
 	}
-	m.a.Unconfirm()
 	return nil
 }
 

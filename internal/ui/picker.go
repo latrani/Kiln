@@ -227,7 +227,7 @@ func (m *Model) saveCharacter() tea.Cmd {
 	e := m.picker.edit
 	id, err := m.a.AddCharacter(e.world, e.form.value(0))
 	if err != nil {
-		e.form.reject = err.Error()
+		e.form.reject = firstProblem(err)
 		return nil
 	}
 	m.picker.edit = nil

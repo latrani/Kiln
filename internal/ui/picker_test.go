@@ -312,6 +312,24 @@ func TestPickerAddWorld(t *testing.T) {
 	}
 }
 
+// The save reports every problem; the form shows the first, as before.
+func TestEditorShowsTheFirstProblem(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	toAddWorld(h)
+	h.typeText("fm") // taken
+	h.press(tea.KeyTab, 0)
+	h.typeText("h")
+	h.press(tea.KeyTab, 0) // no port
+	h.press(tea.KeyTab, 0)
+	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // to Save
+	h.enter()
+	s := h.screen()
+	if h.m.picker.edit == nil || !strings.Contains(s, str.ConfigPortRange()) || strings.Contains(s, str.ConfigWorldExists("fm")) {
+		t.Errorf("want only the port's problem:\n%s", s)
+	}
+}
+
 func TestPickerAddWorldErrorKeepsEditor(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	toAddWorld(h)

@@ -456,3 +456,15 @@ func TestDeleteSaysWhenThePasswordWasKept(t *testing.T) {
 		t.Errorf("status = %+v", s)
 	}
 }
+
+// emptyJoin is a joined error with nothing in it.
+type emptyJoin struct{}
+
+func (emptyJoin) Error() string   { return "whole" } //str:ok: a test error
+func (emptyJoin) Unwrap() []error { return nil }
+
+func TestFirstProblemOfAnEmptyJoin(t *testing.T) {
+	if got := firstProblem(emptyJoin{}); got != "whole" {
+		t.Errorf("got %q; want the whole error", got)
+	}
+}

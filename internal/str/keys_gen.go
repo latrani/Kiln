@@ -491,9 +491,6 @@ func EditorPort() string { return get("editor.port", nil) }
 // EditorPortNumber is editor.port_number: "a port is a number"
 func EditorPortNumber() string { return get("editor.port_number", nil) }
 
-// EditorPortRange is editor.port_range: "port must be 1-65535"
-func EditorPortRange() string { return get("editor.port_range", nil) }
-
 // EditorReconnect is editor.reconnect: "Reconnect"
 func EditorReconnect() string { return get("editor.reconnect", nil) }
 

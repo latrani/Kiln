@@ -165,12 +165,19 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 	return f
 }
 
-// worldSettings reads a world form.
-func worldSettings(f *form) (config.WorldSettings, error) {
-	port, err := app.ParsePort(f.value(f.field(portLabel)))
-	if err != nil {
-		return config.WorldSettings{}, err
+// firstProblem is what a form shows of err: its first problem, since
+// the save calls report every one (or err whole, if it holds none).
+func firstProblem(err error) string {
+	if ps := app.Problems(err); len(ps) > 0 {
+		return ps[0].Error()
 	}
+	return err.Error()
+}
+
+// worldSettings reads a world form. An empty or unreadable port is 0,
+// which the save refuses.
+func worldSettings(f *form) config.WorldSettings {
+	port, _ := strconv.Atoi(f.value(f.field(portLabel)))
 	s := config.WorldSettings{
 		Host: f.value(f.field(hostLabel)), Port: port, TLS: f.on(f.field(tlsLabel)),
 		TLSTrust: f.chosen(f.field(trustLabel)), Use: app.List(f.value(f.field(packsLabel))),
@@ -190,7 +197,7 @@ func worldSettings(f *form) (config.WorldSettings, error) {
 	if v := f.chosen(f.field(notifyLabel)); v != "" {
 		s.Notify = &v
 	}
-	return s, nil
+	return s
 }
 
 // charForm builds the form for editing a character.
@@ -442,14 +449,9 @@ func (m *Model) deleteWarning(e *editor) string {
 // character. A problem is shown in the editor, which stays.
 func (m *Model) saveNewWorld() {
 	f := m.picker.edit.form
-	s, err := worldSettings(f)
-	if err != nil {
-		f.reject = err.Error()
-		return
-	}
 	id := f.value(f.field(worldLabel))
-	if err := m.a.AddWorld(id, s); err != nil {
-		f.reject = err.Error()
+	if err := m.a.AddWorld(id, worldSettings(f)); err != nil {
+		f.reject = firstProblem(err)
 		return
 	}
 	m.picker.edit = nil
@@ -462,12 +464,8 @@ func (m *Model) saveNewWorld() {
 // saveWorld writes an edited world.
 func (m *Model) saveWorld() {
 	e := m.picker.edit
-	s, err := worldSettings(e.form)
-	if err == nil {
-		err = m.a.SaveWorld(e.world, s)
-	}
-	if err != nil {
-		e.form.reject = err.Error()
+	if err := m.a.SaveWorld(e.world, worldSettings(e.form)); err != nil {
+		e.form.reject = firstProblem(err)
 		return
 	}
 	m.closeEditor()
@@ -487,7 +485,7 @@ func (m *Model) saveCharSettings() {
 		s.Notify = &v
 	}
 	if err := m.a.SaveCharacter(e.world, e.char, s); err != nil {
-		f.reject = err.Error()
+		f.reject = firstProblem(err)
 		return
 	}
 	m.closeEditor()

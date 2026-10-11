@@ -368,6 +368,24 @@ func TestOverLimitNeedsConfirm(t *testing.T) {
 	}
 }
 
+func TestEscDropsTheOverLimitConfirm(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // max_line_bytes = 20
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.typeText("this line is definitely too long")
+	h.enter()
+	h.typeText("x")
+	h.key("backspace") // typed and taken back
+	if !h.m.a.Confirming() {
+		t.Fatal("an edit that changes nothing in the end should keep the confirmation")
+	}
+	h.key("esc")
+	h.enter()
+	if n := len(h.conn("fm/kit").Sent()); n != 1 {
+		t.Errorf("after Esc, Enter sent; %d lines", n)
+	}
+}
+
 func TestFlattenChecksJoinedLength(t *testing.T) {
 	flat := strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nnewline_mode = \"flatten\"", 1)
 	h := newHarness(t, map[string]string{"fm": flat})

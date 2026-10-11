@@ -39,17 +39,6 @@ func TestAcceptFilters(t *testing.T) {
 	}
 }
 
-func TestParsePort(t *testing.T) {
-	if p, err := ParsePort("8888"); p != 8888 || err != nil {
-		t.Errorf("8888: %d, %v", p, err)
-	}
-	for _, s := range []string{"", "0", "65536"} {
-		if _, err := ParsePort(s); err == nil || err.Error() != str.EditorPortRange() {
-			t.Errorf("%q: %v", s, err)
-		}
-	}
-}
-
 func TestDeleteWarning(t *testing.T) {
 	if w := DeleteWarning("fm", ""); w != str.EditorDeleteWorldWarning("fm") {
 		t.Errorf("world: %q", w)
@@ -119,5 +108,39 @@ func TestAddWorldTakesBackAHalfMadeWorld(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "worlds", "zz.toml")); !os.IsNotExist(err) {
 		t.Errorf("the half-made world is still there: %v", err)
+	}
+}
+
+func TestAddWorldChecksEverythingFirst(t *testing.T) {
+	a, dir := reloadApp(t)
+	err := a.AddWorld("fm", config.WorldSettings{Host: "", Port: 0})
+	var got []string
+	for _, e := range Problems(err) {
+		var fe *FieldError
+		if errors.As(e, &fe) {
+			got = append(got, fe.Field)
+		}
+	}
+	if !slices.Equal(got, []string{"port", "host", "id"}) {
+		t.Errorf("fields %q, from %v", got, err)
+	}
+	if first := Problems(a.AddWorld("", config.WorldSettings{Port: 1})); len(first) == 0 || first[0].Error() != str.ConfigWorldIdChars() {
+		t.Errorf("an empty id and host: first problem %v; want the id's, as the TUI always showed", first)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "worlds", "fm.toml")); err != nil {
+		t.Fatal(err) // reloadApp's fm is still there
+	}
+}
+
+func TestProblemsFlattens(t *testing.T) {
+	a, b, c := errors.New("a"), errors.New("b"), errors.New("c")
+	if got := Problems(errors.Join(errors.Join(a, b), nil, c)); !slices.Equal(got, []error{a, b, c}) {
+		t.Errorf("got %v", got)
+	}
+	if got := Problems(a); !slices.Equal(got, []error{a}) {
+		t.Errorf("one: %v", got)
+	}
+	if Problems(nil) != nil {
+		t.Error("nil should have no problems")
 	}
 }
