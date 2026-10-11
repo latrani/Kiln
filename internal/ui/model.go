@@ -610,7 +610,7 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		last *app.LogLine
 	}
 	var follow []following // log modes whose cursor is on the newest line: a new line takes it along
-	if cs := m.chars[msg.Key]; cs != nil {
+	if cs := m.chars[msg.Key]; cs != nil && msg.Ev.Kind == session.EventLine {
 		for _, b := range cs.browses() {
 			if b.Cursor == nil || b.Cursor == b.LastVisible() {
 				follow = append(follow, following{b, b.Last()})

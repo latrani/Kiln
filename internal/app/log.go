@@ -534,9 +534,9 @@ func (g *Log) searchedTo() string {
 	return DayLabel(g.Lines[0].Day)
 }
 
-// StopSearch ends a find that's reading older days, leaving the cursor
-// where it was, and reports whether there was one. The day being read
-// still arrives, to nothing.
+// StopSearch ends a find that's reading older days, finding nothing,
+// and reports whether there was one. The day being read still arrives,
+// to nothing.
 func (g *Log) StopSearch() bool {
 	if !g.Searching {
 		return false
