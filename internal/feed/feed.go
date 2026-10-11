@@ -78,11 +78,15 @@ func (f *Feed) Told(key string, ack int) {
 func (f *Feed) Resend(key string) { delete(f.small, idInput+key) }
 
 // Since is open character k's scrollback after line seq of numbering
-// epoch, as last sent. ok is false if k's numbering has since restarted
-// (or k isn't open): the page has to take everything again (All).
+// epoch, as last sent. ok is false if k's numbering has since restarted,
+// seq is older than any line the core holds, or k isn't open: the page
+// has to take everything again (All).
 func (f *Feed) Since(k string, epoch, seq int) (lines []app.Line, ok bool) {
 	c, s := f.a.Char(k), f.lines[k]
 	if c == nil || s == nil || s.epoch != epoch {
+		return nil, false
+	}
+	if len(c.Lines) > 0 && c.Lines[0].Seq > seq+1 { // the page would miss what's between
 		return nil, false
 	}
 	var out []app.Line

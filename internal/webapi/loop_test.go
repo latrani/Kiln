@@ -14,6 +14,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/feed"
 	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
@@ -409,5 +410,20 @@ func TestStatusExpiresAndTypingDismissesIt(t *testing.T) {
 	h.act(`{"Do":"frobnicate"}`)
 	if st := event(h.act(`{"Do":"input","Key":"","Text":"x","N":1}`), "Status"); st == nil || st["Text"] != "" {
 		t.Errorf("typing should dismiss the status: %v", st)
+	}
+}
+
+func TestAllKeepsTheTurnsEffects(t *testing.T) {
+	a, _ := newApp(t)
+	l := New(a, func([]byte) {})
+	evs := l.events([]app.Effect{app.Copy{Text: "x"}, app.Run{Func: func() any { return nil }}}, true)
+	var effects int
+	for _, e := range evs {
+		if _, ok := e.(feed.Effect); ok {
+			effects++
+		}
+	}
+	if effects != 1 {
+		t.Errorf("All with a Copy and a Run: %d effects", effects)
 	}
 }
