@@ -200,10 +200,10 @@ func TestPanelScrolls(t *testing.T) {
 	if !slices.Contains(panelSide(h), str.FilterAddText()) {
 		t.Errorf("+ Text not scrolled into view:\n%s", h.screen())
 	}
-	before := h.br().pv.top
+	before := h.br().Panel.top
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
-	if h.br().pv.top >= before {
-		t.Errorf("wheel up: top %d, was %d", h.br().pv.top, before)
+	if h.br().Panel.top >= before {
+		t.Errorf("wheel up: top %d, was %d", h.br().Panel.top, before)
 	}
 }
 
@@ -278,7 +278,7 @@ func TestPanelWheelScrollsAndStays(t *testing.T) {
 		h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 		h.screen() // a redraw must not pull the view back to the selection
 	}
-	if top := h.br().pv.top; top != 9 {
+	if top := h.br().Panel.top; top != 9 {
 		t.Errorf("three wheel-downs of 3: top = %d, want 9", top)
 	}
 }
@@ -288,8 +288,8 @@ func TestPanelClickOnBottomHintScrolls(t *testing.T) {
 	sel := h.br().Panel.Sel
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: h.m.height - 1, Button: tea.MouseLeft})
 	h.screen()
-	if h.br().pv.top == 0 || h.br().Panel.Sel != sel || h.kitFilter().Active() {
-		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().pv.top, h.br().Panel.Sel, h.kitFilter().Active())
+	if h.br().Panel.top == 0 || h.br().Panel.Sel != sel || h.kitFilter().Active() {
+		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().Panel.top, h.br().Panel.Sel, h.kitFilter().Active())
 	}
 }
 
@@ -320,7 +320,7 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	b.Cursor = b.Lines[len(b.Lines)-1]
 	h.key("f")
 	for i := range 5 {
-		h.br().SetCollapsed(app.FilterSel{Item: scene.Item{Name: fmt.Sprintf("p%d", i)}}, true)
+		h.br().Fold(fmt.Sprintf("p%d", i), true)
 	}
 	for range 60 {
 		h.key("down") // to + Text
@@ -450,7 +450,7 @@ func TestNestedParentsStartFolded(t *testing.T) {
 		t.Errorf("collapsed = %v, want a and a/b only", cs.Collapsed)
 	}
 	var names []string
-	for _, e := range b.EntriesOf(items) {
+	for _, e := range b.entriesOf(items) {
 		if !e.Add {
 			names = append(names, e.Item.Name)
 		}
@@ -462,5 +462,28 @@ func TestNestedParentsStartFolded(t *testing.T) {
 	b.EntriesOf(items)
 	if cs.Collapsed["a"] || !cs.Collapsed["a/b"] {
 		t.Errorf("after opening a: %v, a should stay open", cs.Collapsed)
+	}
+}
+
+// The highlight stops at the top, and removing the last text row leaves
+// it on + Text.
+func TestPanelHighlightStaysPut(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.key("up")
+	if h.br().Panel.Sel.Item != (scene.Item{Untagged: true}) {
+		t.Errorf("up at the top moved to %v", h.br().Panel.Sel)
+	}
+	for range 10 {
+		h.key("down") // to + Text
+	}
+	h.key("enter")
+	h.typeText("lighthouse")
+	h.key("enter") // the new row is highlighted
+	h.key("x")
+	if !h.br().Panel.Sel.Add {
+		t.Errorf("after removing the last text row: %v; want + Text", h.br().Panel.Sel)
 	}
 }

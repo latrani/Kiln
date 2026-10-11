@@ -37,16 +37,14 @@ func makeLogLine(r Rules, e logstore.Entry) *LogLine {
 // read its fields and set Shown; only its methods change the rest.
 type Log struct {
 	Lines      []*LogLine // oldest first
-	Cursor     *LogLine
-	Start, End *LogLine // the marked range; End nil while only Start is marked
+	Start, End *LogLine   // the marked range; End nil while only Start is marked
 	Excluded   map[*LogLine]bool
 	Find       string
 	Status     string // log mode's message; the front end shows it and clears it
 	StatusErr  bool
-	HistDone   bool   // every log day is loaded (or there is no history)
-	Loading    bool   // an older day is being read
-	Searching  bool   // a find is reading older days for a match
-	Panel      *Panel // the filter panel, while it's open
+	HistDone   bool // every log day is loaded (or there is no history)
+	Loading    bool // an older day is being read
+	Searching  bool // a find is reading older days for a match
 	// Shown is a line's text as the front end shows it, unstyled: what
 	// find matches. nil: Line.Plain.
 	Shown func(*LogLine) string
@@ -92,7 +90,6 @@ func (a *App) OpenLog(k string) *Log {
 	g.HistDone = g.hist == nil || g.hist.Exhausted()
 	for len(g.Lines) < LogInitialLines && g.loadOlder() {
 	}
-	g.Cursor = g.LastVisible()
 	if l := g.Last(); l != nil {
 		g.loadedTo = l.Entry.Time
 	}
@@ -185,7 +182,8 @@ func (a *App) HandleLogOlder(msg LogOlderMsg) []Effect {
 	return nil
 }
 
-// appendLive adds a line that arrived while the log is open. Lines
+// appendLive adds a line that arrived while the log is open; a front
+// end following the newest line moves itself. Lines
 // logged before it opened can still arrive as events afterwards; those
 // are already loaded from the log (at millisecond precision), so a line
 // no newer than the load watermark that matches a recently loaded one is
@@ -199,11 +197,7 @@ func (g *Log) appendLive(e logstore.Entry) {
 			}
 		}
 	}
-	atEnd := g.Cursor == nil || g.Cursor == g.LastVisible()
 	g.Lines = append(g.Lines, makeLogLine(g.c.Rules, e))
-	if atEnd {
-		g.Cursor = g.LastVisible()
-	}
 }
 
 // Last is the newest loaded line; nil with none.
@@ -297,20 +291,14 @@ func (g *Log) Items() []scene.Item {
 	return items
 }
 
-// Refilter keeps the reader's place after the filter changes: a cursor
-// on a line now hidden moves to the nearest visible one.
-func (g *Log) Refilter() {
-	g.Items() // sync
-	if g.Cursor != nil && !g.Shows(g.Cursor) {
-		if n := g.nearestVisible(g.Cursor); n != nil {
-			g.Cursor = n
-		}
-	}
-}
+// Refilter syncs the filter with the items after it changes, so a tag
+// seen for the first time obeys it. Keeping the reader's place is the
+// front end's: see NearestVisible.
+func (g *Log) Refilter() { g.Items() }
 
-// nearestVisible returns the first visible line after l, or failing that
-// the last visible line before it, so hiding l keeps the reader's place.
-func (g *Log) nearestVisible(l *LogLine) *LogLine {
+// NearestVisible returns the first shown line after l, or failing that
+// the last shown line before it, so hiding l keeps the reader's place.
+func (g *Log) NearestVisible(l *LogLine) *LogLine {
 	i := g.Index(l)
 	for j := i + 1; j < len(g.Lines); j++ {
 		if g.Shows(g.Lines[j]) {
@@ -325,55 +313,18 @@ func (g *Log) nearestVisible(l *LogLine) *LogLine {
 	return nil
 }
 
-// SetCursor puts the cursor on l: a click, or the view dragging it along.
-func (g *Log) SetCursor(l *LogLine) { g.Cursor = l }
-
-// MoveCursor moves by delta visible lines. Moving up past the oldest
-// loaded line stops there and pages in older history; the rest of the
-// move happens when it arrives.
-func (g *Log) MoveCursor(delta int) []Effect {
-	g.StopSearch() // the wheel, say: you've moved on
-	v := g.Visible()
-	if len(v) == 0 {
-		if delta < 0 { // everything loaded is hidden; look further back
-			return g.Older(func() []Effect { return g.MoveCursor(delta) })
-		}
-		return nil
-	}
-	i := slices.Index(v, g.Cursor)
-	if i < 0 {
-		i = len(v) - 1
-	}
-	g.Cursor = v[min(max(0, i+delta), len(v)-1)]
-	if rest := i + delta; rest < 0 {
-		return g.Older(func() []Effect { return g.MoveCursor(rest) })
-	}
-	return nil
-}
-
-// ToTop pages in all history, then moves to the oldest visible line.
-func (g *Log) ToTop() []Effect {
-	if v := g.Visible(); len(v) > 0 {
-		g.Cursor = v[0]
-	}
-	return g.Older(g.ToTop)
-}
-
-// ToBottom moves to the newest visible line.
-func (g *Log) ToBottom() { g.Cursor = g.LastVisible() }
-
-// Mark marks the cursor's line as the start of a range, or, with a start
-// marked, as its other end.
-func (g *Log) Mark() {
-	if g.Cursor == nil {
+// Mark marks l as the start of a range, or, with a start marked, as its
+// other end. A nil l does nothing.
+func (g *Log) Mark(l *LogLine) {
+	if l == nil {
 		return
 	}
 	if g.Start == nil || g.End != nil {
-		g.NewRange(g.Cursor, nil)
+		g.NewRange(l, nil)
 		g.SetStatus(false, str.BrowseRangeStart())
 		return
 	}
-	g.End = g.Cursor
+	g.End = l
 	if g.Index(g.End) < g.Index(g.Start) {
 		g.Start, g.End = g.End, g.Start
 	}
@@ -524,38 +475,41 @@ func (g *Log) matchAt(re *regexp.Regexp, l *LogLine) bool {
 	return g.Shows(l) && re.MatchString(g.shown(l))
 }
 
-// SetFind sets the find term and goes to its nearest match at the cursor
-// or older.
-func (g *Log) SetFind(term string) []Effect {
+// SetFind sets the find term and finds its nearest match at from or
+// older; see FindOlder.
+func (g *Log) SetFind(term string, from *LogLine, found func(*LogLine)) []Effect {
 	g.Find = term
-	return g.FindOlder(true)
+	return g.FindOlder(from, true, found)
 }
 
-// FindOlder moves to the nearest match older than the cursor (or at it,
-// with includeCursor), the way find goes: newest first. It reads in
-// older days until one turns up or history runs out; it doesn't wrap.
-func (g *Log) FindOlder(includeCursor bool) []Effect {
+// FindOlder finds the nearest match older than from (or at it, with
+// includeFrom; from the newest line if from is nil), the way find goes:
+// newest first, and hands it to found. It reads in older days until one
+// turns up or history runs out; it doesn't wrap.
+func (g *Log) FindOlder(from *LogLine, includeFrom bool, found func(*LogLine)) []Effect {
 	if g.Find == "" {
 		return nil
 	}
 	i := len(g.Lines) - 1
-	if ci := g.Index(g.Cursor); ci >= 0 {
-		i = ci
-		if !includeCursor {
+	if fi := g.Index(from); fi >= 0 {
+		i = fi
+		if !includeFrom {
 			i--
 		}
 	}
-	return g.findOlderFrom(i)
+	return g.findOlderFrom(i, found)
 }
 
 // findOlderFrom looks for a match at line i or older; see FindOlder.
-func (g *Log) findOlderFrom(i int) []Effect {
+func (g *Log) findOlderFrom(i int, found func(*LogLine)) []Effect {
 	re := FindRE(g.Find)
 	g.Searching = false
 	for ; i >= 0; i-- {
 		if l := g.Lines[i]; g.matchAt(re, l) {
-			g.Cursor = l
 			g.Status = ""
+			if found != nil {
+				found(l)
+			}
 			return nil
 		}
 	}
@@ -564,7 +518,7 @@ func (g *Log) findOlderFrom(i int) []Effect {
 		if len(g.Lines) > 0 {
 			oldest = g.Lines[0]
 		}
-		effs := g.Older(func() []Effect { return g.findOlderFrom(g.Index(oldest) - 1) })
+		effs := g.Older(func() []Effect { return g.findOlderFrom(g.Index(oldest)-1, found) })
 		g.Searching = true
 		return effs
 	}
@@ -580,9 +534,9 @@ func (g *Log) searchedTo() string {
 	return DayLabel(g.Lines[0].Day)
 }
 
-// StopSearch ends a find that's reading older days, leaving the cursor
-// where it was, and reports whether there was one. The day being read
-// still arrives, to nothing.
+// StopSearch ends a find that's reading older days, finding nothing,
+// and reports whether there was one. The day being read still arrives,
+// to nothing.
 func (g *Log) StopSearch() bool {
 	if !g.Searching {
 		return false
@@ -592,21 +546,22 @@ func (g *Log) StopSearch() bool {
 	return true
 }
 
-// FindNewer moves to the nearest match newer than the cursor. Everything
-// newer is always loaded; it doesn't wrap.
-func (g *Log) FindNewer() {
+// FindNewer returns the nearest match newer than from (from the oldest
+// line if from is nil). Everything newer is always loaded; it doesn't
+// wrap. nil, saying so, if there's none.
+func (g *Log) FindNewer(from *LogLine) *LogLine {
 	if g.Find == "" {
-		return
+		return nil
 	}
 	re := FindRE(g.Find)
-	for _, l := range g.Lines[g.Index(g.Cursor)+1:] {
+	for _, l := range g.Lines[g.Index(from)+1:] {
 		if g.matchAt(re, l) {
-			g.Cursor = l
 			g.Status = ""
-			return
+			return l
 		}
 	}
 	g.findFailed(str.BrowseNoNewerMatches(g.Find))
+	return nil
 }
 
 // findFailed says there's nothing further: that the term matches nothing
@@ -618,35 +573,34 @@ func (g *Log) findFailed(msg string) {
 	g.SetStatus(true, msg)
 }
 
-// matchPos is the cursor's match counted from the newest, of n loaded;
-// more says older history not yet loaded may hold others.
-func (g *Log) matchPos() (i, n int, more bool) {
+// matchPos is at's match counted from the newest, of n loaded; more says
+// older history not yet loaded may hold others.
+func (g *Log) matchPos(at *LogLine) (i, n int, more bool) {
 	ms := g.Matches()
-	if k := slices.Index(ms, g.Cursor); k >= 0 {
+	if k := slices.Index(ms, at); k >= 0 {
 		i = len(ms) - k
 	}
 	return i, len(ms), !g.HistDone
 }
 
-// FindStatus is the find term and match position, for the top bar; ""
-// without a find.
-func (g *Log) FindStatus() string {
+// FindStatus is the find term and at's place among the matches, for the
+// top bar; "" without a find.
+func (g *Log) FindStatus(at *LogLine) string {
 	if g.Find == "" {
 		return ""
 	}
 	if g.Searching {
 		return str.BrowseSearching(g.Find, g.searchedTo())
 	}
-	i, n, more := g.matchPos()
+	i, n, more := g.matchPos(at)
 	if more {
 		return str.BrowseFindStatusMore(g.Find, i, n)
 	}
 	return str.BrowseFindStatus(g.Find, i, n)
 }
 
-// GotoDate pages in history back to day (YYYY-MM-DD), then moves to its
-// first visible line and hands it to show, for the front end to put at
-// the top of what it draws.
+// GotoDate pages in history back to day (YYYY-MM-DD), then hands its
+// first visible line to show, for the front end to go to.
 func (g *Log) GotoDate(day string, show func(*LogLine)) []Effect {
 	if _, err := time.Parse("2006-01-02", day); err != nil {
 		g.SetStatus(true, str.BrowseDateFormat())
@@ -657,7 +611,6 @@ func (g *Log) GotoDate(day string, show func(*LogLine)) []Effect {
 	}
 	for _, l := range g.Visible() {
 		if l.Day >= day {
-			g.Cursor = l
 			if show != nil {
 				show(l)
 			}

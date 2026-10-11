@@ -10,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -33,13 +34,14 @@ const (
 type browse struct {
 	*app.Log
 	cs        *charState
+	Cursor    *app.LogLine            // the highlighted line; see logcursor.go
 	top       *app.LogLine            // first line drawn at the top of the body
 	scrolled  bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
 	rowLines  []*app.LogLine          // body row → line (nil for dividers), from the last draw
 	painted   map[*app.LogLine]string // each line as painted, once it's been needed; see text
 	prompt    promptKind
 	pin       *Input
-	pv        filterPanel // the filter panel's scroll, while it's open
+	Panel     *filterPanel // the filter panel, while it's open
 	format    string
 	run       func([]app.Effect) tea.Cmd // the model's run
 	cfg       func() *config.Config      // the config as it is now, for the export settings
@@ -198,12 +200,13 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptFind:
 			return b.run(b.SetFind(v))
 		case promptDate:
-			return b.run(b.GotoDate(v, func(l *app.LogLine) { b.top = l }))
+			return b.run(b.GotoDate(v))
 		case promptFilename:
 			return b.save(v)
 		case promptFilterText:
-			if b.AddText(v) {
-				b.pv.follow = true
+			if b.AddText(v) && b.Panel != nil { // a new row becomes the highlight
+				b.Panel.Sel = filterSel{Item: scene.Item{Name: v, Text: true}}
+				b.Panel.follow = true
 			}
 			b.Refilter()
 		}
