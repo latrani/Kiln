@@ -52,11 +52,13 @@ func (a *App) Text() string {
 // IdleHistory is the history of the input used while nothing is open.
 func (a *App) IdleHistory() *History { return &a.idleHist }
 
-// Unconfirm is an edit: the next Submit of an over-limit line asks again.
-func (a *App) Unconfirm() { a.confirm = false }
+// Unconfirm drops the confirmation, as Esc does: the next Submit of an
+// over-limit line asks again.
+func (a *App) Unconfirm() { a.confirm = "" }
 
-// Confirming reports whether the next Submit sends an over-limit line.
-func (a *App) Confirming() bool { return a.confirm }
+// Confirming reports whether an over-limit line is waiting for Enter
+// again.
+func (a *App) Confirming() bool { return a.confirm != "" }
 
 // SkipLogin takes down the active character's password prompt, if it's
 // up, and says so; false if there was none.
@@ -109,6 +111,12 @@ func isLogErr(err error) bool {
 
 func isCommand(text string) bool {
 	return strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "//")
+}
+
+// OverLimit reports whether text is too long to send as ch: a line over
+// max_line_bytes, or with newline_mode "flatten" the lines joined.
+func OverLimit(text string, ch config.Character) bool {
+	return overLimit(text, ch.MaxLineBytes, ch.NewlineMode == "flatten")
 }
 
 // overLimit reports whether any line of text is longer than limit bytes,
@@ -179,12 +187,12 @@ func (a *App) Submit() (SubmitResult, []Effect) {
 		return SubmitResult{}, nil
 	}
 	flatten := c.Ch.NewlineMode == "flatten"
-	if overLimit(text, c.Ch.MaxLineBytes, flatten) && !a.confirm {
-		a.confirm = true
+	if OverLimit(text, c.Ch) && text != a.confirm {
+		a.confirm = text
 		a.SetStatus(true, str.StatusOverLimit(c.Ch.MaxLineBytes))
 		return SubmitResult{}, nil
 	}
-	a.confirm = false
+	a.confirm = ""
 	lines := strings.Split(strings.TrimPrefix(text, "/"), "\n") // "//foo" sends "/foo"
 	if flatten {
 		lines = []string{strings.Join(lines, " ")}

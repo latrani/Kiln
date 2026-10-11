@@ -111,7 +111,7 @@ type App struct {
 	paneW, paneH int                    // where server text is shown; 0×0 until known
 	idleText     string                 // the input's text while nothing is open
 	idleHist     History                // its history
-	confirm      bool                   // the next Submit sends an over-limit line anyway
+	confirm      string                 // an over-limit line Submit refused; Enter on the same text sends it
 	pending      *pendingSave
 
 	focused         bool                    // the front end has focus, as far as we know
@@ -266,7 +266,7 @@ func (a *App) Open(k string) (*Char, error) {
 	a.sortOrder()
 	a.Preload(k)
 	if a.active == "" {
-		a.active, a.confirm = k, false
+		a.active, a.confirm = k, ""
 	}
 	return c, err
 }
@@ -292,7 +292,7 @@ func (a *App) Close(k string) {
 	if a.active != k {
 		return
 	}
-	a.active, a.confirm = "", false // as Switch does: the next Enter asks again
+	a.active, a.confirm = "", "" // as Switch does: the next Enter asks again
 	if len(a.order) > 0 {
 		a.Switch(a.order[min(i, len(a.order)-1)])
 	}
@@ -339,7 +339,7 @@ func (a *App) Switch(k string) bool {
 		a.recent = slices.DeleteFunc(a.recent, func(r string) bool { return r == a.active })
 		a.recent = append([]string{a.active}, a.recent...)
 	}
-	a.active, a.confirm = k, false
+	a.active, a.confirm = k, ""
 	if c := a.chars[k]; c != nil {
 		a.recent = slices.DeleteFunc(a.recent, func(r string) bool { return r == k })
 		c.Unread, c.Attention = 0, false
