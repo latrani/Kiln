@@ -49,6 +49,14 @@ func (a *App) Text() string {
 	return a.idleText
 }
 
+// SetDraft puts text in open character k's input: a draft saved from
+// before, for a front end restoring one. Nothing if k isn't open.
+func (a *App) SetDraft(k, text string) {
+	if c := a.chars[k]; c != nil {
+		c.Text = text
+	}
+}
+
 // IdleText is the text of the input used while nothing is open.
 func (a *App) IdleText() string { return a.idleText }
 

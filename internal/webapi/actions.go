@@ -31,9 +31,9 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 	a := l.a
 	switch act.Do {
 	case "open": //str:ok
-		if c, err := a.Open(act.Key); c != nil && err != nil {
-			a.SetStatus(true, str.StatusCharError(act.Key, err))
-		}
+		l.open(act.Key)
+	case "save_drafts": //str:ok
+		l.saveDrafts()
 	case "close": //str:ok
 		if a.Char(act.Key) != nil {
 			a.Close(act.Key)

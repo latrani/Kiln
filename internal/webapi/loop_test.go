@@ -86,7 +86,7 @@ func startOn(t *testing.T, a *app.App, dir string) *harness {
 	h.l = New(a, func(b []byte) { h.batches <- decode(t, b) })
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go h.l.Run(ctx, false)
+	go h.l.Run(ctx, Options{})
 	h.next() // the first batch: everything
 	return h
 }
@@ -134,7 +134,7 @@ func TestFirstBatchIsEverything(t *testing.T) {
 	l := New(a, func(b []byte) { got <- decode(t, b) })
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go l.Run(ctx, false)
+	go l.Run(ctx, Options{})
 	if b := <-got; types(b)[0] != "Start" {
 		t.Errorf("first batch %v", types(b))
 	}
@@ -201,7 +201,7 @@ func TestQuitEndsTheLoop(t *testing.T) {
 	got := make(chan []map[string]any, 10)
 	l := New(a, func(b []byte) { got <- decode(t, b) })
 	done := make(chan struct{})
-	go func() { l.Run(context.Background(), false); close(done) }()
+	go func() { l.Run(context.Background(), Options{}); close(done) }()
 	<-got
 	l.Act([]byte(`{"Do":"quit"}`))
 	b := <-got
@@ -352,7 +352,7 @@ func TestActNeverBlocksAfterTheLoopEnds(t *testing.T) {
 	got := make(chan []byte, 10)
 	l := New(a, func(b []byte) { got <- b })
 	done := make(chan struct{})
-	go func() { l.Run(context.Background(), false); close(done) }()
+	go func() { l.Run(context.Background(), Options{}); close(done) }()
 	<-got
 	l.Act([]byte(`{"Do":"quit"}`))
 	<-done
@@ -401,7 +401,7 @@ func TestStatusExpiresAndTypingDismissesIt(t *testing.T) {
 	h.l.statusTimeout = 50 * time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go h.l.Run(ctx, false)
+	go h.l.Run(ctx, Options{})
 	h.next()
 	h.act(`{"Do":"frobnicate"}`)
 	if st := event(h.next(), "Status"); st == nil || st["Text"] != "" {
@@ -433,5 +433,65 @@ func TestUnknownActionFieldsAreRefused(t *testing.T) {
 	b := h.act(`{"Do":"mark","Key":"fm/kit","Seqs":3}`)
 	if st := event(b, "Status"); st == nil || st["Err"] != true || !strings.HasPrefix(st["Text"].(string), upTo(str.StatusBadAction(errors.New(mark)))) {
 		t.Errorf("unknown field: %v", b)
+	}
+}
+
+func TestDraftsSurviveARestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), Options{Drafts: path}); close(done) }()
+	<-got
+	l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+	<-got
+	l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"half a thought","N":1}`))
+	<-got
+	l.Act([]byte(`{"Do":"save_drafts"}`))
+	<-got
+	l.Act([]byte(`{"Do":"quit"}`))
+	<-done
+
+	b, _ := newApp(t)
+	h := &harness{t: t, a: b, batches: make(chan []map[string]any, 100)}
+	h.l = New(b, func(x []byte) { h.batches <- decode(t, x) })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go h.l.Run(ctx, Options{Drafts: path})
+	h.next()
+	var restored bool
+	for _, e := range h.act(`{"Do":"open","Key":"fm/kit"}`) {
+		if e["type"] == "Input" && e["Key"] == "fm/kit" && e["Text"] == "half a thought" {
+			restored = true
+		}
+	}
+	if !restored {
+		t.Error("the draft didn't come back")
+	}
+}
+
+func TestBadDraftsFileIsIgnored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	h := &harness{t: t, a: a, batches: make(chan []map[string]any, 100)}
+	h.l = New(a, func(x []byte) { h.batches <- decode(t, x) })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go h.l.Run(ctx, Options{Drafts: path})
+	h.next()
+	if b := h.act(`{"Do":"open","Key":"fm/kit"}`); event(b, "Char") == nil {
+		t.Errorf("open after a bad drafts file: %v", types(b))
+	}
+}
+
+func TestSayPutsAStatusOnTheLoop(t *testing.T) {
+	h := start(t)
+	h.l.Say(true, "x") //str:ok: a test status
+	if st := event(h.next(), "Status"); st == nil || st["Text"] != "x" || st["Err"] != true {
+		t.Errorf("status %v", st)
 	}
 }

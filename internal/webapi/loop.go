@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/latrani/Kiln/internal/app"
@@ -29,7 +30,21 @@ type Loop struct {
 	done          chan struct{} // closed when Run returns
 	out           func([]byte)
 	statusTimeout time.Duration
-	timed         int // the status Gen last timed out
+	timed         int               // the status Gen last timed out
+	opts          Options           // as Run was given them
+	drafts        map[string]string // saved drafts not yet restored, by key ("" for the idle input)
+}
+
+// Options are how Run starts.
+type Options struct {
+	Autoconnect bool   // open and connect autoconnect characters first
+	Drafts      string // the file drafts are saved to and restored from; "" for none
+}
+
+// say is a status for the loop to put up; see Say.
+type say struct {
+	err  bool
+	text string
 }
 
 type tick struct{}
@@ -47,6 +62,10 @@ func New(a *app.App, out func([]byte)) *Loop {
 // does nothing.
 func (l *Loop) Act(js []byte) { l.post(js) }
 
+// Say puts text on the status line from outside the loop (the page's
+// storage failing, say). Like Act, it never touches the core itself.
+func (l *Loop) Say(isErr bool, text string) { l.post(say{isErr, text}) }
+
 // post puts msg on the loop, or drops it if the loop has ended.
 func (l *Loop) post(msg any) {
 	select {
@@ -56,21 +75,25 @@ func (l *Loop) post(msg any) {
 }
 
 // Run drains the loop until ctx is done or the core quits. It first
-// opens and connects autoconnect characters if asked, then sends
-// everything.
-func (l *Loop) Run(ctx context.Context, autoconnect bool) {
+// loads saved drafts, opens and connects autoconnect characters if
+// asked, then sends everything.
+func (l *Loop) Run(ctx context.Context, opts Options) {
 	defer close(l.done)
+	l.opts = opts
+	l.drafts = loadDrafts(opts.Drafts)
 	var effs []app.Effect
-	if autoconnect {
+	if opts.Autoconnect {
 		for _, ch := range l.a.AllChars() {
 			if ch.Autoconnect {
 				k := app.Key(ch.World, ch.ID)
-				if _, err := l.a.Open(k); err != nil {
-					l.a.SetStatus(true, str.StatusCharError(k, err))
-				}
+				l.open(k)
 				effs = append(effs, l.a.Connect(k)...)
 			}
 		}
+	}
+	if d := l.drafts[""]; d != "" && l.a.Char(l.a.Active()) == nil {
+		l.a.SetInput(d)
+		delete(l.drafts, "")
 	}
 	l.perform(effs)
 	l.send(anys(l.f.All()))
@@ -166,6 +189,8 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 		l.a.HandleOlder(m)
 	case app.LogOlderMsg:
 		return nil, l.a.HandleLogOlder(m), false
+	case say:
+		l.a.SetStatus(m.err, m.text)
 	case expire:
 		if l.a.Status().Gen == int(m) {
 			l.a.ClearStatus()
@@ -179,4 +204,66 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 // mark the overflow as you type.
 func OverLimit(text string, maxLineBytes int, newlineMode string) bool {
 	return app.OverLimit(text, config.Character{MaxLineBytes: maxLineBytes, NewlineMode: newlineMode})
+}
+
+// open opens character k, saying why on the status line if it couldn't
+// load, and restores its saved draft.
+func (l *Loop) open(k string) {
+	c, err := l.a.Open(k)
+	if c != nil && err != nil {
+		l.a.SetStatus(true, str.StatusCharError(k, err))
+	}
+	if d := l.drafts[k]; c != nil && d != "" {
+		l.a.SetDraft(k, d)
+		delete(l.drafts, k)
+	}
+}
+
+// loadDrafts reads the drafts file; a missing or unreadable one is none.
+func loadDrafts(path string) map[string]string {
+	drafts := map[string]string{}
+	if path == "" {
+		return drafts
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(b, &drafts) != nil {
+		return map[string]string{}
+	}
+	return drafts
+}
+
+// saveDrafts writes every input's text that isn't empty to the drafts
+// file, by way of a temporary file so a half-written one never replaces
+// it. Best effort: a failure here has nobody to tell.
+func (l *Loop) saveDrafts() {
+	if l.opts.Drafts == "" {
+		return
+	}
+	drafts := map[string]string{}
+	for _, k := range l.a.Order() {
+		if t := l.a.Char(k).Text; t != "" {
+			drafts[k] = t
+		}
+	}
+	if t := l.a.IdleText(); t != "" {
+		drafts[""] = t
+	}
+	b, err := json.Marshal(drafts)
+	if err != nil {
+		return
+	}
+	tmp := l.opts.Drafts + ".tmp" //str:ok
+	f, err := os.Create(tmp)
+	if err != nil {
+		return
+	}
+	_, err = f.Write(b)
+	if err == nil {
+		err = f.Sync()
+	}
+	if f.Close() != nil || err != nil {
+		os.Remove(tmp)
+		return
+	}
+	os.Rename(tmp, l.opts.Drafts)
 }
