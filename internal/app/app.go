@@ -51,7 +51,7 @@ type Char struct {
 	Orphan      bool            // removed from the config; closed when it disconnects
 	ConnectedAt time.Time       // when the current connection came up
 	Lines       []*Line         // the scrollback, oldest first; front ends may keep the pointers
-	seq         numbering       // Lines\' numbers
+	seq         numbering       // Lines' numbers
 	Prompt      string          // an unterminated prompt from the server, sanitized; "" when there's none
 	More        bool            // older history exists that isn't in Lines yet; see RequestOlder
 	Loading     bool            // a page of older history is being read
