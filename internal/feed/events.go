@@ -1,6 +1,8 @@
 package feed
 
 import (
+	"time"
+
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/session"
 )
@@ -30,14 +32,23 @@ type Char struct {
 	State                session.State
 	Unread               int
 	Attention            bool
-	CertChanged          bool   // its server's certificate changed; /trust to accept
-	Orphan               bool   // removed from the config; closes when it disconnects
-	Text                 string // the input's text, as the core holds it
-	Prompt               string // the server's unterminated prompt, sanitized; "" for none
-	NeedPW               bool   // the password prompt is up
-	More                 bool   // older history can be paged in
-	Loading              bool   // a page of older history is being read
+	CertChanged          bool      // its server's certificate changed; /trust to accept
+	Orphan               bool      // removed from the config; closes when it disconnects
+	ConnectedAt          time.Time // when the current connection came up
+	Text                 string    // the input's text, as the core holds it
+	Prompt               string    // the server's unterminated prompt, sanitized; "" for none
+	NeedPW               bool      // the password prompt is up
+	More                 bool      // older history can be paged in
+	Loading              bool      // a page of older history is being read
 }
+
+// Idle is the input used while nothing is open.
+type Idle struct{ Text string }
+
+// Presence is whether you're here, away, or not known yet. It can also
+// change with time alone (notify_idle passing), which a loop catches by
+// running a turn on a timer.
+type Presence struct{ State app.Presence }
 
 // Closed is an open character gone.
 type Closed struct{ Key string }
@@ -57,9 +68,10 @@ type Status struct {
 type Confirm struct{ On bool }
 
 // SaveQuestion is the "save this password?" question, while Asking.
+// Store is where it would go (password_store).
 type SaveQuestion struct {
-	World, Char string
-	Asking      bool
+	World, Char, Store string
+	Asking             bool
 }
 
 // Op is how a Lines or LogLines event changes the page's lines.
@@ -72,9 +84,12 @@ const (
 	Prepend           // these go before the first
 )
 
-// Lines changes a character's scrollback.
+// Lines changes a character's scrollback. Epoch names the numbering the
+// lines belong to: a Reset starts a new one (the character reopened, its
+// history loaded again), so line N in an older epoch isn't line N now.
 type Lines struct {
 	Key   string
+	Epoch int
 	Op    Op
 	Lines []app.Line
 }
@@ -90,12 +105,14 @@ type Log struct {
 	StatusErr                    bool
 	Searching, Loading, HistDone bool
 	Start, End                   *int
+	Selected                     int // lines an export or copy would take
 	Excluded, Hidden, Matches    []int
 }
 
-// LogLines changes a character's log-mode lines.
+// LogLines changes a character's log-mode lines; Epoch as in Lines.
 type LogLines struct {
 	Key   string
+	Epoch int
 	Op    Op
 	Lines []app.Line
 }
@@ -121,6 +138,8 @@ func (Worlds) event()       {}
 func (Order) event()        {}
 func (Char) event()         {}
 func (Closed) event()       {}
+func (Idle) event()         {}
+func (Presence) event()     {}
 func (Active) event()       {}
 func (Status) event()       {}
 func (Confirm) event()      {}

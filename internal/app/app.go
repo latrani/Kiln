@@ -67,6 +67,7 @@ type Char struct {
 	hist        *history.Reader  // pages older log days in; only an in-flight RequestOlder read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
 	rulesGen    int              // bumped whenever Rules changes, so a page read under older ones is made again
+	relines     int              // bumped whenever Lines are made again under new rules
 	sentGen     int              // App.hereGen when the last notification went out; -1: none yet
 	lastSent    time.Time        // when the last notification went out
 }
@@ -83,9 +84,9 @@ func (c *Char) compile() error {
 	return nil
 }
 
-// RulesGen goes up whenever c's rules are compiled again, so lines made
-// under the old ones may have been made again.
-func (c *Char) RulesGen() int { return c.rulesGen }
+// Relined goes up whenever c's Lines are made again under new rules:
+// same lines, same numbers, new tags.
+func (c *Char) Relined() int { return c.relines }
 
 // Echoes reports whether e belongs in the scrollback and log mode:
 // everything but sent lines, which only show with local_echo on. They're
@@ -190,6 +191,7 @@ func (a *App) ApplyConfig(cfg *config.Config) ConfigResult {
 			for _, l := range c.Lines {
 				*l = c.Rules.Reline(*l)
 			}
+			c.relines++
 		}
 		if c.Sess != nil {
 			c.Sess.SetChar(ch)

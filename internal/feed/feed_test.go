@@ -111,7 +111,7 @@ func TestFirstTurnSendsEverything(t *testing.T) {
 	open(t, a, "fm/kit")
 	f := New(a)
 	evs := f.Turn(nil)
-	want := []string{"Worlds", "Order", "Char", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
+	want := []string{"Worlds", "Order", "Char", "Idle", "Presence", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
 	if got := kinds(evs); !reflect.DeepEqual(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)
 	}
@@ -301,9 +301,10 @@ func TestSinceMatchesWhatWasSent(t *testing.T) {
 	s := attach(a, "fm/kit")
 	f := New(a)
 	var sentLines []app.Line
+	epoch := 0
 	take := func() {
 		for _, l := range linesOf(f.Turn(nil)) {
-			sentLines = append(sentLines, l.Lines...)
+			sentLines, epoch = append(sentLines, l.Lines...), l.Epoch
 		}
 	}
 	take()
@@ -318,8 +319,9 @@ func TestSinceMatchesWhatWasSent(t *testing.T) {
 				want = append(want, l.Seq)
 			}
 		}
-		if got := seqs(f.Since("fm/kit", n)); !reflect.DeepEqual(got, want) {
-			t.Errorf("Since(%d) = %v, sent after it %v", n, got, want)
+		got, ok := f.Since("fm/kit", epoch, n)
+		if !ok || !reflect.DeepEqual(seqs(got), want) {
+			t.Errorf("Since(%d) = %v, %v; sent after it %v", n, seqs(got), ok, want)
 		}
 	}
 }
@@ -366,5 +368,94 @@ func TestLogMode(t *testing.T) {
 	evs = f.Turn(nil)
 	if l, _ := find[Log](evs); l.Open || len(evs) != 1 {
 		t.Errorf("closing: %v, %+v", kinds(evs), l)
+	}
+}
+
+// A reload that changes nothing about a character's tags doesn't send
+// its lines again.
+func TestReloadWithoutRetagSendsNoLines(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	s := attach(a, "fm/kit")
+	line(a, "fm/kit", s, "one")
+	f := New(a)
+	f.Turn(nil)
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	if got := linesOf(f.Turn(nil)); len(got) != 0 {
+		t.Errorf("a reload that retags nothing sent %+v", got)
+	}
+}
+
+// Since names its numbering: lines after N from a numbering that has
+// since restarted aren't what the page thinks.
+func TestSinceKnowsTheNumberingRestarted(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	s := attach(a, "fm/kit")
+	for _, text := range []string{"a", "b", "c"} {
+		line(a, "fm/kit", s, text)
+	}
+	f := New(a)
+	first := linesOf(f.Turn(nil))
+	epoch := first[0].Epoch
+	if got, ok := f.Since("fm/kit", epoch, 1); !ok || len(got) != 1 || got[0].Seq != 2 {
+		t.Fatalf("Since in the same numbering: %v, %v", got, ok)
+	}
+	a.Close("fm/kit")
+	open(t, a, "fm/kit")
+	s = attach(a, "fm/kit")
+	for _, text := range []string{"w", "x", "y", "z"} {
+		line(a, "fm/kit", s, text)
+	}
+	again := linesOf(f.Turn(nil))
+	if len(again) != 1 || again[0].Epoch == epoch {
+		t.Fatalf("reopened: %+v; want a Reset in a new numbering", again)
+	}
+	if _, ok := f.Since("fm/kit", epoch, 2); ok {
+		t.Error("Since from the old numbering should say it restarted")
+	}
+}
+
+// What the TUI draws from the core reaches the page too.
+func TestPresenceIdleTextConnectedAtAndStore(t *testing.T) {
+	a, _ := newApp(t)
+	f := New(a)
+	evs := f.All()
+	if p, ok := find[Presence](evs); !ok || p.State != app.PresenceUnknown {
+		t.Errorf("presence %+v, %v", p, ok)
+	}
+	a.SetInput("/open fm/kit") // nothing open: the idle input
+	a.Focus(true)
+	evs = f.Turn(nil)
+	if i, _ := find[Idle](evs); i.Text != "/open fm/kit" {
+		t.Errorf("idle %+v", i)
+	}
+	if p, _ := find[Presence](evs); p.State != app.PresenceHere {
+		t.Errorf("presence after focus %+v", p)
+	}
+	open(t, a, "fm/kit")
+	s := attach(a, "fm/kit")
+	a.Handle(app.SessionMsg{Key: "fm/kit", Sess: s, OK: true, Ev: session.Event{Kind: session.EventState, State: session.Connected}})
+	if c, _ := find[Char](f.Turn(nil)); !c.ConnectedAt.Equal(day) {
+		t.Errorf("connected at %v", c.ConnectedAt)
+	}
+	if q, _ := find[SaveQuestion](f.All()); q.Store != a.PasswordStore() {
+		t.Errorf("save question store %q, want %q", q.Store, a.PasswordStore())
+	}
+}
+
+func TestLogSaysHowManyAreSelected(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	writeLog(t, a, day.AddDate(0, 0, -1), "one", "two", "three")
+	f := New(a)
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[0])
+	g.Mark(g.Lines[2])
+	g.ToggleExclude(g.Lines[1])
+	if l, _ := find[Log](f.Turn(nil)); l.Selected != len(g.Selection()) || l.Selected != 2 {
+		t.Errorf("selected %d, want %d", l.Selected, len(g.Selection()))
 	}
 }

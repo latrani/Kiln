@@ -49,6 +49,9 @@ func (a *App) Text() string {
 	return a.idleText
 }
 
+// IdleText is the text of the input used while nothing is open.
+func (a *App) IdleText() string { return a.idleText }
+
 // IdleHistory is the history of the input used while nothing is open.
 func (a *App) IdleHistory() *History { return &a.idleHist }
 

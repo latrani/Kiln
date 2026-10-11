@@ -26,6 +26,7 @@ type Feed struct {
 	small map[string]Event // the small things as last sent, by identity
 	lines map[string]*sent // each character's scrollback as sent
 	logs  map[string]*sent // each character's log-mode lines as sent
+	epoch int              // the last numbering handed out; see Lines.Epoch
 }
 
 // sent is how far a list of lines has been sent.
@@ -34,6 +35,7 @@ type sent struct {
 	gen    int // its rules generation
 	lo, hi int // the lowest and highest numbers sent
 	any    bool
+	epoch  int // the numbering they were sent in
 }
 
 // New starts a feed over a; its first Turn sends everything.
@@ -53,11 +55,13 @@ func (f *Feed) All() []Event {
 	return f.Turn(nil)
 }
 
-// Since is open character k's scrollback after line seq.
-func (f *Feed) Since(k string, seq int) []app.Line {
-	c := f.a.Char(k)
-	if c == nil {
-		return nil
+// Since is open character k's scrollback after line seq of numbering
+// epoch, as last sent. ok is false if k's numbering has since restarted
+// (or k isn't open): the page has to take everything again (All).
+func (f *Feed) Since(k string, epoch, seq int) (lines []app.Line, ok bool) {
+	c, s := f.a.Char(k), f.lines[k]
+	if c == nil || s == nil || s.epoch != epoch {
+		return nil, false
 	}
 	var out []app.Line
 	for i := len(c.Lines) - 1; i >= 0 && c.Lines[i].Seq > seq; i-- {
@@ -66,7 +70,7 @@ func (f *Feed) Since(k string, seq int) []app.Line {
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
-	return out
+	return out, true
 }
 
 // Turn returns what changed since the last turn, then effs (all but
@@ -102,12 +106,14 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 		delete(f.logs, k)
 		evs = append(evs, Closed{Key: k})
 	}
+	put("idle", Idle{Text: a.IdleText()})
+	put("presence", Presence{State: a.Presence()})
 	put("active", Active{Key: a.Active()})
 	st := a.Status()
 	put("status", Status{Text: st.Text, Err: st.Err, Gen: st.Gen})
 	put("confirm", Confirm{On: a.Confirming()})
 	w, ch, asking := a.PendingSave()
-	put("save", SaveQuestion{World: w, Char: ch, Asking: asking})
+	put("save", SaveQuestion{World: w, Char: ch, Store: a.PasswordStore(), Asking: asking})
 	for _, k := range a.Order() {
 		evs = append(evs, f.scrollback(a.Char(k))...)
 	}
@@ -141,18 +147,18 @@ func char(c *app.Char) Char {
 	return Char{
 		Key: c.Key, World: c.Ch.World, ID: c.Ch.ID, Name: c.Ch.Name,
 		State: c.State, Unread: c.Unread, Attention: c.Attention,
-		CertChanged: c.Pin != nil, Orphan: c.Orphan,
+		CertChanged: c.Pin != nil, Orphan: c.Orphan, ConnectedAt: c.ConnectedAt,
 		Text: c.Text, Prompt: c.Prompt, NeedPW: c.NeedPW, More: c.More, Loading: c.Loading,
 	}
 }
 
 // scrollback is c's Lines event, if its lines changed.
 func (f *Feed) scrollback(c *app.Char) []Event {
-	op, ls, ok := f.diff(f.lines, c.Key, c, c.RulesGen(), len(c.Lines), func(i int) *app.Line { return c.Lines[i] })
+	op, ls, ok := f.diff(f.lines, c.Key, c, c.Relined(), len(c.Lines), func(i int) *app.Line { return c.Lines[i] })
 	if !ok {
 		return nil
 	}
-	return []Event{Lines{Key: c.Key, Op: op, Lines: ls}}
+	return []Event{Lines{Key: c.Key, Epoch: f.lines[c.Key].epoch, Op: op, Lines: ls}}
 }
 
 // diff works out how key's lines (n of them, at(i) the i'th, numbered in
@@ -170,44 +176,52 @@ func (f *Feed) diff(m map[string]*sent, key string, owner any, gen, n int, at fu
 		}
 		return out
 	}
-	record := func() {
-		ns := sent{owner: owner, gen: gen, any: n > 0}
+	epoch := 0
+	if s != nil {
+		epoch = s.epoch
+	}
+	record := func(reset bool) {
+		if reset {
+			f.epoch++
+			epoch = f.epoch
+		}
+		ns := sent{owner: owner, gen: gen, any: n > 0, epoch: epoch}
 		if n > 0 {
 			ns.lo, ns.hi = at(0).Seq, at(n-1).Seq
 		}
 		m[key] = &ns
 	}
 	if s == nil || s.owner != owner {
-		record()
+		record(true)
 		return Reset, all(), true
 	}
 	if n == 0 {
 		if !s.any {
 			return 0, nil, false
 		}
-		record()
+		record(true)
 		return Reset, nil, true
 	}
 	lo, hi := at(0).Seq, at(n-1).Seq
 	switch {
 	case !s.any: // the first lines: added to nothing
-		record()
+		record(false)
 		return Append, all(), true
 	case lo > s.lo || hi < s.hi:
-		record()
+		record(true)
 		return Reset, all(), true
 	case gen != s.gen:
-		record()
+		record(false)
 		return Replace, all(), true
 	case lo < s.lo && hi > s.hi:
-		record() // both ends grew in one turn: rare; one Reset says it simply
+		record(true) // both ends grew in one turn: rare; one Reset says it simply
 		return Reset, all(), true
 	case lo < s.lo:
 		var out []app.Line
 		for i := 0; i < n && at(i).Seq < s.lo; i++ {
 			out = append(out, *at(i))
 		}
-		record()
+		record(false)
 		return Prepend, out, true
 	case hi > s.hi:
 		i := n
@@ -218,7 +232,7 @@ func (f *Feed) diff(m map[string]*sent, key string, owner any, gen, n int, at fu
 		for ; i < n; i++ {
 			out = append(out, *at(i))
 		}
-		record()
+		record(false)
 		return Append, out, true
 	}
 	return 0, nil, false
@@ -239,7 +253,7 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 	put(idLog+c.Key, logState(c.Key, g))
 	var evs []Event
 	if op, ls, ok := f.diff(f.logs, c.Key, g, 0, len(g.Lines), func(i int) *app.Line { return &g.Lines[i].Line }); ok {
-		evs = append(evs, LogLines{Key: c.Key, Op: op, Lines: ls})
+		evs = append(evs, LogLines{Key: c.Key, Epoch: f.logs[c.Key].epoch, Op: op, Lines: ls})
 	}
 	items := g.Items()
 	only, hasOnly := c.Filter.Only()
@@ -260,7 +274,7 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 
 func logState(k string, g *app.Log) Log {
 	l := Log{Key: k, Open: true, Find: g.Find, Status: g.Status, StatusErr: g.StatusErr,
-		Searching: g.Searching, Loading: g.Loading, HistDone: g.HistDone}
+		Searching: g.Searching, Loading: g.Loading, HistDone: g.HistDone, Selected: len(g.Selection())}
 	if g.Start != nil {
 		s := g.Start.Seq
 		l.Start = &s
