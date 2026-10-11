@@ -155,7 +155,7 @@ function render() {
 }
 
 // onBatch must never throw: it runs inside a call from Go, and an error
-// here would stop Kiln.
+// here would stop Kiln. It may call kiln.act: Go queues it, never waits.
 function onBatch(json) {
   try { apply(JSON.parse(json)); } catch (e) { console.error(e); }
 }

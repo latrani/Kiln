@@ -568,3 +568,60 @@ func attachTo(a *app.App, k string) *session.Session {
 	c.Sess = session.New(session.Options{Char: c.Ch, Log: kilntest.NopLog{}})
 	return c.Sess
 }
+
+func TestTrailingDataAfterAnActionIsRefused(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"here"} {"Do":"quit"}`)
+	if st := event(b, "Status"); st == nil || st["Err"] != true {
+		t.Errorf("trailing data: %v", b)
+	}
+}
+
+// Act never blocks, even with the loop busy (here: not running at all),
+// and what it queued is taken in order.
+func TestActNeverBlocksAndKeepsOrder(t *testing.T) {
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 1000)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() {
+		for range 1000 {
+			l.Act([]byte(`{"Do":"here"}`))
+		}
+		l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Act blocked while the loop wasn't draining")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go l.Run(ctx, Options{})
+	<-got // everything
+	for range 1000 {
+		if b := <-got; event(b, "Active") != nil {
+			t.Fatal("the open came before the heres queued ahead of it")
+		}
+	}
+	if b := <-got; event(b, "Active") == nil {
+		t.Errorf("the open, last: %v", types(b))
+	}
+}
+
+func TestIdleDraftIsRestored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte(`{"":"idle words"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 10)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go l.Run(ctx, Options{Drafts: path})
+	if in := event(<-got, "Input"); in == nil || in["Key"] != "" || in["Text"] != "idle words" {
+		t.Errorf("idle input %v", in)
+	}
+}

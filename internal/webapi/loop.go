@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"maps"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/latrani/Kiln/internal/app"
@@ -27,7 +28,10 @@ const tickEvery = 30 * time.Second
 type Loop struct {
 	a             *app.App
 	f             *feed.Feed
-	in            chan any
+	mu            sync.Mutex
+	queue         []any         // messages waiting for Run, in order; see post
+	ended         bool          // Run has returned: post drops what comes
+	wake          chan struct{} // nudges Run when queue was empty
 	done          chan struct{} // closed when Run returns
 	out           func([]byte)
 	statusTimeout time.Duration
@@ -56,7 +60,7 @@ type expire int
 
 // New makes a loop over a that sends each turn's batch to out.
 func New(a *app.App, out func([]byte)) *Loop {
-	return &Loop{a: a, f: feed.New(a), in: make(chan any, 256), done: make(chan struct{}), out: out, statusTimeout: statusTimeout}
+	return &Loop{a: a, f: feed.New(a), wake: make(chan struct{}, 1), done: make(chan struct{}), out: out, statusTimeout: statusTimeout}
 }
 
 // Act hands the loop one action from the page, as JSON. It touches
@@ -68,19 +72,47 @@ func (l *Loop) Act(js []byte) { l.post(js) }
 // storage failing, say). Like Act, it never touches the core itself.
 func (l *Loop) Say(isErr bool, text string) { l.post(say{isErr, text}) }
 
-// post puts msg on the loop, or drops it if the loop has ended.
+// post puts msg on the loop, or drops it if the loop has ended. It never
+// blocks: the queue has no limit, so a JS callback calling Act (even
+// from inside a batch the loop is handing the page) can't wait on the
+// loop that called it.
 func (l *Loop) post(msg any) {
-	select {
-	case l.in <- msg:
-	case <-l.done:
+	l.mu.Lock()
+	if l.ended {
+		l.mu.Unlock()
+		return
 	}
+	l.queue = append(l.queue, msg)
+	l.mu.Unlock()
+	select {
+	case l.wake <- struct{}{}:
+	default: // already nudged
+	}
+}
+
+// take is the next queued message; false if there's none.
+func (l *Loop) take() (any, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.queue) == 0 {
+		return nil, false
+	}
+	msg := l.queue[0]
+	l.queue[0] = nil
+	l.queue = l.queue[1:]
+	return msg, true
 }
 
 // Run drains the loop until ctx is done or the core quits. It first
 // loads saved drafts, opens and connects autoconnect characters if
 // asked, then sends everything.
 func (l *Loop) Run(ctx context.Context, opts Options) {
-	defer close(l.done)
+	defer func() {
+		l.mu.Lock()
+		l.ended, l.queue = true, nil
+		l.mu.Unlock()
+		close(l.done)
+	}()
 	l.opts = opts
 	l.drafts = loadDrafts(opts.Drafts)
 	l.onDisk = maps.Clone(l.drafts)
@@ -103,14 +135,17 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 	t := time.NewTicker(tickEvery)
 	defer t.Stop()
 	for {
-		var msg any
-		select {
-		case <-ctx.Done():
-			l.a.Quit() // hang up every session
-			return
-		case <-t.C:
-			msg = tick{}
-		case msg = <-l.in:
+		msg, ok := l.take()
+		for !ok {
+			select {
+			case <-ctx.Done():
+				l.a.Quit() // hang up every session
+				return
+			case <-t.C:
+				msg, ok = tick{}, true
+			case <-l.wake:
+				msg, ok = l.take()
+			}
 		}
 		extra, effs, all := l.step(msg)
 		quit := l.perform(effs)
@@ -180,7 +215,11 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 		var act Action
 		d := json.NewDecoder(bytes.NewReader(m))
 		d.DisallowUnknownFields()
-		if err := d.Decode(&act); err != nil {
+		err := json.Unmarshal(m, new(json.RawMessage)) // one JSON value, nothing after it
+		if err == nil {
+			err = d.Decode(&act)
+		}
+		if err != nil {
 			l.a.SetStatus(true, str.StatusBadAction(err))
 			return nil, nil, false
 		}
