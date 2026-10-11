@@ -3,6 +3,7 @@ package webapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -249,5 +250,64 @@ func TestIdleInputIsNotEchoed(t *testing.T) {
 	}
 	if h.a.IdleText() != "/open fm/kit" {
 		t.Errorf("idle text %q", h.a.IdleText())
+	}
+}
+
+func TestLogModeByNumber(t *testing.T) {
+	a, dir := newApp(t)
+	ch, _ := a.Find("fm/kit")
+	l, _ := a.LogLayout(ch)
+	kilntest.WriteLog(t, l, day.AddDate(0, 0, -1), "one", "two", "three")
+	h := startOn(t, a, dir)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	b := h.act(`{"Do":"log","Key":"fm/kit"}`)
+	ll := event(b, "LogLines")
+	if event(b, "Log") == nil || ll == nil {
+		t.Fatalf("log: %v", types(b))
+	}
+	var seqs []int
+	for _, x := range ll["Lines"].([]any) {
+		seqs = append(seqs, int(x.(map[string]any)["Seq"].(float64)))
+	}
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	b = h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[2]))
+	lg := event(b, "Log")
+	if lg == nil || lg["Start"] != float64(seqs[0]) || lg["End"] != float64(seqs[2]) || lg["Selected"] != 3.0 {
+		t.Errorf("range: %v", lg)
+	}
+	b = h.act(`{"Do":"add_text","Key":"fm/kit","Term":"two"}`)
+	if lg := event(b, "Log"); lg == nil || len(lg["Hidden"].([]any)) != 2 {
+		t.Errorf("filter: %v", lg)
+	}
+	if event(b, "Filter") == nil {
+		t.Errorf("no Filter: %v", types(b))
+	}
+	b = h.act(`{"Do":"log_close","Key":"fm/kit"}`)
+	if lg := event(b, "Log"); lg == nil || lg["Open"] != false {
+		t.Errorf("close: %v", lg)
+	}
+	h.act(`{"Do":"mark","Key":"fm/kit","Seq":0}`) // log mode closed: nothing
+}
+
+func TestSettingsReportEveryProblemOrSaved(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"add_world","ID":"fm","WorldSettings":{"Host":"","Port":0}}`)
+	p := event(b, "Problems")
+	var fields []string
+	if p != nil {
+		for _, x := range p["Problems"].([]any) {
+			fields = append(fields, x.(map[string]any)["Field"].(string))
+		}
+	}
+	if p == nil || p["Op"] != "add_world" || !slices.Equal(fields, []string{"port", "host", "id"}) {
+		t.Errorf("problems %v", p)
+	}
+	b = h.act(`{"Do":"add_world","ID":"zz","WorldSettings":{"Host":"zz.test","Port":7777}}`)
+	if s := event(b, "Saved"); s == nil || s["Op"] != "add_world" {
+		t.Errorf("saved: %v", types(b))
+	}
+	w := event(b, "Worlds")
+	if w == nil || len(w["Worlds"].([]any)) != 2 {
+		t.Errorf("worlds after adding: %v", w)
 	}
 }
