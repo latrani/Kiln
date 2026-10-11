@@ -146,7 +146,84 @@ func char(c *app.Char) Char {
 	}
 }
 
-// scrollback is Task 2's; logMode is Task 3's.
-func (f *Feed) scrollback(*app.Char) []Event { return nil }
+// logMode is Task 3's.
 
 func (f *Feed) logMode(*app.Char, func(string, Event)) []Event { return nil }
+
+// scrollback is c's Lines event, if its lines changed.
+func (f *Feed) scrollback(c *app.Char) []Event {
+	op, ls, ok := f.diff(f.lines, c.Key, c, c.RulesGen(), len(c.Lines), func(i int) *app.Line { return c.Lines[i] })
+	if !ok {
+		return nil
+	}
+	return []Event{Lines{Key: c.Key, Op: op, Lines: ls}}
+}
+
+// diff works out how key's lines (n of them, at(i) the i'th, numbered in
+// order) changed since they were last sent, and records them as sent.
+// A new owner, or lines gone from either end, is a Reset; a new rules
+// generation a Replace; otherwise new lines at the start or end are a
+// Prepend or an Append. Only the ends are looked at. ok is false when
+// nothing changed.
+func (f *Feed) diff(m map[string]*sent, key string, owner any, gen, n int, at func(int) *app.Line) (Op, []app.Line, bool) {
+	s := m[key]
+	all := func() []app.Line {
+		out := make([]app.Line, n)
+		for i := range n {
+			out[i] = *at(i)
+		}
+		return out
+	}
+	record := func() {
+		ns := sent{owner: owner, gen: gen, any: n > 0}
+		if n > 0 {
+			ns.lo, ns.hi = at(0).Seq, at(n-1).Seq
+		}
+		m[key] = &ns
+	}
+	if s == nil || s.owner != owner {
+		record()
+		return Reset, all(), true
+	}
+	if n == 0 {
+		if !s.any {
+			return 0, nil, false
+		}
+		record()
+		return Reset, nil, true
+	}
+	lo, hi := at(0).Seq, at(n-1).Seq
+	switch {
+	case !s.any: // the first lines: added to nothing
+		record()
+		return Append, all(), true
+	case lo > s.lo || hi < s.hi:
+		record()
+		return Reset, all(), true
+	case gen != s.gen:
+		record()
+		return Replace, all(), true
+	case lo < s.lo && hi > s.hi:
+		record() // both ends grew in one turn: rare; one Reset says it simply
+		return Reset, all(), true
+	case lo < s.lo:
+		var out []app.Line
+		for i := 0; i < n && at(i).Seq < s.lo; i++ {
+			out = append(out, *at(i))
+		}
+		record()
+		return Prepend, out, true
+	case hi > s.hi:
+		i := n
+		for i > 0 && at(i-1).Seq > s.hi {
+			i--
+		}
+		out := make([]app.Line, 0, n-i)
+		for ; i < n; i++ {
+			out = append(out, *at(i))
+		}
+		record()
+		return Append, out, true
+	}
+	return 0, nil, false
+}

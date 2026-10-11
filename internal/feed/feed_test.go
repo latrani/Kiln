@@ -111,7 +111,7 @@ func TestFirstTurnSendsEverything(t *testing.T) {
 	open(t, a, "fm/kit")
 	f := New(a)
 	evs := f.Turn(nil)
-	want := []string{"Worlds", "Order", "Char", "Active", "Status", "Confirm", "SaveQuestion"}
+	want := []string{"Worlds", "Order", "Char", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
 	if got := kinds(evs); !reflect.DeepEqual(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)
 	}
@@ -194,6 +194,132 @@ func TestFeedDependsOnNoFrontEnd(t *testing.T) {
 	for _, dep := range strings.Fields(string(out)) {
 		if strings.HasSuffix(dep, "/internal/ui") || strings.Contains(dep, "bubbletea") || strings.Contains(dep, "lipgloss") {
 			t.Errorf("feed depends on %s", dep)
+		}
+	}
+}
+
+// writeLog puts lines in fm/kit's log, a minute apart from start.
+func writeLog(t *testing.T, a *app.App, start time.Time, lines ...string) {
+	t.Helper()
+	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, start, lines...)
+}
+
+func linesOf(evs []Event) []Lines {
+	var out []Lines
+	for _, e := range evs {
+		if l, ok := e.(Lines); ok {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+func seqs(ls []app.Line) []int {
+	var out []int
+	for _, l := range ls {
+		out = append(out, l.Seq)
+	}
+	return out
+}
+
+func TestOneLineOneChange(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit", "fm/rook")
+	s := attach(a, "fm/rook")
+	f := New(a)
+	f.Turn(nil)
+	line(a, "fm/rook", s, "Hello")
+	evs := f.Turn(nil)
+	if got := kinds(evs); !reflect.DeepEqual(got, []string{"Char", "Lines"}) {
+		t.Fatalf("kinds %v", got)
+	}
+	if c := evs[0].(Char); c.Key != "fm/rook" || c.Unread != 1 {
+		t.Errorf("char %+v", c)
+	}
+	if l := evs[1].(Lines); l.Key != "fm/rook" || l.Op != Append || len(l.Lines) != 1 || l.Lines[0].Seq != 0 {
+		t.Errorf("lines %+v", l)
+	}
+}
+
+func TestScrollbackPrependsReplacesAndResets(t *testing.T) {
+	a, dir := newApp(t)
+	many := make([]string, app.HistoryLines+50)
+	for i := range many {
+		many[i] = "[Wiki] edited"
+	}
+	ch, _ := a.Find("fm/kit")
+	l, _ := a.LogLayout(ch)
+	kilntest.WriteLog(t, l, day.AddDate(0, 0, -1), many...)
+	open(t, a, "fm/kit")
+	f := New(a)
+	first := linesOf(f.Turn(nil))
+	if len(first) != 1 || first[0].Op != Reset || first[0].Lines[len(first[0].Lines)-1].Seq != -1 {
+		t.Fatalf("first: %+v", first)
+	}
+	msg := a.RequestOlder("fm/kit")[0].(app.Run).Func().(app.OlderMsg)
+	page, _ := a.HandleOlder(msg)
+	got := linesOf(f.Turn(nil))
+	if len(got) != 1 || got[0].Op != Prepend || len(got[0].Lines) != len(page) || got[0].Lines[0].Seq != page[0].Seq {
+		t.Fatalf("after an older page: %+v", got)
+	}
+	writeWorld(t, dir, fmWorld+"\n[[classify]]\ntag = \"wiki\"\npattern = '^\\[Wiki\\]'\n")
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	got = linesOf(f.Turn(nil))
+	all := a.Char("fm/kit").Lines
+	if len(got) != 1 || got[0].Op != Replace || len(got[0].Lines) != len(all) || got[0].Lines[0].Seq != all[0].Seq {
+		t.Fatalf("after a rules change: %d events, op %v", len(got), got)
+	}
+	if tags := got[0].Lines[1].TagNames(); len(tags) == 0 || tags[0] != "wiki" {
+		t.Errorf("replaced line tags %v", tags)
+	}
+}
+
+func TestReopenResets(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	s := attach(a, "fm/kit")
+	line(a, "fm/kit", s, "one")
+	line(a, "fm/kit", s, "two")
+	f := New(a)
+	f.Turn(nil)
+	a.Close("fm/kit")
+	open(t, a, "fm/kit")
+	s = attach(a, "fm/kit")
+	line(a, "fm/kit", s, "again")
+	got := linesOf(f.Turn(nil))
+	if len(got) != 1 || got[0].Op != Reset || len(got[0].Lines) != 1 || got[0].Lines[0].Seq != 0 {
+		t.Errorf("after reopening: %+v", got)
+	}
+}
+
+func TestSinceMatchesWhatWasSent(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	s := attach(a, "fm/kit")
+	f := New(a)
+	var sentLines []app.Line
+	take := func() {
+		for _, l := range linesOf(f.Turn(nil)) {
+			sentLines = append(sentLines, l.Lines...)
+		}
+	}
+	take()
+	for _, text := range []string{"a", "b", "c", "d"} {
+		line(a, "fm/kit", s, text)
+		take()
+	}
+	for n := -1; n < 4; n++ {
+		var want []int
+		for _, l := range sentLines {
+			if l.Seq > n {
+				want = append(want, l.Seq)
+			}
+		}
+		if got := seqs(f.Since("fm/kit", n)); !reflect.DeepEqual(got, want) {
+			t.Errorf("Since(%d) = %v, sent after it %v", n, got, want)
 		}
 	}
 }

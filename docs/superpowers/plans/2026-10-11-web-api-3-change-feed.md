@@ -785,7 +785,10 @@ func (f *Feed) diff(m map[string]*sent, key string, owner any, gen, n int, at fu
 	}
 	lo, hi := at(0).Seq, at(n-1).Seq
 	switch {
-	case !s.any || lo > s.lo || hi < s.hi:
+	case !s.any: // the first lines: added to nothing
+		record()
+		return Append, all(), true
+	case lo > s.lo || hi < s.hi:
 		record()
 		return Reset, all(), true
 	case gen != s.gen:
