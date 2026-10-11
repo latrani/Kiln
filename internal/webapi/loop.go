@@ -87,17 +87,26 @@ func (l *Loop) Run(ctx context.Context, autoconnect bool) {
 		}
 		extra, effs, all := l.step(msg)
 		quit := l.perform(effs)
-		var evs []any
-		if all {
-			evs = anys(l.f.All())
-		} else {
-			evs = anys(l.f.Turn(effs))
-		}
-		l.send(append(evs, extra...))
+		l.send(append(l.events(effs, all), extra...))
 		if quit {
 			return
 		}
 	}
+}
+
+// events is a turn's events, or with all everything, followed either way
+// by the turn's effects for the page.
+func (l *Loop) events(effs []app.Effect, all bool) []any {
+	if !all {
+		return anys(l.f.Turn(effs))
+	}
+	evs := anys(l.f.All())
+	for _, e := range effs {
+		if _, ok := e.(app.Run); !ok {
+			evs = append(evs, feed.Effect{Effect: e})
+		}
+	}
+	return evs
 }
 
 func anys(evs []feed.Event) []any {
