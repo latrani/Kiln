@@ -1,0 +1,142 @@
+package webapi
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/feed"
+	"github.com/latrani/Kiln/internal/str"
+)
+
+// tickEvery is how often a turn runs with nothing else happening, so
+// what changes with time alone (presence going away) reaches the page.
+const tickEvery = 30 * time.Second
+
+// Loop owns the core for one page. Everything that touches the core
+// happens in Run, one message at a time; each message is one turn, and
+// each turn is one batch of events for the page, to apply together.
+type Loop struct {
+	a   *app.App
+	f   *feed.Feed
+	in  chan any
+	out func([]byte)
+}
+
+type tick struct{}
+
+// New makes a loop over a that sends each turn's batch to out.
+func New(a *app.App, out func([]byte)) *Loop {
+	return &Loop{a: a, f: feed.New(a), in: make(chan any, 64), out: out}
+}
+
+// Act hands the loop one action from the page, as JSON. It touches
+// nothing of the core's; Run takes it in order.
+func (l *Loop) Act(js []byte) { l.in <- js }
+
+// Run drains the loop until ctx is done or the core quits. It first
+// opens and connects autoconnect characters if asked, then sends
+// everything.
+func (l *Loop) Run(ctx context.Context, autoconnect bool) {
+	var effs []app.Effect
+	if autoconnect {
+		for _, ch := range l.a.AllChars() {
+			if ch.Autoconnect {
+				k := app.Key(ch.World, ch.ID)
+				if _, err := l.a.Open(k); err != nil {
+					l.a.SetStatus(true, str.StatusCharError(k, err))
+				}
+				effs = append(effs, l.a.Connect(k)...)
+			}
+		}
+	}
+	l.perform(effs)
+	l.send(anys(l.f.All()))
+	t := time.NewTicker(tickEvery)
+	defer t.Stop()
+	for {
+		var msg any
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			msg = tick{}
+		case msg = <-l.in:
+		}
+		extra, effs, all := l.step(msg)
+		quit := l.perform(effs)
+		var evs []any
+		if all {
+			evs = anys(l.f.All())
+		} else {
+			evs = anys(l.f.Turn(effs))
+		}
+		l.send(append(evs, extra...))
+		if quit {
+			return
+		}
+	}
+}
+
+func anys(evs []feed.Event) []any {
+	out := make([]any, len(evs))
+	for i, e := range evs {
+		out[i] = e
+	}
+	return out
+}
+
+// perform runs the loop's own effects (Run, in a goroutine that only
+// posts its result back) and reports whether one was Quit. The rest go
+// to the page through the feed.
+func (l *Loop) perform(effs []app.Effect) (quit bool) {
+	for _, e := range effs {
+		switch e := e.(type) {
+		case app.Run:
+			go func() { l.in <- e.Func() }()
+		case app.Quit:
+			quit = true
+		}
+	}
+	return quit
+}
+
+func (l *Loop) send(evs []any) {
+	b, err := Encode(evs)
+	if err != nil {
+		return // a value that won't marshal is a bug here, not news for the page
+	}
+	l.out(b)
+}
+
+// step handles one message: the page's action, a Run's result, or a
+// tick. extra are events the loop adds (settings results); all asks for
+// everything instead of a turn.
+func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
+	switch m := msg.(type) {
+	case []byte:
+		var act Action
+		if err := json.Unmarshal(m, &act); err != nil {
+			l.a.SetStatus(true, str.StatusBadAction(err))
+			return nil, nil, false
+		}
+		return l.do(act)
+	case app.SessionMsg:
+		_, _, effs := l.a.Handle(m)
+		return nil, effs, false
+	case app.OlderMsg:
+		l.a.HandleOlder(m)
+	case app.LogOlderMsg:
+		return nil, l.a.HandleLogOlder(m), false
+	}
+	return nil, nil, false
+}
+
+// OverLimit reports whether text is too long to send under a Char
+// event's MaxLineBytes and NewlineMode: app.OverLimit, for the page to
+// mark the overflow as you type.
+func OverLimit(text string, maxLineBytes int, newlineMode string) bool {
+	return app.OverLimit(text, config.Character{MaxLineBytes: maxLineBytes, NewlineMode: newlineMode})
+}

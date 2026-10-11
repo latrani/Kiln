@@ -203,6 +203,7 @@ day_year = "Mon Jan 2 2006"
 day_time = "Mon Jan 2 15:04"
 
 [status]
+bad_action = "the page sent something Kiln can't use: {err}"
 char_error = "{key}: {err}"
 config_not_reloaded = "config not reloaded: {err}"
 config_reloaded = "config reloaded"

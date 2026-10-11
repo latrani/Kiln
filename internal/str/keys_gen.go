@@ -804,6 +804,9 @@ func StatusBackupFailed(err error) string {
 	return get("status.backup_failed", map[string]any{"err": err})
 }
 
+// StatusBadAction is status.bad_action: "the page sent something Kiln can't use: {err}"
+func StatusBadAction(err error) string { return get("status.bad_action", map[string]any{"err": err}) }
+
 // StatusCertChanged is status.cert_changed: "{name}: certificate changed; /trust to accept"
 func StatusCertChanged(name any) string {
 	return get("status.cert_changed", map[string]any{"name": name})
