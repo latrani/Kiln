@@ -71,7 +71,7 @@ func TestOverLimitConfirmIsKeyedToTheText(t *testing.T) {
 	if res, _ := a.Submit(); res.Sent {
 		t.Error("a changed line should ask again")
 	}
-	a.SetInput("too long") // typed and taken back: what was refused
+	a.SetInput("too long!x") // an edit taken back: "too long!" is what was refused
 	a.SetInput("too long!")
 	if res, _ := a.Submit(); !res.Sent || !slices.Equal(c.Sent(), []string{"too long!"}) {
 		t.Errorf("Enter on the refused text: %+v sent %q", res, c.Sent())

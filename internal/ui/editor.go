@@ -166,8 +166,13 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 }
 
 // firstProblem is what a form shows of err: its first problem, since
-// the save calls report every one.
-func firstProblem(err error) string { return app.Problems(err)[0].Error() }
+// the save calls report every one (or err whole, if it holds none).
+func firstProblem(err error) string {
+	if ps := app.Problems(err); len(ps) > 0 {
+		return ps[0].Error()
+	}
+	return err.Error()
+}
 
 // worldSettings reads a world form. An empty or unreadable port is 0,
 // which the save refuses.

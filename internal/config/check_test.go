@@ -53,14 +53,26 @@ func TestCheckCharacter(t *testing.T) {
 	}
 }
 
+// A new world's problems come in the order the TUI always showed the
+// first of: port, the id's characters, host, the id being taken, then
+// the rest.
 func TestCheckNewWorld(t *testing.T) {
 	dir := editDir(t, uglyWorld)
-	for _, id := range []string{"", "a b", "FM"} {
-		if got := fields(CheckNewWorld(dir, id)); !slices.Equal(got, []string{"id"}) {
-			t.Errorf("%q: fields %q", id, got)
+	for _, c := range []struct {
+		id   string
+		s    WorldSettings
+		want []string
+	}{
+		{"", WorldSettings{Port: 1}, []string{"id", "host"}},
+		{"a b", WorldSettings{Port: 0, Host: "h"}, []string{"port", "id"}},
+		{"FM", WorldSettings{Port: 1, Host: ""}, []string{"host", "id"}},
+		{"FM", WorldSettings{Port: 1, Host: "h", Use: []string{"no-such"}}, []string{"id", "use"}},
+	} {
+		if got := fields(CheckNewWorld(dir, c.id, c.s)); !slices.Equal(got, c.want) {
+			t.Errorf("%q %+v: fields %q, want %q", c.id, c.s, got, c.want)
 		}
 	}
-	if err := CheckNewWorld(dir, "new"); err != nil {
+	if err := CheckNewWorld(dir, "new", WorldSettings{Host: "h", Port: 1}); err != nil {
 		t.Error(err)
 	}
 }

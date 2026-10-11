@@ -124,6 +124,9 @@ func TestAddWorldChecksEverythingFirst(t *testing.T) {
 	if !slices.Equal(got, []string{"port", "host", "id"}) {
 		t.Errorf("fields %q, from %v", got, err)
 	}
+	if first := Problems(a.AddWorld("", config.WorldSettings{Port: 1})); len(first) == 0 || first[0].Error() != str.ConfigWorldIdChars() {
+		t.Errorf("an empty id and host: first problem %v; want the id's, as the TUI always showed", first)
+	}
 	if _, err := os.Stat(filepath.Join(dir, "worlds", "fm.toml")); err != nil {
 		t.Fatal(err) // reloadApp's fm is still there
 	}

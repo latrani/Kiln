@@ -92,7 +92,7 @@ func DeleteWarning(world, char string) string {
 // settings still can't be written, the half-made world is taken back.
 // Nothing reloads: the front end does, as after every edit.
 func (a *App) AddWorld(id string, s config.WorldSettings) error {
-	if err := errors.Join(config.CheckWorld(a.d.ConfigDir, s), config.CheckNewWorld(a.d.ConfigDir, id)); err != nil {
+	if err := config.CheckNewWorld(a.d.ConfigDir, id, s); err != nil {
 		return err
 	}
 	if err := config.AddWorld(a.d.ConfigDir, id, s.Host, s.Port, s.TLS); err != nil {

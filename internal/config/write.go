@@ -147,7 +147,7 @@ func AddCharacter(dir, world, name string) (string, error) {
 // pack when packs/fuzzball.toml exists; everything else is left to the
 // file's author.
 func AddWorld(dir, id, host string, port int, tls bool) error {
-	if err := errors.Join(CheckNewWorld(dir, id), checkHost(host), checkPort(port)); err != nil {
+	if err := errors.Join(checkIDChars(id), checkHost(host), checkPort(port), checkIDFree(dir, id)); err != nil {
 		return err
 	}
 	body := fmt.Sprintf("# %s\nhost = %q\nport = %d\ntls = %t\n", str.ConfigAddedByKiln(), host, port, tls) //str:ok

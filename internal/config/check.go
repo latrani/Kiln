@@ -49,7 +49,13 @@ func checkNotify(n *string) error {
 // and one in dir/packs), max_line_bytes, newline_mode and notify. nil if
 // there are none.
 func CheckWorld(dir string, s WorldSettings) error {
-	errs := []error{checkPort(s.Port), checkHost(s.Host)}
+	return errors.Join(checkPort(s.Port), checkHost(s.Host), checkRest(dir, s))
+}
+
+// checkRest is CheckWorld past the server: packs, max_line_bytes,
+// newline_mode and notify.
+func checkRest(dir string, s WorldSettings) error {
+	var errs []error
 	for _, p := range s.Use {
 		if !idRE.MatchString(p) {
 			errs = append(errs, fieldErr("use", str.ConfigBadPackId(p))) //str:ok
@@ -81,11 +87,27 @@ func CheckCharacter(s CharacterSettings) error {
 	return errors.Join(errs...)
 }
 
-// CheckNewWorld reports whether id can be a new world's id in dir: an id
-// that isn't taken, ignoring case.
-func CheckNewWorld(dir, id string) error {
+// CheckNewWorld reports every problem with a new world called id with
+// settings s in dir, as CheckWorld does, in the order a form has always
+// shown the first of: the port, the id's characters, the host, the id
+// being taken (ignoring case), then the rest.
+func CheckNewWorld(dir, id string, s WorldSettings) error {
+	return errors.Join(checkPort(s.Port), checkIDChars(id), checkHost(s.Host), checkIDFree(dir, id), checkRest(dir, s))
+}
+
+// checkIDChars reports whether id can be a world's id at all.
+func checkIDChars(id string) error {
 	if !idRE.MatchString(id) {
 		return fieldErr("id", str.ConfigWorldIdChars()) //str:ok
+	}
+	return nil
+}
+
+// checkIDFree reports whether no world in dir has id, ignoring case. A
+// malformed id is checkIDChars's to report.
+func checkIDFree(dir, id string) error {
+	if !idRE.MatchString(id) {
+		return nil
 	}
 	existing, err := filepath.Glob(filepath.Join(dir, "worlds", "*.toml"))
 	if err != nil {
