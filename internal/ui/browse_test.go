@@ -685,7 +685,7 @@ func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
 		if i == 0 {
 			text = "the line" // the only match, at the far end
 		}
-		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, Day: "2026-09-24"}, Lower: text})
+		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Seq: logSeqAfter(b.Lines), Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, Day: "2026-09-24"}, Lower: text})
 	}
 	b.Find = "the"
 	start := time.Now()
