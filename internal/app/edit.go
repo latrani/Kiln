@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/latrani/Kiln/internal/config"
@@ -59,13 +58,24 @@ func List(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })
 }
 
-// ParsePort reads a port number, 1 to 65535.
-func ParsePort(s string) (int, error) {
-	port, err := strconv.Atoi(s)
-	if err != nil || port < 1 || port > 65535 {
-		return 0, errors.New(str.EditorPortRange())
+// FieldError is a setting that can't be saved, naming its field; see
+// config.FieldError. The save calls return them joined with errors.Join.
+type FieldError = config.FieldError
+
+// Problems is err's errors in order, a joined error flattened: what a
+// form marks. nil for a nil err.
+func Problems(err error) []error {
+	if err == nil {
+		return nil
 	}
-	return port, nil
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		var out []error
+		for _, e := range j.Unwrap() {
+			out = append(out, Problems(e)...)
+		}
+		return out
+	}
+	return []error{err}
 }
 
 // DeleteWarning says what deleting world (char "") or its character char
@@ -77,10 +87,14 @@ func DeleteWarning(world, char string) string {
 	return str.EditorDeleteCharacterWarning(world + "/" + char)
 }
 
-// AddWorld writes a new world with settings s. If its settings can't be
-// written, the half-made world is taken back. Nothing reloads: the front
-// end does, as after every edit.
+// AddWorld writes a new world with settings s. Every problem with s and
+// id is reported (FieldErrors, joined) before anything is written; if its
+// settings still can't be written, the half-made world is taken back.
+// Nothing reloads: the front end does, as after every edit.
 func (a *App) AddWorld(id string, s config.WorldSettings) error {
+	if err := errors.Join(config.CheckWorld(a.d.ConfigDir, s), config.CheckNewWorld(a.d.ConfigDir, id)); err != nil {
+		return err
+	}
 	if err := config.AddWorld(a.d.ConfigDir, id, s.Host, s.Port, s.TLS); err != nil {
 		return err
 	}
@@ -91,18 +105,21 @@ func (a *App) AddWorld(id string, s config.WorldSettings) error {
 	return nil
 }
 
-// SaveWorld writes world's settings.
+// SaveWorld writes world's settings, or reports every problem with them
+// (FieldErrors, joined) and writes nothing.
 func (a *App) SaveWorld(world string, s config.WorldSettings) error {
 	return config.WriteWorld(a.d.ConfigDir, world, s)
 }
 
-// SaveCharacter writes the settings of world's character char.
+// SaveCharacter writes the settings of world's character char, or
+// reports every problem with them (FieldErrors, joined) and writes
+// nothing.
 func (a *App) SaveCharacter(world, char string, s config.CharacterSettings) error {
 	return config.WriteCharacter(a.d.ConfigDir, world, char, s)
 }
 
 // AddCharacter writes a new character called name to world and returns
-// its id.
+// its id. A bad or taken name is a FieldError for "name".
 func (a *App) AddCharacter(world, name string) (string, error) {
 	return config.AddCharacter(a.d.ConfigDir, world, name)
 }

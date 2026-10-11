@@ -106,7 +106,7 @@ func CharID(name string) string { return idUnsafe.ReplaceAllString(name, "_") }
 // "[[characters]]" is absolute; existing content is kept.
 func AddCharacter(dir, world, name string) (string, error) {
 	if err := CheckName(name); err != nil {
-		return "", err
+		return "", fieldErr("name", err.Error()) //str:ok
 	}
 	if !idRE.MatchString(world) {
 		return "", errors.New(str.ConfigBadWorldIdBare(world))
@@ -123,7 +123,7 @@ func AddCharacter(dir, world, name string) (string, error) {
 			cid = cf.Name
 		}
 		if strings.EqualFold(cid, id) {
-			return "", errors.New(str.ConfigCharacterIdTaken(world, cid))
+			return "", fieldErr("name", str.ConfigCharacterIdTaken(world, cid)) //str:ok
 		}
 	}
 	q, err := tomlString(name)
@@ -147,23 +147,8 @@ func AddCharacter(dir, world, name string) (string, error) {
 // pack when packs/fuzzball.toml exists; everything else is left to the
 // file's author.
 func AddWorld(dir, id, host string, port int, tls bool) error {
-	if !idRE.MatchString(id) {
-		return errors.New(str.ConfigWorldIdChars())
-	}
-	if host == "" || strings.ContainsFunc(host, func(r rune) bool { return r <= ' ' || r > '~' }) {
-		return errors.New(str.ConfigBadHost())
-	}
-	if port <= 0 || port > 65535 {
-		return errors.New(str.ConfigPortRange())
-	}
-	existing, err := filepath.Glob(filepath.Join(dir, "worlds", "*.toml"))
-	if err != nil {
+	if err := errors.Join(CheckNewWorld(dir, id), checkHost(host), checkPort(port)); err != nil {
 		return err
-	}
-	for _, p := range existing {
-		if strings.EqualFold(strings.TrimSuffix(filepath.Base(p), ".toml"), id) {
-			return errors.New(str.ConfigWorldExists(id))
-		}
 	}
 	body := fmt.Sprintf("# %s\nhost = %q\nport = %d\ntls = %t\n", str.ConfigAddedByKiln(), host, port, tls) //str:ok
 	if _, err := os.Stat(filepath.Join(dir, "packs", "fuzzball.toml")); err == nil {

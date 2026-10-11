@@ -308,8 +308,12 @@ func ReadWorld(dir, world string) (WorldSettings, Inherited, error) {
 }
 
 // WriteWorld saves s to worlds/<world>.toml, changing only the keys
-// whose values differ.
+// whose values differ. Every problem CheckWorld finds is reported first,
+// and nothing is written.
 func WriteWorld(dir, world string, s WorldSettings) error {
+	if err := CheckWorld(dir, s); err != nil {
+		return err
+	}
 	path, err := worldPath(dir, world)
 	if err != nil {
 		return err
@@ -389,7 +393,12 @@ func ReadCharacter(dir, world, id string) (CharacterSettings, Inherited, error) 
 
 // WriteCharacter saves s to character id's entry, changing only the
 // keys whose values differ.
+// Every problem CheckCharacter finds is reported first, and nothing is
+// written.
 func WriteCharacter(dir, world, id string, s CharacterSettings) error {
+	if err := CheckCharacter(s); err != nil {
+		return err
+	}
 	path, err := worldPath(dir, world)
 	if err != nil {
 		return err
