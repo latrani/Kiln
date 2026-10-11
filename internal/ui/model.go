@@ -397,13 +397,6 @@ const resizeDebounce = 200 * time.Millisecond
 // message's generation, and only the latest generation reports.
 type resizeMsg int
 
-// StatusMsg puts Text on the statusline (as an error when Err is set):
-// how a front end, like the web build, tells the user something.
-type StatusMsg struct {
-	Text string
-	Err  bool
-}
-
 // paneSize is the right pane's size, where server text is shown: what
 // NAWS reports. It is 0×0 before the first WindowSizeMsg.
 func (m *Model) paneSize() (w, h int) {
@@ -450,8 +443,6 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if int(msg) == m.resizeGen { // the drag has settled
 			m.a.ReportSize()
 		}
-	case StatusMsg:
-		m.setStatus(msg.Err, msg.Text)
 	case tickMsg:
 		return m, tick(time.Time(msg))
 	case quitExpiredMsg:

@@ -1231,3 +1231,16 @@ func TestClosingAWorldsLastCharacterHidesItsEditor(t *testing.T) {
 		t.Error("the editor's edits weren't kept")
 	}
 }
+
+// /backup and /restore were the xterm web build's; the terminal doesn't
+// know them.
+func TestBackupCommandsUnknown(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for _, c := range []string{"/backup", "/restore"} {
+		h.typeText(c)
+		h.enter()
+		if h.m.a.Status().Text != str.StatusUnknownCommand(c) {
+			t.Errorf("%s: status = %q", c, h.m.a.Status().Text)
+		}
+	}
+}
