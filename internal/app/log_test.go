@@ -54,8 +54,8 @@ func TestOpenLogLoadsWholeDaysUpFront(t *testing.T) {
 	if len(g.Lines) != 300 || g.HistDone {
 		t.Fatalf("loaded %d lines, done %v; want two whole days", len(g.Lines), g.HistDone)
 	}
-	if g.Cursor != g.Lines[len(g.Lines)-1] || a.Char("fm/kit").Log != g || a.OpenLog("fm/kit") != g {
-		t.Error("cursor not on the newest line, or the log isn't the character's")
+	if a.Char("fm/kit").Log != g || a.OpenLog("fm/kit") != g {
+		t.Error("the log isn't the character's")
 	}
 }
 
@@ -139,27 +139,28 @@ func TestLogLiveDedupesAtMillisecondPrecision(t *testing.T) {
 func TestFindReadsOlderDaysUntilAMatch(t *testing.T) {
 	a := logApp(t, 150, 150, 150)
 	g := a.OpenLog("fm/kit")
-	effs := g.SetFind("09-22 7")
-	if !g.Searching || g.FindStatus() != str.BrowseSearching("09-22 7", DayLabel("2026-09-23")) {
-		t.Fatalf("searching %v, status %q", g.Searching, g.FindStatus())
+	var found *LogLine
+	effs := g.SetFind("09-22 7", nil, func(l *LogLine) { found = l })
+	if !g.Searching || g.FindStatus(nil) != str.BrowseSearching("09-22 7", DayLabel("2026-09-23")) {
+		t.Fatalf("searching %v, status %q", g.Searching, g.FindStatus(nil))
 	}
 	drain(a, effs)
-	if g.Searching || g.Cursor == nil || g.Cursor.Entry.Text != "09-22 79" {
-		t.Errorf("searching %v, cursor %v", g.Searching, g.Cursor)
+	if g.Searching || found == nil || found.Entry.Text != "09-22 79" {
+		t.Errorf("searching %v, found %v", g.Searching, found)
 	}
 }
 
-func TestStopSearchLeavesTheCursor(t *testing.T) {
+func TestStopSearchFindsNothing(t *testing.T) {
 	a := logApp(t, 150, 150, 150)
 	g := a.OpenLog("fm/kit")
-	cursor := g.Cursor
-	effs := g.SetFind("nowhere")
-	if !g.StopSearch() || g.Searching || g.Cursor != cursor || g.Status != str.BrowseSearchCancelled() {
+	called := false
+	effs := g.SetFind("nowhere", nil, func(*LogLine) { called = true })
+	if !g.StopSearch() || g.Searching || g.Status != str.BrowseSearchCancelled() {
 		t.Fatalf("stop: searching %v, status %q", g.Searching, g.Status)
 	}
 	drain(a, effs) // the day still arrives, to nothing
-	if g.Cursor != cursor {
-		t.Error("the cancelled search moved the cursor")
+	if called {
+		t.Error("the cancelled search found something")
 	}
 }
 
@@ -168,8 +169,8 @@ func TestGotoDateShowsTheDaysFirstLine(t *testing.T) {
 	g := a.OpenLog("fm/kit")
 	var shown *LogLine
 	drain(a, g.GotoDate("2026-09-22", func(l *LogLine) { shown = l }))
-	if shown == nil || shown != g.Cursor || shown.Entry.Text != "09-22 0" {
-		t.Errorf("shown %v, cursor %v", shown, g.Cursor)
+	if shown == nil || shown.Entry.Text != "09-22 0" {
+		t.Errorf("shown %v", shown)
 	}
 	g.GotoDate("2026/09/22", nil)
 	if g.Status != str.BrowseDateFormat() {
@@ -183,10 +184,8 @@ func TestSelectionIsReceivedShownUnexcludedLines(t *testing.T) {
 	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
 	kilntest.WriteLog(t, l, logDay, "a", "> b", "c", "d")
 	g := a.OpenLog("fm/kit")
-	g.SetCursor(g.Lines[0])
-	g.Mark()
-	g.SetCursor(g.Lines[3])
-	g.Mark()
+	g.Mark(g.Lines[0])
+	g.Mark(g.Lines[3])
 	g.ToggleExclude(g.Lines[2])
 	var got []string
 	for _, e := range g.Selection() {
@@ -213,10 +212,8 @@ func TestCopyAndExportAreEffects(t *testing.T) {
 	if g.ExportReady() || g.Status != str.BrowseMarkRange() {
 		t.Error("export ready with no range")
 	}
-	g.SetCursor(g.Lines[0])
-	g.Mark()
-	g.SetCursor(g.Lines[1])
-	g.Mark()
+	g.Mark(g.Lines[0])
+	g.Mark(g.Lines[1])
 	if effs := g.Copy(); len(effs) != 1 || effs[0] != (Copy{Text: scene.Plain(g.Selection())}) || g.Status != str.BrowseCopied(2) {
 		t.Errorf("copy: %v, %q", effs, g.Status)
 	}
@@ -232,5 +229,42 @@ func TestCopyAndExportAreEffects(t *testing.T) {
 	}
 	if s, ok := effs[0].(SaveFile); !ok || s.Key != "fm/kit" || s.Name != "scene.txt" || string(s.Data) != scene.Render("txt", g.Selection(), g.Title()) {
 		t.Errorf("SaveFile = %+v", effs[0])
+	}
+}
+
+func TestFindStepsFromTheLineItsGiven(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	openAll(t, a, "fm/kit")
+	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, logDay, "x 1", "y", "x 2", "x 3")
+	g := a.OpenLog("fm/kit")
+	var found *LogLine
+	at := func(l *LogLine) { found = l }
+	g.SetFind("x", nil, at) // nowhere yet: from the newest
+	if found != g.Lines[3] {
+		t.Fatalf("found %v; want the newest match", found)
+	}
+	g.FindOlder(g.Lines[3], false, at)
+	if found != g.Lines[2] {
+		t.Errorf("older than x 3: %v", found)
+	}
+	if got := g.FindNewer(g.Lines[0]); got != g.Lines[2] {
+		t.Errorf("newer than x 1: %v", got)
+	}
+	if got := g.FindNewer(g.Lines[3]); got != nil || g.Status != str.BrowseNoNewerMatches("x") {
+		t.Errorf("newer than the newest: %v, %q", got, g.Status)
+	}
+	if s := g.FindStatus(g.Lines[2]); s != str.BrowseFindStatus("x", 2, 3) {
+		t.Errorf("status at x 2: %q", s)
+	}
+}
+
+func TestMarkWithNoLineDoesNothing(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	openAll(t, a, "fm/kit")
+	g := a.OpenLog("fm/kit")
+	g.Mark(nil)
+	if g.Start != nil || g.Status != "" {
+		t.Errorf("start %v, status %q", g.Start, g.Status)
 	}
 }

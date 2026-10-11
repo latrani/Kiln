@@ -477,6 +477,21 @@ func TestBrowseLiveLinesArrive(t *testing.T) {
 	}
 }
 
+func TestHiddenLogModeFollowsLiveLinesAtTheBottom(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("ctrl+l") // hidden, the cursor on the newest line
+	h.conn("fm/kit").Feed("Brand new line")
+	h.settle("fm/kit", func() bool { return b.Last().Entry.Text == "Brand new line" })
+	if b.Cursor != b.LastVisible() {
+		t.Errorf("a hidden log mode's cursor should follow live lines: on %q", b.Cursor.Entry.Text)
+	}
+}
+
 func TestBrowseMouse(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)

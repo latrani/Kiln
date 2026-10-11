@@ -605,6 +605,18 @@ func (m *Model) clearLogStatus() {
 
 func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	prev := m.a.Active()
+	type following struct {
+		b    *browse
+		last *app.LogLine
+	}
+	var follow []following // log modes whose cursor is on the newest line: a new line takes it along
+	if cs := m.chars[msg.Key]; cs != nil {
+		for _, b := range cs.browses() {
+			if b.Cursor == nil || b.Cursor == b.LastVisible() {
+				follow = append(follow, following{b, b.Last()})
+			}
+		}
+	}
 	ev, ok, effs := m.a.Handle(msg)
 	if !ok {
 		return nil // stale session, or it has shut down
@@ -613,6 +625,11 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 		m.closed(ev.Key, prev)
 		m.activated(prev)
 		return nil
+	}
+	for _, f := range follow {
+		if f.b.Last() != f.last { // a line was added, not dropped as one already loaded
+			f.b.Cursor = f.b.LastVisible()
+		}
 	}
 	cs := m.chars[ev.Key]
 	m.pullInput(cs) // the password prompt may have started or ended
@@ -971,6 +988,7 @@ func (m *Model) openBrowse(cs *charState) {
 	}
 	g := m.a.OpenLog(cs.Key)
 	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
+	cs.browse.Cursor = g.LastVisible()
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
 	cs.browse.cfg, cs.browse.downloads = m.a.Config, m.d.SaveFile != nil
 	m.a.ClearStatus()

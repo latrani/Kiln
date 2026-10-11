@@ -34,6 +34,7 @@ const (
 type browse struct {
 	*app.Log
 	cs        *charState
+	Cursor    *app.LogLine            // the highlighted line; see logcursor.go
 	top       *app.LogLine            // first line drawn at the top of the body
 	scrolled  bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
 	rowLines  []*app.LogLine          // body row → line (nil for dividers), from the last draw
@@ -199,7 +200,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptFind:
 			return b.run(b.SetFind(v))
 		case promptDate:
-			return b.run(b.GotoDate(v, func(l *app.LogLine) { b.top = l }))
+			return b.run(b.GotoDate(v))
 		case promptFilename:
 			return b.save(v)
 		case promptFilterText:
