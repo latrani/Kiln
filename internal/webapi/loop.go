@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"time"
 
@@ -33,6 +34,7 @@ type Loop struct {
 	timed         int               // the status Gen last timed out
 	opts          Options           // as Run was given them
 	drafts        map[string]string // saved drafts not yet restored, by key ("" for the idle input)
+	onDisk        map[string]string // the drafts last written
 }
 
 // Options are how Run starts.
@@ -81,6 +83,7 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 	defer close(l.done)
 	l.opts = opts
 	l.drafts = loadDrafts(opts.Drafts)
+	l.onDisk = maps.Clone(l.drafts)
 	var effs []app.Effect
 	if opts.Autoconnect {
 		for _, ch := range l.a.AllChars() {
@@ -232,23 +235,27 @@ func loadDrafts(path string) map[string]string {
 	return drafts
 }
 
-// saveDrafts writes every input's text that isn't empty to the drafts
-// file and syncs it, which in the browser saves it to IndexedDB at once.
-// A torn file is ignored on the next start (loadDrafts). Best effort: a
-// failure here has nobody to tell.
+// saveDrafts writes the drafts to the drafts file and syncs it, which
+// in the browser saves it to IndexedDB at once: every open input's draft
+// (never a password at the prompt), and the saved drafts not yet
+// restored. A torn file is ignored on the next start (loadDrafts). Best
+// effort: a failure here has nobody to tell.
 func (l *Loop) saveDrafts() {
 	if l.opts.Drafts == "" {
 		return
 	}
-	drafts := map[string]string{}
+	drafts := maps.Clone(l.drafts)
 	for _, k := range l.a.Order() {
-		if t := l.a.Char(k).Text; t != "" {
-			drafts[k] = t
+		if d := l.a.Draft(k); d != "" {
+			drafts[k] = d
+		} else {
+			delete(drafts, k)
 		}
 	}
 	if t := l.a.IdleText(); t != "" {
 		drafts[""] = t
 	}
+	l.onDisk = drafts
 	b, err := json.Marshal(drafts)
 	if err != nil {
 		return

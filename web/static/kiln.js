@@ -90,7 +90,10 @@ globalThis.process = {
 };
 await seedPreset(fs);
 navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
-lock?.serve(async () => { await persist?.handOff(); }, () => location.reload());
+// Another tab taking over: save drafts first (Go writes and syncs the
+// file before kiln.act returns), then hand the files over. kilnPage may
+// not exist yet if this lands while the wasm loads.
+lock?.serve(async () => { globalThis.kilnPage?.saveDrafts?.(); await persist?.handOff(); }, () => location.reload());
 
 globalThis.kilnDownload = (name, bytes) => {
   const url = URL.createObjectURL(new Blob([bytes]));
@@ -193,7 +196,9 @@ line.addEventListener("keydown", (ev) => {
 // Leaving the tab (another tab or app, the phone locking): save drafts, so
 // iOS killing the tab in the background loses nothing typed. Go syncs the
 // drafts file, which flushes it to IndexedDB.
-const leaving = () => { send("input"); act({ Do: "save_drafts" }); persist?.flush(); };
+const saveDrafts = () => { send("input"); act({ Do: "save_drafts" }); };
+globalThis.kilnPage.saveDrafts = saveDrafts;
+const leaving = () => { saveDrafts(); persist?.flush(); };
 addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") leaving(); });
 addEventListener("pagehide", leaving);
 

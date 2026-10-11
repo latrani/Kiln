@@ -55,6 +55,9 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 			}
 		case "submit": //str:ok
 			_, effs = a.Submit()
+			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
+				l.saveDrafts() // sent: it mustn't come back as a draft
+			}
 		case "older": //str:ok
 			a.HistoryOlder(act.Text)
 		case "newer": //str:ok

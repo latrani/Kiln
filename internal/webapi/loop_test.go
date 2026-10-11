@@ -495,3 +495,76 @@ func TestSayPutsAStatusOnTheLoop(t *testing.T) {
 		t.Errorf("status %v", st)
 	}
 }
+
+// drafted runs a loop over a with drafts at path, does acts, saves the
+// drafts and quits.
+func drafted(t *testing.T, a *app.App, path string, acts ...string) {
+	t.Helper()
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), Options{Drafts: path}); close(done) }()
+	<-got
+	for _, js := range append(acts, `{"Do":"save_drafts"}`, `{"Do":"quit"}`) {
+		l.Act([]byte(js))
+		<-got
+	}
+	<-done
+}
+
+func TestDraftsNeverHoldThePassword(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	a2, _ := newApp(t)
+	a2.Open("fm/kit")
+	a2.SetInput("half a thought")
+	sess := attachTo(a2, "fm/kit")
+	a2.Handle(app.SessionMsg{Key: "fm/kit", Sess: sess, OK: true, Ev: session.Event{Kind: session.EventNeedPassword}})
+	a2.SetInput("hunter2")
+	drafted(t, a2, path)
+	b, _ := os.ReadFile(path)
+	if strings.Contains(string(b), "hunter2") || !strings.Contains(string(b), "half a thought") {
+		t.Errorf("drafts file %s", b)
+	}
+}
+
+func TestSavingKeepsDraftsNotYetRestored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte(`{"fm/rook":"for rook"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	drafted(t, a, path, `{"Do":"open","Key":"fm/kit"}`) // Rook never opened
+	b, _ := os.ReadFile(path)
+	if !strings.Contains(string(b), "for rook") {
+		t.Errorf("Rook's draft was dropped: %s", b)
+	}
+}
+
+func TestSendingADraftTakesItOffDisk(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte(`{"fm/kit":"/notify off"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go l.Run(ctx, Options{Drafts: path})
+	<-got
+	l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+	<-got
+	l.Act([]byte(`{"Do":"submit","Key":"fm/kit","Text":"/notify off","N":1}`)) // the restored draft, sent
+	<-got
+	b, _ := os.ReadFile(path)
+	if strings.Contains(string(b), "notify") {
+		t.Errorf("a sent draft is still on disk: %s", b)
+	}
+}
+
+// attachTo gives k a session, so session messages for it are taken.
+func attachTo(a *app.App, k string) *session.Session {
+	c := a.Char(k)
+	c.Sess = session.New(session.Options{Char: c.Ch, Log: kilntest.NopLog{}})
+	return c.Sess
+}
