@@ -484,3 +484,20 @@ func TestCharCarriesTheLimit(t *testing.T) {
 		t.Errorf("char %+v", c)
 	}
 }
+
+// A line older than any the core holds can't be caught up from: the page
+// would miss what's between.
+func TestSinceRefusesAGap(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	s := attach(a, "fm/kit")
+	line(a, "fm/kit", s, "a")
+	f := New(a)
+	epoch := linesOf(f.Turn(nil))[0].Epoch
+	if _, ok := f.Since("fm/kit", epoch, -100); ok {
+		t.Error("Since from before the oldest line held should refuse")
+	}
+	if got, ok := f.Since("fm/kit", epoch, -1); !ok || len(got) != 1 {
+		t.Errorf("Since from just before the oldest: %v, %v", got, ok)
+	}
+}
