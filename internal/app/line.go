@@ -26,6 +26,7 @@ const (
 // the theme: each front end paints it its own way.
 type Line struct {
 	Kind  Kind
+	Seq   int            // its number in its scrollback or log mode; see numbering
 	Entry logstore.Entry // zero for a Day
 	Day   string         // the local day, "2006-01-02"
 	Tags  []classify.Tag // a Server line's tags, with where they matched
@@ -96,11 +97,33 @@ func (r Rules) Days(entries []logstore.Entry, echo, startsDay bool) []Line {
 }
 
 // Reline is l made again from its entry under r, for when a character's
-// rules change. Kiln's own lines (dividers, the end of history) have no
-// entry to remake and come back as they were.
+// rules change. The line keeps its number. Kiln's own lines (dividers,
+// the end of history) have no entry to remake and come back as they were.
 func (r Rules) Reline(l Line) Line {
 	if l.Kind == Day || l.Kind == HistoryEnd {
 		return l
 	}
-	return r.Line(l.Entry)
+	out := r.Line(l.Entry)
+	out.Seq = l.Seq
+	return out
+}
+
+// numbering hands out line numbers: new lines count up from 0, older
+// ones down from -1, so numbers follow the lines' order and none is used
+// twice. A front end names a line by its number ("everything after 41",
+// "lines 3 to 9").
+type numbering struct{ lo, hi int } // lo: the lowest given; hi: the next new one
+
+// newer is the number for a line added after every other.
+func (n *numbering) newer() int { s := n.hi; n.hi++; return s }
+
+// older is the number for a line added before every other.
+func (n *numbering) older() int { n.lo--; return n.lo }
+
+// numberOlder numbers ls, oldest first, to go before every line n has
+// numbered.
+func (n *numbering) numberOlder(ls []*Line) {
+	for i := len(ls) - 1; i >= 0; i-- {
+		ls[i].Seq = n.older()
+	}
 }

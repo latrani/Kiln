@@ -90,6 +90,10 @@ func TestRelineUsesNewRules(t *testing.T) {
 	if got := (Rules{Classifier: cls}).Reline(l); got.Attention || slices.Contains(got.TagNames(), "page") {
 		t.Errorf("Reline kept the old rules' verdict: %+v", got)
 	}
+	l.Seq = 7
+	if got := old.Reline(l); got.Seq != 7 {
+		t.Errorf("Reline lost the line's number: %d", got.Seq)
+	}
 	day := Line{Kind: Day, Day: "2026-09-24"}
 	if got := old.Reline(day); got.Kind != Day || got.Day != day.Day {
 		t.Errorf("Reline(day) = %+v, want it unchanged", got)

@@ -68,6 +68,7 @@ func (a *App) Preload(k string) {
 	startsDay := len(leftover) == 0 || DayOf(leftover[len(leftover)-1].Time) != DayOf(entries[0].Time)
 	c.Lines = pointers(c.Rules.Days(entries, c.Ch.LocalEcho, startsDay))
 	c.Lines = append(c.Lines, &Line{Kind: HistoryEnd, Entry: logstore.Entry{Time: entries[len(entries)-1].Time}})
+	c.seq.numberOlder(c.Lines)
 	c.hist, c.leftover = hist, leftover
 	c.More = leftover != nil || !hist.Exhausted()
 }
@@ -111,6 +112,7 @@ func (a *App) HandleOlder(msg OlderMsg) (lines []*Line, ok bool) {
 			*l = c.Rules.Reline(*l)
 		}
 	}
+	c.seq.numberOlder(msg.lines)
 	c.Lines = append(msg.lines, c.Lines...)
 	c.More, c.Loading = msg.more, false
 	return msg.lines, true
@@ -133,6 +135,7 @@ func (c *Char) shows(e logstore.Entry) bool { return e.Dir != logstore.Out || c.
 // add appends l to the scrollback. The server has moved on from any
 // prompt.
 func (c *Char) add(l Line) *Line {
+	l.Seq = c.seq.newer()
 	c.Lines = append(c.Lines, &l)
 	c.Prompt = ""
 	return &l
