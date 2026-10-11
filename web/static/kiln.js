@@ -1,12 +1,8 @@
 // Boots Kiln in the page: takes the tab lock (one tab owns Kiln), loads
 // saved files from IndexedDB into memfs, seeds the preset where nothing's
-// saved, starts Go's wasm runtime, and gives Kiln xterm.js as its
-// terminal. memfs must be in place before wasm_exec.js loads: wasm_exec
-// only stubs globalThis.fs if it's missing.
-import { Terminal } from "./vendor/xterm.mjs";
-import { FitAddon } from "./vendor/addon-fit.mjs";
-import { WebglAddon } from "./vendor/addon-webgl.mjs";
-import { ClipboardAddon } from "./vendor/addon-clipboard.mjs";
+// saved, starts Go's wasm runtime, and drives the web API from a
+// development page (index.html). memfs must be in place before
+// wasm_exec.js loads: wasm_exec only stubs globalThis.fs if it's missing.
 import { createFS } from "./memfs.mjs";
 import { createPersist, idbStore } from "./persist.mjs";
 import { createTabLock } from "./tablock.mjs";
@@ -68,21 +64,6 @@ if (lock && !(await lock.tryTake())) {
   screen.hidden = true;
 }
 
-// convertEol: with no TTY to put in raw mode, Bubble Tea draws as if the
-// terminal turns "\n" into "\r\n", so xterm.js has to do that too.
-const term = new Terminal({
-  fontFamily: "ui-monospace, Menlo, Consolas, monospace",
-  fontSize: 14,
-  convertEol: true,
-});
-const fit = new FitAddon();
-term.loadAddon(fit);
-term.loadAddon(new ClipboardAddon()); // OSC 52: Kiln's copy
-term.open(document.getElementById("term"));
-try { term.loadAddon(new WebglAddon()); } catch { /* the DOM renderer is fine */ }
-fit.fit();
-addEventListener("resize", () => fit.fit());
-
 let saving = true;
 const fs = createFS({ onChange: (p) => persist?.changed(p), onSync: () => persist?.flush() });
 try {
@@ -109,7 +90,6 @@ globalThis.process = {
 };
 await seedPreset(fs);
 navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
-addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") persist?.flush(); });
 lock?.serve(async () => { await persist?.handOff(); }, () => location.reload());
 
 globalThis.kilnDownload = (name, bytes) => {
@@ -147,12 +127,73 @@ await loadScript("wasm_exec.js");
 const relay = new URL("relay", location.href);
 relay.protocol = location.protocol === "https:" ? "wss:" : "ws:";
 
+// The development page. events keeps every event, for the smoke test.
+const events = [];
+const act = (o) => globalThis.kiln?.act?.(JSON.stringify(o));
+globalThis.kilnPage = { events, act };
+
+const list = document.getElementById("chars");
+const log = document.getElementById("log");
+const line = document.getElementById("line");
+let order = [], active = "", chars = {}, inputs = {};
+let n = 0; // numbers what the line sends, so a reply to an older one never overwrites newer typing
+const inputKey = () => (chars[active] ? active : "");
+const send = (Do) => act({ Do, Key: inputKey(), Text: line.value, N: ++n });
+
+function render() {
+  list.replaceChildren(...order.map((k) => {
+    const c = chars[k] ?? {};
+    const b = document.createElement("button");
+    b.textContent = `${c.Name ?? k} [${c.State ?? 0}]${c.Unread ? ` ${c.Unread}` : ""}`;
+    b.className = k === active ? "active" : "";
+    b.onclick = () => { send("input"); act({ Do: "switch", Key: k }); };
+    return b;
+  }));
+}
+
+function onBatch(json) {
+  for (const e of JSON.parse(json)) {
+    events.push(e);
+    switch (e.type) {
+      case "Start": order = []; active = ""; chars = {}; inputs = {}; break;
+      case "Order": order = e.Keys; break;
+      case "Char": chars[e.Key] = e; break;
+      case "Closed": delete chars[e.Key]; break;
+      case "Active": active = e.Key; line.value = inputs[inputKey()] ?? ""; break;
+      case "Input":
+        inputs[e.Key] = e.Text;
+        if (e.Key === inputKey() && e.Ack === n) line.value = e.Text;
+        break;
+      case "Effect":
+        if (e.effect === "SaveFile") {
+          globalThis.kilnDownload(e.Name.split("/").pop(), Uint8Array.from(atob(e.Data ?? ""), (ch) => ch.charCodeAt(0)));
+        }
+        break;
+    }
+    log.append(JSON.stringify(e) + "\n");
+  }
+  while (log.childNodes.length > 2000) log.firstChild.remove();
+  log.scrollTop = log.scrollHeight;
+  render();
+}
+
+line.addEventListener("input", () => send("input"));
+line.addEventListener("keydown", (ev) => {
+  const Do = { Enter: "submit", ArrowUp: "older", ArrowDown: "newer" }[ev.key];
+  if (!Do || ev.shiftKey) return;
+  ev.preventDefault();
+  send(Do);
+});
+// Leaving the tab (another tab or app, the phone locking): save drafts, so
+// iOS killing the tab in the background loses nothing typed. Go syncs the
+// drafts file, which flushes it to IndexedDB.
+const leaving = () => { send("input"); act({ Do: "save_drafts" }); persist?.flush(); };
+addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") leaving(); });
+addEventListener("pagehide", leaving);
+
 globalThis.kilnReady = () => {
-  kiln.start(term.cols, term.rows, relay.href, (bytes) => term.write(bytes), saving);
-  term.onData((d) => kiln.input(d));
-  term.onBinary((d) => kiln.input(d));
-  term.onResize(({ cols, rows }) => kiln.resize(cols, rows));
-  term.focus();
+  kiln.start(relay.href, onBatch, saving);
+  line.focus();
 };
 
 const go = new Go();

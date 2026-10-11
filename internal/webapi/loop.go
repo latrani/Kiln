@@ -233,8 +233,9 @@ func loadDrafts(path string) map[string]string {
 }
 
 // saveDrafts writes every input's text that isn't empty to the drafts
-// file, by way of a temporary file so a half-written one never replaces
-// it. Best effort: a failure here has nobody to tell.
+// file and syncs it, which in the browser saves it to IndexedDB at once.
+// A torn file is ignored on the next start (loadDrafts). Best effort: a
+// failure here has nobody to tell.
 func (l *Loop) saveDrafts() {
 	if l.opts.Drafts == "" {
 		return
@@ -252,18 +253,12 @@ func (l *Loop) saveDrafts() {
 	if err != nil {
 		return
 	}
-	tmp := l.opts.Drafts + ".tmp" //str:ok
-	f, err := os.Create(tmp)
+	f, err := os.Create(l.opts.Drafts)
 	if err != nil {
 		return
 	}
-	_, err = f.Write(b)
-	if err == nil {
-		err = f.Sync()
+	if _, err := f.Write(b); err == nil {
+		f.Sync()
 	}
-	if f.Close() != nil || err != nil {
-		os.Remove(tmp)
-		return
-	}
-	os.Rename(tmp, l.opts.Drafts)
+	f.Close()
 }
