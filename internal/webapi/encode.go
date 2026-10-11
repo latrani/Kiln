@@ -20,7 +20,7 @@ import (
 // kept for the page to style.
 type Line struct {
 	Seq       int
-	Kind      app.Kind
+	Kind      string // server, echo, sys, day, history_end
 	Day       string
 	Time      time.Time
 	Out       bool // something you sent
@@ -31,8 +31,36 @@ type Line struct {
 }
 
 func lineOf(l app.Line) Line {
-	return Line{Seq: l.Seq, Kind: l.Kind, Day: l.Day, Time: l.Entry.Time, Out: l.Entry.Dir == logstore.Out,
+	return Line{Seq: l.Seq, Kind: kindName(l.Kind), Day: l.Day, Time: l.Entry.Time, Out: l.Entry.Dir == logstore.Out,
 		Text: l.Text(), Tags: l.Tags, Attention: l.Attention, Quiet: l.Quiet}
+}
+
+// kindName and opName are a line's kind and a Lines event's op as the
+// page gets them: protocol vocabulary, never shown.
+func kindName(k app.Kind) string {
+	switch k {
+	case app.Echo:
+		return "echo" //str:ok
+	case app.Sys:
+		return "sys" //str:ok
+	case app.Day:
+		return "day" //str:ok
+	case app.HistoryEnd:
+		return "history_end" //str:ok
+	}
+	return "server" //str:ok
+}
+
+func opName(o feed.Op) string {
+	switch o {
+	case feed.Replace:
+		return "replace" //str:ok
+	case feed.Append:
+		return "append" //str:ok
+	case feed.Prepend:
+		return "prepend" //str:ok
+	}
+	return "reset" //str:ok
 }
 
 func linesOf(ls []app.Line) []Line {
@@ -59,16 +87,16 @@ func Encode(evs []any) ([]byte, error) {
 			e = struct {
 				Key   string
 				Epoch int
-				Op    feed.Op
+				Op    string
 				Lines []Line
-			}{v.Key, v.Epoch, v.Op, linesOf(v.Lines)}
+			}{v.Key, v.Epoch, opName(v.Op), linesOf(v.Lines)}
 		case feed.LogLines:
 			e = struct {
 				Key   string
 				Epoch int
-				Op    feed.Op
+				Op    string
 				Lines []Line
-			}{v.Key, v.Epoch, v.Op, linesOf(v.Lines)}
+			}{v.Key, v.Epoch, opName(v.Op), linesOf(v.Lines)}
 		case feed.Effect:
 			extra = map[string]string{"effect": reflect.TypeOf(v.Effect).Name()} //str:ok
 			e = v.Effect

@@ -427,3 +427,11 @@ func TestAllKeepsTheTurnsEffects(t *testing.T) {
 		t.Errorf("All with a Copy and a Run: %d effects", effects)
 	}
 }
+
+func TestUnknownActionFieldsAreRefused(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"mark","Key":"fm/kit","Seqs":3}`)
+	if st := event(b, "Status"); st == nil || st["Err"] != true || !strings.HasPrefix(st["Text"].(string), upTo(str.StatusBadAction(errors.New(mark)))) {
+		t.Errorf("unknown field: %v", b)
+	}
+}

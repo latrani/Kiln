@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"time"
@@ -151,7 +152,9 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 	switch m := msg.(type) {
 	case []byte:
 		var act Action
-		if err := json.Unmarshal(m, &act); err != nil {
+		d := json.NewDecoder(bytes.NewReader(m))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&act); err != nil {
 			l.a.SetStatus(true, str.StatusBadAction(err))
 			return nil, nil, false
 		}

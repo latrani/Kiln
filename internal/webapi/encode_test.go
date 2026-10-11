@@ -2,6 +2,8 @@ package webapi
 
 import (
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,5 +47,43 @@ func TestEncodeTagsEachEventWithItsType(t *testing.T) {
 	}
 	if evs[3]["type"] != "Problems" {
 		t.Errorf("problems %v", evs[3])
+	}
+}
+
+func TestEncodeNamesKindsAndOps(t *testing.T) {
+	kinds := map[app.Kind]string{app.Server: "server", app.Echo: "echo", app.Sys: "sys", app.Day: "day", app.HistoryEnd: "history_end"}
+	ops := map[feed.Op]string{feed.Reset: "reset", feed.Replace: "replace", feed.Append: "append", feed.Prepend: "prepend"}
+	for k, name := range kinds {
+		for o, op := range ops {
+			b, err := Encode([]any{feed.Lines{Key: "fm/kit", Op: o, Lines: []app.Line{{Kind: k}}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ev := decode(t, b)[0]
+			if ev["Op"] != op || ev["Lines"].([]any)[0].(map[string]any)["Kind"] != name {
+				t.Errorf("%v/%v: %v", k, o, ev)
+			}
+		}
+	}
+}
+
+func TestEffectFieldsDontCollide(t *testing.T) {
+	for _, e := range []app.Effect{app.Notify{}, app.Copy{}, app.SaveFile{}, app.Do{}, app.Quit{}} {
+		typ := reflect.TypeOf(e)
+		for i := range typ.NumField() {
+			if n := typ.Field(i).Name; strings.EqualFold(n, "type") || strings.EqualFold(n, "effect") {
+				t.Errorf("%s.%s would collide with the envelope", typ.Name(), n)
+			}
+		}
+	}
+}
+
+func TestZeroConnectedAtIsLeftOut(t *testing.T) {
+	b, err := Encode([]any{feed.Char{Key: "fm/kit"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := decode(t, b)[0]["ConnectedAt"]; ok {
+		t.Error("a zero ConnectedAt went out")
 	}
 }
