@@ -195,3 +195,19 @@ func TestClosingTheLastCharacterUnconfirms(t *testing.T) {
 		t.Errorf("active %q confirming %v after closing the last character", a.Active(), a.Confirming())
 	}
 }
+
+func TestHistoryRecallOnTheActiveInput(t *testing.T) {
+	a, _, _ := submitApp(t, fmWorld)
+	a.SetInput("/notify off") // a command goes in history too
+	a.Submit()
+	a.SetInput("draft")
+	if !a.HistoryOlder("draft") || a.Text() != "/notify off" {
+		t.Fatalf("older: %q", a.Text())
+	}
+	if a.HistoryOlder("/notify off") {
+		t.Error("older past the oldest")
+	}
+	if !a.HistoryNewer() || a.Text() != "draft" {
+		t.Errorf("newer: %q; want the draft back", a.Text())
+	}
+}

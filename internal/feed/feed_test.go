@@ -111,7 +111,7 @@ func TestFirstTurnSendsEverything(t *testing.T) {
 	open(t, a, "fm/kit")
 	f := New(a)
 	evs := f.Turn(nil)
-	want := []string{"Worlds", "Order", "Char", "Idle", "Presence", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
+	want := []string{"Worlds", "Order", "Char", "Input", "Input", "Presence", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
 	if got := kinds(evs); !reflect.DeepEqual(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)
 	}
@@ -177,7 +177,7 @@ func TestAllSendsEverythingAgain(t *testing.T) {
 	open(t, a, "fm/kit")
 	f := New(a)
 	first := f.Turn(nil)
-	if again := f.All(); !reflect.DeepEqual(kinds(again), kinds(first)) {
+	if again := f.All(); kinds(again)[0] != "Start" || !reflect.DeepEqual(kinds(again)[1:], kinds(first)) {
 		t.Errorf("All sent %v, the first turn %v", kinds(again), kinds(first))
 	}
 	if evs := f.Turn(nil); len(evs) != 0 {
@@ -429,8 +429,8 @@ func TestPresenceIdleTextConnectedAtAndStore(t *testing.T) {
 	a.SetInput("/open fm/kit") // nothing open: the idle input
 	a.Focus(true)
 	evs = f.Turn(nil)
-	if i, _ := find[Idle](evs); i.Text != "/open fm/kit" {
-		t.Errorf("idle %+v", i)
+	if i, _ := find[Input](evs); i.Key != "" || i.Text != "/open fm/kit" {
+		t.Errorf("idle input %+v", i)
 	}
 	if p, _ := find[Presence](evs); p.State != app.PresenceHere {
 		t.Errorf("presence after focus %+v", p)
@@ -457,5 +457,30 @@ func TestLogSaysHowManyAreSelected(t *testing.T) {
 	g.ToggleExclude(g.Lines[1])
 	if l, _ := find[Log](f.Turn(nil)); l.Selected != len(g.Selection()) || l.Selected != 2 {
 		t.Errorf("selected %d, want %d", l.Selected, len(g.Selection()))
+	}
+}
+
+func TestInputIsNotEchoed(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	f := New(a)
+	f.Turn(nil)
+	a.SetInput("typed by the page")
+	f.Told("fm/kit", 1)
+	if evs := f.Turn(nil); len(evs) != 0 {
+		t.Errorf("the page's own text came back: %v", kinds(evs))
+	}
+	a.SetInput("") // the core clearing it, as Submit does
+	if i, ok := find[Input](f.Turn(nil)); !ok || i.Text != "" || i.Key != "fm/kit" {
+		t.Errorf("a core change: %+v, %v", i, ok)
+	}
+}
+
+func TestCharCarriesTheLimit(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	c, _ := find[Char](New(a).Turn(nil))
+	if c.MaxLineBytes != a.Char("fm/kit").Ch.MaxLineBytes || c.NewlineMode != a.Char("fm/kit").Ch.NewlineMode {
+		t.Errorf("char %+v", c)
 	}
 }
