@@ -814,9 +814,6 @@ func StatusConfigReloaded() string { return get("status.config_reloaded", nil) }
 // StatusCopied is status.copied: "copied to clipboard"
 func StatusCopied() string { return get("status.copied", nil) }
 
-// StatusDownloaded is status.downloaded: "downloaded {name}"
-func StatusDownloaded(name any) string { return get("status.downloaded", map[string]any{"name": name}) }
-
 // StatusHighlightAdded is status.highlight_added: "added highlight for {text:%q}"
 func StatusHighlightAdded(text any) string {
 	return get("status.highlight_added", map[string]any{"text": text})

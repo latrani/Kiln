@@ -33,19 +33,18 @@ const (
 // the core's log.
 type browse struct {
 	*app.Log
-	cs        *charState
-	Cursor    *app.LogLine            // the highlighted line; see logcursor.go
-	top       *app.LogLine            // first line drawn at the top of the body
-	scrolled  bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
-	rowLines  []*app.LogLine          // body row → line (nil for dividers), from the last draw
-	painted   map[*app.LogLine]string // each line as painted, once it's been needed; see text
-	prompt    promptKind
-	pin       *Input
-	Panel     *filterPanel // the filter panel, while it's open
-	format    string
-	run       func([]app.Effect) tea.Cmd // the model's run
-	cfg       func() *config.Config      // the config as it is now, for the export settings
-	downloads bool                       // saving downloads (the web build) instead of writing under export_dir
+	cs       *charState
+	Cursor   *app.LogLine            // the highlighted line; see logcursor.go
+	top      *app.LogLine            // first line drawn at the top of the body
+	scrolled bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
+	rowLines []*app.LogLine          // body row → line (nil for dividers), from the last draw
+	painted  map[*app.LogLine]string // each line as painted, once it's been needed; see text
+	prompt   promptKind
+	pin      *Input
+	Panel    *filterPanel // the filter panel, while it's open
+	format   string
+	run      func([]app.Effect) tea.Cmd // the model's run
+	cfg      func() *config.Config      // the config as it is now, for the export settings
 }
 
 // text is l painted, painting it the first time it's needed.
@@ -176,11 +175,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 			f, ok = def, true
 		}
 		if ok {
-			dir := b.cfg().ExportDir
-			if b.downloads {
-				dir = "" // a download: just a name
-			}
-			name, ok := b.ExportFileName(f, dir)
+			name, ok := b.ExportFileName(f, b.cfg().ExportDir)
 			if !ok {
 				b.prompt = promptNone
 				return nil

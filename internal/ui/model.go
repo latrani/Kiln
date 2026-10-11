@@ -43,7 +43,6 @@ type Deps struct {
 	DeletePassword func(store, world, char string) error           // nil: passwords can't be forgotten
 	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
-	SaveFile       func(name string, data []byte) error            // offers a file to download (web); nil: browse save writes under export_dir
 	Tmux           bool                                            // inside tmux: wrap notifications and clipboard writes for passthrough
 	Remote         bool                                            // over ssh: links can't open on your screen, so a click copies them
 	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
@@ -932,27 +931,17 @@ func (m *Model) openBrowse(cs *charState) {
 	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
 	cs.browse.Cursor = g.LastVisible()
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
-	cs.browse.cfg, cs.browse.downloads = m.a.Config, m.d.SaveFile != nil
+	cs.browse.cfg = m.a.Config
 	m.a.ClearStatus()
 }
 
-// saveFile offers a file: through Deps.SaveFile (the web build) a
-// download named after the name's last element, else a file at the
-// name, "~/" expanded and a relative one placed in export_dir, never
-// overwriting. How it went goes on the asking log's status.
+// saveFile writes a file at the name, "~/" expanded and a relative one
+// placed in export_dir, never overwriting. How it went goes on the
+// asking log's status.
 func (m *Model) saveFile(e app.SaveFile) {
 	say := m.setStatus
 	if c := m.a.Char(e.Key); c != nil && c.Log != nil {
 		say = c.Log.SetStatus
-	}
-	if m.d.SaveFile != nil {
-		name := filepath.Base(e.Name)
-		if err := m.d.SaveFile(name, e.Data); err != nil {
-			say(true, err.Error())
-			return
-		}
-		say(false, str.StatusDownloaded(name))
-		return
 	}
 	path, err := config.ExpandHome(e.Name)
 	if err != nil {
