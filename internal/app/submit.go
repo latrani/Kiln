@@ -52,6 +52,36 @@ func (a *App) Text() string {
 // IdleText is the text of the input used while nothing is open.
 func (a *App) IdleText() string { return a.idleText }
 
+// history is the active input's history: the active character's, or the
+// idle input's.
+func (a *App) history() *History {
+	if c := a.chars[a.active]; c != nil {
+		return &c.History
+	}
+	return &a.idleHist
+}
+
+// HistoryOlder puts the line sent before the one shown into the active
+// input, cur (its text now) kept as the draft HistoryNewer comes back to.
+// false if there's nothing older.
+func (a *App) HistoryOlder(cur string) bool {
+	v, ok := a.history().Older(cur)
+	if ok {
+		a.SetInput(v)
+	}
+	return ok
+}
+
+// HistoryNewer puts the next newer line, or the draft, into the active
+// input. false if it isn't browsing history.
+func (a *App) HistoryNewer() bool {
+	v, ok := a.history().Newer()
+	if ok {
+		a.SetInput(v)
+	}
+	return ok
+}
+
 // IdleHistory is the history of the input used while nothing is open.
 func (a *App) IdleHistory() *History { return &a.idleHist }
 

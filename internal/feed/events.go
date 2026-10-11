@@ -35,15 +35,24 @@ type Char struct {
 	CertChanged          bool      // its server's certificate changed; /trust to accept
 	Orphan               bool      // removed from the config; closes when it disconnects
 	ConnectedAt          time.Time // when the current connection came up
-	Text                 string    // the input's text, as the core holds it
-	Prompt               string    // the server's unterminated prompt, sanitized; "" for none
-	NeedPW               bool      // the password prompt is up
+	MaxLineBytes         int       // max_line_bytes
+	NewlineMode          string    // newline_mode
 	More                 bool      // older history can be paged in
 	Loading              bool      // a page of older history is being read
 }
 
-// Idle is the input used while nothing is open.
-type Idle struct{ Text string }
+// Input is one input as the core holds it: a character's (Key), or with
+// Key "" the input used while nothing is open. Text goes out only when
+// the core changed it (a submit, a history recall, the password prompt):
+// what the page sent is never echoed back (see Feed.Told).
+type Input struct {
+	Key, Text string
+	Prompt    string // the server's unterminated prompt, sanitized; "" for none
+	NeedPW    bool   // the password prompt is up
+}
+
+// Start begins everything (All): the page drops what it holds first.
+type Start struct{}
 
 // Presence is whether you're here, away, or not known yet. It can also
 // change with time alone (notify_idle passing), which a loop catches by
@@ -138,7 +147,8 @@ func (Worlds) event()       {}
 func (Order) event()        {}
 func (Char) event()         {}
 func (Closed) event()       {}
-func (Idle) event()         {}
+func (Input) event()        {}
+func (Start) event()        {}
 func (Presence) event()     {}
 func (Active) event()       {}
 func (Status) event()       {}
