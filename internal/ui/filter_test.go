@@ -315,7 +315,7 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	b := h.br()
 	for i := range 50000 {
 		tag := fmt.Sprintf("p%d/c%d", i%10, i%4)
-		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, Tags: []string{tag}, Lower: "x"})
+		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Seq: logSeqAfter(b.Lines), Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, Tags: []string{tag}, Lower: "x"})
 	}
 	b.Cursor = b.Lines[len(b.Lines)-1]
 	h.key("f")

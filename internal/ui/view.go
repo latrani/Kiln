@@ -375,7 +375,6 @@ func (m *Model) View() tea.View {
 		panel = cs.browse.panelView(l.sw, m.height)
 	}
 	sv := m.sidebarView()
-	foot := m.footerH()
 	var b strings.Builder
 	for y := 0; y < m.height; y++ {
 		if y > 0 {
@@ -384,8 +383,6 @@ func (m *Model) View() tea.View {
 		switch r, hint := sv.at(y); {
 		case panel != nil:
 			b.WriteString(theme.Fill(side, panel[y], l.sw))
-		case y >= m.height-foot:
-			b.WriteString(theme.Fill(side, fit(chip(theme.SidebarAction, footerLabels[y-(m.height-foot)]), l.sw), l.sw))
 		case hint < 0:
 			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
 		case hint > 0:

@@ -1,8 +1,12 @@
 package webapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/latrani/Kiln/internal/app"
@@ -24,11 +28,29 @@ const tickEvery = 30 * time.Second
 type Loop struct {
 	a             *app.App
 	f             *feed.Feed
-	in            chan any
+	mu            sync.Mutex
+	queue         []any         // messages waiting for Run, in order; see post
+	ended         bool          // Run has returned: post drops what comes
+	wake          chan struct{} // nudges Run when queue was empty
 	done          chan struct{} // closed when Run returns
 	out           func([]byte)
 	statusTimeout time.Duration
-	timed         int // the status Gen last timed out
+	timed         int               // the status Gen last timed out
+	opts          Options           // as Run was given them
+	drafts        map[string]string // saved drafts not yet restored, by key ("" for the idle input)
+	onDisk        map[string]string // the drafts last written
+}
+
+// Options are how Run starts.
+type Options struct {
+	Autoconnect bool   // open and connect autoconnect characters first
+	Drafts      string // the file drafts are saved to and restored from; "" for none
+}
+
+// say is a status for the loop to put up; see Say.
+type say struct {
+	err  bool
+	text string
 }
 
 type tick struct{}
@@ -38,7 +60,7 @@ type expire int
 
 // New makes a loop over a that sends each turn's batch to out.
 func New(a *app.App, out func([]byte)) *Loop {
-	return &Loop{a: a, f: feed.New(a), in: make(chan any, 256), done: make(chan struct{}), out: out, statusTimeout: statusTimeout}
+	return &Loop{a: a, f: feed.New(a), wake: make(chan struct{}, 1), done: make(chan struct{}), out: out, statusTimeout: statusTimeout}
 }
 
 // Act hands the loop one action from the page, as JSON. It touches
@@ -46,44 +68,84 @@ func New(a *app.App, out func([]byte)) *Loop {
 // does nothing.
 func (l *Loop) Act(js []byte) { l.post(js) }
 
-// post puts msg on the loop, or drops it if the loop has ended.
+// Say puts text on the status line from outside the loop (the page's
+// storage failing, say). Like Act, it never touches the core itself.
+func (l *Loop) Say(isErr bool, text string) { l.post(say{isErr, text}) }
+
+// post puts msg on the loop, or drops it if the loop has ended. It never
+// blocks: the queue has no limit, so a JS callback calling Act (even
+// from inside a batch the loop is handing the page) can't wait on the
+// loop that called it.
 func (l *Loop) post(msg any) {
+	l.mu.Lock()
+	if l.ended {
+		l.mu.Unlock()
+		return
+	}
+	l.queue = append(l.queue, msg)
+	l.mu.Unlock()
 	select {
-	case l.in <- msg:
-	case <-l.done:
+	case l.wake <- struct{}{}:
+	default: // already nudged
 	}
 }
 
+// take is the next queued message; false if there's none.
+func (l *Loop) take() (any, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.queue) == 0 {
+		return nil, false
+	}
+	msg := l.queue[0]
+	l.queue[0] = nil
+	l.queue = l.queue[1:]
+	return msg, true
+}
+
 // Run drains the loop until ctx is done or the core quits. It first
-// opens and connects autoconnect characters if asked, then sends
-// everything.
-func (l *Loop) Run(ctx context.Context, autoconnect bool) {
-	defer close(l.done)
+// loads saved drafts, opens and connects autoconnect characters if
+// asked, then sends everything.
+func (l *Loop) Run(ctx context.Context, opts Options) {
+	defer func() {
+		l.mu.Lock()
+		l.ended, l.queue = true, nil
+		l.mu.Unlock()
+		close(l.done)
+	}()
+	l.opts = opts
+	l.drafts = loadDrafts(opts.Drafts)
+	l.onDisk = maps.Clone(l.drafts)
 	var effs []app.Effect
-	if autoconnect {
+	if opts.Autoconnect {
 		for _, ch := range l.a.AllChars() {
 			if ch.Autoconnect {
 				k := app.Key(ch.World, ch.ID)
-				if _, err := l.a.Open(k); err != nil {
-					l.a.SetStatus(true, str.StatusCharError(k, err))
-				}
+				l.open(k)
 				effs = append(effs, l.a.Connect(k)...)
 			}
 		}
+	}
+	if d := l.drafts[""]; d != "" && l.a.Char(l.a.Active()) == nil {
+		l.a.SetInput(d)
+		delete(l.drafts, "")
 	}
 	l.perform(effs)
 	l.send(anys(l.f.All()))
 	t := time.NewTicker(tickEvery)
 	defer t.Stop()
 	for {
-		var msg any
-		select {
-		case <-ctx.Done():
-			l.a.Quit() // hang up every session
-			return
-		case <-t.C:
-			msg = tick{}
-		case msg = <-l.in:
+		msg, ok := l.take()
+		for !ok {
+			select {
+			case <-ctx.Done():
+				l.a.Quit() // hang up every session
+				return
+			case <-t.C:
+				msg, ok = tick{}, true
+			case <-l.wake:
+				msg, ok = l.take()
+			}
 		}
 		extra, effs, all := l.step(msg)
 		quit := l.perform(effs)
@@ -151,7 +213,13 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 	switch m := msg.(type) {
 	case []byte:
 		var act Action
-		if err := json.Unmarshal(m, &act); err != nil {
+		d := json.NewDecoder(bytes.NewReader(m))
+		d.DisallowUnknownFields()
+		err := json.Unmarshal(m, new(json.RawMessage)) // one JSON value, nothing after it
+		if err == nil {
+			err = d.Decode(&act)
+		}
+		if err != nil {
 			l.a.SetStatus(true, str.StatusBadAction(err))
 			return nil, nil, false
 		}
@@ -163,6 +231,8 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 		l.a.HandleOlder(m)
 	case app.LogOlderMsg:
 		return nil, l.a.HandleLogOlder(m), false
+	case say:
+		l.a.SetStatus(m.err, m.text)
 	case expire:
 		if l.a.Status().Gen == int(m) {
 			l.a.ClearStatus()
@@ -176,4 +246,65 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 // mark the overflow as you type.
 func OverLimit(text string, maxLineBytes int, newlineMode string) bool {
 	return app.OverLimit(text, config.Character{MaxLineBytes: maxLineBytes, NewlineMode: newlineMode})
+}
+
+// open opens character k, saying why on the status line if it couldn't
+// load, and restores its saved draft.
+func (l *Loop) open(k string) {
+	c, err := l.a.Open(k)
+	if c != nil && err != nil {
+		l.a.SetStatus(true, str.StatusCharError(k, err))
+	}
+	if d := l.drafts[k]; c != nil && d != "" {
+		l.a.SetDraft(k, d)
+		delete(l.drafts, k)
+	}
+}
+
+// loadDrafts reads the drafts file; a missing or unreadable one is none.
+func loadDrafts(path string) map[string]string {
+	drafts := map[string]string{}
+	if path == "" {
+		return drafts
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(b, &drafts) != nil {
+		return map[string]string{}
+	}
+	return drafts
+}
+
+// saveDrafts writes the drafts to the drafts file and syncs it, which
+// in the browser saves it to IndexedDB at once: every open input's draft
+// (never a password at the prompt), and the saved drafts not yet
+// restored. A torn file is ignored on the next start (loadDrafts). Best
+// effort: a failure here has nobody to tell.
+func (l *Loop) saveDrafts() {
+	if l.opts.Drafts == "" {
+		return
+	}
+	drafts := maps.Clone(l.drafts)
+	for _, k := range l.a.Order() {
+		if d := l.a.Draft(k); d != "" {
+			drafts[k] = d
+		} else {
+			delete(drafts, k)
+		}
+	}
+	if t := l.a.IdleText(); t != "" {
+		drafts[""] = t
+	}
+	l.onDisk = drafts
+	b, err := json.Marshal(drafts)
+	if err != nil {
+		return
+	}
+	f, err := os.Create(l.opts.Drafts)
+	if err != nil {
+		return
+	}
+	if _, err := f.Write(b); err == nil {
+		f.Sync()
+	}
+	f.Close()
 }

@@ -34,7 +34,7 @@ type Char struct {
 	Attention            bool
 	CertChanged          bool      // its server's certificate changed; /trust to accept
 	Orphan               bool      // removed from the config; closes when it disconnects
-	ConnectedAt          time.Time // when the current connection came up
+	ConnectedAt          time.Time `json:",omitzero"` // when the current connection came up
 	MaxLineBytes         int       // max_line_bytes
 	NewlineMode          string    // newline_mode
 	More                 bool      // older history can be paged in

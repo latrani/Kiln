@@ -239,6 +239,7 @@ func TestClickingWorldHeaderShowsOverview(t *testing.T) {
 // addLine puts a line in cs's scrollback, the core's and the view's,
 // drawn as text.
 func addLine(cs *charState, text string, l *app.Line) {
+	l.Seq = seqAfter(cs.Lines)
 	cs.Lines = append(cs.Lines, l)
 	cs.sb.AppendLine(lineOf(text, l))
 }

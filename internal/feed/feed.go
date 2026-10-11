@@ -111,7 +111,7 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	}
 	a := f.a
 	put("worlds", worlds(a))
-	put("order", Order{Keys: append([]string(nil), a.Order()...)})
+	put("order", Order{Keys: append([]string{}, a.Order()...)})
 	open := map[string]bool{}
 	for _, k := range a.Order() {
 		open[k] = true

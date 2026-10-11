@@ -1,22 +1,32 @@
 <!doctype html>
+<!-- A development page for Kiln's web API: it shows the characters, sends
+     what you type, and logs every event. The real page is part 3 of #125.
+     Its few labels aren't in the catalog because nobody but developers
+     sees them. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kiln</title>
+<title>Kiln (dev)</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="vendor/xterm.css">
 <style>
-  html, body { margin: 0; height: 100%; background: #000; }
-  #term { position: fixed; inset: 0; padding: 4px; }
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 14px ui-monospace, Menlo, monospace; display: grid;
+         grid-template: "chars log" 1fr "chars line" auto / 14em 1fr; height: 100vh; }
+  #chars { grid-area: chars; overflow: auto; border-right: 1px solid #8884; padding: 4px; }
+  #chars button { display: block; width: 100%; text-align: left; font: inherit; margin: 2px 0; }
+  #chars button.active { font-weight: bold; }
+  #log { grid-area: log; overflow: auto; margin: 0; padding: 4px; white-space: pre-wrap; }
+  #line { grid-area: line; font: inherit; padding: 6px; }
   #lock { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
-          justify-content: center; gap: 1em; color: #ccc; font: 16px ui-monospace, Menlo, monospace; }
+          justify-content: center; gap: 1em; background: Canvas; }
   #lock[hidden] { display: none; }
-  #lock button { font: inherit; padding: .4em 1.2em; }
 </style>
 </head>
 <body>
-<div id="term"></div>
+<div id="chars"></div>
+<pre id="log"></pre>
+<input id="line" autocomplete="off" spellcheck="false">
 <div id="lock" hidden>
   <p id="lock-text"></p>
   <button id="lock-use"></button>

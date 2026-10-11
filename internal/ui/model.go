@@ -43,9 +43,6 @@ type Deps struct {
 	DeletePassword func(store, world, char string) error           // nil: passwords can't be forgotten
 	Changes        <-chan struct{}                                 // config changes; nil: no hot reload
 	OpenURL        func(url string) error                          // opens a clicked link; nil: links do nothing
-	SaveFile       func(name string, data []byte) error            // offers a file to download (web); nil: browse save writes under export_dir
-	Backup         func() (name string, err error)                 // downloads a backup of config and pins (web); nil: no Back up
-	Restore        func() (n int, err error)                       // asks for a backup and writes its n files back; 0, nil when cancelled; nil: no Restore
 	Tmux           bool                                            // inside tmux: wrap notifications and clipboard writes for passthrough
 	Remote         bool                                            // over ssh: links can't open on your screen, so a click copies them
 	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
@@ -73,7 +70,6 @@ type Model struct {
 		char string
 		at   time.Time
 	}
-	backingUp     bool               // a Back up is running; another is ignored until it's done
 	shownPresence app.Presence       // what the presence chip shows; see Update
 	themed        bool               // a theme has been loaded; see loadTheme
 	standIn       bool               // the theme is the built-in standing in for a broken one; see loadTheme
@@ -401,25 +397,6 @@ const resizeDebounce = 200 * time.Millisecond
 // message's generation, and only the latest generation reports.
 type resizeMsg int
 
-// StatusMsg puts Text on the statusline (as an error when Err is set):
-// how a front end, like the web build, tells the user something.
-type StatusMsg struct {
-	Text string
-	Err  bool
-}
-
-// backupDoneMsg is what the Backup hook returned.
-type backupDoneMsg struct {
-	name string
-	err  error
-}
-
-// restoreDoneMsg is what the Restore hook returned.
-type restoreDoneMsg struct {
-	n   int
-	err error
-}
-
 // paneSize is the right pane's size, where server text is shown: what
 // NAWS reports. It is 0×0 before the first WindowSizeMsg.
 func (m *Model) paneSize() (w, h int) {
@@ -465,22 +442,6 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case resizeMsg:
 		if int(msg) == m.resizeGen { // the drag has settled
 			m.a.ReportSize()
-		}
-	case StatusMsg:
-		m.setStatus(msg.Err, msg.Text)
-	case backupDoneMsg:
-		m.backingUp = false
-		if msg.err != nil {
-			m.setStatus(true, str.StatusBackupFailed(msg.err))
-		} else {
-			m.setStatus(false, str.StatusDownloaded(msg.name))
-		}
-	case restoreDoneMsg:
-		switch {
-		case msg.err != nil:
-			m.setStatus(true, str.StatusRestoreFailed(msg.err))
-		case msg.n > 0 && m.reloadNow(): // reloadNow says why it didn't
-			m.setStatus(false, str.StatusRestored(msg.n))
 		}
 	case tickMsg:
 		return m, tick(time.Time(msg))
@@ -939,14 +900,7 @@ func (m *Model) do(d app.Do) tea.Cmd {
 	cs := m.chars[d.Key]
 	switch d.Cmd {
 	case "/backup", "/restore":
-		if (d.Cmd == "/backup" && m.d.Backup == nil) || (d.Cmd == "/restore" && m.d.Restore == nil) {
-			m.setStatus(true, str.StatusUnknownCommand(d.Cmd)) // web-only, so unknown here
-			return nil
-		}
-		if d.Cmd == "/backup" {
-			return m.backupCmd()
-		}
-		return m.restoreCmd()
+		m.setStatus(true, str.StatusUnknownCommand(d.Cmd)) // the web page's, so unknown here
 	case "/open":
 		m.openPicker() // says why not
 	case "/log":
@@ -955,24 +909,6 @@ func (m *Model) do(d app.Do) tea.Cmd {
 		m.editCommand(cs, strings.Join(d.Args, " "))
 	}
 	return nil
-}
-
-// backupCmd runs the Backup hook off the UI goroutine. While one runs,
-// another does nothing, so a double-click downloads one zip.
-func (m *Model) backupCmd() tea.Cmd {
-	if m.backingUp {
-		return nil
-	}
-	m.backingUp = true
-	backup := m.d.Backup
-	return func() tea.Msg { name, err := backup(); return backupDoneMsg{name, err} }
-}
-
-// restoreCmd runs the Restore hook, which waits for the user to pick a
-// file, off the UI goroutine.
-func (m *Model) restoreCmd() tea.Cmd {
-	restore := m.d.Restore
-	return func() tea.Msg { n, err := restore(); return restoreDoneMsg{n, err} }
 }
 
 // openBrowse opens browse mode for cs.
@@ -986,27 +922,17 @@ func (m *Model) openBrowse(cs *charState) {
 	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
 	cs.browse.Cursor = g.LastVisible()
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
-	cs.browse.cfg, cs.browse.downloads = m.a.Config, m.d.SaveFile != nil
+	cs.browse.cfg = m.a.Config
 	m.a.ClearStatus()
 }
 
-// saveFile offers a file: through Deps.SaveFile (the web build) a
-// download named after the name's last element, else a file at the
-// name, "~/" expanded and a relative one placed in export_dir, never
-// overwriting. How it went goes on the asking log's status.
+// saveFile writes a file at the name, "~/" expanded and a relative one
+// placed in export_dir, never overwriting. How it went goes on the
+// asking log's status.
 func (m *Model) saveFile(e app.SaveFile) {
 	say := m.setStatus
 	if c := m.a.Char(e.Key); c != nil && c.Log != nil {
 		say = c.Log.SetStatus
-	}
-	if m.d.SaveFile != nil {
-		name := filepath.Base(e.Name)
-		if err := m.d.SaveFile(name, e.Data); err != nil {
-			say(true, err.Error())
-			return
-		}
-		say(false, str.StatusDownloaded(name))
-		return
 	}
 	path, err := config.ExpandHome(e.Name)
 	if err != nil {
@@ -1121,12 +1047,6 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 			cs.browse.panelClick(msg.X, msg.Y, m.height)
 			return nil
-		}
-		if f := m.footerH(); f > 0 && msg.Y >= m.height-f {
-			if msg.Y == m.height-f {
-				return m.backupCmd()
-			}
-			return m.restoreCmd()
 		}
 		sv := m.sidebarView()
 		r, hint := sv.at(msg.Y)

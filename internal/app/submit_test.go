@@ -211,3 +211,29 @@ func TestHistoryRecallOnTheActiveInput(t *testing.T) {
 		t.Errorf("newer: %q; want the draft back", a.Text())
 	}
 }
+
+func TestSetDraft(t *testing.T) {
+	a, _, _ := submitApp(t, fmWorld)
+	a.SetDraft("fm/kit", "half")
+	if a.Char("fm/kit").Text != "half" {
+		t.Errorf("draft %q", a.Char("fm/kit").Text)
+	}
+	a.SetDraft("nobody/here", "x") // not open: nothing
+}
+
+// Draft is what a person was typing to say: never the password at the
+// prompt.
+func TestDraftIsNeverThePassword(t *testing.T) {
+	a, _, _ := submitApp(t, fmWorld)
+	a.SetInput("half a thought")
+	c := a.Char(a.Active())
+	c.startPassword()
+	a.SetInput("hunter2")
+	if d := a.Draft(c.Key); d != "half a thought" {
+		t.Errorf("draft at the password prompt %q", d)
+	}
+	c.endPassword()
+	if d := a.Draft(c.Key); d != "half a thought" {
+		t.Errorf("draft after %q", d)
+	}
+}

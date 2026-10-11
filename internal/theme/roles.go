@@ -18,7 +18,7 @@ const (
 	SidebarConnecting   Role = "sidebar.connecting"
 	SidebarDisconnected Role = "sidebar.disconnected"
 	SidebarAdd          Role = "sidebar.add"
-	SidebarAction       Role = "sidebar.action" // Back up and Restore, the web build's sidebar footer
+	SidebarAction       Role = "sidebar.action" // unused since the web build's sidebar footer went; kept so themes that set it still load
 	SidebarMore         Role = "sidebar.more"
 
 	Picker              Role = "picker" // area, in place of sidebar while it's open

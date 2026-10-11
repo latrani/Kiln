@@ -86,7 +86,7 @@ func startOn(t *testing.T, a *app.App, dir string) *harness {
 	h.l = New(a, func(b []byte) { h.batches <- decode(t, b) })
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go h.l.Run(ctx, false)
+	go h.l.Run(ctx, Options{})
 	h.next() // the first batch: everything
 	return h
 }
@@ -134,7 +134,7 @@ func TestFirstBatchIsEverything(t *testing.T) {
 	l := New(a, func(b []byte) { got <- decode(t, b) })
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go l.Run(ctx, false)
+	go l.Run(ctx, Options{})
 	if b := <-got; types(b)[0] != "Start" {
 		t.Errorf("first batch %v", types(b))
 	}
@@ -201,7 +201,7 @@ func TestQuitEndsTheLoop(t *testing.T) {
 	got := make(chan []map[string]any, 10)
 	l := New(a, func(b []byte) { got <- decode(t, b) })
 	done := make(chan struct{})
-	go func() { l.Run(context.Background(), false); close(done) }()
+	go func() { l.Run(context.Background(), Options{}); close(done) }()
 	<-got
 	l.Act([]byte(`{"Do":"quit"}`))
 	b := <-got
@@ -352,7 +352,7 @@ func TestActNeverBlocksAfterTheLoopEnds(t *testing.T) {
 	got := make(chan []byte, 10)
 	l := New(a, func(b []byte) { got <- b })
 	done := make(chan struct{})
-	go func() { l.Run(context.Background(), false); close(done) }()
+	go func() { l.Run(context.Background(), Options{}); close(done) }()
 	<-got
 	l.Act([]byte(`{"Do":"quit"}`))
 	<-done
@@ -401,7 +401,7 @@ func TestStatusExpiresAndTypingDismissesIt(t *testing.T) {
 	h.l.statusTimeout = 50 * time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go h.l.Run(ctx, false)
+	go h.l.Run(ctx, Options{})
 	h.next()
 	h.act(`{"Do":"frobnicate"}`)
 	if st := event(h.next(), "Status"); st == nil || st["Text"] != "" {
@@ -425,5 +425,203 @@ func TestAllKeepsTheTurnsEffects(t *testing.T) {
 	}
 	if effects != 1 {
 		t.Errorf("All with a Copy and a Run: %d effects", effects)
+	}
+}
+
+func TestUnknownActionFieldsAreRefused(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"mark","Key":"fm/kit","Seqs":3}`)
+	if st := event(b, "Status"); st == nil || st["Err"] != true || !strings.HasPrefix(st["Text"].(string), upTo(str.StatusBadAction(errors.New(mark)))) {
+		t.Errorf("unknown field: %v", b)
+	}
+}
+
+func TestDraftsSurviveARestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), Options{Drafts: path}); close(done) }()
+	<-got
+	l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+	<-got
+	l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"half a thought","N":1}`))
+	<-got
+	l.Act([]byte(`{"Do":"save_drafts"}`))
+	<-got
+	l.Act([]byte(`{"Do":"quit"}`))
+	<-done
+
+	b, _ := newApp(t)
+	h := &harness{t: t, a: b, batches: make(chan []map[string]any, 100)}
+	h.l = New(b, func(x []byte) { h.batches <- decode(t, x) })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go h.l.Run(ctx, Options{Drafts: path})
+	h.next()
+	var restored bool
+	for _, e := range h.act(`{"Do":"open","Key":"fm/kit"}`) {
+		if e["type"] == "Input" && e["Key"] == "fm/kit" && e["Text"] == "half a thought" {
+			restored = true
+		}
+	}
+	if !restored {
+		t.Error("the draft didn't come back")
+	}
+}
+
+func TestBadDraftsFileIsIgnored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	h := &harness{t: t, a: a, batches: make(chan []map[string]any, 100)}
+	h.l = New(a, func(x []byte) { h.batches <- decode(t, x) })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go h.l.Run(ctx, Options{Drafts: path})
+	h.next()
+	if b := h.act(`{"Do":"open","Key":"fm/kit"}`); event(b, "Char") == nil {
+		t.Errorf("open after a bad drafts file: %v", types(b))
+	}
+}
+
+func TestSayPutsAStatusOnTheLoop(t *testing.T) {
+	h := start(t)
+	h.l.Say(true, "x") //str:ok: a test status
+	if st := event(h.next(), "Status"); st == nil || st["Text"] != "x" || st["Err"] != true {
+		t.Errorf("status %v", st)
+	}
+}
+
+// drafted runs a loop over a with drafts at path, does acts, saves the
+// drafts and quits.
+func drafted(t *testing.T, a *app.App, path string, acts ...string) {
+	t.Helper()
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), Options{Drafts: path}); close(done) }()
+	<-got
+	for _, js := range append(acts, `{"Do":"save_drafts"}`, `{"Do":"quit"}`) {
+		l.Act([]byte(js))
+		<-got
+	}
+	<-done
+}
+
+func TestDraftsNeverHoldThePassword(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	a2, _ := newApp(t)
+	a2.Open("fm/kit")
+	a2.SetInput("half a thought")
+	sess := attachTo(a2, "fm/kit")
+	a2.Handle(app.SessionMsg{Key: "fm/kit", Sess: sess, OK: true, Ev: session.Event{Kind: session.EventNeedPassword}})
+	a2.SetInput("hunter2")
+	drafted(t, a2, path)
+	b, _ := os.ReadFile(path)
+	if strings.Contains(string(b), "hunter2") || !strings.Contains(string(b), "half a thought") {
+		t.Errorf("drafts file %s", b)
+	}
+}
+
+func TestSavingKeepsDraftsNotYetRestored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte(`{"fm/rook":"for rook"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	drafted(t, a, path, `{"Do":"open","Key":"fm/kit"}`) // Rook never opened
+	b, _ := os.ReadFile(path)
+	if !strings.Contains(string(b), "for rook") {
+		t.Errorf("Rook's draft was dropped: %s", b)
+	}
+}
+
+func TestSendingADraftTakesItOffDisk(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte(`{"fm/kit":"/notify off"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go l.Run(ctx, Options{Drafts: path})
+	<-got
+	l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+	<-got
+	l.Act([]byte(`{"Do":"submit","Key":"fm/kit","Text":"/notify off","N":1}`)) // the restored draft, sent
+	<-got
+	b, _ := os.ReadFile(path)
+	if strings.Contains(string(b), "notify") {
+		t.Errorf("a sent draft is still on disk: %s", b)
+	}
+}
+
+// attachTo gives k a session, so session messages for it are taken.
+func attachTo(a *app.App, k string) *session.Session {
+	c := a.Char(k)
+	c.Sess = session.New(session.Options{Char: c.Ch, Log: kilntest.NopLog{}})
+	return c.Sess
+}
+
+func TestTrailingDataAfterAnActionIsRefused(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"here"} {"Do":"quit"}`)
+	if st := event(b, "Status"); st == nil || st["Err"] != true {
+		t.Errorf("trailing data: %v", b)
+	}
+}
+
+// Act never blocks, even with the loop busy (here: not running at all),
+// and what it queued is taken in order.
+func TestActNeverBlocksAndKeepsOrder(t *testing.T) {
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 1000)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() {
+		for range 1000 {
+			l.Act([]byte(`{"Do":"here"}`))
+		}
+		l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Act blocked while the loop wasn't draining")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go l.Run(ctx, Options{})
+	<-got // everything
+	for range 1000 {
+		if b := <-got; event(b, "Active") != nil {
+			t.Fatal("the open came before the heres queued ahead of it")
+		}
+	}
+	if b := <-got; event(b, "Active") == nil {
+		t.Errorf("the open, last: %v", types(b))
+	}
+}
+
+func TestIdleDraftIsRestored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	if err := os.WriteFile(path, []byte(`{"":"idle words"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 10)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go l.Run(ctx, Options{Drafts: path})
+	if in := event(<-got, "Input"); in == nil || in["Key"] != "" || in["Text"] != "idle words" {
+		t.Errorf("idle input %v", in)
 	}
 }
