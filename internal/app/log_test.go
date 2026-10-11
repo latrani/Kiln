@@ -105,6 +105,9 @@ func TestLogRelinesAPageReadUnderOldRules(t *testing.T) {
 	if l := g.Lines[0]; len(l.Tags) != 1 || l.Tags[0] != "early" {
 		t.Errorf("the oldest day wasn't classified again: %q tagged %q", l.Entry.Text, l.Tags)
 	}
+	if !runOf(logSeqs(g)) {
+		t.Error("the relined day broke the numbering")
+	}
 }
 
 func TestLogLiveDedupesAtMillisecondPrecision(t *testing.T) {
@@ -266,5 +269,31 @@ func TestMarkWithNoLineDoesNothing(t *testing.T) {
 	g.Mark(nil)
 	if g.Start != nil || g.Status != "" {
 		t.Errorf("start %v, status %q", g.Start, g.Status)
+	}
+}
+
+// logSeqs is g's line numbers, in order.
+func logSeqs(g *Log) []int {
+	var out []int
+	for _, l := range g.Lines {
+		out = append(out, l.Seq)
+	}
+	return out
+}
+
+func TestLogNumbersFollowTheLines(t *testing.T) {
+	a := logApp(t, 150, 150, 150)
+	g := a.OpenLog("fm/kit")
+	if got := logSeqs(g); !runOf(got) || got[len(got)-1] != -1 {
+		t.Fatalf("loaded %d lines numbered %v…; want one run ending at -1", len(got), got[:3])
+	}
+	lowest := g.Lines[0].Seq
+	drain(a, g.Older(nil))
+	if got := logSeqs(g); !runOf(got) || g.Lines[0].Seq >= lowest {
+		t.Errorf("after an older day: lowest %d (was %d), run %v", g.Lines[0].Seq, lowest, runOf(got))
+	}
+	g.appendLive(logstore.Entry{Time: time.Now(), Dir: logstore.In, Text: "live"})
+	if l := g.Last(); l.Seq != 0 {
+		t.Errorf("a live line: %d; want 0", l.Seq)
 	}
 }

@@ -85,6 +85,9 @@ func TestPagingOlderHistory(t *testing.T) {
 	if kit.Loading || kit.More {
 		t.Errorf("after the last page: loading %v more %v", kit.Loading, kit.More)
 	}
+	if got := seqs(kit.Lines); !runOf(got) || got[len(got)-1] != -1 {
+		t.Errorf("after an older page: %v; want one run ending at -1", got)
+	}
 	a.Preload("fm/kit") // a new reader: a page from the old one is stale
 	if _, ok := a.HandleOlder(msg); ok {
 		t.Error("took a page from a replaced reader")
@@ -101,6 +104,7 @@ func TestOlderPageAfterARulesChange(t *testing.T) {
 	}
 	writeLog(t, a, day23, lines...)
 	openAll(t, a, "fm/kit")
+	before := seqs(a.Char("fm/kit").Lines)
 	msg := a.RequestOlder("fm/kit")[0].(Run).Func().(OlderMsg)
 	dir := filepath.Dir(a.d.LogRoot) // sessionApp's log root is <config dir>/logs
 	writeWorlds(t, dir, map[string]string{"fm": fmWorld + "\n[[classify]]\ntag = \"wiki\"\npattern = '^\\[Wiki\\]'\n"})
@@ -115,6 +119,9 @@ func TestOlderPageAfterARulesChange(t *testing.T) {
 		if l.Kind == Server && !slices.Contains(l.TagNames(), "wiki") {
 			t.Fatalf("a preloaded line kept the old rules' tags after the reload")
 		}
+	}
+	if got := seqs(a.Char("fm/kit").Lines); !slices.Equal(got[len(got)-len(before):], before) || !runOf(got) {
+		t.Errorf("numbers after the reload and the page: %v; the preloaded %v should keep theirs", got, before)
 	}
 }
 
@@ -163,5 +170,51 @@ func TestLastTimeIgnoresWhatYouSent(t *testing.T) {
 	a.Echo("fm/kit", logstore.Entry{Time: day23.Add(time.Hour), Dir: logstore.Out, Text: "say hi"})
 	if at, _ := a.LastTime("fm/kit"); !at.Equal(day23) {
 		t.Errorf("after sending: LastTime = %v; want it unmoved", at)
+	}
+}
+
+// seqs is ls's numbers, in order.
+func seqs(ls []*Line) []int {
+	var out []int
+	for _, l := range ls {
+		out = append(out, l.Seq)
+	}
+	return out
+}
+
+// runOf reports whether ns counts up by one.
+func runOf(ns []int) bool {
+	for i := 1; i < len(ns); i++ {
+		if ns[i] != ns[i-1]+1 {
+			return false
+		}
+	}
+	return true
+}
+
+func TestScrollbackNumbersFollowTheLines(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	writeLog(t, a, day23, "one", "two")
+	openAll(t, a, "fm/kit")
+	kit := a.Char("fm/kit")
+	if got := seqs(kit.Lines); !slices.Equal(got, []int{-4, -3, -2, -1}) { // day, one, two, end of history
+		t.Fatalf("preloaded %v", got)
+	}
+	s := attach(a, "fm/kit")
+	a.Handle(lineMsg("fm/kit", s, "Welcome!"))
+	a.Echo("fm/kit", logstore.Entry{Dir: logstore.Out, Text: "hi"}) // local_echo off: not a line
+	kit.Ch.LocalEcho = true
+	a.Echo("fm/kit", logstore.Entry{Dir: logstore.Out, Text: "hi"})
+	if got := seqs(kit.Lines); !slices.Equal(got, []int{-4, -3, -2, -1, 0, 1}) {
+		t.Errorf("after a line and an echo: %v", got)
+	}
+	a.Preload("fm/kit") // again: below everything so far
+	got := seqs(kit.Lines)
+	if !runOf(got) || got[len(got)-1] != -5 {
+		t.Errorf("preloaded again: %v; want a run ending at -5", got)
+	}
+	a.Handle(lineMsg("fm/kit", s, "Again"))
+	if l := kit.Lines[len(kit.Lines)-1]; l.Seq != 2 {
+		t.Errorf("a live line after: %d; want 2", l.Seq)
 	}
 }

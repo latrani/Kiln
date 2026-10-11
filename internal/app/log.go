@@ -56,7 +56,8 @@ type Log struct {
 	pending     func() []Effect // what to do when the day being read arrives; see Older
 	tagNames    []string        // the distinct tags on Lines[:tagNamesN]; see Items
 	tagNamesN   int
-	anyUntagged bool // some line in Lines[:tagNamesN] has no tags
+	anyUntagged bool      // some line in Lines[:tagNamesN] has no tags
+	seq         numbering // Lines' numbers
 }
 
 // LogOlderMsg is one older day for log mode, read off the loop. It goes
@@ -132,6 +133,9 @@ func (g *Log) prepend(msg LogOlderMsg) {
 		g.SetStatus(true, str.BrowseReadingLogs(msg.Err))
 	}
 	g.HistDone = msg.Done
+	for i := len(msg.Lines) - 1; i >= 0; i-- {
+		msg.Lines[i].Seq = g.seq.older()
+	}
 	g.Lines = append(msg.Lines, g.Lines...)
 }
 
@@ -197,7 +201,9 @@ func (g *Log) appendLive(e logstore.Entry) {
 			}
 		}
 	}
-	g.Lines = append(g.Lines, makeLogLine(g.c.Rules, e))
+	l := makeLogLine(g.c.Rules, e)
+	l.Seq = g.seq.newer()
+	g.Lines = append(g.Lines, l)
 }
 
 // Last is the newest loaded line; nil with none.
