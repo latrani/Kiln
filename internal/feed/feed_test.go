@@ -323,3 +323,48 @@ func TestSinceMatchesWhatWasSent(t *testing.T) {
 		}
 	}
 }
+func TestLogMode(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	writeLog(t, a, day.AddDate(0, 0, -1), "one", "two", "three")
+	f := New(a)
+	f.Turn(nil)
+	g := a.OpenLog("fm/kit")
+	evs := f.Turn(nil)
+	if got := kinds(evs); !reflect.DeepEqual(got, []string{"Log", "LogLines", "Filter"}) {
+		t.Fatalf("opening: kinds %v", got)
+	}
+	if l, _ := find[Log](evs); !l.Open || l.Start != nil {
+		t.Errorf("log %+v", l)
+	}
+	if ll, _ := find[LogLines](evs); ll.Op != Reset || len(ll.Lines) != len(g.Lines) {
+		t.Errorf("log lines %+v", ll)
+	}
+	g.Mark(g.Lines[0])
+	g.Mark(g.Lines[2])
+	g.ToggleExclude(g.Lines[1])
+	evs = f.Turn(nil)
+	l, _ := find[Log](evs)
+	if l.Start == nil || *l.Start != g.Lines[0].Seq || *l.End != g.Lines[2].Seq || !reflect.DeepEqual(l.Excluded, []int{g.Lines[1].Seq}) {
+		t.Errorf("range %+v", l)
+	}
+	g.SetFind("t", nil, nil)
+	l, _ = find[Log](f.Turn(nil))
+	if !reflect.DeepEqual(l.Matches, []int{g.Lines[1].Seq, g.Lines[2].Seq}) {
+		t.Errorf("matches %v", l.Matches)
+	}
+	g.AddText("one")
+	evs = f.Turn(nil)
+	l, _ = find[Log](evs)
+	if !reflect.DeepEqual(l.Hidden, []int{g.Lines[1].Seq, g.Lines[2].Seq}) {
+		t.Errorf("hidden %v", l.Hidden)
+	}
+	if fl, _ := find[Filter](evs); len(fl.Entries) == 0 || !fl.Entries[len(fl.Entries)-1].Only {
+		t.Errorf("filter %+v; want the text row with Only", fl)
+	}
+	a.CloseLog("fm/kit")
+	evs = f.Turn(nil)
+	if l, _ := find[Log](evs); l.Open || len(evs) != 1 {
+		t.Errorf("closing: %v, %+v", kinds(evs), l)
+	}
+}

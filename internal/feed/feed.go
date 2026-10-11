@@ -146,10 +146,6 @@ func char(c *app.Char) Char {
 	}
 }
 
-// logMode is Task 3's.
-
-func (f *Feed) logMode(*app.Char, func(string, Event)) []Event { return nil }
-
 // scrollback is c's Lines event, if its lines changed.
 func (f *Feed) scrollback(c *app.Char) []Event {
 	op, ls, ok := f.diff(f.lines, c.Key, c, c.RulesGen(), len(c.Lines), func(i int) *app.Line { return c.Lines[i] })
@@ -226,4 +222,63 @@ func (f *Feed) diff(m map[string]*sent, key string, owner any, gen, n int, at fu
 		return Append, out, true
 	}
 	return 0, nil, false
+}
+
+// logMode is c's log-mode events: Log (through put), then LogLines and
+// Filter while it's open. Closing it sends Log with Open false once.
+func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
+	g := c.Log
+	if g == nil {
+		delete(f.logs, c.Key)
+		delete(f.small, idFilter+c.Key)
+		if _, ok := f.small[idLog+c.Key]; ok {
+			put(idLog+c.Key, Log{Key: c.Key})
+		}
+		return nil
+	}
+	put(idLog+c.Key, logState(c.Key, g))
+	var evs []Event
+	if op, ls, ok := f.diff(f.logs, c.Key, g, 0, len(g.Lines), func(i int) *app.Line { return &g.Lines[i].Line }); ok {
+		evs = append(evs, LogLines{Key: c.Key, Op: op, Lines: ls})
+	}
+	items := g.Items()
+	only, hasOnly := c.Filter.Only()
+	fl := Filter{Key: c.Key}
+	for _, e := range g.EntriesOf(items) {
+		fl.Entries = append(fl.Entries, FilterEntry{
+			PanelEntry: e, Hidden: c.Filter.Hidden(e.Item), Only: hasOnly && only == e.Item,
+			Folded:        e.Parent && c.Collapsed[e.Item.Name],
+			FilteredUnder: e.Parent && c.Collapsed[e.Item.Name] && g.FilteredUnder(e.Item.Name, items),
+		})
+	}
+	if old, ok := f.small[idFilter+c.Key]; !ok || !reflect.DeepEqual(old, fl) {
+		f.small[idFilter+c.Key] = fl
+		evs = append(evs, fl)
+	}
+	return evs
+}
+
+func logState(k string, g *app.Log) Log {
+	l := Log{Key: k, Open: true, Find: g.Find, Status: g.Status, StatusErr: g.StatusErr,
+		Searching: g.Searching, Loading: g.Loading, HistDone: g.HistDone}
+	if g.Start != nil {
+		s := g.Start.Seq
+		l.Start = &s
+	}
+	if g.End != nil {
+		e := g.End.Seq
+		l.End = &e
+	}
+	for _, ln := range g.Lines {
+		if g.Excluded[ln] {
+			l.Excluded = append(l.Excluded, ln.Seq)
+		}
+		if !g.Shows(ln) {
+			l.Hidden = append(l.Hidden, ln.Seq)
+		}
+	}
+	for _, m := range g.Matches() {
+		l.Matches = append(l.Matches, m.Seq)
+	}
+	return l
 }
