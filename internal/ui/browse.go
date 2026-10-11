@@ -10,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -39,7 +40,7 @@ type browse struct {
 	painted   map[*app.LogLine]string // each line as painted, once it's been needed; see text
 	prompt    promptKind
 	pin       *Input
-	pv        filterPanel // the filter panel's scroll, while it's open
+	Panel     *filterPanel // the filter panel, while it's open
 	format    string
 	run       func([]app.Effect) tea.Cmd // the model's run
 	cfg       func() *config.Config      // the config as it is now, for the export settings
@@ -202,8 +203,9 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptFilename:
 			return b.save(v)
 		case promptFilterText:
-			if b.AddText(v) {
-				b.pv.follow = true
+			if b.AddText(v) && b.Panel != nil { // a new row becomes the highlight
+				b.Panel.Sel = filterSel{Item: scene.Item{Name: v, Text: true}}
+				b.Panel.follow = true
 			}
 			b.Refilter()
 		}

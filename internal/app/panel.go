@@ -1,66 +1,38 @@
 package app
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/latrani/Kiln/internal/scene"
 )
 
-// FilterSel is the filter panel's highlighted entry: an item, or the
-// + Text row.
-type FilterSel struct {
-	Item scene.Item
-	Add  bool
-}
-
-// PanelEntry is one item in the filter panel, or the + Text row.
+// PanelEntry is one item in the filter panel's list.
 type PanelEntry struct {
-	Item   scene.Item
-	Add    bool
-	Depth  int  // slashes in a tag; 0 for text
-	Parent bool // a tag with children
+	Item       scene.Item
+	Depth      int  // slashes in a tag; 0 for text
+	Parent     bool // a tag with children
+	FoldedAway bool // under a folded parent: a list shows it only once that opens
 }
 
-// Sel is how the panel's highlight names e.
-func (e PanelEntry) Sel() FilterSel { return FilterSel{Item: e.Item, Add: e.Add} }
-
-// Panel is log mode's filter panel, while it's open.
-type Panel struct {
-	Sel FilterSel // the highlighted entry
-}
-
-// TogglePanel opens the filter panel on its first entry, or closes it.
-func (g *Log) TogglePanel() {
-	if g.Panel != nil {
-		g.Panel = nil
-		return
-	}
-	g.Panel = &Panel{}
-	if es := g.Entries(); len(es) > 0 {
-		g.Panel.Sel = es[0].Sel()
-	}
-}
-
-// Entries is what the panel lists: tags (children of a collapsed parent
-// left out), text rows, then + Text.
+// Entries is what the panel lists: tags (each child of a folded parent
+// marked FoldedAway), then text rows.
 func (g *Log) Entries() []PanelEntry { return g.EntriesOf(g.Items()) }
 
 // EntriesOf is Entries for items already in hand.
 func (g *Log) EntriesOf(items []scene.Item) []PanelEntry {
 	g.foldNew(items)
-	var out []PanelEntry
+	out := make([]PanelEntry, 0, len(items))
 	for i, it := range items {
-		if !it.Text && g.foldedAway(it.Name) {
-			continue
-		}
 		e := PanelEntry{Item: it}
 		if !it.Text {
 			e.Depth = strings.Count(it.Name, "/")
 			e.Parent = i+1 < len(items) && !items[i+1].Text && strings.HasPrefix(items[i+1].Name, it.Name+"/")
+			e.FoldedAway = g.foldedAway(it.Name)
 		}
 		out = append(out, e)
 	}
-	return append(out, PanelEntry{Add: true})
+	return out
 }
 
 // foldNew folds each parent tag, at any depth, the first time the panel
@@ -119,33 +91,19 @@ func (g *Log) FilteredUnder(parent string, items []scene.Item) bool {
 	return false
 }
 
-// MovePanel moves the highlight by delta entries, stopping at the ends.
-func (g *Log) MovePanel(delta int) {
-	es := g.Entries()
-	i := 0
-	for j, e := range es {
-		if e.Sel() == g.Panel.Sel {
-			i = j
-		}
-	}
-	g.Panel.Sel = es[min(max(0, i+delta), len(es)-1)].Sel()
-}
-
-// Select highlights sel, as a click does.
-func (g *Log) Select(sel FilterSel) { g.Panel.Sel = sel }
-
-// SetCollapsed folds a parent tag shut or open. Anything else is left be.
-func (g *Log) SetCollapsed(sel FilterSel, shut bool) {
-	if sel.Add || sel.Item.Text || !g.hasChildren(sel.Item.Name) {
+// Fold folds a parent tag shut or open. A tag without loaded children is
+// left be.
+func (g *Log) Fold(tag string, shut bool) {
+	if !g.hasChildren(tag) {
 		return
 	}
 	if g.c.Collapsed == nil {
 		g.c.Collapsed = map[string]bool{}
 	}
 	if shut {
-		g.c.Collapsed[sel.Item.Name] = true
+		g.c.Collapsed[tag] = true
 	} else {
-		delete(g.c.Collapsed, sel.Item.Name)
+		delete(g.c.Collapsed, tag)
 	}
 }
 
@@ -155,23 +113,16 @@ func (g *Log) ToggleHide(it scene.Item) { g.c.Filter.ToggleHide(it, g.Items()) }
 // PressOnly shows only it, or everything again.
 func (g *Log) PressOnly(it scene.Item) { g.c.Filter.PressOnly(it, g.Items()) }
 
-// AddText adds a text filter for term. If it's new and the panel is
-// open, its row becomes the highlight, and AddText reports true.
-func (g *Log) AddText(term string) bool {
-	if !g.c.Filter.AddText(term, g.Items()) || g.Panel == nil {
-		return false
-	}
-	g.Panel.Sel = FilterSel{Item: scene.Item{Name: term, Text: true}}
-	return true
-}
+// AddText adds a text filter for term, with Only, and reports whether it
+// was new.
+func (g *Log) AddText(term string) bool { return g.c.Filter.AddText(term, g.Items()) }
 
-// RemoveText drops sel if it's a text row, moving the highlight down one
-// first so one stays, and reports whether it did.
-func (g *Log) RemoveText(sel FilterSel) bool {
-	if !sel.Item.Text {
+// RemoveText drops the text filter for term and reports whether there
+// was one.
+func (g *Log) RemoveText(term string) bool {
+	if !slices.Contains(g.c.Filter.Texts(), scene.Item{Name: term, Text: true}) {
 		return false
 	}
-	g.MovePanel(1) // keep a highlight when the row goes
-	g.c.Filter.RemoveText(sel.Item.Name)
+	g.c.Filter.RemoveText(term)
 	return true
 }
