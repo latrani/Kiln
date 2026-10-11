@@ -83,6 +83,10 @@ func (c *Char) compile() error {
 	return nil
 }
 
+// RulesGen goes up whenever c's rules are compiled again, so lines made
+// under the old ones may have been made again.
+func (c *Char) RulesGen() int { return c.rulesGen }
+
 // Echoes reports whether e belongs in the scrollback and log mode:
 // everything but sent lines, which only show with local_echo on. They're
 // logged either way.
