@@ -42,11 +42,14 @@ type Char struct {
 }
 
 // Input is one input as the core holds it: a character's (Key), or with
-// Key "" the input used while nothing is open. Text goes out only when
-// the core changed it (a submit, a history recall, the password prompt):
-// what the page sent is never echoed back (see Feed.Told).
+// Key "" the input used while nothing is open. What the page sent is
+// never echoed back (see Feed.Told). Ack is the last of the page's
+// numbered input actions the core has taken for it: the page takes Text
+// only when Ack is the newest it sent, so a reply to an older action
+// never overwrites newer typing.
 type Input struct {
 	Key, Text string
+	Ack       int
 	Prompt    string // the server's unterminated prompt, sanitized; "" for none
 	NeedPW    bool   // the password prompt is up
 }

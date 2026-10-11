@@ -297,3 +297,12 @@ func TestLogNumbersFollowTheLines(t *testing.T) {
 		t.Errorf("a live line: %d; want 0", l.Seq)
 	}
 }
+
+func TestNewRangeOrdersItsEnds(t *testing.T) {
+	a := logApp(t, 3)
+	g := a.OpenLog("fm/kit")
+	g.NewRange(g.Lines[2], g.Lines[0])
+	if g.Start != g.Lines[0] || g.End != g.Lines[2] || len(g.Selection()) != 3 {
+		t.Errorf("start %v end %v", g.Start, g.End)
+	}
+}

@@ -337,9 +337,13 @@ func (g *Log) Mark(l *LogLine) {
 	g.RangeStatus()
 }
 
-// NewRange starts a range, dropping exclusions left from an earlier one
-// so they can't resurface if it grows over them.
+// NewRange starts a range from start to end, either way round, dropping
+// exclusions left from an earlier one so they can't resurface if it
+// grows over them.
 func (g *Log) NewRange(start, end *LogLine) {
+	if end != nil && g.Index(end) < g.Index(start) {
+		start, end = end, start
+	}
 	g.Start, g.End = start, end
 	clear(g.Excluded)
 }

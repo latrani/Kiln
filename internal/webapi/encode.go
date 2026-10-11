@@ -98,8 +98,9 @@ func Encode(evs []any) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// Saved says a settings action worked; Op is the action's do.
-type Saved struct{ Op string }
+// Saved says a settings action worked; Op is the action's do, and Key the
+// character an add_character made ("world/id"), for the page to open.
+type Saved struct{ Op, Key string }
 
 // Problems is what was wrong with a settings action: every problem, each
 // naming its field ("" for one about no field).

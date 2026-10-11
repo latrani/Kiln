@@ -19,6 +19,7 @@ type Action struct {
 	Key, Text, Term, Tag, Day, Format, Name, ID, World string
 	Char                                               string
 	Seq, Start, End, Epoch, Cols, Rows                 int
+	N                                                  int // numbers input, submit, older and newer; see feed.Input.Ack
 	In, Shut, Save                                     bool
 	Item                                               *scene.Item
 	WorldSettings                                      *config.WorldSettings
@@ -39,19 +40,29 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	case "switch": //str:ok
 		a.Switch(act.Key)
-	case "input": //str:ok
-		if act.Key == a.Active() || act.Key == "" && a.Char(a.Active()) == nil {
-			l.told(act.Text)
+	case "input", "submit", "older", "newer": //str:ok
+		k := l.inputKey()
+		if act.Key != k {
+			break // the page hadn't heard the active input changed: drop it rather than send it somewhere else
 		}
-	case "submit": //str:ok
-		l.told(act.Text)
-		_, effs = a.Submit()
-	case "older": //str:ok
-		l.told(act.Text)
-		a.HistoryOlder(act.Text)
-	case "newer": //str:ok
-		l.told(act.Text)
-		a.HistoryNewer()
+		before, gen := a.Text(), a.Status().Gen
+		a.SetInput(act.Text)
+		l.f.Told(k, act.N)
+		switch act.Do {
+		case "input": //str:ok
+			if act.Text != before && a.Status().Gen == gen {
+				a.ClearStatus() // typing again dismisses what was said before
+			}
+		case "submit": //str:ok
+			_, effs = a.Submit()
+		case "older": //str:ok
+			a.HistoryOlder(act.Text)
+		case "newer": //str:ok
+			a.HistoryNewer()
+		}
+		if act.Do != "input" { //str:ok
+			l.f.Resend(k) // the page waits to hear the action was taken, changed or not
+		}
 	case "cancel": //str:ok
 		a.Unconfirm()
 		a.SkipLogin()
@@ -87,15 +98,13 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 	return extra, effs, all
 }
 
-// told sets the active input to text the page sent, and tells the feed
-// it needn't go back.
-func (l *Loop) told(text string) {
-	l.a.SetInput(text)
-	k := l.a.Active()
-	if l.a.Char(k) == nil { // a world's overview, or nothing: the idle input
-		k = ""
+// inputKey names the active input: the active character's key, or "" for
+// the idle input (a world's overview, or nothing open).
+func (l *Loop) inputKey() string {
+	if k := l.a.Active(); l.a.Char(k) != nil {
+		return k
 	}
-	l.f.Told(k)
+	return ""
 }
 
 // doLog carries out log-mode, filter and settings actions; ok is false
@@ -196,6 +205,8 @@ func lineAt(g *app.Log, seq int) *app.LogLine {
 func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 	a := l.a
 	var err error
+	key, saved := "", "" // the new character's key; the status to show once reloaded
+	reload := true
 	switch act.Do {
 	case "add_world": //str:ok
 		if act.WorldSettings == nil {
@@ -207,25 +218,38 @@ func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 			act.WorldSettings = &config.WorldSettings{}
 		}
 		err = a.SaveWorld(act.World, *act.WorldSettings)
+		saved = str.EditorSaved(act.World)
 	case "add_character": //str:ok
-		_, err = a.AddCharacter(act.World, act.Name)
+		var id string
+		if id, err = a.AddCharacter(act.World, act.Name); err == nil {
+			key = app.Key(act.World, id)
+		}
 	case "save_character": //str:ok
 		if act.CharSettings == nil {
 			act.CharSettings = &config.CharacterSettings{}
 		}
 		err = a.SaveCharacter(act.World, act.Char, *act.CharSettings)
+		saved = str.EditorSaved(act.World + "/" + act.Char)
 	case "delete_world": //str:ok
 		err = a.DeleteWorld(act.World)
+		saved = str.EditorDeleted(act.World)
 	case "delete_character": //str:ok
 		var pwErr error
-		if pwErr, err = a.DeleteCharacter(act.World, act.Char); err == nil && pwErr != nil {
-			a.SetStatus(true, str.EditorDeletedPasswordKept(act.World+"/"+act.Char, pwErr))
+		what := act.World + "/" + act.Char
+		if pwErr, err = a.DeleteCharacter(act.World, act.Char); err == nil {
+			if saved = str.EditorDeleted(what); pwErr != nil {
+				saved = "" // the kept password's message stands instead
+				a.SetStatus(true, str.EditorDeletedPasswordKept(what, pwErr))
+			}
 		}
 	case "forget_password": //str:ok
 		if !a.CanForgetPasswords() {
-			return nil, true
+			return []any{Problems{Op: act.Do}}, true // nothing to forget here; the page shouldn't offer it
 		}
-		err = a.ForgetPassword(act.World, act.Char)
+		if err = a.ForgetPassword(act.World, act.Char); err == nil {
+			a.SetStatus(false, str.EditorForgotPassword(act.World, act.Char))
+			reload = false
+		}
 	default:
 		return nil, false
 	}
@@ -241,6 +265,20 @@ func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 		}
 		return []any{p}, true
 	}
-	a.Reload()
-	return []any{Saved{Op: act.Do}}, true
+	if reload {
+		res, ok := a.Reload()
+		if !ok { // Reload said why on the status line
+			return []any{Problems{Op: act.Do, Problems: []Problem{{Msg: a.Status().Text}}}}, true
+		}
+		for _, k := range a.Order() { // in order, so which error shows is settled
+			if c := a.Char(k); c != nil && !c.Orphan && res.Errs[k] != nil {
+				a.SetStatus(true, str.StatusCharError(k, res.Errs[k]))
+				saved = ""
+			}
+		}
+		if saved != "" {
+			a.SetStatus(false, saved)
+		}
+	}
+	return []any{Saved{Op: act.Do, Key: key}}, true
 }

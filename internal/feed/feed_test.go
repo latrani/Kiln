@@ -466,7 +466,7 @@ func TestInputIsNotEchoed(t *testing.T) {
 	f := New(a)
 	f.Turn(nil)
 	a.SetInput("typed by the page")
-	f.Told("fm/kit")
+	f.Told("fm/kit", 1)
 	if evs := f.Turn(nil); len(evs) != 0 {
 		t.Errorf("the page's own text came back: %v", kinds(evs))
 	}

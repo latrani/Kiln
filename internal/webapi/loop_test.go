@@ -145,11 +145,11 @@ func TestOpenSubmitAndInput(t *testing.T) {
 	if !slices.Contains(types(b), "Char") || !slices.Contains(types(b), "Active") {
 		t.Fatalf("open: %v", types(b))
 	}
-	b = h.act(`{"Do":"input","Key":"fm/kit","Text":"hello"}`)
+	b = h.act(`{"Do":"input","Key":"fm/kit","Text":"hello","N":1}`)
 	if slices.Contains(types(b), "Input") {
 		t.Errorf("the page's own text came back: %v", b)
 	}
-	b = h.act(`{"Do":"submit","Text":"/notify off"}`) // a command: no connection needed
+	b = h.act(`{"Do":"submit","Key":"fm/kit","Text":"/notify off","N":2}`) // a command: no connection needed
 	var cleared bool
 	for _, e := range b {
 		if e["type"] == "Input" && e["Key"] == "fm/kit" && e["Text"] == "" {
@@ -159,7 +159,7 @@ func TestOpenSubmitAndInput(t *testing.T) {
 	if !cleared {
 		t.Errorf("submit should clear the input: %v", b)
 	}
-	b = h.act(`{"Do":"older","Text":"draft"}`)
+	b = h.act(`{"Do":"older","Key":"fm/kit","Text":"draft","N":3}`)
 	if in := event(b, "Input"); in == nil || in["Text"] != "/notify off" {
 		t.Errorf("history: %v", b)
 	}
@@ -181,7 +181,7 @@ func TestBadActionsSaySo(t *testing.T) {
 func TestRunWorkComesBackOnTheLoop(t *testing.T) {
 	h := start(t)
 	h.act(`{"Do":"open","Key":"fm/kit"}`)
-	h.act(`{"Do":"submit","Text":""}`) // connect: a Run waiting on the session
+	h.act(`{"Do":"submit","Key":"fm/kit","Text":"","N":1}`) // connect: a Run waiting on the session
 	deadline := time.After(2 * time.Second)
 	for {
 		select {
@@ -309,5 +309,105 @@ func TestSettingsReportEveryProblemOrSaved(t *testing.T) {
 	w := event(b, "Worlds")
 	if w == nil || len(w["Worlds"].([]any)) != 2 {
 		t.Errorf("worlds after adding: %v", w)
+	}
+}
+
+func TestRangeUpwardDoesNotPanic(t *testing.T) {
+	a, dir := newApp(t)
+	ch, _ := a.Find("fm/kit")
+	l, _ := a.LogLayout(ch)
+	kilntest.WriteLog(t, l, day.AddDate(0, 0, -1), "one", "two", "three")
+	h := startOn(t, a, dir)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"log","Key":"fm/kit"}`)
+	b := h.act(`{"Do":"range","Key":"fm/kit","Start":-1,"End":-3}`) // dragged upward
+	if lg := event(b, "Log"); lg == nil || lg["Start"] != -3.0 || lg["End"] != -1.0 {
+		t.Errorf("range: %v", lg)
+	}
+}
+
+// The page numbers its input actions (N); Input says which it has seen
+// (Ack), so the page only takes Text when nothing newer is in flight.
+func TestInputAcksThePage(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.l.Act([]byte(`{"Do":"submit","Key":"fm/kit","Text":"/notify off","N":1}`))
+	h.l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"x","N":2}`))
+	first, second := h.next(), h.next()
+	if in := event(first, "Input"); in == nil || in["Text"] != "" || in["Ack"] != 1.0 {
+		t.Errorf("submit: %v", in)
+	}
+	if in := event(second, "Input"); in != nil {
+		t.Errorf("input came back: %v", in)
+	}
+	b := h.act(`{"Do":"newer","Key":"fm/kit","Text":"x","N":3}`) // nothing to recall: still answered
+	if in := event(b, "Input"); in == nil || in["Ack"] != 3.0 {
+		t.Errorf("newer with nothing newer: %v", in)
+	}
+}
+
+func TestActNeverBlocksAfterTheLoopEnds(t *testing.T) {
+	a, _ := newApp(t)
+	got := make(chan []byte, 10)
+	l := New(a, func(b []byte) { got <- b })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), false); close(done) }()
+	<-got
+	l.Act([]byte(`{"Do":"quit"}`))
+	<-done
+	finished := make(chan struct{})
+	go func() {
+		for range 1000 {
+			l.Act([]byte(`{"Do":"here"}`))
+		}
+		close(finished)
+	}()
+	select {
+	case <-finished:
+	case <-time.After(time.Second):
+		t.Error("Act blocked after the loop ended")
+	}
+}
+
+func TestSubmitForAnInputThatIsntActiveIsDropped(t *testing.T) {
+	h := start(t)
+	act := event(h.act(`{"Do":"open","Key":"fm/kit"}`), "Active")["Key"].(string)
+	if a := event(h.act(`{"Do":"open","Key":"fm/rook"}`), "Active"); a != nil {
+		act = a["Key"].(string)
+	}
+	other := "fm/kit"
+	if act == "fm/kit" {
+		other = "fm/rook"
+	}
+	b := h.act(`{"Do":"submit","Key":"` + other + `","Text":"/notify off","N":1}`)
+	if in := event(b, "Input"); in != nil {
+		t.Errorf("a submit for %s went to %s: %v", other, act, in)
+	}
+}
+
+func TestAddCharacterSaysItsKey(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"add_character","World":"fm","Name":"Ash"}`)
+	if s := event(b, "Saved"); s == nil || s["Key"] != "fm/Ash" {
+		t.Errorf("saved %v", s)
+	}
+}
+
+func TestStatusExpiresAndTypingDismissesIt(t *testing.T) {
+	a, dir := newApp(t)
+	h := &harness{t: t, a: a, dir: dir, batches: make(chan []map[string]any, 100)}
+	h.l = New(a, func(b []byte) { h.batches <- decode(t, b) })
+	h.l.statusTimeout = 50 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go h.l.Run(ctx, false)
+	h.next()
+	h.act(`{"Do":"frobnicate"}`)
+	if st := event(h.next(), "Status"); st == nil || st["Text"] != "" {
+		t.Errorf("the status should time out: %v", st)
+	}
+	h.act(`{"Do":"frobnicate"}`)
+	if st := event(h.act(`{"Do":"input","Key":"","Text":"x","N":1}`), "Status"); st == nil || st["Text"] != "" {
+		t.Errorf("typing should dismiss the status: %v", st)
 	}
 }

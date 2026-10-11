@@ -11,6 +11,9 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
+// statusTimeout is how long a status message stays, as in the TUI.
+const statusTimeout = 30 * time.Second
+
 // tickEvery is how often a turn runs with nothing else happening, so
 // what changes with time alone (presence going away) reaches the page.
 const tickEvery = 30 * time.Second
@@ -19,27 +22,43 @@ const tickEvery = 30 * time.Second
 // happens in Run, one message at a time; each message is one turn, and
 // each turn is one batch of events for the page, to apply together.
 type Loop struct {
-	a   *app.App
-	f   *feed.Feed
-	in  chan any
-	out func([]byte)
+	a             *app.App
+	f             *feed.Feed
+	in            chan any
+	done          chan struct{} // closed when Run returns
+	out           func([]byte)
+	statusTimeout time.Duration
+	timed         int // the status Gen last timed out
 }
 
 type tick struct{}
 
+// expire takes down status Gen if it's still up.
+type expire int
+
 // New makes a loop over a that sends each turn's batch to out.
 func New(a *app.App, out func([]byte)) *Loop {
-	return &Loop{a: a, f: feed.New(a), in: make(chan any, 64), out: out}
+	return &Loop{a: a, f: feed.New(a), in: make(chan any, 256), done: make(chan struct{}), out: out, statusTimeout: statusTimeout}
 }
 
 // Act hands the loop one action from the page, as JSON. It touches
-// nothing of the core's; Run takes it in order.
-func (l *Loop) Act(js []byte) { l.in <- js }
+// nothing of the core's; Run takes it in order. Once Run has returned it
+// does nothing.
+func (l *Loop) Act(js []byte) { l.post(js) }
+
+// post puts msg on the loop, or drops it if the loop has ended.
+func (l *Loop) post(msg any) {
+	select {
+	case l.in <- msg:
+	case <-l.done:
+	}
+}
 
 // Run drains the loop until ctx is done or the core quits. It first
 // opens and connects autoconnect characters if asked, then sends
 // everything.
 func (l *Loop) Run(ctx context.Context, autoconnect bool) {
+	defer close(l.done)
 	var effs []app.Effect
 	if autoconnect {
 		for _, ch := range l.a.AllChars() {
@@ -60,6 +79,7 @@ func (l *Loop) Run(ctx context.Context, autoconnect bool) {
 		var msg any
 		select {
 		case <-ctx.Done():
+			l.a.Quit() // hang up every session
 			return
 		case <-t.C:
 			msg = tick{}
@@ -95,7 +115,7 @@ func (l *Loop) perform(effs []app.Effect) (quit bool) {
 	for _, e := range effs {
 		switch e := e.(type) {
 		case app.Run:
-			go func() { l.in <- e.Func() }()
+			go func() { l.post(e.Func()) }()
 		case app.Quit:
 			quit = true
 		}
@@ -109,6 +129,10 @@ func (l *Loop) send(evs []any) {
 		return // a value that won't marshal is a bug here, not news for the page
 	}
 	l.out(b)
+	if st := l.a.Status(); st.Gen != l.timed && st.Text != "" { // a new status: time it out
+		l.timed = st.Gen
+		time.AfterFunc(l.statusTimeout, func() { l.post(expire(st.Gen)) })
+	}
 }
 
 // step handles one message: the page's action, a Run's result, or a
@@ -130,6 +154,10 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 		l.a.HandleOlder(m)
 	case app.LogOlderMsg:
 		return nil, l.a.HandleLogOlder(m), false
+	case expire:
+		if l.a.Status().Gen == int(m) {
+			l.a.ClearStatus()
+		}
 	}
 	return nil, nil, false
 }

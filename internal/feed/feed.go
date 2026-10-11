@@ -28,6 +28,7 @@ type Feed struct {
 	lines map[string]*sent // each character's scrollback as sent
 	logs  map[string]*sent // each character's log-mode lines as sent
 	epoch int              // the last numbering handed out; see Lines.Epoch
+	acks  map[string]int   // each input's Ack; see Told
 }
 
 // sent is how far a list of lines has been sent.
@@ -41,7 +42,7 @@ type sent struct {
 
 // New starts a feed over a; its first Turn sends everything.
 func New(a *app.App) *Feed {
-	f := &Feed{a: a}
+	f := &Feed{a: a, acks: map[string]int{}}
 	f.forget()
 	return f
 }
@@ -57,16 +58,24 @@ func (f *Feed) All() []Event {
 	return append([]Event{Start{}}, f.Turn(nil)...)
 }
 
-func input(a *app.App, k string) Input {
-	if c := a.Char(k); c != nil {
-		return Input{Key: k, Text: c.Text, Prompt: c.Prompt, NeedPW: c.NeedPW}
+func (f *Feed) input(k string) Input {
+	if c := f.a.Char(k); c != nil {
+		return Input{Key: k, Text: c.Text, Ack: f.acks[k], Prompt: c.Prompt, NeedPW: c.NeedPW}
 	}
-	return Input{Text: a.IdleText()}
+	return Input{Text: f.a.IdleText(), Ack: f.acks[""]}
 }
 
 // Told records that the page set key's input text itself ("" for the
-// idle input), so the next turn doesn't send it back.
-func (f *Feed) Told(key string) { f.small[idInput+key] = input(f.a, key) }
+// idle input) in its action numbered ack, so the next turn doesn't send
+// it back.
+func (f *Feed) Told(key string, ack int) {
+	f.acks[key] = ack
+	f.small[idInput+key] = f.input(key)
+}
+
+// Resend sends key's input on the next turn even if it hasn't changed:
+// the page is waiting to hear its action was taken.
+func (f *Feed) Resend(key string) { delete(f.small, idInput+key) }
 
 // Since is open character k's scrollback after line seq of numbering
 // epoch, as last sent. ok is false if k's numbering has since restarted
@@ -103,7 +112,7 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	for _, k := range a.Order() {
 		open[k] = true
 		put(idChar+k, char(a.Char(k)))
-		put(idInput+k, input(a, k))
+		put(idInput+k, f.input(k))
 	}
 	var gone []string
 	for _, e := range f.small {
@@ -115,13 +124,14 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	for _, k := range gone {
 		delete(f.small, idChar+k)
 		delete(f.small, idInput+k)
+		delete(f.acks, k)
 		delete(f.small, idLog+k)
 		delete(f.small, idFilter+k)
 		delete(f.lines, k)
 		delete(f.logs, k)
 		evs = append(evs, Closed{Key: k})
 	}
-	put(idInput, input(a, ""))
+	put(idInput, f.input(""))
 	put("presence", Presence{State: a.Presence()})
 	put("active", Active{Key: a.Active()})
 	st := a.Status()
