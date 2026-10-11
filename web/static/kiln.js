@@ -151,12 +151,18 @@ function render() {
   }));
 }
 
+// onBatch must never throw: it runs inside a call from Go, and an error
+// here would stop Kiln.
 function onBatch(json) {
-  for (const e of JSON.parse(json)) {
+  try { apply(JSON.parse(json)); } catch (e) { console.error(e); }
+}
+
+function apply(batch) {
+  for (const e of batch) {
     events.push(e);
     switch (e.type) {
       case "Start": order = []; active = ""; chars = {}; inputs = {}; break;
-      case "Order": order = e.Keys; break;
+      case "Order": order = e.Keys ?? []; break;
       case "Char": chars[e.Key] = e; break;
       case "Closed": delete chars[e.Key]; break;
       case "Active": active = e.Key; line.value = inputs[inputKey()] ?? ""; break;

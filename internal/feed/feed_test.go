@@ -501,3 +501,12 @@ func TestSinceRefusesAGap(t *testing.T) {
 		t.Errorf("Since from just before the oldest: %v, %v", got, ok)
 	}
 }
+
+// An empty list goes out as [], not null: a page can map over it.
+func TestEmptyOrderIsAnEmptyList(t *testing.T) {
+	a, _ := newApp(t)
+	o, _ := find[Order](New(a).Turn(nil))
+	if o.Keys == nil {
+		t.Error("Order.Keys is nil")
+	}
+}
