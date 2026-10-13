@@ -145,3 +145,28 @@ test("the sidebar: a world's overview is active on its world", () => {
   const html = page({ phase: "running" }, [...three, { type: "Active", Key: "=fm" }]);
   assert.match(html, new RegExp(`<button[^>]*class="[^"]*${roleClass("sidebar.active")}[^"]*"[^>]*aria-current="true"[^>]*>fm<`));
 });
+
+const server = (Seq: number, Plain: string) => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Attention: false, Quiet: false });
+
+test("a world's overview: each character, when it last heard, its last lines", () => {
+  const html = page({ phase: "running" }, [
+    { type: "Order", Keys: ["fm/kit", "fm/rook"] },
+    { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2, LastSeen: "21:06" },
+    { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, LastSeen: "" },
+    { type: "Lines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [1, 2, 3, 4, 5, 6, 7].map((n) => server(n, `kit line ${n}`)) },
+    { type: "Active", Key: "=fm" },
+  ]);
+  const main = html.slice(html.indexOf("<main"), html.indexOf("</main>"));
+  assert.ok(main.includes(">Kit<") && main.includes(str.separator() + "21:06"), main);
+  for (const n of [3, 4, 5, 6, 7]) assert.ok(main.includes(`kit line ${n}<`), `line ${n}`);
+  for (const n of [1, 2]) assert.ok(!main.includes(`kit line ${n}<`), `line ${n} is past the last five`);
+  assert.ok(main.indexOf("<hr") > main.indexOf("kit line 7") && main.indexOf(">Rook<") > main.indexOf("<hr"));
+  assert.ok(main.includes(str.separator() + str.viewOverviewQuiet()));
+  assert.ok(main.includes(roleClass("scrollback.overview")) && main.includes(roleClass("scrollback.rule")));
+});
+
+test("nothing configured: the empty pane, and nothing breaks", () => {
+  const html = page({ phase: "running" }, [{ type: "Worlds", Worlds: [] }]);
+  if (str.viewNoCharacters()) assert.ok(html.includes(str.viewNoCharacters()));
+  assert.ok(html.includes("<main"));
+});

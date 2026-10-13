@@ -40,6 +40,11 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .l-day::before { content: var(--g-rule) var(--g-rule) " "; }
 .l-day::after { content: " " var(--g-rule) var(--g-rule); }
 a.s { text-decoration: underline; }
+/* A world's overview: a character's last lines, a row each. */
+.ov { cursor: pointer; }
+.ov .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.ov button { padding: 0; }
+.ov-rule { border: 0; border-top: 1px solid currentColor; margin: calc(.5lh - .5px) 0; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
 .lock { padding: 1lh 1ch; }

@@ -6,6 +6,7 @@ import type { LineData, State } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { Line } from "./Line.tsx";
+import { Overview } from "./Overview.tsx";
 
 // View is the page's memory of one character's scrollback, kept across
 // switches as the TUI keeps each character's: whether it's live (at the
@@ -36,8 +37,9 @@ function atEnd(e: HTMLElement): boolean {
 // and stops as the TUI's pager does when more has come than fits since
 // you last looked (sent, switched away, or scrolled to the end); the
 // pill then says how many lines are below. Near the top it asks for
-// older history, keeping your place when it comes. While another tab
-// has Kiln, it says so here instead.
+// older history, keeping your place when it comes. With a world active,
+// it's the world's overview; with nothing configured, a hint. While
+// another tab has Kiln, it says so here instead.
 export function Scrollback({ state }: { state: State }) {
   const el = useRef<HTMLDivElement>(null);
   const views = useRef(new Map<string, View>());
@@ -152,6 +154,10 @@ export function Scrollback({ state }: { state: State }) {
             <p>{str.webOtherTab()}</p>
             <button class={roleClass("form.button")} onClick={state.onUseHere} disabled={!state.onUseHere}>{str.webUseHere()}</button>
           </div>
+        )}
+        {key.startsWith("=") && <Overview state={state} world={key.slice(1)} />}
+        {!key && state.phase === "running" && state.worlds.every((w) => !w.Characters?.length) && (
+          <div class={"line " + roleClass("scrollback.empty")}>{str.viewNoCharacters()}</div>
         )}
         {ch?.More && <div class={"line " + roleClass("scrollback.loading")}>{str.scrollbackLoading()}</div>}
         {lines.map((l) => <Line key={`${ls!.epoch}:${l.Seq}`} line={l} tags={tags} class="sb" />)}
