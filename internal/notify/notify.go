@@ -52,10 +52,9 @@ func ParseMethod(s string) (Method, error) {
 // MaxLen is the longest message, in characters.
 const MaxLen = 200
 
-// Message is "name: line" with the line made safe to put inside an OSC:
-// ANSI sequences and every other control character are removed, and the
-// result is cut to MaxLen characters.
-func Message(name, line string) string {
+// Clean is line as plain text for a notification: ANSI sequences and
+// every other control character removed, and trimmed.
+func Clean(line string) string {
 	line = ansi.Strip(strings.ToValidUTF8(line, ""))
 	line = strings.Map(func(r rune) rune {
 		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
@@ -63,7 +62,13 @@ func Message(name, line string) string {
 		}
 		return r
 	}, line)
-	msg := []rune(name + ": " + strings.TrimSpace(line))
+	return strings.TrimSpace(line)
+}
+
+// Message is "name: line" with the line made safe to put inside an OSC
+// (see Clean), cut to MaxLen characters.
+func Message(name, line string) string {
+	msg := []rune(name + ": " + Clean(line))
 	if len(msg) > MaxLen {
 		msg = append(msg[:MaxLen-1], '…')
 	}

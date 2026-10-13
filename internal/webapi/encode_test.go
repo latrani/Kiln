@@ -10,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/feed"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func decode(t *testing.T, b []byte) []map[string]any {
@@ -29,7 +30,7 @@ func TestEncodeTagsEachEventWithItsType(t *testing.T) {
 		feed.Lines{Key: "fm/kit", Epoch: 2, Op: feed.Append, Lines: []app.Line{l}},
 		feed.Effect{Effect: app.Copy{Text: "x"}},
 		Problems{Op: "save_world", Problems: []Problem{{Field: "port", Msg: "bad"}}},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +40,7 @@ func TestEncodeTagsEachEventWithItsType(t *testing.T) {
 	}
 	lines := evs[1]["Lines"].([]any)
 	got := lines[0].(map[string]any)
-	if evs[1]["type"] != "Lines" || got["Seq"] != 3.0 || got["Text"] != "\x1b[1mhi\x1b[0m" || got["Out"] != false {
+	if evs[1]["type"] != "Lines" || got["Seq"] != 3.0 || got["Plain"] != "hi" || got["Out"] != false {
 		t.Errorf("lines %v", evs[1])
 	}
 	if evs[2]["type"] != "Effect" || evs[2]["effect"] != "Copy" || evs[2]["Text"] != "x" {
@@ -55,7 +56,7 @@ func TestEncodeNamesKindsAndOps(t *testing.T) {
 	ops := map[feed.Op]string{feed.Reset: "reset", feed.Replace: "replace", feed.Append: "append", feed.Prepend: "prepend"}
 	for k, name := range kinds {
 		for o, op := range ops {
-			b, err := Encode([]any{feed.Lines{Key: "fm/kit", Op: o, Lines: []app.Line{{Kind: k}}}})
+			b, err := Encode([]any{feed.Lines{Key: "fm/kit", Op: o, Lines: []app.Line{{Kind: k}}}}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -79,11 +80,61 @@ func TestEffectFieldsDontCollide(t *testing.T) {
 }
 
 func TestZeroConnectedAtIsLeftOut(t *testing.T) {
-	b, err := Encode([]any{feed.Char{Key: "fm/kit"}})
+	b, err := Encode([]any{feed.Char{Key: "fm/kit"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := decode(t, b)[0]["ConnectedAt"]; ok {
 		t.Error("a zero ConnectedAt went out")
+	}
+}
+
+func TestEncodeLines(t *testing.T) {
+	when := time.Date(2026, 9, 24, 21, 6, 0, 0, time.Local)
+	b, err := Encode([]any{feed.Lines{Key: "fm/kit", Op: feed.Append, Lines: []app.Line{
+		{Kind: app.Server, Day: "2026-09-24", Entry: logstore.Entry{Time: when, Dir: logstore.In, Text: "\x1b[31mhi\x1b[0m"}},
+		{Kind: app.Day, Day: "2026-09-24"},
+		{Kind: app.HistoryEnd, Entry: logstore.Entry{Time: when}},
+	}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ls := decode(t, b)[0]["Lines"].([]any)
+	server, dayLine, end := ls[0].(map[string]any), ls[1].(map[string]any), ls[2].(map[string]any)
+	if _, ok := server["Text"]; ok {
+		t.Error("lines still carry Text")
+	}
+	if server["Plain"] != "hi" || server["Clock"] != app.TimeOfDay(when) || server["DayLabel"] != app.DayLabel("2026-09-24") {
+		t.Errorf("server line %v", server)
+	}
+	if sp := server["Spans"].([]any)[0].(map[string]any); sp["Text"] != "hi" || sp["FG"] != "ansi:1" {
+		t.Errorf("server span %v", sp)
+	}
+	if dayLine["Plain"] != app.DayLabel("2026-09-24") {
+		t.Errorf("day line %v", dayLine)
+	}
+	if want := str.ScrollbackHistoryEnds(when.Format(str.DateDayTime())); end["Plain"] != want {
+		t.Errorf("history end %v, want %q", end, want)
+	}
+}
+
+func TestEncodePrompt(t *testing.T) {
+	b, err := Encode([]any{feed.Input{Key: "fm/kit", Prompt: "\x1b[1m> \x1b[0m"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := decode(t, b)[0]["Prompt"].([]any)
+	if len(p) != 1 || p[0].(map[string]any)["Text"] != "> " || p[0].(map[string]any)["Bold"] != true {
+		t.Errorf("prompt %v", p)
+	}
+}
+
+func TestNotifyIsClean(t *testing.T) {
+	b, err := Encode([]any{feed.Effect{Effect: app.Notify{Title: "Kit", Body: "\x1b[31mMira\x07 pages "}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := decode(t, b)[0]["Body"]; got != "Mira pages" {
+		t.Errorf("body %q", got)
 	}
 }

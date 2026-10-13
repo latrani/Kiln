@@ -195,7 +195,7 @@ func (l *Loop) perform(effs []app.Effect) (quit bool) {
 }
 
 func (l *Loop) send(evs []any) {
-	b, err := Encode(evs)
+	b, err := Encode(evs, nil)
 	if err != nil {
 		return // a value that won't marshal is a bug here, not news for the page
 	}
