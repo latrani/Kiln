@@ -358,3 +358,13 @@ test("adding a character: the TUI's one-row name form; a problem replaces the hi
   s.setPicker({ error: undefined });
   assert.ok(bottom(render(<App store={s} />)).includes(str.pickerAddCharHint()), "no problem: the hint");
 });
+
+test("behind the picker, the scrollback is dimmed in scrollback.inactive; the overview too", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply(three);
+  s.openPicker();
+  assert.match(render(<App store={s} />), new RegExp(`class="scroll dim ${roleClass("scrollback.inactive")}"`));
+  s.closePicker();
+  assert.doesNotMatch(render(<App store={s} />), /class="scroll dim/);
+});

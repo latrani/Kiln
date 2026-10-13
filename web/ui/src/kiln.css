@@ -44,6 +44,12 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
    anchoring is off. */
 .scroll { flex: 1; overflow-y: auto; position: relative; scrollbar-gutter: stable; overflow-anchor: none; }
 .pill { position: absolute; right: 0; bottom: 0; }
+/* Behind the picker or a form the scrollback is a backdrop, as the TUI's:
+   every line in scrollback.inactive alone (on the scroller), its server
+   colors and tags dropped. Faint is opacity: the scroller fades as a
+   whole, and a line that's faint itself doesn't fade twice. Links stay
+   links. */
+.dim .line, .dim .line * { color: inherit !important; background: none !important; font-weight: inherit !important; font-style: inherit !important; text-decoration: inherit !important; opacity: 1 !important; }
 
 /* A line wraps in the browser, each wrapped row a character in from the
    first (the TUI's hanging indent), keeping the server's spaces. */
