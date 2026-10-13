@@ -103,6 +103,17 @@ func TestScrollbackMoves(t *testing.T) {
 	})`); got != `"true"` {
 		t.Errorf("a live view after a resize: at the end %s, want true", got)
 	}
+	// The page's own scroll to the end, its event arriving after the pane
+	// changed size: still live, still at the end.
+	ev(`sc().scrollTop = 0`)
+	waitFor(t, ev, `document.querySelector("main .pill")`, "the pill, scrolled up")
+	if got := ev(`new Promise(r => {
+		document.querySelector("main .pill").click();
+		document.querySelector(".kiln").style.gridTemplateColumns = "60ch 1px 1fr";
+		requestAnimationFrame(() => requestAnimationFrame(() => r(atEnd() && pillN() === -1)));
+	})`); got != "true" {
+		t.Errorf("going to the end as the pane changed size: at the end and live %s, want true", got)
+	}
 	// A scrollbar that takes room, as on Windows or Linux (headless
 	// Chrome's take none): the MUCK's width leaves it out.
 	ev(`document.head.append(Object.assign(document.createElement("style"), { textContent: ".scroll::-webkit-scrollbar { width: 30px }" }))`)
