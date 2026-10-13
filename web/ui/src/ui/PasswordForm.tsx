@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "preact/hooks";
+import { composing } from "../input.ts";
 import type { State } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -22,7 +23,7 @@ export function PasswordForm({ state }: { state: State }) {
   // Enter submits: with the hidden username beside it, the browser won't
   // by itself (no submit button, two fields).
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && !e.isComposing) {
+    if (e.key === "Enter" && !composing(e)) {
       e.preventDefault();
       (e.currentTarget as HTMLInputElement).form?.requestSubmit();
     } else if (e.key === "Escape") {

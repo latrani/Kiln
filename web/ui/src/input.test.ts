@@ -9,14 +9,15 @@ test("the page takes Go's text only when Go has its newest action and nothing's 
   assert.equal(takes({ n: 3, dirty: true }, 3), false, "typed since");
 });
 
-const k = (key: string, mods: { shiftKey?: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; isComposing?: boolean } = {}) =>
-  ({ key, shiftKey: false, altKey: false, ctrlKey: false, metaKey: false, isComposing: false, ...mods });
+const k = (key: string, mods: { shiftKey?: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; isComposing?: boolean; keyCode?: number } = {}) =>
+  ({ key, shiftKey: false, altKey: false, ctrlKey: false, metaKey: false, isComposing: false, keyCode: 0, ...mods });
 const at = (value: string, start: number, end = start) => ({ value, start, end });
 
 test("Enter sends; Shift+Enter is a new line; Enter while composing is the IME's", () => {
   assert.equal(keyAction(k("Enter"), at("hi", 2)), "submit");
   assert.equal(keyAction(k("Enter", { shiftKey: true }), at("hi", 2)), undefined);
   assert.equal(keyAction(k("Enter", { isComposing: true }), at("hi", 2)), undefined);
+  assert.equal(keyAction(k("Enter", { keyCode: 229 }), at("hi", 2)), undefined, "Safari's Enter confirming a conversion");
 });
 
 test("up and down recall history only from the first and last rows", () => {

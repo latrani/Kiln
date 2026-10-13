@@ -25,6 +25,14 @@ interface Keyish {
   ctrlKey: boolean;
   metaKey: boolean;
   isComposing: boolean;
+  keyCode: number;
+}
+
+// composing reports whether a key belongs to an input method composing
+// text: Safari's Enter confirming a conversion comes after the
+// composition ends, with only keyCode 229 to say so.
+export function composing(e: Keyish): boolean {
+  return e.isComposing || e.keyCode === 229;
 }
 
 // Caret is where the caret is: start..end in value, and when the page
@@ -43,7 +51,7 @@ export interface Caret {
 // multi-line draft (without a measure, rows are lines); with a modifier
 // they're the switching keys.
 export function keyAction(e: Keyish, caret: Caret): KeyDo {
-  if (e.isComposing) return undefined;
+  if (composing(e)) return undefined;
   const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
   switch (e.key) {
     case "Enter":
