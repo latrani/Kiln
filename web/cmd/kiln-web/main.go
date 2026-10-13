@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall/js"
+	"time"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
@@ -22,6 +23,7 @@ import (
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/webapi"
+	"github.com/latrani/Kiln/web/tz"
 	"github.com/latrani/Kiln/web/wsdial"
 )
 
@@ -33,6 +35,12 @@ type page struct {
 }
 
 func main() {
+	// The browser's own zone, before anything reads the time.
+	if name := js.Global().Get("Intl").Call("DateTimeFormat").Call("resolvedOptions").Get("timeZone"); name.Type() == js.TypeString { //str:ok
+		if loc := tz.Zone(name.String()); loc != nil {
+			time.Local = loc
+		}
+	}
 	started := make(chan page, 1)
 	k := js.Global().Get("Object").New() //str:ok
 	// JS callbacks must not block: start only hands off to main.
