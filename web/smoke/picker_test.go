@@ -1,6 +1,9 @@
 package smoke
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 // TestPicker opens connections the way a person does: Enter or Ctrl+O, a
 // filter, Enter; and adds a character from the picker.
@@ -29,6 +32,16 @@ func TestPicker(t *testing.T) {
 	if got := ev(`kilnPage.sent.some(a => a.Do === "input")`); got != "false" {
 		t.Error("typing a filter went to the chat input")
 	}
+	// A click on something that can't take focus (a world's header)
+	// leaves the keys with the picker, as the TUI's.
+	var at struct{ X, Y float64 }
+	json.Unmarshal([]byte(mustUnquote(t, ev(`(() => { const r = document.querySelector('nav [role="group"] > span').getBoundingClientRect(); return JSON.stringify({ X: r.x + 2, Y: r.y + r.height / 2 }); })()`))), &at)
+	for _, typ := range []string{"mousePressed", "mouseReleased"} {
+		devtools(t, ws, "Input.dispatchMouseEvent", map[string]any{"type": typ, "x": at.X, "y": at.Y, "button": "left", "clickCount": 1})
+	}
+	pressKey(t, ws, "ArrowDown", 40)
+	waitFor(t, ev, `document.querySelector('nav [aria-selected="true"]').id === "pick-+fake" && document.activeElement === `+filter, "↓ after a click on the world's name")
+	pressKey(t, ws, "ArrowUp", 38)
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Key === "fake/second" && e.State === 2)`, "Second connected")
 	waitFor(t, ev, `document.querySelector("header").textContent.includes("Second") && document.activeElement === document.querySelector('.bottom input[type="password"]')`, "Second showing, its password asked")

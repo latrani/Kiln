@@ -14,6 +14,25 @@ function pageRows(): number {
   return Math.max(1, Math.floor(nav.clientHeight / lh) - 1);
 }
 
+// useKeys keeps the keys with a picker form's field, as the TUI's picker
+// always has them: a key landing on no control (after a click on the
+// scrollback or a world's name) goes back to the field, the form's own
+// keys handled as if pressed there.
+function useKeys(ref: { current: HTMLInputElement | null }, onKeyDown: (e: KeyboardEvent) => void): void {
+  const handle = useRef(onKeyDown);
+  handle.current = onKeyDown;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as Element | null;
+      if (!ref.current || (t && t !== document.body && t.closest("a, button, input, textarea, select, summary, [contenteditable]"))) return;
+      ref.current.focus();
+      handle.current(e);
+    };
+    addEventListener("keydown", onKey, true);
+    return () => removeEventListener("keydown", onKey, true);
+  }, []);
+}
+
 // PickerForm is the picker's part of the bottom pane, a TUI one-field
 // form: the filter, or while adding a character its name. The filter is
 // a combobox for the picker's list in the
@@ -29,6 +48,7 @@ function FilterForm({ state, store }: { state: State; store: Store }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => ref.current?.focus(), []);
   const onKeyDown = (e: KeyboardEvent) => {
+    if (e.defaultPrevented) return;
     const rows = pickerRows(state.worlds, state.chars, p.filter);
     const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
     let sel: string | undefined;
@@ -52,6 +72,7 @@ function FilterForm({ state, store }: { state: State; store: Store }) {
     e.preventDefault();
     store.setPicker({ sel });
   };
+  useKeys(ref, onKeyDown);
   return (
     <div class="pick-row">
       <label for="kiln-filter" class={roleClass("form.label")}>{str.pickerFilter()}: </label>
@@ -81,7 +102,7 @@ function NameForm({ state, store }: { state: State; store: Store }) {
     }
   }, [state.answer]);
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.defaultPrevented || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.key === "Enter" && !composing(e)) {
       e.preventDefault();
       state.act?.({ Do: "add_character", World: p.adding, Name: p.name ?? "" });
@@ -90,6 +111,7 @@ function NameForm({ state, store }: { state: State; store: Store }) {
       store.setPicker({ adding: undefined, name: undefined, error: undefined });
     }
   };
+  useKeys(ref, onKeyDown);
   const onInput = (e: Event) => {
     const name = (e.currentTarget as HTMLInputElement).value;
     const check = (globalThis as any).kiln?.check;
