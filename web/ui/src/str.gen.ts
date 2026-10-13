@@ -907,6 +907,12 @@ export function viewStoreKeychain(): string { return `the keychain`; }
 /** view.too_small: Kiln needs at least {min_w}x{min_h} (now {w}x{h}) */
 export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unknown): string { return `Kiln needs at least ${min_w}x${min_h} (now ${w}x${h})`; }
 
+/** web.loading: loading Kiln… {got} MB */
+export function webLoading(got: unknown): string { return `loading Kiln… ${got} MB`; }
+
+/** web.loading_size: loading Kiln… {got}/{total} MB */
+export function webLoadingSize(got: unknown, total: unknown): string { return `loading Kiln… ${got}/${total} MB`; }
+
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }
 
@@ -915,6 +921,12 @@ export function webNotSaving(): string { return `this browser isn't saving Kiln'
 
 /** web.other_tab: Kiln's open in another tab. */
 export function webOtherTab(): string { return `Kiln's open in another tab.`; }
+
+/** web.reload: Reload */
+export function webReload(): string { return `Reload`; }
+
+/** web.stopped: Kiln stopped. */
+export function webStopped(): string { return `Kiln stopped.`; }
 
 /** web.use_here: Use here */
 export function webUseHere(): string { return `Use here`; }

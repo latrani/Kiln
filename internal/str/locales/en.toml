@@ -374,6 +374,11 @@ other_tab = "Kiln's open in another tab."
 use_here = "Use here"
 not_saving = "this browser isn't saving Kiln's configuration"
 needs_js = "Kiln needs JavaScript."
+# The status line while the page downloads Kiln, in megabytes.
+loading = "loading Kiln… {got} MB"
+loading_size = "loading Kiln… {got}/{total} MB"
+stopped = "Kiln stopped."
+reload = "Reload"
 
 # Back up and Restore in the web build.
 [backup]

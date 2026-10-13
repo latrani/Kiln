@@ -7,8 +7,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "allowJs": true,
-    "checkJs": false,
+    "allowJs": false,
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "lib": [
