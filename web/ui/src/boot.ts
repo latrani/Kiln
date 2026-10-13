@@ -69,6 +69,28 @@ async function seedPreset(fs: any): Promise<void> {
   }
 }
 
+// toBase64 is bytes as base64, a chunk at a time: one call with every
+// byte as an argument would overflow the stack for a large file.
+export function toBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+// pickFile asks for a file (a backup to restore) and gives its bytes to
+// done; nothing if none is chosen.
+export function pickFile(accept: string, done: (bytes: Uint8Array) => void): void {
+  const f = Object.assign(document.createElement("input"), { type: "file", accept, hidden: true });
+  document.body.append(f);
+  f.addEventListener("cancel", () => f.remove());
+  f.addEventListener("change", async () => {
+    const file = f.files?.[0];
+    f.remove();
+    if (file) done(new Uint8Array(await file.arrayBuffer()));
+  });
+  f.click();
+}
+
 // download saves bytes as a file named name.
 export function download(name: string, bytes: Uint8Array): void {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart]));

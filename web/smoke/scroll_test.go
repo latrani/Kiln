@@ -173,8 +173,8 @@ func mustUnquote(t *testing.T, s string) string {
 	return u
 }
 
-// devtools calls a DevTools method in the tab.
-func devtools(t *testing.T, ws *websocket.Conn, method string, params map[string]any) {
+// devtools calls a DevTools method in the tab and returns its result.
+func devtools(t *testing.T, ws *websocket.Conn, method string, params map[string]any) json.RawMessage {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -188,9 +188,12 @@ func devtools(t *testing.T, ws *websocket.Conn, method string, params map[string
 		if err != nil {
 			t.Fatal(err)
 		}
-		var r struct{ ID int }
+		var r struct {
+			ID     int
+			Result json.RawMessage
+		}
 		if json.Unmarshal(b, &r) == nil && r.ID == id {
-			return
+			return r.Result
 		}
 	}
 }

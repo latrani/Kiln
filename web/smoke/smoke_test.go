@@ -84,6 +84,30 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	pressKey(t, ws, "ArrowUp", 38)
 	waitFor(t, ev, `document.querySelector(".bottom textarea").value === "hello"`, "history recalled")
 
+	// /backup gives a file; /restore picks one and puts it back.
+	ev(`document.querySelector(".bottom textarea").select()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "/backup"})
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Effect" && e.effect === "SaveFile" && e.Name.endsWith(".zip"))`, "a backup")
+	var zip []byte
+	json.Unmarshal([]byte(ev(`kilnPage.events.find(e => e.type === "Effect" && e.effect === "SaveFile").Data`)), &zip)
+	file := filepath.Join(t.TempDir(), "backup.zip")
+	if err := os.WriteFile(file, zip, 0o600); err != nil || len(zip) == 0 {
+		t.Fatalf("backup of %d bytes: %v", len(zip), err)
+	}
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "/restore"})
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `document.querySelector('input[type="file"]')`, "the file picker")
+	var picker struct{ Result struct{ ObjectID string } }
+	json.Unmarshal(devtools(t, ws, "Runtime.evaluate", map[string]any{"expression": `document.querySelector('input[type="file"]')`}), &picker)
+	devtools(t, ws, "DOM.setFileInputFiles", map[string]any{"files": []string{file}, "objectId": picker.Result.ObjectID})
+	var restored []string // what the status says for any likely count
+	for n := 1; n <= 50; n++ {
+		restored = append(restored, str.StatusRestored(n))
+	}
+	said, _ := json.Marshal(restored)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && `+string(said)+`.includes(e.Text))`, "the backup restored")
+
 	// The sidebar: as wide as the TUI's, in whole characters; and a
 	// character's name switches to it.
 	waitFor(t, ev, `(() => {
