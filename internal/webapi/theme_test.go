@@ -265,3 +265,19 @@ func TestNewLooksRestyleLinesAlreadySent(t *testing.T) {
 		t.Error("a reload that changes no styled names resent lines")
 	}
 }
+
+// TestLookErrorOnlyOnFirstOpen: switching back to a character whose
+// looks didn't resolve doesn't say so again, as in the TUI.
+func TestLookErrorOnlyOnFirstOpen(t *testing.T) {
+	a, dir := newApp(t)
+	withKitLooks(t, a, dir, "nosuchcolor")
+	h := startThemed(t, a, dir)
+	h.next()
+	if st := event(h.act(`{"Do":"open","Key":"fm/kit"}`), "Status"); st == nil || st["Err"] != true {
+		t.Fatalf("first open: status %v", st)
+	}
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	if st := event(h.act(`{"Do":"open","Key":"fm/kit"}`), "Status"); st != nil {
+		t.Errorf("switching back said it again: %v", st)
+	}
+}

@@ -293,10 +293,11 @@ func CheckField(field, value string) string {
 // open opens character k, saying why on the status line if it couldn't
 // load, and restores its saved draft.
 func (l *Loop) open(k string) {
+	was := l.a.Char(k) != nil
 	c, err := l.a.Open(k)
 	if c != nil && err != nil {
 		l.a.SetStatus(true, str.StatusCharError(k, err))
-	} else if lerr := l.lk.lookErrs[k]; c != nil && lerr != nil {
+	} else if lerr := l.lk.lookErrs[k]; c != nil && !was && lerr != nil { // said once, as the TUI does
 		l.a.SetStatus(true, str.StatusCharError(k, lerr))
 	}
 	if d := l.drafts[k]; c != nil && d != "" {
