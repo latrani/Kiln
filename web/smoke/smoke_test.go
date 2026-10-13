@@ -62,6 +62,7 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
+	waitFor(t, ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes('You say, "hello"'))`, "the echo on the page")
 
 	// Every glyph Kiln draws comes from the bundled font, one cell wide. A
 	// glyph drawn by a fallback measures differently under a serif and a

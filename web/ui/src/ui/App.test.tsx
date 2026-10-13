@@ -76,3 +76,30 @@ test("loading, before any theme, is already in the terminal's colors", () => {
 test("the sidebar's width is the TUI's", () => {
   assert.ok(page({ phase: "running" }).includes(`--side:${sidebarCSS()}`));
 });
+
+const kitOpen = (more: Event[] = []): Event[] => [
+  { type: "Order", Keys: ["fm/kit"] },
+  { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2 },
+  { type: "Active", Key: "fm/kit" },
+  { type: "Lines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [
+    { Seq: 1, Kind: "server", Day: "", Out: false, Plain: "first line", Spans: [{ Text: "first line" }], Attention: false, Quiet: false },
+    { Seq: 2, Kind: "server", Day: "", Out: false, Plain: "second line", Spans: [{ Text: "second line" }], Attention: false, Quiet: false },
+  ] },
+  ...more,
+];
+
+test("the scrollback shows the active character's lines", () => {
+  const html = page({ phase: "running" }, kitOpen());
+  assert.ok(html.indexOf("first line") > 0 && html.indexOf("second line") > html.indexOf("first line"));
+});
+
+test("older history on its way: the loading row", () => {
+  const html = page({ phase: "running" }, kitOpen([{ type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2, More: true, Loading: true }]));
+  assert.ok(html.includes(str.scrollbackLoading()));
+  assert.ok(!page({ phase: "running" }, kitOpen()).includes(str.scrollbackLoading()));
+});
+
+test("the server's prompt sits after the lines", () => {
+  const html = page({ phase: "running" }, kitOpen([{ type: "Input", Key: "fm/kit", Text: "", Prompt: [{ Text: "Password: " }] }]));
+  assert.ok(html.indexOf("Password: ") > html.indexOf("second line"));
+});

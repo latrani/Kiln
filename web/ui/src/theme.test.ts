@@ -87,3 +87,9 @@ test("the line glyphs are variables, in every sheet", () => {
     assert.ok(css.includes(`--g-sys:${JSON.stringify(str.glyph.sys)}`) && css.includes(`--g-rule:${JSON.stringify(str.glyph.rule)}`), a);
   }
 });
+
+test("a link under the pointer takes link.hover", () => {
+  const t = ev("dark");
+  t.Dark.Roles["link.hover"] = { FG: "#abcdef", Underline: true };
+  assert.ok(themeCSS(t).includes(`a.${roleClass("link")}:hover{${lookCSS({ FG: "#abcdef", Underline: true }, macchiato)}}`));
+});

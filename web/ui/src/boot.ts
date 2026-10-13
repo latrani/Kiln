@@ -132,6 +132,7 @@ export async function boot(store: Store): Promise<void> {
   navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
 
   const act = (o: object) => g.kiln?.act?.(JSON.stringify(o));
+  store.set({ act });
   const saveDrafts = () => act({ Do: "save_drafts" });
   // Another tab taking over: save drafts first (Go writes and syncs the
   // file before kiln.act returns), then hand the files over.

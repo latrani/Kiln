@@ -21,7 +21,18 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side { grid-area: side; overflow-y: auto; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
 .top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); }
-.body { grid-area: body; overflow-y: auto; min-height: 0; }
+.body { grid-area: body; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.log { flex: 1; overflow-y: auto; position: relative; }
+.pill { position: absolute; right: 0; bottom: 0; }
+
+/* A line wraps in the browser, each wrapped row a character in from the
+   first (the TUI's hanging indent), keeping the server's spaces. */
+.line { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 8; padding-left: 1ch; text-indent: -1ch; }
+.l-echo::before { content: var(--g-echo); }
+.l-sys::before { content: var(--g-sys) " "; }
+.l-day::before { content: var(--g-rule) var(--g-rule) " "; }
+.l-day::after { content: " " var(--g-rule) var(--g-rule); }
+a.s { text-decoration: underline; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
 .lock { padding: 1lh 1ch; }

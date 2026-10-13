@@ -69,6 +69,8 @@ function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
   const a = scheme === "light" ? "l" : "d";
   let css = `:root{${vars.join(";")}}body{color:var(--term-fg);background:var(--term-bg)}.s{color:var(--${a}-fg);background:var(--${a}-bg)}`;
   for (const [role, look] of Object.entries(l.Roles)) css += `.${roleClass(role)}{${lookCSS(look, p)}}`;
+  const hover = l.Roles["link.hover"];
+  if (hover) css += `a.${roleClass("link")}:hover{${lookCSS(hover, p)}}`;
   return css;
 }
 
