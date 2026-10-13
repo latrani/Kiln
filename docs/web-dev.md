@@ -24,9 +24,13 @@ Tests:
 go test ./...                                   # root: relay, conn, …
 (cd web && go test ./...)                       # wsdial, backup (native)
 (cd web && GOOS=js GOARCH=wasm go test -exec "$PWD/testdata/memfs_exec.sh" ./...)
-node --test web/static/*.test.mjs
+node --test web/static/*.test.mjs web/ui/src/*.test.ts
 (cd web && KILN_SMOKE=1 go test ./smoke -v)    # headless Chrome, end to end
 ```
+
+`web/ui/src/str.gen.ts` (the catalog and glyphs for the page) is made by
+`go generate ./internal/str`; don't edit it by hand. Node runs the
+TypeScript tests directly (Node 22.18 or later).
 
 The smoke test builds the page, starts a fake MUCK and the relay, and
 drives the page in headless Chrome: it opens a character, connects,

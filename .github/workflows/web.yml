@@ -32,5 +32,7 @@ jobs:
         run: GOOS=js GOARCH=wasm go test -exec "$PWD/testdata/memfs_exec.sh" ./...
       - name: memfs
         run: node --test web/static/memfs.test.mjs
+      - name: Page strings
+        run: node --test web/ui/src/*.test.ts
       - name: Page builds
         run: web/build.sh
