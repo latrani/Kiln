@@ -13,11 +13,11 @@ import (
 )
 
 // render formats one entry for plain terminal output. Styled lines are
-// drawn in their tags' styles; attention lines get a "» " marker, which
+// drawn in their tags' styles; priority lines get a "» " marker, which
 // is never styled. Sent lines are dimmed and sys lines are prefixed with
 // "* ". Text is sanitized first, so runs must be computed on
 // ansi.Strip(ansi.Sanitize(…)).
-func render(e logstore.Entry, runs []style.Run, attention bool) string {
+func render(e logstore.Entry, runs []style.Run, priority bool) string {
 	e.Text = ansi.Sanitize(e.Text)
 	switch e.Dir {
 	case logstore.Out:
@@ -26,7 +26,7 @@ func render(e logstore.Entry, runs []style.Run, attention bool) string {
 		return theme.Paint(theme.ScrollbackSys, "* "+e.Text)
 	}
 	marker := ""
-	if attention {
+	if priority {
 		marker = "» "
 	}
 	return marker + style.Highlight(e.Text, runs) // runs index e.Text, not the marker

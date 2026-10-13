@@ -191,7 +191,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 		return err
 	}
 	hl := rules.New(lookTheme(ch, os.Stderr))
-	judge := rules.Judge{Attention: ch.Rules.Attention, Quiet: ch.Rules.Quiet}
+	judge := rules.Judge{Priority: ch.Rules.Priority, Quiet: ch.Rules.Quiet}
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		w, h = 80, 24
@@ -235,13 +235,13 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 		switch ev.Kind {
 		case session.EventLine:
 			var runs []style.Run
-			attention := false
+			priority := false
 			if ev.Entry.Dir == logstore.In {
 				plain := ansi.Strip(ansi.Sanitize(ev.Entry.Text)) // as render draws it
 				tags := cls.Tags(plain)
-				runs, attention = hl.Runs(plain, tags), judge.Of(tags).Attention
+				runs, priority = hl.Runs(plain, tags), judge.Of(tags).Priority
 			}
-			fmt.Println(render(ev.Entry, runs, attention))
+			fmt.Println(render(ev.Entry, runs, priority))
 		case session.EventLogError:
 			fmt.Fprintln(os.Stderr, theme.Paint(theme.StatusError, "* "+str.CliLogWriteFailed(ev.Err)))
 		case session.EventState:

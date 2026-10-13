@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Store } from "./store.ts";
 import type { LineData } from "./store.ts";
 
-const line = (Seq: number, Plain = `l${Seq}`): LineData => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Attention: false, Quiet: false });
+const line = (Seq: number, Plain = `l${Seq}`): LineData => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Priority: false, Quiet: false });
 const quiet = <T>(f: () => T): T => {
   const was = console.error;
   console.error = () => {};

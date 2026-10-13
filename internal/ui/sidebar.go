@@ -97,8 +97,8 @@ var addLabel = str.SidebarOpenConnection()
 // × there closes the character.
 const badgeX = 1
 
-// attentionMark prefixes the unread count when a line needed attention.
-func attentionMark() string { return theme.Paint(theme.SidebarAttention, glyph.Attention) }
+// priorityMark prefixes the unread count when a line is a priority.
+func priorityMark() string { return theme.Paint(theme.SidebarPriority, glyph.Priority) }
 
 // sidebarRows lists the open characters under their worlds, then a blank
 // row and the open-connection row.
@@ -208,7 +208,7 @@ func closable(cs *charState) bool {
 }
 
 // sidebarLine draws one row: the connection badge on the left (blank
-// when connected), and activity (unread count, "●" for attention) on the
+// when connected), and activity (unread count, "●" for priority) on the
 // right, which the name gives way to.
 func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	switch r.kind {
@@ -238,7 +238,7 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	if cs.Unread > 0 {
 		count = fmt.Sprintf(" %d", cs.Unread)
 		activity = count
-		if cs.Attention {
+		if cs.Priority {
 			activity = " ●" + activity
 		}
 	}
@@ -247,8 +247,8 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 		name, count = theme.Paint(leadRole, name), theme.Paint(theme.SidebarUnread, count)
 	}
 	line := name + count
-	if cs.Attention && cs.Unread > 0 {
-		line = name + " " + attentionMark() + count
+	if cs.Priority && cs.Unread > 0 {
+		line = name + " " + priorityMark() + count
 	}
 	if active {
 		// The active style covers the whole row: its parts draw plain

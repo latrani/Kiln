@@ -16,16 +16,16 @@ import (
 type Level string
 
 const (
-	All       Level = "all"       // every incoming, non-quiet line
-	First     Level = "first"     // the first line since you left, then attention lines
-	Attention Level = "attention" // lines an attention rule matched
-	None      Level = "none"
+	All      Level = "all"      // every incoming, non-quiet line
+	First    Level = "first"    // the first line since you left, then priority lines
+	Priority Level = "priority" // lines a priority rule matched
+	None     Level = "none"
 )
 
 // ParseLevel checks a level name.
 func ParseLevel(s string) (Level, error) {
 	switch l := Level(s); l {
-	case All, First, Attention, None:
+	case All, First, Priority, None:
 		return l, nil
 	}
 	return "", errors.New(str.NotifyBadLevel())

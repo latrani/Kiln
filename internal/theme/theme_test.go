@@ -33,7 +33,7 @@ ember = "#ff9f43"
 "input.over_limit" = { fg = "bright-white", bg = "red" }
 "link" = { underline = true }
 "link.hover" = { fg = "bright-blue" }
-"sidebar.attention" = { fg = "ember", bg = "#010203", faint = true, italic = true, reverse = true }
+"sidebar.priority" = { fg = "ember", bg = "#010203", faint = true, italic = true, reverse = true }
 `)
 	for _, c := range []struct {
 		role Role
@@ -42,7 +42,7 @@ ember = "#ff9f43"
 		{StatusError, "\x1b[1;31m"},
 		{InputOverLimit, "\x1b[97;41m"},
 		{LinkHover, "\x1b[4;94m"}, // inherits link's underline
-		{SidebarAttention, "\x1b[2;3;7;38;2;255;159;67;48;2;1;2;3m"},
+		{SidebarPriority, "\x1b[2;3;7;38;2;255;159;67;48;2;1;2;3m"},
 		{Sidebar, ""},
 	} {
 		if got := th.SGR(c.role); got != c.want {

@@ -31,7 +31,7 @@ type Char struct {
 	Key, World, ID, Name string
 	State                session.State
 	Unread               int
-	Attention            bool
+	Priority             bool
 	CertChanged          bool      // its server's certificate changed; /trust to accept
 	Orphan               bool      // removed from the config; closes when it disconnects
 	ConnectedAt          time.Time `json:",omitzero"` // when the current connection came up

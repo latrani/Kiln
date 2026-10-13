@@ -14,7 +14,7 @@ const (
 	SidebarChar         Role = "sidebar.char"
 	SidebarActive       Role = "sidebar.active"
 	SidebarUnread       Role = "sidebar.unread"
-	SidebarAttention    Role = "sidebar.attention"
+	SidebarPriority     Role = "sidebar.priority"
 	SidebarConnecting   Role = "sidebar.connecting"
 	SidebarDisconnected Role = "sidebar.disconnected"
 	SidebarAdd          Role = "sidebar.add"
@@ -98,7 +98,7 @@ const (
 
 // Roles is every role, each after its parent.
 var Roles = []Role{
-	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarAttention,
+	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore,
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd,
 	Divider, Rule, RuleInput, RuleForm, RuleStatus,

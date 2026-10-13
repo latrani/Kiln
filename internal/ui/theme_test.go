@@ -38,15 +38,15 @@ func withTheme(t *testing.T, src string) *theme.Theme {
 func TestSidebarUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
-	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Attention = 2, true
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Priority = 2, true
 	th := withTheme(t, `[ui]
 sidebar = { bg = "#010203" }
 "sidebar.world" = { fg = "#0a0b0c" }
 "sidebar.active" = { fg = "#0d0e0f" }
-"sidebar.attention" = { fg = "#101112" }
+"sidebar.priority" = { fg = "#101112" }
 divider = { fg = "#131415" }`)
 	s := h.drawn()
-	for _, role := range []theme.Role{theme.Sidebar, theme.SidebarWorld, theme.SidebarActive, theme.SidebarAttention, theme.Divider} {
+	for _, role := range []theme.Role{theme.Sidebar, theme.SidebarWorld, theme.SidebarActive, theme.SidebarPriority, theme.Divider} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("screen doesn't draw %s", role)
 		}
@@ -319,13 +319,13 @@ func TestBrokenThemeDoesNotBlockAddingACharacter(t *testing.T) {
 
 // TestActiveRowWinsOverItsParts: with the sidebar colored (so every
 // sidebar.* child inherits a color), the active row's name and unread
-// count still draw in sidebar.active, and the attention dot's reset
+// count still draw in sidebar.active, and the priority dot's reset
 // doesn't end the highlight.
 func TestActiveRowWinsOverItsParts(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
 	h.m.switchTo("fm/rook")
-	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Attention = 3, true
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Priority = 3, true
 	withTheme(t, `[ui]
 sidebar = { fg = "#6b6f7a", bg = "#1f2029" }
 "sidebar.char" = { fg = "#0a0b0c" }

@@ -4,7 +4,7 @@ import { settle } from "./scroll.ts";
 import type { View } from "./scroll.ts";
 import type { LineData } from "./store.ts";
 
-const L = (Seq: number, Quiet = false): LineData => ({ Seq, Kind: "server", Day: "", Out: false, Plain: "", Spans: [], Attention: false, Quiet });
+const L = (Seq: number, Quiet = false): LineData => ({ Seq, Kind: "server", Day: "", Out: false, Plain: "", Spans: [], Priority: false, Quiet });
 const upTo = (n: number, from = 1) => Array.from({ length: n - from + 1 }, (_, i) => L(from + i));
 
 test("a character shown for the first time starts live, its history seen", () => {

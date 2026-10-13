@@ -1,5 +1,5 @@
 // Package rules works out what a classified line asks for (Judge:
-// attention and quiet, from tag lists) and how it looks (Highlighter:
+// priority and quiet, from tag lists) and how it looks (Highlighter:
 // its tags' styles from the theme).
 package rules
 
@@ -16,26 +16,26 @@ import (
 // Judge decides what a line asks for from its tags. It doesn't depend
 // on the theme.
 type Judge struct {
-	Attention, Quiet []string
+	Priority, Quiet []string
 }
 
 // Verdict is what a line asks for.
 type Verdict struct {
-	Attention bool // never with Quiet
-	Quiet     bool // not unread, no attention, no notification
+	Priority bool // never with Quiet
+	Quiet    bool // not unread, not priority, no notification
 }
 
-// Of works out what a line with tags asks for. A line asks for attention
-// (or is quiet) when one of its tags is in the list, or is under one:
-// "page" covers "page/in". Quiet wins over attention.
+// Of works out what a line with tags asks for. A line is a priority
+// (or quiet) when one of its tags is in the list, or is under one:
+// "page" covers "page/in". Quiet wins over priority.
 func (j Judge) Of(tags []classify.Tag) Verdict {
 	var v Verdict
 	for _, t := range tags {
-		v.Attention = v.Attention || in(j.Attention, t.Name)
+		v.Priority = v.Priority || in(j.Priority, t.Name)
 		v.Quiet = v.Quiet || in(j.Quiet, t.Name)
 	}
 	if v.Quiet {
-		v.Attention = false
+		v.Priority = false
 	}
 	return v
 }

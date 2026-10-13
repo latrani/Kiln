@@ -27,7 +27,7 @@ The editing keys (word and line movement, deletes) work the same in every text f
 
 Links (`http://` or `https://`) in the scrollback are underlined and turn blue under the pointer; click one to open it in your browser (over ssh it copies the link instead; see [Over ssh](notifications.md#over-ssh)). Drag across text in the scrollback or the input box to select it; it's copied to the clipboard when you let go, with line breaks only where the lines really break, not where they wrap. (Your terminal's own selection usually still works with `Shift` or `Option` held.) Click in the input box to move the cursor there. Each line that will be sent on its own starts with `>`. When Kiln is asking you something instead (a password, whether to save it, or to connect), the input box shows it in dim text with no `>`.
 
-The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them needs your attention (a page or whisper, by default).
+The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them is a priority line (a page or whisper, by default).
 
 Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: each of its open characters, when their last line came, and their last five lines, with a line between characters. Click a character's part to switch to it. The overview has the whole pane, with no input box; `PgUp`/`PgDn` and the mouse wheel scroll it when the characters don't all fit, and `Enter`, `Ctrl+O` and `Ctrl+T` work as usual.
 
@@ -42,7 +42,7 @@ Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: 
 | `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file as a `highlight` tag) |
 | `/away` | Count as away right now: notifications go out, until your next key or click |
-| `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `attention`, `none`, or `default` to go back to the config |
+| `/notify [level]` | Show or set (until Kiln quits) what notifies for this character: `all`, `first`, `priority`, `none`, or `default` to go back to the config |
 | `/edit`, `/edit world` | Edit the active character, or its world |
 | `/trust` | Accept a changed server certificate (see [Certificates](configuration.md#certificates)) |
 | `/quit` | Quit Kiln |

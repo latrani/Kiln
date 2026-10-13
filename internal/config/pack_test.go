@@ -14,7 +14,7 @@ import (
 )
 
 // The starter fuzzball pack tags both sides of a page or whisper
-// conversation, and only the side you receive asks for attention.
+// conversation, and only the side you receive is a priority.
 func TestStarterPackPages(t *testing.T) {
 	dir := t.TempDir()
 	if err := config.EnsureDefaults(dir); err != nil {
@@ -31,7 +31,7 @@ func TestStarterPackPages(t *testing.T) {
 		t.Fatal(err)
 	}
 	hl := rules.New(theme.Builtin())
-	judge := rules.Judge{Attention: kit.Rules.Attention, Quiet: kit.Rules.Quiet}
+	judge := rules.Judge{Priority: kit.Rules.Priority, Quiet: kit.Rules.Quiet}
 	for _, c := range []struct {
 		line string
 		dir  string // e.g. "page/in" or "whisper/out"
@@ -52,11 +52,11 @@ func TestStarterPackPages(t *testing.T) {
 			t.Errorf("%q: tags %v, want %s and %s", c.line, tags, kind, c.dir)
 		}
 		ts := cls.Tags(c.line)
-		attention, runs := judge.Of(ts).Attention, hl.Runs(c.line, ts)
-		// Only pages and whispers to you ask for attention; the built-in
+		priority, runs := judge.Of(ts).Priority, hl.Runs(c.line, ts)
+		// Only pages and whispers to you are priority; the built-in
 		// theme styles both ways alike.
-		if attention != c.in || runs == nil {
-			t.Errorf("%q: attention %v, styled %v; want attention %v, styled", c.line, attention, runs != nil, c.in)
+		if priority != c.in || runs == nil {
+			t.Errorf("%q: priority %v, styled %v; want priority %v, styled", c.line, priority, runs != nil, c.in)
 		}
 	}
 }

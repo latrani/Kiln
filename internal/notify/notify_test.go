@@ -6,12 +6,15 @@ import (
 )
 
 func TestParseLevel(t *testing.T) {
-	for _, s := range []string{"all", "first", "attention", "none"} {
+	for _, s := range []string{"all", "first", "priority", "none"} {
 		if l, err := ParseLevel(s); err != nil || string(l) != s {
 			t.Errorf("ParseLevel(%q) = %q, %v", s, l, err)
 		}
 	}
-	if _, err := ParseLevel("loud"); err == nil || !strings.Contains(err.Error(), `"all", "first", "attention" or "none"`) {
+	if _, err := ParseLevel("attention"); err == nil {
+		t.Error(`"attention" (now "priority") still parses`)
+	}
+	if _, err := ParseLevel("loud"); err == nil || !strings.Contains(err.Error(), `"all", "first", "priority" or "none"`) {
 		t.Errorf("bad level error = %v", err)
 	}
 }

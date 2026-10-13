@@ -23,7 +23,7 @@ func TestRender(t *testing.T) {
 		{"plain", in("hi"), nil, false, "hi\x1b[0m"},
 		{"sent", logstore.Entry{Dir: logstore.Out, Text: ":grins."}, nil, false, "\x1b[2m> :grins.\x1b[0m"},
 		{"sys", logstore.Entry{Dir: logstore.Sys, Text: "connected"}, nil, false, "\x1b[2m* connected\x1b[0m"},
-		{"styled attention", in("Mira pages: hi"),
+		{"styled priority", in("Mira pages: hi"),
 			[]style.Run{{Start: 0, End: 14, SGR: "\x1b[1;38;2;255;159;67m"}}, true,
 			"» \x1b[1;38;2;255;159;67mMira pages: hi\x1b[0m"},
 		{"style survives server reset", in("\x1b[1mMira\x1b[0m pages"),

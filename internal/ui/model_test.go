@@ -302,8 +302,8 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	c.Feed("Rook says, \"hi\"")
 	c.Feed("Mira pages: \x1b]0;pwned\x07you around?")
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread == 2 })
-	if !h.m.chars["fm/kit"].Attention {
-		t.Error("page did not set attention")
+	if !h.m.chars["fm/kit"].Priority {
+		t.Error("page did not set priority")
 	}
 	if row := sideRow(h, 1); !strings.HasSuffix(row, " ● 2") {
 		t.Errorf("sidebar activity missing: %q", row)
@@ -1076,10 +1076,10 @@ func TestRenderLineMatchScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	hl := rules.New(th)
-	l := app.Rules{Classifier: cls, Judge: rules.Judge{Attention: []string{"page"}}}.Line(logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
+	l := app.Rules{Classifier: cls, Judge: rules.Judge{Priority: []string{"page"}}}.Line(logstore.Entry{Dir: logstore.In, Text: "PAGE: Mira says hi"})
 	got, res := paint(hl, l), l.Verdict
-	if want := "\x1b[1;38;2;32;83;255mPAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Attention {
-		t.Errorf("renderLine = %q, %v; want %q, true", got, res.Attention, want)
+	if want := "\x1b[1;38;2;32;83;255mPAGE:" + style.Reset + " Mira says hi" + style.Reset; got != want || !res.Priority {
+		t.Errorf("renderLine = %q, %v; want %q, true", got, res.Priority, want)
 	}
 }
 
@@ -1162,14 +1162,14 @@ func TestQuietLinesDontCountAsUnread(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.m.switchTo("fm/rook")
 	kit := h.m.chars["fm/kit"]
-	h.conn("fm/kit").Feed("[Wiki] Kit edited Tapestries")     // quiet, though it names Kit (self wants attention)
+	h.conn("fm/kit").Feed("[Wiki] Kit edited Tapestries")     // quiet, though it names Kit (self is a priority)
 	h.conn("fm/kit").Feed("Mira pages: [Wiki] is down again") // not quiet: only lines starting [Wiki] are
 	kit.sb.SetWidth(80)
 	h.settle("fm/kit", func() bool { // both lines are in once the page, sent second, is
 		return strings.Contains(strings.Join(kit.sb.View(20), "\n"), "is down again")
 	})
-	if kit.Unread != 1 || !kit.Attention {
-		t.Errorf("unread %d, attention %v; want only the page counted", kit.Unread, kit.Attention)
+	if kit.Unread != 1 || !kit.Priority {
+		t.Errorf("unread %d, priority %v; want only the page counted", kit.Unread, kit.Priority)
 	}
 	if !strings.Contains(strings.Join(kit.sb.View(20), "\n"), "[Wiki] Kit edited") {
 		t.Error("quiet lines should still be shown")

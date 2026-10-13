@@ -102,12 +102,12 @@ func TestSwitchClearsUnreadAndRemembersWhereYouWere(t *testing.T) {
 	a, _ := testApp(t)
 	openAll(t, a, "fm/kit", "fm/rook")
 	rook := a.Char("fm/rook")
-	rook.Unread, rook.Attention = 3, true
+	rook.Unread, rook.Priority = 3, true
 	if !a.Switch("fm/rook") {
 		t.Fatal("Switch to an open character failed")
 	}
-	if rook.Unread != 0 || rook.Attention {
-		t.Errorf("unread %d attention %v after switching to it", rook.Unread, rook.Attention)
+	if rook.Unread != 0 || rook.Priority {
+		t.Errorf("unread %d priority %v after switching to it", rook.Unread, rook.Priority)
 	}
 	if got := a.UnreadTarget(1); got != "fm/kit" {
 		t.Errorf("UnreadTarget with nothing unread = %q, want the one before (fm/kit)", got)
