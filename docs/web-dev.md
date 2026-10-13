@@ -31,8 +31,8 @@ node --test web/static/*.test.mjs
 (cd web && KILN_SMOKE=1 go test ./smoke -v)    # headless Chrome, end to end
 ```
 
-The page lives in `web/ui` (Preact, TypeScript, esbuild): `npm ci` there
-once; `npm test` runs its tests (esbuild bundles each, Node runs them),
+The page lives in `web/ui` (Preact, TypeScript, esbuild; Node 22.18 or
+later, which runs TypeScript directly): `npm ci` there once; `npm test` runs its tests (esbuild bundles each, Node runs them),
 `npm run check` type-checks.
 
 - `src/main.tsx`: the entry; `src/boot.ts` starts Kiln (tab lock, memfs,
@@ -58,9 +58,8 @@ Files are saved in the browser (IndexedDB) and come back on the next
 visit: config edits, worlds, TLS pins and logs. That's best effort:
 clearing site data, a private window, or a browser that evicts storage
 loses them. Safari clears a site's storage after 7 days of Safari use
-without visiting it. Back up and restore aren't on the development page
-yet (`/backup` and `/restore` only show up in its event log); the real
-page brings them back.
+without visiting it. Back up and restore aren't on the page yet; they
+come back with the main screen (part 3 of #125).
 
 What you've typed but not sent is saved when you leave the tab (another
 tab or app, or the phone locking), so it's still there if the browser

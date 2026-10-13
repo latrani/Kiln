@@ -63,16 +63,22 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
 
-	// Every glyph Kiln draws is one cell wide in the bundled font.
-	waitFor(t, ev, `document.fonts.check('16px "JetBrains Mono"') && document.fonts.status === "loaded"`, "the font")
+	// Every glyph Kiln draws comes from the bundled font, one cell wide. A
+	// glyph drawn by a fallback measures differently under a serif and a
+	// monospace fallback; the bundled face itself must have loaded.
+	ev(`document.fonts.load('16px "JetBrains Mono"')`)
+	waitFor(t, ev, `[...document.fonts].some(f => f.family.replace(/"/g, "") === "JetBrains Mono" && f.status === "loaded")`, "the bundled font")
 	var gs []string
 	for _, g := range glyph.All {
 		gs = append(gs, g[1])
 	}
 	list, _ := json.Marshal(gs)
-	ev(`(() => { const c = document.createElement("canvas").getContext("2d"); c.font = '16px "JetBrains Mono"';
-		const w = c.measureText("M").width;
-		window.kilnGlyphs = ` + string(list) + `.filter(g => Math.abs(c.measureText(g).width - w) > 0.01).join(""); })()`)
+	ev(`(() => { const c = document.createElement("canvas").getContext("2d");
+		const w = (font, s) => { c.font = font; return c.measureText(s).width; };
+		const cell = w('16px "JetBrains Mono", monospace', "M");
+		window.kilnGlyphs = ` + string(list) + `.filter(g =>
+			Math.abs(w('16px "JetBrains Mono", serif', g) - w('16px "JetBrains Mono", monospace', g)) > 0.01 ||
+			Math.abs(w('16px "JetBrains Mono", monospace', g) - cell) > 0.01).join(""); })()`)
 	waitFor(t, ev, `window.kilnGlyphs === ""`, "every glyph one cell wide")
 
 	// A second tab finds Kiln open in the first and says so, with Use
