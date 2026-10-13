@@ -24,6 +24,7 @@ type Action struct {
 	Item                                               *scene.Item
 	WorldSettings                                      *config.WorldSettings
 	CharSettings                                       *config.CharacterSettings
+	Data                                               []byte // a file's bytes (restore), base64 in JSON
 }
 
 // do carries out act. See step for what it returns.
@@ -50,8 +51,20 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	case "input", "submit", "older", "newer": //str:ok
 		k := l.inputKey()
-		if act.Key != k {
-			break // the page hadn't heard the active input changed: drop it rather than send it somewhere else
+		if c := a.Char(act.Key); act.Key != k || c != nil && c.NeedPW {
+			// The page hadn't heard the active input changed, or that the
+			// password prompt went up. Typed or sent for a character still
+			// open, the text is its draft, never sent somewhere else or as
+			// the password (that's the password action); the page cleared
+			// what it sent, so it hears it back. Anything else is dropped.
+			if c != nil && (act.Do == "input" || act.Do == "submit") { //str:ok
+				a.SetDraft(act.Key, act.Text)
+				l.f.Told(act.Key, act.N)
+				if act.Do == "submit" { //str:ok
+					l.f.Resend(act.Key)
+				}
+			}
+			break
 		}
 		before, gen := a.Text(), a.Status().Gen
 		a.SetInput(act.Text)
@@ -63,6 +76,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 			}
 		case "submit": //str:ok
 			_, effs = a.Submit()
+			effs = l.backup(effs)
 			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
@@ -73,6 +87,15 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 		if act.Do != "input" { //str:ok
 			l.f.Resend(k) // the page waits to hear the action was taken, changed or not
+		}
+	case "password": //str:ok
+		// The password form's submit: the password prompt's answer, and
+		// only that.
+		if c := a.Char(act.Key); c != nil && c.NeedPW && act.Key == l.inputKey() {
+			a.SetInput(act.Text)
+			l.f.Told(act.Key, act.N)
+			_, effs = a.Submit()
+			l.f.Resend(act.Key)
 		}
 	case "cancel": //str:ok
 		a.Unconfirm()
@@ -87,6 +110,8 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		a.Focus(act.In)
 	case "page": //str:ok
 		effs = a.RequestOlder(act.Key)
+	case "restore": //str:ok
+		l.restore(act.Data)
 	case "answer_save": //str:ok
 		a.AnswerSave(act.Save)
 	case "resize": //str:ok
@@ -109,6 +134,44 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	}
 	return extra, effs, all
+}
+
+// backup does /backup when Run was given a way to: the page gets the
+// file to download, or the status line says why there's none.
+func (l *Loop) backup(effs []app.Effect) []app.Effect {
+	if l.opts.Backup == nil {
+		return effs
+	}
+	out := effs[:0:0]
+	for _, e := range effs {
+		if d, ok := e.(app.Do); ok && d.Cmd == "/backup" { //str:ok
+			data, err := l.opts.Backup()
+			if err != nil {
+				l.a.SetStatus(true, str.StatusBackupFailed(err))
+				continue
+			}
+			e = app.SaveFile{Name: str.BackupFileName(l.a.Now().Format("2006-01-02")), Data: data} //str:ok
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// restore puts back the backup the page read for /restore, then reads
+// the config again; Reload says why when it can't.
+func (l *Loop) restore(data []byte) {
+	if l.opts.Restore == nil {
+		return
+	}
+	n, err := l.opts.Restore(data)
+	switch {
+	case err != nil:
+		l.a.SetStatus(true, str.StatusRestoreFailed(err))
+	case n > 0:
+		if _, ok := l.a.Reload(); ok {
+			l.a.SetStatus(false, str.StatusRestored(n))
+		}
+	}
 }
 
 // inputKey names the active input: the active character's key, or "" for

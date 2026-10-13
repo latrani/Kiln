@@ -23,6 +23,7 @@ import (
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/webapi"
+	"github.com/latrani/Kiln/web/backup"
 	"github.com/latrani/Kiln/web/tz"
 	"github.com/latrani/Kiln/web/wsdial"
 )
@@ -51,11 +52,19 @@ func main() {
 	k.Set("overLimit", js.FuncOf(func(_ js.Value, a []js.Value) any { //str:ok
 		return webapi.OverLimit(a[0].String(), a[1].Int(), a[2].String())
 	}))
+	k.Set("over", js.FuncOf(func(_ js.Value, a []js.Value) any { //str:ok
+		out := []any{}
+		for _, r := range webapi.OverRanges(a[0].String(), a[1].Int(), a[2].String()) {
+			out = append(out, []any{r[0], r[1]})
+		}
+		return out
+	}))
 	k.Set("check", js.FuncOf(func(_ js.Value, a []js.Value) any { //str:ok
 		return webapi.CheckField(a[0].String(), a[1].String())
 	}))
-	js.Global().Set("kiln", k)    //str:ok
-	js.Global().Call("kilnReady") //str:ok
+	k.Set("maxBackup", backup.MaxFile) //str:ok
+	js.Global().Set("kiln", k)         //str:ok
+	js.Global().Call("kilnReady")      //str:ok
 	p := <-started
 	if err := run(k, p); err != nil {
 		js.Global().Get("console").Call("error", str.CliError(err)) //str:ok
@@ -122,6 +131,10 @@ func run(k js.Value, p page) error {
 	if !p.saving {
 		l.Say(true, str.WebNotSaving())
 	}
-	l.Run(context.Background(), webapi.Options{Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir}) //str:ok
+	l.Run(context.Background(), webapi.Options{
+		Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir, //str:ok
+		Backup:  func() ([]byte, error) { return backup.Zip(cfgDir, kh.Path) },
+		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir, kh.Path) },
+	})
 	return nil
 }

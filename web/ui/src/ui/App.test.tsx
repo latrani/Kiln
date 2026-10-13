@@ -224,3 +224,79 @@ test("the overview, the lock and the empty pane aren't in the live region", () =
   const lock = page({ phase: "locked" });
   assert.ok(lock.includes(str.webOtherTab()) && !logRegion(lock).includes(str.webOtherTab()));
 });
+
+// bottom is the bottom pane.
+const bottom = (html: string) => html.slice(html.indexOf('class="bottom'), html.indexOf('class="status '));
+
+test("the input: its name, the gutter, and Go's text", () => {
+  const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "a draft", Ack: 0 }]));
+  assert.match(html, new RegExp(`<textarea[^>]*aria-label="${str.webInput("Kit")}"`));
+  assert.equal(marks(html), 1);
+  assert.match(html, />a draft<\/textarea>|value="a draft"/);
+});
+
+// marks counts the input's › marks.
+const marks = (html: string) => html.split(`data-mark="${str.glyph.echo}"`).length - 1;
+
+test("each line sent on its own has its ›, as the TUI's input; flattened, only the first", () => {
+  const typed: Event = { type: "Input", Key: "fm/kit", Text: "one\ntwo\n", Ack: 0 };
+  assert.equal(marks(bottom(page({ phase: "running" }, [...three, typed]))), 3, "batch: the empty last line too");
+  const flat: Event = { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2, NewlineMode: "flatten" };
+  assert.equal(marks(bottom(page({ phase: "running" }, [...three, flat, typed]))), 1);
+});
+
+test("the input's hints, as the TUI's prompt", () => {
+  const dis = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(dis.includes(`placeholder="${str.viewDisconnected()}"`), dis);
+  const con = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "pf/ash" }]));
+  assert.ok(con.includes(`placeholder="${str.viewConnecting()}"`), con);
+  const failed = bottom(page({ phase: "running" }, [...three, { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 3 }, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(failed.includes(`placeholder="${str.viewConnectFailed()}"`), failed);
+  const cert = bottom(page({ phase: "running" }, [...three, { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, CertChanged: true }, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(cert.includes(`placeholder="${str.viewCertChanged()}"`), cert);
+  const live = bottom(page({ phase: "running" }, three));
+  assert.ok(!live.includes("placeholder="), "connected: no hint");
+});
+
+test("nothing open: the command input and its hint", () => {
+  const html = bottom(page({ phase: "running" }, [{ type: "Worlds", Worlds: [] }]));
+  assert.match(html, new RegExp(`<textarea[^>]*aria-label="${str.webInputIdle()}"`));
+  assert.ok(html.includes(`placeholder="${str.viewNothingOpen()}"`), html);
+});
+
+test("a world's overview has no input, as the TUI's", () => {
+  assert.ok(!bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "=fm" }])).includes("<textarea"));
+});
+
+test("Kiln stopped: the input is disabled", () => {
+  assert.match(bottom(page({ phase: "stopped" })), /<textarea[^>]*disabled/);
+});
+
+test("the password form: a hidden username for password managers, the TUI's label and keys", () => {
+  const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "", Ack: 0, NeedPW: true }]));
+  assert.match(html, /<form/);
+  assert.match(html, /<input[^>]*type="text"[^>]*name="username"[^>]*autocomplete="username"[^>]*value="Kit@fm"[^>]*hidden/);
+  assert.match(html, /<input[^>]*type="password"[^>]*autocomplete="current-password"/);
+  assert.match(html, new RegExp(`<label[^>]*>${str.viewPasswordLabel("Kit")}</label>`));
+  assert.ok(html.includes(str.viewPasswordKeys()) && html.includes(roleClass("input.hint")));
+  const keys = html.match(/<span[^>]*id="([^"]+)"[^>]*>([^<]*)<\/span>/);
+  assert.equal(keys?.[2], str.viewPasswordKeys(), "the keys have an id");
+  assert.match(html, new RegExp(`<input[^>]*type="password"[^>]*aria-describedby="${keys?.[1]}"`), "the field is described by its keys");
+  assert.doesNotMatch(html, /aria-hidden/, "the keys are read");
+  assert.ok(!html.includes("<textarea"), "the form takes the input's place");
+});
+
+test("while Kiln loads, the input takes typing", () => {
+  const html = bottom(page({ phase: "loading", progress: { got: 1 } }));
+  assert.match(html, /<textarea/);
+  assert.doesNotMatch(html, /<textarea[^>]*disabled/);
+  assert.ok(!html.includes(str.viewNothingOpen()), "no hint to choose a connection before there are any");
+});
+
+test("a hint has no ›, as the TUI's prompt: it isn't a line bound for the server", () => {
+  const dis = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(dis.includes(str.viewDisconnected()) && !dis.includes(str.glyph.echo), dis);
+  assert.ok(bottom(page({ phase: "running" }, three)).includes(str.glyph.echo), "connected: the ›");
+  const typed = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }, { type: "Input", Key: "fm/rook", Text: "hi", Ack: 0 }]));
+  assert.ok(typed.includes(str.glyph.echo), "typed: the ›");
+});

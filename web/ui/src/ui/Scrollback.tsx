@@ -83,18 +83,22 @@ export function Scrollback({ state }: { state: State }) {
   };
 
   // took takes in a scroll: where the view is now, and whether it's live;
-  // reaching the end yourself counts as seeing what's there.
+  // reaching the end yourself counts as seeing what's there. The page's
+  // own scrolls already decided whether it's live: their events can come
+  // after the pane changed size, when the end has moved, and mustn't
+  // undo that (the resize and the draw that follow put it right).
   const took = (e: HTMLElement) => {
     const v = views.current.get(keyNow.current);
     const mine = ours.current !== undefined && Math.abs(e.scrollTop - ours.current) < 1;
     ours.current = undefined;
     left.current = e.scrollTop;
     if (!v) return;
-    v.live = atEnd(e);
     remember(e, v);
+    if (mine) return;
+    v.live = atEnd(e);
     if (v.live) {
       v.unseen = 0;
-      if (!mine) v.seen = v.last;
+      v.seen = v.last;
     }
     setPill(v.live ? undefined : v.unseen);
   };

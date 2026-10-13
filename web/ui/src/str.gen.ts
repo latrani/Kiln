@@ -8,6 +8,12 @@ const e = (v: unknown): string => (v instanceof Error ? v.message : String(v));
 /** backup.empty: no Kiln files in this backup */
 export function backupEmpty(): string { return `no Kiln files in this backup`; }
 
+/** backup.file_name: kiln-backup-{date}.zip */
+export function backupFileName(date: unknown): string { return `kiln-backup-${date}.zip`; }
+
+/** backup.file_too_big: the file is over {mb} MB, too big to be a Kiln backup */
+export function backupFileTooBig(mb: unknown): string { return `the file is over ${mb} MB, too big to be a Kiln backup`; }
+
 /** backup.not_zip: not a zip file */
 export function backupNotZip(): string { return `not a zip file`; }
 
@@ -668,6 +674,9 @@ export function statusAlreadyConnected(name: unknown): string { return `${name} 
 /** status.away: away until your next key or click */
 export function statusAway(): string { return `away until your next key or click`; }
 
+/** status.backup_failed: couldn't back up: {err} */
+export function statusBackupFailed(err: unknown): string { return `couldn't back up: ${e(err)}`; }
+
 /** status.bad_action: the page sent something Kiln can't use: {err} */
 export function statusBadAction(err: unknown): string { return `the page sent something Kiln can't use: ${e(err)}`; }
 
@@ -739,6 +748,17 @@ export function statusPasswordSaved(): string { return `password saved`; }
 
 /** status.quit_hint: Press Ctrl+{key} again to quit */
 export function statusQuitHint(key: unknown): string { return `Press Ctrl+${key} again to quit`; }
+
+/** status.restore_failed: couldn't restore: {err} */
+export function statusRestoreFailed(err: unknown): string { return `couldn't restore: ${e(err)}`; }
+
+/** status.restored: one: restored 1 file · other: restored {n} files */
+export function statusRestored(n: number): string {
+  switch (plural.select(n)) {
+    case "one": return `restored 1 file`;
+    default: return `restored ${n} files`;
+  }
+}
 
 /** status.skipped_login: skipped login */
 export function statusSkippedLogin(): string { return `skipped login`; }
@@ -921,6 +941,12 @@ export function webCharacters(): string { return `Characters`; }
 
 /** web.close_char: Close {name} */
 export function webCloseChar(name: unknown): string { return `Close ${name}`; }
+
+/** web.input: Send to {name} */
+export function webInput(name: unknown): string { return `Send to ${name}`; }
+
+/** web.input_idle: Command */
+export function webInputIdle(): string { return `Command`; }
 
 /** web.loading: loading Kiln… {got} MB */
 export function webLoading(got: unknown): string { return `loading Kiln… ${got} MB`; }

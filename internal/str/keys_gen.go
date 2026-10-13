@@ -5,6 +5,12 @@ package str
 // BackupEmpty is backup.empty: "no Kiln files in this backup"
 func BackupEmpty() string { return get("backup.empty", nil) }
 
+// BackupFileName is backup.file_name: "kiln-backup-{date}.zip"
+func BackupFileName(date any) string { return get("backup.file_name", map[string]any{"date": date}) }
+
+// BackupFileTooBig is backup.file_too_big: "the file is over {mb} MB, too big to be a Kiln backup"
+func BackupFileTooBig(mb any) string { return get("backup.file_too_big", map[string]any{"mb": mb}) }
+
 // BackupNotZip is backup.not_zip: "not a zip file"
 func BackupNotZip() string { return get("backup.not_zip", nil) }
 
@@ -790,6 +796,11 @@ func StatusAlreadyConnected(name any) string {
 // StatusAway is status.away: "away until your next key or click"
 func StatusAway() string { return get("status.away", nil) }
 
+// StatusBackupFailed is status.backup_failed: "couldn't back up: {err}"
+func StatusBackupFailed(err error) string {
+	return get("status.backup_failed", map[string]any{"err": err})
+}
+
 // StatusBadAction is status.bad_action: "the page sent something Kiln can't use: {err}"
 func StatusBadAction(err error) string { return get("status.bad_action", map[string]any{"err": err}) }
 
@@ -883,6 +894,16 @@ func StatusPasswordSaved() string { return get("status.password_saved", nil) }
 
 // StatusQuitHint is status.quit_hint: "Press Ctrl+{key} again to quit"
 func StatusQuitHint(key any) string { return get("status.quit_hint", map[string]any{"key": key}) }
+
+// StatusRestoreFailed is status.restore_failed: "couldn't restore: {err}"
+func StatusRestoreFailed(err error) string {
+	return get("status.restore_failed", map[string]any{"err": err})
+}
+
+// StatusRestored is status.restored, by count:
+//   - one: "restored 1 file"
+//   - other: "restored {n} files"
+func StatusRestored(n int) string { return count("status.restored", n, map[string]any{"n": n}) }
 
 // StatusSkippedLogin is status.skipped_login: "skipped login"
 func StatusSkippedLogin() string { return get("status.skipped_login", nil) }
@@ -1117,6 +1138,12 @@ func WebCharacters() string { return get("web.characters", nil) }
 
 // WebCloseChar is web.close_char: "Close {name}"
 func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
+
+// WebInput is web.input: "Send to {name}"
+func WebInput(name any) string { return get("web.input", map[string]any{"name": name}) }
+
+// WebInputIdle is web.input_idle: "Command"
+func WebInputIdle() string { return get("web.input_idle", nil) }
 
 // WebLoading is web.loading: "loading Kiln… {got} MB"
 func WebLoading(got any) string { return get("web.loading", map[string]any{"got": got}) }

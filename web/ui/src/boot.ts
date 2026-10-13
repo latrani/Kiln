@@ -69,6 +69,29 @@ async function seedPreset(fs: any): Promise<void> {
   }
 }
 
+// toBase64 is bytes as base64, a chunk at a time: one call with every
+// byte as an argument would overflow the stack for a large file.
+export function toBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+// pickFile asks for a file (a backup to restore) and gives its bytes to
+// done, no more than max and one past it, so Go can say a file is too
+// big without the page reading all of one; nothing if none is chosen.
+export function pickFile(accept: string, max: number, done: (bytes: Uint8Array) => void): void {
+  const f = Object.assign(document.createElement("input"), { type: "file", accept, hidden: true });
+  document.body.append(f);
+  f.addEventListener("cancel", () => f.remove());
+  f.addEventListener("change", async () => {
+    const file = f.files?.[0];
+    f.remove();
+    if (file) done(new Uint8Array(await file.slice(0, max + 1).arrayBuffer()));
+  });
+  f.click();
+}
+
 // download saves bytes as a file named name.
 export function download(name: string, bytes: Uint8Array): void {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart]));
@@ -132,13 +155,17 @@ export async function boot(store: Store): Promise<void> {
   navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
 
   // kilnPage is the page's handle for tests: act, and with ?record in the
-  // address every event Go sent and every action the page sent.
+  // address every event Go sent and every action the page sent (a
+  // password's text left out). Every action goes after what's typed
+  // (typing.ts), which starts going to Go once Kiln runs.
   const record = new URLSearchParams(location.search).has("record");
   const events: Event[] = [], sent: object[] = [];
-  const act = (o: object) => {
-    if (record) sent.push(o);
+  const send = (o: object, secret?: boolean) => {
+    if (record) sent.push(secret ? { ...o, Text: undefined } : o);
     g.kiln?.act?.(JSON.stringify(o));
   };
+  const typing = store.state.typing!;
+  const act = (o: object) => typing.act(o);
   store.set({ act });
   g.kilnPage = record ? { act, events, sent } : { act };
 
@@ -148,7 +175,8 @@ export async function boot(store: Store): Promise<void> {
   lock?.serve(async () => { saveDrafts(); await persist?.handOff(); }, () => location.reload());
 
   // Leaving the tab (another tab or app, the phone locking): save drafts,
-  // so iOS killing the tab in the background loses nothing typed.
+  // so iOS killing the tab in the background loses nothing typed. Like
+  // every action, save_drafts goes after what's typed and not yet sent.
   const leaving = () => { saveDrafts(); persist?.flush(); };
   addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") leaving(); });
   addEventListener("pagehide", leaving);
@@ -158,6 +186,10 @@ export async function boot(store: Store): Promise<void> {
   relay.protocol = location.protocol === "https:" ? "wss:" : "ws:";
   // onBatch must never throw: it runs inside a call from Go. It may call
   // kiln.act: Go queues it, never waits.
+  // The first batch means Go's loop runs and takes actions: what was done
+  // and typed while it loaded goes now, in order, once the batch says
+  // which input is showing.
+  let running = false;
   const onBatch = (json: string) => {
     try {
       const batch: Event[] = JSON.parse(json);
@@ -165,6 +197,12 @@ export async function boot(store: Store): Promise<void> {
       store.apply(batch);
     } catch (e) {
       console.error(e);
+    }
+    if (!running) {
+      running = true;
+      const s = store.state;
+      typing.ready(send, s.chars[s.active] ? s.active : ""); // after the batch: it says what Kiln opened with
+      store.set({}); // draw the typing where it went
     }
   };
   g.kilnReady = () => {

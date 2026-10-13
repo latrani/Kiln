@@ -20,6 +20,10 @@ import (
 // MaxUnpacked caps a restore's total size.
 const MaxUnpacked = 10 << 20
 
+// MaxFile caps a backup file's size: what MaxUnpacked fits in, with room
+// for the zip's headers. The page reads no more than this of a file.
+const MaxFile = MaxUnpacked + 1<<20
+
 const (
 	configPrefix = "config/"     //str:ok
 	knownName    = "known_hosts" //str:ok
@@ -72,6 +76,9 @@ func Zip(configDir, knownHosts string) ([]byte, error) {
 // a file, and returns how many files it wrote; a name that appears twice
 // is written once, with the later copy.
 func Unzip(data []byte, configDir, knownHosts string) (int, error) {
+	if len(data) > MaxFile {
+		return 0, errors.New(str.BackupFileTooBig(MaxFile >> 20))
+	}
 	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return 0, str.Wrap(str.BackupNotZip(), err)

@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -21,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +31,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/web/backup"
 )
 
 // launch starts the fake MUCK, the relay and Chrome, and opens the page
@@ -67,11 +70,96 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	// The default login line asks for the password: answer it, and the
 	// fake MUCK echoes the login.
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "fake/tester" && e.NeedPW)`, "the password prompt")
-	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "secret", N: 1001})`)
+	waitFor(t, ev, `document.activeElement === document.querySelector('.bottom input[type="password"]')`, "the password field focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "secret"})
+	ev(`(() => { const i = document.querySelector('.bottom input[type="password"]'); i.form.addEventListener("submit", () => setTimeout(() => { window.pwKept = i.value !== ""; })); })()`)
+	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
-	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
+	waitFor(t, ev, `window.pwKept === true`, "the password left in its field as the form went, for password managers")
+	if got := ev(`JSON.stringify(kilnPage.sent).includes("secret")`); got != "false" {
+		t.Error("the password is in the page's record of what it sent")
+	}
+	// Typed and sent as a person does: the input has focus, and Enter sends.
+	waitFor(t, ev, `document.activeElement === document.querySelector(".bottom textarea")`, "the input focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "hello"})
+	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
 	waitFor(t, ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes('You say, "hello"'))`, "the echo on the page")
+	waitFor(t, ev, `document.querySelector(".bottom textarea").value === ""`, "the input cleared")
+	pressKey(t, ws, "ArrowUp", 38)
+	waitFor(t, ev, `document.querySelector(".bottom textarea").value === "hello"`, "history recalled")
+	// ↑ in a long line wrapped over several rows moves the caret up a row,
+	// as the TUI's; only on the first row does it recall history.
+	long := strings.Repeat("a long pose wraps ", 30)
+	ev(`document.querySelector(".bottom textarea").select()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": long})
+	pressKey(t, ws, "ArrowUp", 38)
+	time.Sleep(500 * time.Millisecond) // long enough for history to come back, were it asked
+	if got := ev(`(() => { const t = document.querySelector(".bottom textarea"); return t.value === ` + jsString(long) + ` && t.selectionStart < t.value.length; })()`); got != "true" {
+		t.Error("↑ on a wrapped line's last row didn't move the caret up a row")
+	}
+	// Each line sent on its own has its ›, beside the row it starts on in
+	// the textarea, however the line before it wraps.
+	ev(`document.querySelector(".bottom textarea").select()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": long + "\nsecond"})
+	if got := ev(`(() => {
+		const t = document.querySelector(".bottom textarea"), lh = parseFloat(getComputedStyle(t).lineHeight);
+		const c = Object.assign(document.createElement("textarea"), { value: ` + jsString(long) + `, rows: 1 });
+		c.style.cssText = "position:absolute;height:0;padding:0;border:0;font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;width:" + t.clientWidth + "px";
+		document.body.append(c);
+		const rows = Math.round(c.scrollHeight / lh);
+		c.remove();
+		const ms = [...document.querySelectorAll(".bottom [data-mark]")];
+		const shown = ms.every(m => getComputedStyle(m, "::before").visibility === "visible" && getComputedStyle(m, "::before").content.includes(` + jsString(glyph.Echo) + `));
+		const tops = ms.map(m => Math.round((m.getBoundingClientRect().top - t.getBoundingClientRect().top) / lh));
+		return rows >= 2 && shown && tops.length === 2 && tops[0] === 0 && tops[1] === rows || JSON.stringify({ rows, tops, shown });
+	})()`); got != "true" {
+		t.Errorf("the marks: %s", got)
+	}
+
+	// /backup gives a file; /restore picks one and puts it back.
+	ev(`document.querySelector(".bottom textarea").select()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "/backup"})
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Effect" && e.effect === "SaveFile" && e.Name.endsWith(".zip"))`, "a backup")
+	var zip []byte
+	json.Unmarshal([]byte(ev(`kilnPage.events.find(e => e.type === "Effect" && e.effect === "SaveFile").Data`)), &zip)
+	file := filepath.Join(t.TempDir(), "backup.zip")
+	if err := os.WriteFile(file, zip, 0o600); err != nil || len(zip) == 0 {
+		t.Fatalf("backup of %d bytes: %v", len(zip), err)
+	}
+	// Headless Chrome may dismiss a file chooser at once (the page then
+	// drops its file input); intercepted, it stays open for the test.
+	devtools(t, ws, "Page.enable", nil)
+	devtools(t, ws, "Page.setInterceptFileChooserDialog", map[string]any{"enabled": true})
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "/restore"})
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `document.querySelector('input[type="file"]')`, "the file picker")
+	var picker struct{ Result struct{ ObjectID string } }
+	json.Unmarshal(devtools(t, ws, "Runtime.evaluate", map[string]any{"expression": `document.querySelector('input[type="file"]')`}), &picker)
+	devtools(t, ws, "DOM.setFileInputFiles", map[string]any{"files": []string{file}, "objectId": picker.Result.ObjectID})
+	var restored []string // what the status says for any likely count
+	for n := 1; n <= 50; n++ {
+		restored = append(restored, str.StatusRestored(n))
+	}
+	said, _ := json.Marshal(restored)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && `+string(said)+`.includes(e.Text))`, "the backup restored")
+	// A file far too big to be a backup: the page reads only as much as
+	// one could be, and the status line says why it wasn't restored.
+	huge := filepath.Join(t.TempDir(), "huge.zip")
+	if err := os.WriteFile(huge, make([]byte, 4*backup.MaxFile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "/restore"})
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `document.querySelector('input[type="file"]')`, "the file picker again")
+	json.Unmarshal(devtools(t, ws, "Runtime.evaluate", map[string]any{"expression": `document.querySelector('input[type="file"]')`}), &picker)
+	devtools(t, ws, "DOM.setFileInputFiles", map[string]any{"files": []string{huge}, "objectId": picker.Result.ObjectID})
+	tooBig, _ := json.Marshal(str.StatusRestoreFailed(errors.New(str.BackupFileTooBig(backup.MaxFile >> 20))))
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && e.Text === `+string(tooBig)+`)`, "a file too big, refused")
+	if got := ev(`kilnPage.sent.filter(a => a.Do === "restore").at(-1).Data.length <= Math.ceil((` + strconv.Itoa(backup.MaxFile) + ` + 1) / 3) * 4`); got != "true" {
+		t.Error("the page read more of the file than a backup could be")
+	}
 
 	// The sidebar: as wide as the TUI's, in whole characters; and a
 	// character's name switches to it.
@@ -120,6 +208,19 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
 	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
 	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")
+}
+
+// pressKey presses and lets go of a key in the tab, as a keyboard does.
+func pressKey(t *testing.T, ws *websocket.Conn, key string, code int) {
+	t.Helper()
+	for _, typ := range []string{"rawKeyDown", "keyUp"} {
+		p := map[string]any{"type": typ, "key": key, "code": key, "windowsVirtualKeyCode": code, "nativeVirtualKeyCode": code}
+		if typ == "rawKeyDown" && key == "Enter" {
+			p["text"] = "\r"
+			p["type"] = "keyDown"
+		}
+		devtools(t, ws, "Input.dispatchKeyEvent", p)
+	}
 }
 
 // jsString is s as a JavaScript string literal.

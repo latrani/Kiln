@@ -33,17 +33,50 @@ func TestScrollbackMoves(t *testing.T) {
 		window.click = (name) => [...document.querySelectorAll("nav button")].find(b => b.textContent === name).click();
 		window.firstShown = () => { const e = sc(); return [...e.querySelectorAll(".sb")].find(r => r.offsetTop + r.offsetHeight > e.scrollTop); };`)
 
-	login := func(k string, n int) {
+	prompt := func(k string, n int) { // open k and connect it, up to its password prompt
 		ev(`kilnPage.act({Do: "open", Key: "` + k + `"})`)
 		ev(`kilnPage.act({Do: "switch", Key: "` + k + `"})`) // input goes to the character showing
 		ev(`kilnPage.act({Do: "submit", Key: "` + k + `", Text: "", N: ` + strconv.Itoa(n) + `})`)
 		waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "`+k+`" && e.NeedPW)`, "the password prompt for "+k)
-		ev(`kilnPage.act({Do: "submit", Key: "` + k + `", Text: "secret", N: ` + strconv.Itoa(n+1) + `})`)
+	}
+	login := func(k string, n int) {
+		ev(`kilnPage.act({Do: "switch", Key: "` + k + `"})`)
+		ev(`kilnPage.act({Do: "password", Key: "` + k + `", Text: "secret", N: ` + strconv.Itoa(n+1) + `})`)
 		waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Key === "`+k+`" && e.State === 2)`, k+" connected")
 	}
+	prompt("fake/tester", 2000)
+	prompt("fake/second", 3000)
+	// Half a password typed for Second doesn't follow you to Tester's prompt.
+	pw := `document.querySelector('.bottom input[type="password"]')`
+	waitFor(t, ev, `document.activeElement === `+pw, "Second's password field focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "partial"})
+	ev(`click("Tester")`)
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Tester") && `+pw+` && `+pw+`.value === ""`, "Tester's own, empty password field")
 	login("fake/tester", 2000)
 	login("fake/second", 3000)
 	ev(`click("Tester")`)
+
+	// Typing is kept across switching: not sent, it's the character's
+	// draft; and keys typed just before a switch aren't lost.
+	textarea := `document.querySelector(".bottom textarea")`
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Tester") && document.activeElement === `+textarea, "Tester's input focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "half a pose"})
+	time.Sleep(500 * time.Millisecond)
+	ev(`click("Second")`)
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Second") && `+textarea+`.value === ""`, "Second's own input")
+	ev(`click("Tester")`)
+	waitFor(t, ev, textarea+`.value === "half a pose"`, "Tester's draft back")
+	waitFor(t, ev, `document.activeElement === `+textarea, "Tester's input focused again")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": " more"})
+	ev(`click("Second")`) // before the typing would have been sent
+	if got := ev(`(() => { const s = kilnPage.sent; const i = s.findLastIndex(a => a.Do === "input" && a.Text === "half a pose more"); return i >= 0 && i < s.findLastIndex(a => a.Do === "switch"); })()`); got != "true" {
+		t.Error("the typing didn't go before the switch")
+	}
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Second")`, "on Second")
+	ev(`click("Tester")`)
+	waitFor(t, ev, textarea+`.value === "half a pose more"`, "keys typed just before a switch kept")
+	ev(`(() => { const t = ` + textarea + `; t.select(); })()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": ""})
 	say := func(text string, n int) {
 		ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "` + text + `", N: ` + strconv.Itoa(n) + `})`)
 	}
@@ -56,10 +89,13 @@ func TestScrollbackMoves(t *testing.T) {
 	waitFor(t, ev, `!atEnd() && pillN() > 0 && pillN() === [...sc().querySelectorAll(".sb")].filter(r => r.offsetTop >= sc().scrollTop + sc().clientHeight).length`, "the pager stopping, the pill counting")
 	waitFor(t, ev, `row("spam 80").closest('[role="log"]') !== null`, "new lines in the live region")
 
+	// Esc in the input goes back to the end, as the TUI's does.
+	ev(`document.querySelector(".bottom textarea").focus()`)
+	pressKey(t, ws, "Escape", 27)
+	waitFor(t, ev, `atEnd() && pillN() === -1`, "Esc going to the end")
+
 	// Live, the pane narrows: the lines rewrap, and the view stays at the
 	// end. The MUCK is told the scroller's width in characters.
-	ev(`document.querySelector("main .pill").click()`)
-	waitFor(t, ev, `atEnd() && pillN() === -1`, "the pill going to the end")
 	// Checked two frames later, before the page's resize could reach Go and
 	// come back.
 	if got := ev(`new Promise(r => {
@@ -69,6 +105,17 @@ func TestScrollbackMoves(t *testing.T) {
 		requestAnimationFrame(() => requestAnimationFrame(() => r(atEnd() ? "true" : JSON.stringify({ before, sh: sc().scrollHeight, st: sc().scrollTop, ch: sc().clientHeight, n: sc().querySelectorAll(".sb").length, pill: pillN() }))));
 	})`); got != `"true"` {
 		t.Errorf("a live view after a resize: at the end %s, want true", got)
+	}
+	// The page's own scroll to the end, its event arriving after the pane
+	// changed size: still live, still at the end.
+	ev(`sc().scrollTop = 0`)
+	waitFor(t, ev, `document.querySelector("main .pill")`, "the pill, scrolled up")
+	if got := ev(`new Promise(r => {
+		document.querySelector("main .pill").click();
+		document.querySelector(".kiln").style.gridTemplateColumns = "60ch 1px 1fr";
+		requestAnimationFrame(() => requestAnimationFrame(() => r(atEnd() && pillN() === -1)));
+	})`); got != "true" {
+		t.Errorf("going to the end as the pane changed size: at the end and live %s, want true", got)
 	}
 	// A scrollbar that takes room, as on Windows or Linux (headless
 	// Chrome's take none): the MUCK's width leaves it out.
@@ -173,8 +220,8 @@ func mustUnquote(t *testing.T, s string) string {
 	return u
 }
 
-// devtools calls a DevTools method in the tab.
-func devtools(t *testing.T, ws *websocket.Conn, method string, params map[string]any) {
+// devtools calls a DevTools method in the tab and returns its result.
+func devtools(t *testing.T, ws *websocket.Conn, method string, params map[string]any) json.RawMessage {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -188,9 +235,12 @@ func devtools(t *testing.T, ws *websocket.Conn, method string, params map[string
 		if err != nil {
 			t.Fatal(err)
 		}
-		var r struct{ ID int }
+		var r struct {
+			ID     int
+			Result json.RawMessage
+		}
 		if json.Unmarshal(b, &r) == nil && r.ID == id {
-			return
+			return r.Result
 		}
 	}
 }

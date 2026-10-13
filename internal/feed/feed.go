@@ -61,7 +61,7 @@ func (f *Feed) All() []Event {
 
 func (f *Feed) input(k string) Input {
 	if c := f.a.Char(k); c != nil {
-		return Input{Key: k, Text: c.Text, Ack: f.acks[k], Prompt: c.Prompt, NeedPW: c.NeedPW}
+		return Input{Key: k, Text: f.a.Draft(k), Ack: f.acks[k], Prompt: c.Prompt, NeedPW: c.NeedPW}
 	}
 	return Input{Text: f.a.IdleText(), Ack: f.acks[""]}
 }

@@ -60,3 +60,25 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0 
 button:disabled { cursor: default; opacity: .6; }
 /* Read aloud, not seen. */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* The input: a textarea that grows with its text. A hidden copy of the
+   text (.mirror), a block per line, shares its grid cell and sizes it,
+   so it never collapses to measure (which would jolt the scrollback);
+   wrapping as the textarea does, each line's block also hangs its ›
+   in the gutter beside the row the line starts on. The bottom pane caps
+   it and scrolls. Over the line limit, an overlay draws the text
+   (Input.tsx) and the textarea's own goes transparent. */
+.input-row { display: flex; }
+.field { flex: 1; position: relative; min-width: 0; display: grid; }
+.field.echo { margin-left: 1ch; }
+.mirror { visibility: hidden; }
+.mirror > div { position: relative; min-height: 1lh; }
+.mirror > [data-mark]::before { content: attr(data-mark); position: absolute; right: 100%; visibility: visible; }
+.field textarea, .mirror, .overflow { grid-area: 1 / 1; font: inherit; letter-spacing: inherit; margin: 0; padding: 0; border: 0; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 8; }
+.field textarea { resize: none; outline: none; background: transparent; color: inherit; overflow: hidden; min-height: 1lh; }
+.field textarea::placeholder { color: var(--role-input-hint-fg); opacity: 1; }
+.overflow { position: absolute; inset: 0; pointer-events: none; }
+.marked textarea { color: transparent; caret-color: var(--term-fg); }
+/* The password form, one row as the TUI's prompt: the label, the
+   password (drawn as the browser's bullets), the keys. */
+.password { display: flex; white-space: pre; }
+.password input { flex: none; field-sizing: content; min-width: 1ch; max-width: 40ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }

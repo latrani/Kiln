@@ -63,10 +63,16 @@ func (a *App) Draft(k string) string {
 	return c.Text
 }
 
-// SetDraft puts text in open character k's input: a draft saved from
-// before, for a front end restoring one. Nothing if k isn't open.
+// SetDraft puts text in open character k's input as what a person is
+// typing to say: a draft saved from before, or typed in a front end that
+// keeps the password apart. At the password prompt it's the draft put
+// aside, never the password. Nothing if k isn't open.
 func (a *App) SetDraft(k, text string) {
-	if c := a.chars[k]; c != nil {
+	switch c := a.chars[k]; {
+	case c == nil:
+	case c.NeedPW:
+		c.pwDraft = text
+	default:
 		c.Text = text
 	}
 }

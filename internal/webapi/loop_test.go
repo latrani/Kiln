@@ -2,11 +2,13 @@ package webapi
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -82,11 +84,17 @@ func start(t *testing.T) *harness {
 
 func startOn(t *testing.T, a *app.App, dir string) *harness {
 	t.Helper()
+	return startWith(t, a, dir, Options{})
+}
+
+// startWith is startOn with Run's options.
+func startWith(t *testing.T, a *app.App, dir string, opts Options) *harness {
+	t.Helper()
 	h := &harness{t: t, a: a, dir: dir, batches: make(chan []map[string]any, 100)}
 	h.l = New(a, func(b []byte) { h.batches <- decode(t, b) })
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go h.l.Run(ctx, Options{})
+	go h.l.Run(ctx, opts)
 	h.next() // the first batch: everything
 	return h
 }
@@ -370,7 +378,7 @@ func TestActNeverBlocksAfterTheLoopEnds(t *testing.T) {
 	}
 }
 
-func TestSubmitForAnInputThatIsntActiveIsDropped(t *testing.T) {
+func TestSubmitForAnInputThatIsntActiveIsntSent(t *testing.T) {
 	h := start(t)
 	act := event(h.act(`{"Do":"open","Key":"fm/kit"}`), "Active")["Key"].(string)
 	if a := event(h.act(`{"Do":"open","Key":"fm/rook"}`), "Active"); a != nil {
@@ -381,8 +389,11 @@ func TestSubmitForAnInputThatIsntActiveIsDropped(t *testing.T) {
 		other = "fm/rook"
 	}
 	b := h.act(`{"Do":"submit","Key":"` + other + `","Text":"/notify off","N":1}`)
-	if in := event(b, "Input"); in != nil {
+	if in := inputOf(b, act); in != nil {
 		t.Errorf("a submit for %s went to %s: %v", other, act, in)
+	}
+	if st := event(b, "Status"); st != nil && st["Text"] != "" {
+		t.Errorf("the command ran: %v", st)
 	}
 }
 
@@ -671,5 +682,156 @@ func TestStepAndNextUnreadSwitch(t *testing.T) {
 	}
 	if got := active(`{"Do":"next_unread","N":1}`); got != "fm/rook" {
 		t.Errorf("next unread, none unread: %v, want the last one active", got)
+	}
+}
+
+func TestInputForACharacterSwitchedAwayKeepsItsDraft(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	h.act(`{"Do":"switch","Key":"fm/rook"}`)
+	h.act(`{"Do":"input","Key":"fm/kit","Text":"half a pose","N":7}`) // typed before the page heard of the switch
+	if got := h.a.Draft("fm/kit"); got != "half a pose" {
+		t.Errorf("Kit's draft %q", got)
+	}
+	if got := h.a.Text(); got != "" {
+		t.Errorf("Rook's input %q: Kit's typing went to Rook", got)
+	}
+}
+
+// inputOf is b's Input event for key, nil if none.
+func inputOf(b []map[string]any, key string) map[string]any {
+	for _, e := range b {
+		if e["type"] == "Input" && e["Key"] == key {
+			return e
+		}
+	}
+	return nil
+}
+
+// promptUp opens and connects fm/kit and waits for its password prompt
+// (fm has no saved passwords).
+func (h *harness) promptUp() {
+	h.t.Helper()
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	for b := h.act(`{"Do":"submit","Key":"fm/kit","Text":"","N":1}`); ; b = h.next() {
+		if in := inputOf(b, "fm/kit"); in != nil && in["NeedPW"] == true {
+			return
+		}
+	}
+}
+
+func TestSubmitForACharacterSwitchedAwayKeepsItAsItsDraft(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	h.act(`{"Do":"switch","Key":"fm/rook"}`)
+	b := h.act(`{"Do":"submit","Key":"fm/kit","Text":"a pose","N":7}`) // Enter before the page heard of the switch
+	if got := h.a.Draft("fm/kit"); got != "a pose" {
+		t.Errorf("Kit's draft %q", got)
+	}
+	if in := inputOf(b, "fm/kit"); in == nil || in["Text"] != "a pose" || in["Ack"] != float64(7) {
+		t.Errorf("Kit's input %v: the page cleared it and should hear it back", in)
+	}
+}
+
+func TestTypingDuringThePasswordPromptIsTheDraft(t *testing.T) {
+	h := start(t)
+	h.promptUp()
+	h.act(`{"Do":"input","Key":"fm/kit","Text":"half a pose","N":3}`) // typed before the page heard of the prompt
+	if got := h.a.Draft("fm/kit"); got != "half a pose" {
+		t.Errorf("draft %q", got)
+	}
+	h.act(`{"Do":"cancel"}`)
+	if got := h.a.Text(); got != "half a pose" {
+		t.Errorf("after skipping the login, the input holds %q", got)
+	}
+}
+
+func TestSubmitDuringThePasswordPromptIsntThePassword(t *testing.T) {
+	h := start(t)
+	h.promptUp()
+	b := h.act(`{"Do":"submit","Key":"fm/kit","Text":"a pose","N":3}`) // Enter before the page heard of the prompt
+	if !h.a.Char("fm/kit").NeedPW {
+		t.Fatal("the pose was taken as the password")
+	}
+	if in := inputOf(b, "fm/kit"); in == nil || in["Text"] != "a pose" || in["Ack"] != float64(3) {
+		t.Errorf("Kit's input %v: the page cleared it and should hear it back", in)
+	}
+	h.act(`{"Do":"password","Key":"fm/kit","Text":"hunter2","N":4}`)
+	if h.a.Char("fm/kit").NeedPW {
+		t.Error("the password wasn't taken")
+	}
+	if got := h.a.Text(); got != "a pose" {
+		t.Errorf("after logging in, the input holds %q", got)
+	}
+}
+
+func TestOverRanges(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		max  int
+		mode string
+		want [][2]int
+	}{
+		{"12345", 5, "batch", nil},
+		{"123456", 5, "batch", [][2]int{{5, 6}}},
+		{"123\n456789", 5, "batch", [][2]int{{9, 10}}},
+		{"1234567\n123456", 5, "batch", [][2]int{{5, 7}, {13, 14}}},
+		{"123\n456", 5, "flatten", [][2]int{{5, 7}}}, // "123 456": the 6th byte is "5"
+		{"1234567\n12", 5, "flatten", [][2]int{{5, 10}}},
+		{"éééé", 5, "batch", [][2]int{{2, 4}}}, // é is 2 bytes: the 3rd é ends at byte 6
+		{"ab😀", 3, "batch", [][2]int{{2, 4}}},  // the emoji is 4 bytes, 2 UTF-16 units
+		{"anything", 0, "batch", nil},
+	} {
+		if got := OverRanges(c.text, c.max, c.mode); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%q max %d %s: %v, want %v", c.text, c.max, c.mode, got, c.want)
+		}
+	}
+}
+
+func TestBackupIsADownload(t *testing.T) {
+	a, dir := newApp(t)
+	h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return []byte("zip!"), nil }})
+	b := h.act(`{"Do":"submit","Key":"","Text":"/backup","N":1}`)
+	e := event(b, "Effect")
+	if e == nil || e["effect"] != "SaveFile" || e["Name"] != str.BackupFileName(a.Now().Format("2006-01-02")) || e["Data"] != base64.StdEncoding.EncodeToString([]byte("zip!")) {
+		t.Errorf("effect %v", e)
+	}
+}
+
+func TestBackupFailingSaysSo(t *testing.T) {
+	a, dir := newApp(t)
+	boom := errors.New("boom")
+	h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return nil, boom }})
+	b := h.act(`{"Do":"submit","Key":"","Text":"/backup","N":1}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusBackupFailed(boom) || st["Err"] != true {
+		t.Errorf("status %v", st)
+	}
+	if event(b, "Effect") != nil {
+		t.Error("an effect after a failed backup")
+	}
+}
+
+func TestRestoreTakesTheFile(t *testing.T) {
+	a, dir := newApp(t)
+	var got []byte
+	h := startWith(t, a, dir, Options{Restore: func(b []byte) (int, error) { got = b; return 3, nil }})
+	b := h.act(`{"Do":"restore","Data":"` + base64.StdEncoding.EncodeToString([]byte("zip!")) + `"}`)
+	if string(got) != "zip!" {
+		t.Errorf("restored %q", got)
+	}
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusRestored(3) {
+		t.Errorf("status %v", st)
+	}
+}
+
+func TestRestoreFailingSaysSo(t *testing.T) {
+	a, dir := newApp(t)
+	boom := errors.New("boom")
+	h := startWith(t, a, dir, Options{Restore: func([]byte) (int, error) { return 0, boom }})
+	b := h.act(`{"Do":"restore","Data":"eA=="}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusRestoreFailed(boom) || st["Err"] != true {
+		t.Errorf("status %v", st)
 	}
 }

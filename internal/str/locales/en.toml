@@ -214,6 +214,9 @@ password_not_saved_err = "password not saved: {err}"
 password_saved = "password saved"
 password_not_saved = "password not saved"
 skipped_login = "skipped login"
+backup_failed = "couldn't back up: {err}"
+restore_failed = "couldn't restore: {err}"
+restored = { one = "restored 1 file", other = "restored {n} files" }
 quit_hint = "Press Ctrl+{key} again to quit"
 nothing_open = "nothing open to send to"
 login_not_sent = "login not sent: {err}"
@@ -387,6 +390,10 @@ char_unread = "{name}, {n} unread"
 char_priority = "{name}, {n} unread, including priority"
 # The × beside a disconnected character, for screen readers.
 close_char = "Close {name}"
+# The input's name for screen readers: what you type goes to {name}, or
+# with nothing open it's for commands.
+input = "Send to {name}"
+input_idle = "Command"
 # The browser tab's title; with unread lines, how many.
 title = "Kiln"
 title_unread = "({n}) Kiln"
@@ -399,4 +406,6 @@ announce = "{name}: {line}"
 not_zip = "not a zip file"
 stray_file = "not a Kiln backup: it has {name:%q}"
 too_big = "backup unpacks to more than {mb} MB"
+file_too_big = "the file is over {mb} MB, too big to be a Kiln backup"
 empty = "no Kiln files in this backup"
+file_name = "kiln-backup-{date}.zip"

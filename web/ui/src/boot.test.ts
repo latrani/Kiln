@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadingText, readWithProgress } from "./boot.ts";
+import { loadingText, readWithProgress, toBase64 } from "./boot.ts";
 import * as str from "./str.gen.ts";
 
 const res = (chunks: number[], length?: number, encoding?: string) =>
@@ -46,4 +46,10 @@ test("a length the download outgrows is dropped", async () => {
   const seen: [number, number | undefined][] = [];
   await readWithProgress(res([3, 3], 4), (g, t) => seen.push([g, t]));
   assert.deepEqual(seen, [[3, 4], [6, undefined]]);
+});
+
+test("a file's bytes go to Go as base64, however large", () => {
+  const big = new Uint8Array(300_000).map((_, i) => i * 7);
+  assert.equal(toBase64(big), Buffer.from(big).toString("base64"));
+  assert.equal(toBase64(new Uint8Array()), "");
 });
