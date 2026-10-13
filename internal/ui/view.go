@@ -3,7 +3,6 @@ package ui
 import (
 	"slices"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
@@ -171,22 +170,11 @@ func (m *Model) statusLine(w int) string {
 	case cs.browse != nil:
 		msg = str.ViewSelected(len(cs.browse.Selection()))
 	case cs.State == session.Connected:
-		msg = m.connectedSince(cs)
+		msg = app.ConnectedSince(cs.ConnectedAt, m.d.Now())
 	default:
 		msg = stateName(cs.State)
 	}
 	return fitName(msg, w)
-}
-
-// connectedSince says when the connection came up: the time, with the day
-// first if that wasn't today.
-func (m *Model) connectedSince(cs *charState) string {
-	at, now := cs.ConnectedAt.Local(), m.d.Now().Local()
-	t := at.Format("15:04")                                  //str:ok
-	if at.Format("2006-01-02") != now.Format("2006-01-02") { //str:ok
-		return str.ViewConnectedSinceDay(at.Format(str.DateDay()), t)
-	}
-	return str.ViewConnectedSince(t)
 }
 
 // topH is the rows above the body: the top bar and its rule.
@@ -424,7 +412,7 @@ func (m *Model) overview(world string, w, h int) []string {
 		}
 		when := str.ViewOverviewQuiet()
 		if t, ok := m.a.LastTime(k); ok {
-			when = m.clock(t)
+			when = app.Clock(t, m.d.Now())
 		}
 		rows, keys = append(rows, theme.Paint(theme.ScrollbackOverview, cs.Ch.Name)+theme.Paint(theme.ScrollbackSys, str.Separator()+when)), append(keys, k)
 		for _, l := range cs.sb.Tail(overviewLines) {
@@ -457,15 +445,6 @@ func (m *Model) asking() bool {
 
 // scrollOverview moves the overview by delta rows; the next draw clamps it.
 func (m *Model) scrollOverview(delta int) { m.ovTop = max(0, m.ovTop+delta) }
-
-// clock is t as a time of day, with the day first if that wasn't today.
-func (m *Model) clock(t time.Time) string {
-	t = t.Local()
-	if t.Format("2006-01-02") != m.d.Now().Local().Format("2006-01-02") { //str:ok
-		return t.Format(str.DateDayTime())
-	}
-	return t.Format("15:04") //str:ok
-}
 
 // stateName is a connection state as the statusline says it.
 func stateName(s session.State) string {

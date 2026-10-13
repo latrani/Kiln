@@ -342,7 +342,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 				break
 			}
 		}
-		ts := l.Entry.Time.Local().Format("15:04")
+		ts := app.TimeOfDay(l.Entry.Time)
 		if l == b.Cursor {
 			ts = theme.Paint(theme.LogCursor, ts)
 		} else {
