@@ -31,9 +31,9 @@ function SpanView({ s, tags }: { s: Span; tags: Tags }) {
 
 // Line is one scrollback line, drawn from Go's spans: nothing between
 // them, so its text is exactly the line's (kiln.css keeps the spaces).
-export function Line({ line, tags, class: extra }: { line: LineData; tags: Tags; class?: string }) {
+export function Line({ line, tags, class: extra, seq }: { line: LineData; tags: Tags; class?: string; seq?: number }) {
   return (
-    <div class={"line " + kindClass[line.Kind] + (extra ? " " + extra : "")}>
+    <div class={"line " + kindClass[line.Kind] + (extra ? " " + extra : "")} data-seq={seq}>
       {(line.Spans ?? []).map((s, i) => <SpanView key={i} s={s} tags={tags} />)}
     </div>
   );

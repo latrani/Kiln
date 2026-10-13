@@ -2,49 +2,37 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { tagsFor } from "../look.ts";
 import { below, pause } from "../pager.ts";
 import { throttle } from "../presence.ts";
+import { settle } from "../scroll.ts";
+import type { View } from "../scroll.ts";
 import type { LineData, State } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { Line } from "./Line.tsx";
 import { Overview } from "./Overview.tsx";
 
-// View is the page's memory of one character's scrollback, kept across
-// switches as the TUI keeps each character's: whether it's live (at the
-// bottom), where it was (its distance from the end), the last line seen
-// (the pager's mark) and how many lines came below the view.
-interface View {
-  live: boolean;
-  fromEnd: number;
-  seen?: { epoch: number; seq: number };
-  unseen: number;
-}
-
-// Shown is what the last draw showed.
-interface Shown {
-  key: string;
-  epoch?: number;
-  first?: number;
-  last?: number;
-}
-
 function atEnd(e: HTMLElement): boolean {
   return e.scrollHeight - e.scrollTop - e.clientHeight < 2;
 }
 
-// Scrollback is the active character's lines, read aloud as they come:
-// the page's main landmark, with the log inside it (a role on <main>
-// itself would hide the landmark). It sticks to the bottom while live,
-// and stops as the TUI's pager does when more has come than fits since
-// you last looked (sent, switched away, or scrolled to the end); the
-// pill then says how many lines are below. Near the top it asks for
-// older history, keeping your place when it comes. With a world active,
-// it's the world's overview; with nothing configured, a hint. While
-// another tab has Kiln, it says so here instead.
+// rows are the scrollback's lines on the page, in order.
+const rows = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".sb")];
+
+// Scrollback is the active character's lines: the page's main landmark.
+// Lines that come while it shows are read aloud (the log inside it; a
+// role on <main> itself would hide the landmark); lines already there,
+// older history, a world's overview and the hints aren't. It moves as the
+// TUI's does (scroll.ts): live at the end, stopped by the pager when more
+// has come than fits since you last looked (switched away, scrolled to
+// the end), the pill then saying how many lines are below; scrolled up,
+// it keeps the line you're reading where it is, whatever comes above or
+// below or however the pane changes size. Near the top it asks for older
+// history. While another tab has Kiln, it says so here instead.
 export function Scrollback({ state }: { state: State }) {
   const el = useRef<HTMLDivElement>(null);
   const views = useRef(new Map<string, View>());
-  const shown = useRef<Shown>({ key: "" });
+  const shown = useRef({ key: "", epoch: undefined as number | undefined });
   const ours = useRef<number | undefined>(undefined); // the scrollTop the page set
+  const left = useRef<number | undefined>(undefined); // the scrollTop as the last draw or scroll left it
   const asked = useRef(false);
   const act = useRef(state.act);
   act.current = state.act;
@@ -55,13 +43,16 @@ export function Scrollback({ state }: { state: State }) {
   const ls = state.lines[key];
   const ch = state.chars[key];
   const lines: LineData[] = ls?.lines ?? [];
-  const first = lines[0]?.Seq, last = lines.at(-1)?.Seq;
+  const mount = `${key}:${ls?.epoch}`;
+  const keyNow = useRef(key);
+  keyNow.current = key;
 
-  const view = (k: string): View => {
-    let v = views.current.get(k);
-    if (!v) views.current.set(k, (v = { live: true, fromEnd: 0, unseen: 0 }));
-    return v;
-  };
+  // The lines there when this character's lines were first drawn are
+  // history; only those after them go in the live region.
+  const boundary = useRef({ mount: "", seq: -1 });
+  if (boundary.current.mount !== mount) boundary.current = { mount, seq: lines.at(-1)?.Seq ?? -1 };
+  const told = lines.filter((l) => l.Seq <= boundary.current.seq), live = lines.filter((l) => l.Seq > boundary.current.seq);
+
   const scrollTo = (e: HTMLElement, top: number) => {
     e.scrollTop = top;
     ours.current = e.scrollTop;
@@ -71,8 +62,14 @@ export function Scrollback({ state }: { state: State }) {
     v.live = true;
     v.unseen = 0;
   };
-  const markSeen = (v: View) => {
-    if (ls && last !== undefined) v.seen = { epoch: ls.epoch, seq: last };
+  // remember notes the line at the top of the view; restore puts it back.
+  const remember = (e: HTMLElement, v: View) => {
+    const r = rows(e).find((r) => r.offsetTop + r.offsetHeight > e.scrollTop);
+    v.anchor = r ? { seq: Number(r.dataset.seq), off: r.offsetTop - e.scrollTop } : undefined;
+  };
+  const restore = (e: HTMLElement, v: View) => {
+    const r = v.anchor && e.querySelector<HTMLElement>(`.sb[data-seq="${v.anchor.seq}"]`);
+    if (r) scrollTo(e, r.offsetTop - v.anchor!.off);
   };
   // older asks for a page of older history when the view nears the top.
   const older = (e: HTMLElement) => {
@@ -82,73 +79,102 @@ export function Scrollback({ state }: { state: State }) {
     }
   };
 
+  // took takes in a scroll: where the view is now, and whether it's live;
+  // reaching the end yourself counts as seeing what's there.
+  const took = (e: HTMLElement) => {
+    const v = views.current.get(keyNow.current);
+    const mine = ours.current !== undefined && Math.abs(e.scrollTop - ours.current) < 1;
+    ours.current = undefined;
+    left.current = e.scrollTop;
+    if (!v) return;
+    v.live = atEnd(e);
+    remember(e, v);
+    if (v.live) {
+      v.unseen = 0;
+      if (!mine) v.seen = v.last;
+    }
+    setPill(v.live ? undefined : v.unseen);
+  };
+
   useLayoutEffect(() => {
     const e = el.current;
     const prev = shown.current;
-    shown.current = { key, epoch: ls?.epoch, first, last };
-    if (ch?.Loading || prev.key !== key || prev.first !== first) asked.current = false;
-    if (!e) return;
-    const v = view(key);
+    shown.current = { key, epoch: ls?.epoch };
+    if (ch?.Loading || prev.key !== key) asked.current = false;
+    for (const k of views.current.keys()) if (!state.chars[k]) views.current.delete(k); // closed
     if (prev.key !== key) {
       // Switching away counts as seeing what was showing, if it was live.
-      const pv = prev.key ? views.current.get(prev.key) : undefined;
-      if (pv?.live && prev.last !== undefined) pv.seen = { epoch: prev.epoch!, seq: prev.last };
-      if (!v.seen) markSeen(v); // history isn't news
-      if (v.live) toEnd(e, v);
-      else scrollTo(e, e.scrollHeight - v.fromEnd);
-    } else if (ls && prev.epoch !== ls.epoch) {
-      markSeen(v); // a character's lines loaded again aren't news
-      if (v.live) toEnd(e, v);
-      else scrollTo(e, e.scrollHeight - v.fromEnd);
-    } else if (first !== undefined && prev.first !== undefined && first < prev.first) {
-      scrollTo(e, e.scrollHeight - v.fromEnd); // older lines came above: stay put
-    } else if (last !== undefined && prev.last !== undefined && last > prev.last) {
-      if (v.live) {
-        const rows = [...e.querySelectorAll<HTMLElement>(":scope > .sb")];
-        const tops = rows.map((r) => r.offsetTop), heights = rows.map((r) => r.offsetHeight);
-        const seen = v.seen?.epoch === ls?.epoch ? v.seen!.seq : -Infinity;
-        const top = pause(tops, heights, lines.findIndex((l) => l.Seq > seen), e.clientHeight);
-        if (top === undefined) toEnd(e, v);
-        else {
+      const pv = views.current.get(prev.key);
+      if (pv?.live) pv.seen = pv.last;
+    }
+    if (!e) return;
+    if (!ls) {
+      setPill(undefined);
+      return;
+    }
+    // A scroll whose event hasn't come yet is taken in first, or this draw
+    // would undo it.
+    if (prev.key === key && prev.epoch === ls.epoch && left.current !== undefined && Math.abs(e.scrollTop - left.current) >= 1) took(e);
+    const [v, move] = settle(views.current.get(key), ls.epoch, lines, prev.key !== key || prev.epoch !== ls.epoch);
+    views.current.set(key, v);
+    if (move.to === "anchor") restore(e, v);
+    else {
+      let top: number | undefined;
+      if (move.pauseFrom !== undefined) {
+        const rs = rows(e);
+        top = pause(rs.map((r) => r.offsetTop), rs.map((r) => r.offsetHeight), move.pauseFrom, e.clientHeight);
+        if (top !== undefined) {
           scrollTo(e, top);
           v.live = false;
-          v.unseen = below(tops, top, e.clientHeight);
+          v.unseen = below(rs.map((r) => r.offsetTop), e.scrollTop, e.clientHeight);
         }
-      } else v.unseen += lines.filter((l) => l.Seq > prev.last!).length;
-    } else if (v.live) toEnd(e, v);
-    v.fromEnd = e.scrollHeight - e.scrollTop;
+      }
+      if (top === undefined) toEnd(e, v);
+    }
+    remember(e, v);
+    left.current = e.scrollTop;
     setPill(v.live ? undefined : v.unseen);
     older(e);
   });
 
+  // The pane changing size (the window, the input growing) rewraps the
+  // lines: a live view stays at the end, another keeps its line.
+  useLayoutEffect(() => {
+    const e = el.current;
+    if (!e) return;
+    const ro = new ResizeObserver(() => {
+      const v = views.current.get(keyNow.current);
+      if (!v) return;
+      if (v.live) toEnd(e, v);
+      else restore(e, v);
+      left.current = e.scrollTop;
+    });
+    ro.observe(e);
+    return () => ro.disconnect();
+  }, [mount]);
+
   const onScroll = () => {
     const e = el.current!;
-    const v = view(key);
-    const mine = ours.current !== undefined && Math.abs(e.scrollTop - ours.current) < 1;
-    ours.current = undefined;
-    v.live = atEnd(e);
-    v.fromEnd = e.scrollHeight - e.scrollTop;
-    if (v.live) {
-      v.unseen = 0;
-      if (!mine) markSeen(v); // you scrolled to the end: you've seen it
-    }
-    setPill(v.live ? undefined : v.unseen);
+    took(e);
     older(e);
   };
   const onPill = () => {
     const e = el.current!;
-    const v = view(key);
+    const v = views.current.get(key);
+    if (!v) return;
     toEnd(e, v);
-    markSeen(v);
-    v.fromEnd = e.scrollHeight - e.scrollTop;
+    v.seen = v.last;
+    remember(e, v);
+    left.current = e.scrollTop;
     setPill(undefined);
   };
 
   const tags = tagsFor(state.theme, key);
   const prompt = state.inputs[key]?.Prompt;
+  const sb = (l: LineData) => <Line key={`${ls!.epoch}:${l.Seq}`} line={l} tags={tags} class="sb" seq={l.Seq} />;
   return (
     <main class="body">
-      <div class="log" role="log" aria-live="polite" ref={el} onScroll={onScroll} onWheel={scrolled.current} onTouchMove={scrolled.current} key={`${key}:${ls?.epoch}`}>
+      <div class="scroll" ref={el} onScroll={onScroll} onWheel={scrolled.current} onTouchMove={scrolled.current} key={mount}>
         {state.phase === "locked" && (
           <div class="lock">
             <p>{str.webOtherTab()}</p>
@@ -160,8 +186,11 @@ export function Scrollback({ state }: { state: State }) {
           <div class={"line " + roleClass("scrollback.empty")}>{str.viewNoCharacters()}</div>
         )}
         {ch?.More && <div class={"line " + roleClass("scrollback.loading")}>{str.scrollbackLoading()}</div>}
-        {lines.map((l) => <Line key={`${ls!.epoch}:${l.Seq}`} line={l} tags={tags} class="sb" />)}
-        {prompt?.length > 0 && <Line line={{ Seq: 0, Kind: "server", Day: "", Out: false, Plain: "", Spans: prompt, Attention: false, Quiet: false }} tags={tags} />}
+        <div>{told.map(sb)}</div>
+        <div role="log" aria-live="polite">
+          {live.map(sb)}
+          {prompt?.length > 0 && <Line line={{ Seq: 0, Kind: "server", Day: "", Out: false, Plain: "", Spans: prompt, Attention: false, Quiet: false }} tags={tags} />}
+        </div>
       </div>
       {pill !== undefined && (
         <button class={"pill " + roleClass("scrollback.pill")} onClick={onPill}>{pill > 0 ? str.viewPillNew(pill) : str.viewPillMore()}</button>

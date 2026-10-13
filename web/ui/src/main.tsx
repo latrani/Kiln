@@ -22,7 +22,9 @@ const stop = store.subscribe(() => {
   const { phase, act } = store.state;
   if (phase !== "running" || !act) return;
   stop();
-  watch(act, document.querySelector("main")!, paneSize);
+  // Measured inside the scroller: its text box, less any scrollbar.
+  const main = document.querySelector("main")!;
+  watch(act, main, () => paneSize(main.querySelector<HTMLElement>(".scroll") ?? main));
 });
 boot(store).catch((e) => {
   console.error(e);

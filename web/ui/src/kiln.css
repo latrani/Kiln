@@ -31,7 +31,12 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .top button { flex: none; }
 .body { grid-area: body; min-height: 0; position: relative; display: flex; flex-direction: column; }
-.log { flex: 1; overflow-y: auto; position: relative; }
+/* The scroller is the offset parent of its lines (the pager measures
+   them); its gutter is kept, so the width told to the MUCK doesn't change
+   as lines start to overflow. The page keeps your place itself
+   (Scrollback.tsx), the same in every browser, so the browser's own
+   anchoring is off. */
+.scroll { flex: 1; overflow-y: auto; position: relative; scrollbar-gutter: stable; overflow-anchor: none; }
 .pill { position: absolute; right: 0; bottom: 0; }
 
 /* A line wraps in the browser, each wrapped row a character in from the

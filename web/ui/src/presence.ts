@@ -36,7 +36,7 @@ export function switchAction(e: Keyish): object | undefined {
 // or click is you here (at most once a second); the window gaining or
 // losing focus is focus; the switching keys switch; and the scrollback's
 // size in characters goes to the MUCK, settled for 200ms first.
-export function watch(act: (o: object) => void, pane: HTMLElement, size: (el: HTMLElement) => { cols: number; rows: number }): void {
+export function watch(act: (o: object) => void, pane: HTMLElement, size: () => { cols: number; rows: number }): void {
   const here = throttle(() => act({ Do: "here" }), 1000);
   addEventListener("keydown", (e) => {
     here();
@@ -52,7 +52,7 @@ export function watch(act: (o: object) => void, pane: HTMLElement, size: (el: HT
   addEventListener("blur", () => act({ Do: "focus", In: false }));
   let last = "", timer: ReturnType<typeof setTimeout> | undefined;
   const report = () => {
-    const { cols, rows } = size(pane);
+    const { cols, rows } = size();
     const now = `${cols}x${rows}`;
     if (cols > 0 && rows > 0 && now !== last) {
       last = now;

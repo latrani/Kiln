@@ -20,7 +20,7 @@ test("five areas, with landmarks", () => {
   const html = page({ phase: "running" });
   for (const want of ["<header", "<nav", 'class="bottom', 'role="status"']) assert.ok(html.includes(want), want);
   assert.ok(html.includes(`aria-label="${str.webCharacters()}"`));
-  assert.match(html, /<main(?![^>]*role=)[^>]*>\s*<div[^>]*role="log"/, "the scrollback is the main landmark, with the log inside it");
+  assert.match(html, /<main(?![^>]*role=)[^>]*>.*<div[^>]*role="log"[^>]*>.*<\/main>/s, "the scrollback is the main landmark, with the log inside it");
 });
 
 test("buttons look like the TUI's", () => {
@@ -205,4 +205,22 @@ test("a character's name sits a space in under its world, as the TUI's", () => {
   for (const name of [">Kit<", ">Rook<", ">Ash<"]) {
     assert.match(row(page({ phase: "running" }, three), name), /^<li[^>]*><span[^>]*> /, name);
   }
+});
+
+// logRegion is what's inside the scrollback's live region.
+const logRegion = (html: string) => {
+  const at = html.indexOf('role="log"');
+  return html.slice(at, html.indexOf("</div>", html.indexOf(">", at)));
+};
+
+test("lines already there when a character's shown aren't read aloud", () => {
+  const html = page({ phase: "running" }, kitOpen());
+  assert.ok(html.includes("first line") && !logRegion(html).includes("first line"), logRegion(html));
+});
+
+test("the overview, the lock and the empty pane aren't in the live region", () => {
+  const ov = page({ phase: "running" }, [...kitOpen(), { type: "Active", Key: "=fm" }]);
+  assert.ok(ov.includes(">Kit<") && !logRegion(ov).includes("Kit"), logRegion(ov));
+  const lock = page({ phase: "locked" });
+  assert.ok(lock.includes(str.webOtherTab()) && !logRegion(lock).includes(str.webOtherTab()));
 });
