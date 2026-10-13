@@ -907,6 +907,9 @@ export function viewStoreKeychain(): string { return `the keychain`; }
 /** view.too_small: Kiln needs at least {min_w}x{min_h} (now {w}x{h}) */
 export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unknown): string { return `Kiln needs at least ${min_w}x${min_h} (now ${w}x${h})`; }
 
+/** web.characters: Characters */
+export function webCharacters(): string { return `Characters`; }
+
 /** web.loading: loading Kiln… {got} MB */
 export function webLoading(got: unknown): string { return `loading Kiln… ${got} MB`; }
 

@@ -379,6 +379,8 @@ loading = "loading Kiln… {got} MB"
 loading_size = "loading Kiln… {got}/{total} MB"
 stopped = "Kiln stopped."
 reload = "Reload"
+# The sidebar's name for screen readers.
+characters = "Characters"
 
 # Back up and Restore in the web build.
 [backup]

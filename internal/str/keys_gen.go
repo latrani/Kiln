@@ -1097,6 +1097,9 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
+// WebCharacters is web.characters: "Characters"
+func WebCharacters() string { return get("web.characters", nil) }
+
 // WebLoading is web.loading: "loading Kiln… {got} MB"
 func WebLoading(got any) string { return get("web.loading", map[string]any{"got": got}) }
 

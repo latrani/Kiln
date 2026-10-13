@@ -4,3 +4,25 @@
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("../fonts/JetBrainsMono-Bold.woff2") format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: italic; font-display: block; src: url("../fonts/JetBrainsMono-Italic.woff2") format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: italic; font-display: block; src: url("../fonts/JetBrainsMono-BoldItalic.woff2") format("woff2"); }
+
+html, body { margin: 0; height: 100%; }
+body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none; }
+
+/* The TUI's five areas: the sidebar the full height on the left, a
+   one-pixel divider, then the top bar, scrollback, bottom pane and
+   status line stacked on the right. */
+.kiln {
+  display: grid;
+  height: 100dvh;
+  grid-template-columns: 16ch 1px 1fr;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
+}
+.side { grid-area: side; overflow-y: auto; }
+.divider { grid-area: div; background: var(--role-divider-fg); }
+.top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); }
+.body { grid-area: body; overflow-y: auto; min-height: 0; }
+.bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
+.status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
+.lock { padding: 1lh 1ch; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }

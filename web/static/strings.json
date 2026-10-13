@@ -1,4 +1,5 @@
 {
+  "characters": "Characters",
   "loading": "loading Kiln… {got} MB",
   "loading_size": "loading Kiln… {got}/{total} MB",
   "needs_js": "Kiln needs JavaScript.",
