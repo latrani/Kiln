@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fixture from "./testdata/fold.json" with { type: "json" };
 import { color, fold, latte, lookCSS, macchiato, roleClass, themeCSS } from "./theme.ts";
 import type { Span, TagLook, ThemeEvent } from "./types.ts";
+import * as str from "./str.gen.ts";
 
 interface FoldCase { Name: string; Spans: Span[]; Tags: Record<string, TagLook>; Want: Record<string, unknown>[] }
 
@@ -69,4 +70,26 @@ test("the browser's own parts follow the appearance", () => {
   assert.ok(themeCSS(ev("light")).includes("color-scheme:light"));
   const auto = themeCSS(ev("auto"));
   assert.ok(auto.includes("color-scheme:dark") && auto.includes("color-scheme:light"));
+});
+
+test("spans take the appearance's pair of colors", () => {
+  assert.ok(themeCSS(ev("dark")).includes(".s{color:var(--d-fg);background:var(--d-bg)}"));
+  assert.ok(themeCSS(ev("light")).includes(".s{color:var(--l-fg);background:var(--l-bg)}"));
+  const auto = themeCSS(ev("auto"));
+  const at = auto.indexOf("@media");
+  assert.ok(auto.indexOf("--d-fg)") < at && auto.indexOf("--l-fg)") > at, auto);
+});
+
+test("the line glyphs are variables, in every sheet", () => {
+  for (const a of ["dark", "light", "auto"] as const) {
+    const css = themeCSS(ev(a));
+    assert.ok(css.includes(`--g-echo:${JSON.stringify(str.glyph.echo)}`), a);
+    assert.ok(css.includes(`--g-sys:${JSON.stringify(str.glyph.sys)}`) && css.includes(`--g-rule:${JSON.stringify(str.glyph.rule)}`), a);
+  }
+});
+
+test("a link under the pointer takes link.hover", () => {
+  const t = ev("dark");
+  t.Dark.Roles["link.hover"] = { FG: "#abcdef", Underline: true };
+  assert.ok(themeCSS(t).includes(`a.${roleClass("link")}:hover{${lookCSS({ FG: "#abcdef", Underline: true }, macchiato)}}`));
 });

@@ -14,17 +14,49 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .kiln {
   display: grid;
   height: 100dvh;
-  grid-template-columns: 16ch 1px 1fr;
+  grid-template-columns: var(--side) 1px 1fr; /* layout.ts's sidebarCSS */
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
 }
 .side { grid-area: side; overflow-y: auto; }
+/* A sidebar row is one line: the name gives way (cut with …) to the
+   badge and the activity, as the TUI's fitName does. */
+.side ul { list-style: none; margin: 0; padding: 0; }
+.side li { display: flex; white-space: pre; }
+.side button { padding: 0; text-align: left; }
+.side .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+.side .lead, .side .activity { flex: none; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
-.top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); }
-.body { grid-area: body; overflow-y: auto; min-height: 0; }
+.top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); display: flex; }
+.top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.top button { flex: none; }
+.body { grid-area: body; min-height: 0; position: relative; display: flex; flex-direction: column; }
+/* The scroller is the offset parent of its lines (the pager measures
+   them); its gutter is kept, so the width told to the MUCK doesn't change
+   as lines start to overflow. The page keeps your place itself
+   (Scrollback.tsx), the same in every browser, so the browser's own
+   anchoring is off. */
+.scroll { flex: 1; overflow-y: auto; position: relative; scrollbar-gutter: stable; overflow-anchor: none; }
+.pill { position: absolute; right: 0; bottom: 0; }
+
+/* A line wraps in the browser, each wrapped row a character in from the
+   first (the TUI's hanging indent), keeping the server's spaces. */
+.line { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 8; padding-left: 1ch; text-indent: -1ch; }
+.l-echo::before { content: var(--g-echo); }
+.l-sys::before { content: var(--g-sys) " "; }
+.l-day::before { content: var(--g-rule) var(--g-rule) " "; }
+.l-day::after { content: " " var(--g-rule) var(--g-rule); }
+a.s { text-decoration: underline; }
+/* A world's overview: a character's last lines, a row each. */
+.ov { cursor: pointer; }
+.ov .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.ov button { padding: 0; }
+.ov-rule { border: 0; border-top: 1px solid currentColor; margin: calc(.5lh - .5px) 0; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
 .lock { padding: 1lh 1ch; }
 /* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }
 button:disabled { cursor: default; opacity: .6; }
+/* Read aloud, not seen. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

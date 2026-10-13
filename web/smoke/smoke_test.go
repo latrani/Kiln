@@ -31,7 +31,12 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-func TestPageConnectsAndEchoes(t *testing.T) {
+// launch starts the fake MUCK, the relay and Chrome, and opens the page
+// (recording events and actions) in a tab, skipping without
+// KILN_SMOKE=1 or Chrome. another opens the page, not recording, in
+// another tab.
+func launch(t *testing.T) (ws *websocket.Conn, another func() *websocket.Conn) {
+	t.Helper()
 	if os.Getenv("KILN_SMOKE") != "1" {
 		t.Skip("set KILN_SMOKE=1 to run the browser smoke test")
 	}
@@ -47,8 +52,12 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	muckPort := fakeMuck(t)
 	preset, allow := config(t, muckPort)
 	page := startRelay(t, root, static, preset, allow)
-	ws, another := openTab(t, chrome, page+"?record")
+	ws, tab := openTab(t, chrome, page+"?record")
+	return ws, func() *websocket.Conn { return tab(page) }
+}
 
+func TestPageConnectsAndEchoes(t *testing.T) {
+	ws, another := launch(t)
 	ev := evaluator(t, ws)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
 	ev(`kilnPage.act({Do: "open", Key: "fake/tester"})`)
@@ -62,6 +71,29 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
+	waitFor(t, ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes('You say, "hello"'))`, "the echo on the page")
+
+	// The sidebar: as wide as the TUI's, in whole characters; and a
+	// character's name switches to it.
+	waitFor(t, ev, `(() => {
+		const p = Object.assign(document.createElement("span"), { style: "position:absolute;width:1ch" });
+		document.querySelector("nav").append(p);
+		const n = document.querySelector("nav").getBoundingClientRect().width / p.getBoundingClientRect().width;
+		p.remove();
+		return Math.abs(n - Math.round(n)) < 0.01 && n >= 14 && n <= 22;
+	})()`, "the sidebar a whole number of characters wide")
+	ev(`kilnPage.act({Do: "open", Key: "fake/second"})`)
+	waitFor(t, ev, `[...document.querySelectorAll("nav button")].some(b => b.textContent === "Second")`, "a second character in the sidebar")
+	ev(`[...document.querySelectorAll("nav button")].find(b => b.textContent === "Second").click()`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key === "fake/second"`, "switching from the sidebar")
+	ev(`[...document.querySelectorAll("nav button")].find(b => b.textContent === "Tester").click()`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key === "fake/tester"`, "switching back from the sidebar")
+
+	// Presence: a key is you here. Ctrl+↓ steps to the next character.
+	ev(`window.dispatchEvent(new FocusEvent("focus")); document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }))`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Presence").at(-1)?.State === 1`, "presence here")
+	ev(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", ctrlKey: true, bubbles: true }))`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key !== "fake/tester"`, "Ctrl+Down switching")
 
 	// Every glyph Kiln draws comes from the bundled font, one cell wide. A
 	// glyph drawn by a fallback measures differently under a serif and a
@@ -83,7 +115,7 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 
 	// A second tab finds Kiln open in the first and says so, with Use
 	// here; taking over leaves the first tab saying so in turn.
-	ev2 := evaluator(t, another(page))
+	ev2 := evaluator(t, another())
 	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab offering to take over")
 	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
 	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
@@ -167,11 +199,28 @@ func fakeMuck(t *testing.T) int {
 					if l != "" {
 						fmt.Fprintf(c, "You say, %q\r\n", l)
 					}
+					// "spam N" sends N long lines now; "later N", in a second.
+					var n int
+					if _, err := fmt.Sscanf(l, "spam %d", &n); err == nil {
+						lines(c, "spam", n)
+					} else if _, err := fmt.Sscanf(l, "later %d", &n); err == nil {
+						go func() {
+							time.Sleep(time.Second)
+							lines(c, "late", n)
+						}()
+					}
 				}
 			}()
 		}
 	}()
 	return ln.Addr().(*net.TCPAddr).Port
+}
+
+// lines sends n numbered lines long enough to wrap at most widths.
+func lines(c net.Conn, what string, n int) {
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(c, "%s %d: the kiln ticks as it cools, and the glaze settles into the slow colors of the evening light\r\n", what, i)
+	}
 }
 
 // config writes a preset with the fake world, and an allowlist for it.
@@ -182,7 +231,7 @@ func config(t *testing.T, port int) (preset, allow string) {
 	if err := os.MkdirAll(filepath.Join(preset, "worlds"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	world := fmt.Sprintf("host = \"127.0.0.1\"\nport = %d\ntls = true\ntls_trust = \"pin\"\n\n[[characters]]\nid = \"tester\"\nname = \"Tester\"\n", port)
+	world := fmt.Sprintf("host = \"127.0.0.1\"\nport = %d\ntls = true\ntls_trust = \"pin\"\n\n[[characters]]\nid = \"tester\"\nname = \"Tester\"\n\n[[characters]]\nid = \"second\"\nname = \"Second\"\n\n[[characters]]\nid = \"historian\"\nname = \"Historian\"\n", port)
 	if err := os.WriteFile(filepath.Join(preset, "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
 		t.Fatal(err)
 	}

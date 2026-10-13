@@ -380,6 +380,19 @@ stopped = "Kiln stopped."
 reload = "Reload"
 # The sidebar's name for screen readers.
 characters = "Characters"
+# A character's name in the sidebar, for screen readers, when lines have
+# come you haven't read; and when one of them is a priority (the ● the
+# sidebar shows: a page, a whisper, whatever the attention tags flag).
+char_unread = "{name}, {n} unread"
+char_priority = "{name}, {n} unread, including priority"
+# The × beside a disconnected character, for screen readers.
+close_char = "Close {name}"
+# The browser tab's title; with unread lines, how many.
+title = "Kiln"
+title_unread = "({n}) Kiln"
+# A priority line (one the attention tags flag), from a character not
+# showing, read aloud.
+announce = "{name}: {line}"
 
 # Back up and Restore in the web build.
 [backup]

@@ -35,6 +35,7 @@ export interface State {
   progress?: { got: number; total?: number };
   saving: boolean;
   onUseHere?: () => void; // takes Kiln over from another tab
+  act?: (o: object) => void; // asks Kiln for something (webapi's actions)
   theme?: ThemeEvent;
   worlds: any[];
   order: string[];
@@ -52,8 +53,8 @@ export interface State {
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
-const fresh = ({ phase, progress, saving, onUseHere }: Pick<State, "phase" | "progress" | "saving" | "onUseHere">): State => ({
-  phase, progress, saving, onUseHere,
+const fresh = ({ phase, progress, saving, onUseHere, act }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act">): State => ({
+  phase, progress, saving, onUseHere, act,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {},
 });
 

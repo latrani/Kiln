@@ -19,6 +19,7 @@ const (
 	ChoiceNext = "►"
 	Add        = "+" // before an add row
 	Menu       = "≡" // the web's sidebar menu
+	Connecting = "…" // a character still connecting
 )
 
 // All is every glyph by its constant's name, in order, for front ends
@@ -29,4 +30,5 @@ var All = [][2]string{
 	{"Echo", Echo}, {"Sys", Sys}, {"Rule", Rule}, {"Open", Open}, {"Collapsed", Collapsed},
 	{"Filtered", Filtered}, {"Remove", Remove}, {"Selected", Selected}, {"Excluded", Excluded},
 	{"Attention", Attention}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu},
+	{"Connecting", Connecting},
 }

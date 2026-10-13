@@ -19,7 +19,7 @@ type Action struct {
 	Key, Text, Term, Tag, Day, Format, Name, ID, World string
 	Char                                               string
 	Seq, Start, End, Epoch, Cols, Rows                 int
-	N                                                  int // numbers input, submit, older and newer; see feed.Input.Ack
+	N                                                  int // numbers input, submit, older and newer (see feed.Input.Ack); step's distance; next_unread's direction
 	In, Shut, Save                                     bool
 	Item                                               *scene.Item
 	WorldSettings                                      *config.WorldSettings
@@ -40,6 +40,14 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	case "switch": //str:ok
 		a.Switch(act.Key)
+	case "step": //str:ok
+		if k := a.StepTarget(act.N); k != "" {
+			a.Switch(k)
+		}
+	case "next_unread": //str:ok
+		if k := a.UnreadTarget(act.N); k != "" {
+			a.Switch(k)
+		}
 	case "input", "submit", "older", "newer": //str:ok
 		k := l.inputKey()
 		if act.Key != k {
@@ -71,6 +79,8 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		a.SkipLogin()
 	case "here": //str:ok
 		a.Here()
+	case "away": //str:ok
+		a.SetAway()
 	case "scrolled": //str:ok
 		a.Scrolled()
 	case "focus": //str:ok

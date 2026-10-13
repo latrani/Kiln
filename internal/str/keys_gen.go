@@ -1097,8 +1097,26 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
+// WebAnnounce is web.announce: "{name}: {line}"
+func WebAnnounce(name, line any) string {
+	return get("web.announce", map[string]any{"name": name, "line": line})
+}
+
+// WebCharPriority is web.char_priority: "{name}, {n} unread, including priority"
+func WebCharPriority(name any, n int) string {
+	return get("web.char_priority", map[string]any{"name": name, "n": n})
+}
+
+// WebCharUnread is web.char_unread: "{name}, {n} unread"
+func WebCharUnread(n int, name any) string {
+	return get("web.char_unread", map[string]any{"n": n, "name": name})
+}
+
 // WebCharacters is web.characters: "Characters"
 func WebCharacters() string { return get("web.characters", nil) }
+
+// WebCloseChar is web.close_char: "Close {name}"
+func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
 
 // WebLoading is web.loading: "loading Kiln… {got} MB"
 func WebLoading(got any) string { return get("web.loading", map[string]any{"got": got}) }
@@ -1122,6 +1140,12 @@ func WebReload() string { return get("web.reload", nil) }
 
 // WebStopped is web.stopped: "Kiln stopped."
 func WebStopped() string { return get("web.stopped", nil) }
+
+// WebTitle is web.title: "Kiln"
+func WebTitle() string { return get("web.title", nil) }
+
+// WebTitleUnread is web.title_unread: "({n}) Kiln"
+func WebTitleUnread(n int) string { return get("web.title_unread", map[string]any{"n": n}) }
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }

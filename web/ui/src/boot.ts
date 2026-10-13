@@ -131,17 +131,21 @@ export async function boot(store: Store): Promise<void> {
   await seedPreset(fs);
   navigator.storage?.persist?.().catch(() => {}); // best effort; Safari often says no
 
-  const act = (o: object) => g.kiln?.act?.(JSON.stringify(o));
+  // kilnPage is the page's handle for tests: act, and with ?record in the
+  // address every event Go sent and every action the page sent.
+  const record = new URLSearchParams(location.search).has("record");
+  const events: Event[] = [], sent: object[] = [];
+  const act = (o: object) => {
+    if (record) sent.push(o);
+    g.kiln?.act?.(JSON.stringify(o));
+  };
+  store.set({ act });
+  g.kilnPage = record ? { act, events, sent } : { act };
+
   const saveDrafts = () => act({ Do: "save_drafts" });
   // Another tab taking over: save drafts first (Go writes and syncs the
   // file before kiln.act returns), then hand the files over.
   lock?.serve(async () => { saveDrafts(); await persist?.handOff(); }, () => location.reload());
-
-  // kilnPage is the page's handle for tests: act, and with ?record in the
-  // address every event Go sent.
-  const record = new URLSearchParams(location.search).has("record");
-  const events: Event[] = [];
-  g.kilnPage = record ? { act, events } : { act };
 
   // Leaving the tab (another tab or app, the phone locking): save drafts,
   // so iOS killing the tab in the background loses nothing typed.

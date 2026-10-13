@@ -907,8 +907,20 @@ export function viewStoreKeychain(): string { return `the keychain`; }
 /** view.too_small: Kiln needs at least {min_w}x{min_h} (now {w}x{h}) */
 export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unknown): string { return `Kiln needs at least ${min_w}x${min_h} (now ${w}x${h})`; }
 
+/** web.announce: {name}: {line} */
+export function webAnnounce(name: unknown, line: unknown): string { return `${name}: ${line}`; }
+
+/** web.char_priority: {name}, {n} unread, including priority */
+export function webCharPriority(name: unknown, n: number): string { return `${name}, ${n} unread, including priority`; }
+
+/** web.char_unread: {name}, {n} unread */
+export function webCharUnread(n: number, name: unknown): string { return `${name}, ${n} unread`; }
+
 /** web.characters: Characters */
 export function webCharacters(): string { return `Characters`; }
+
+/** web.close_char: Close {name} */
+export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 
 /** web.loading: loading Kiln… {got} MB */
 export function webLoading(got: unknown): string { return `loading Kiln… ${got} MB`; }
@@ -931,6 +943,12 @@ export function webReload(): string { return `Reload`; }
 /** web.stopped: Kiln stopped. */
 export function webStopped(): string { return `Kiln stopped.`; }
 
+/** web.title: Kiln */
+export function webTitle(): string { return `Kiln`; }
+
+/** web.title_unread: ({n}) Kiln */
+export function webTitleUnread(n: number): string { return `(${n}) Kiln`; }
+
 /** web.use_here: Use here */
 export function webUseHere(): string { return `Use here`; }
 
@@ -950,4 +968,5 @@ export const glyph = {
   choiceNext: "►",
   add: "+",
   menu: "≡",
+  connecting: "…",
 } as const;
