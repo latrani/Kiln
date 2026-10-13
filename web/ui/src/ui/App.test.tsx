@@ -321,3 +321,26 @@ test("with the picker open, the sidebar is the picker: worlds, characters to ope
   assert.match(nav, /aria-selected="true"[^>]*>[^<]*Mira/);
   assert.ok(nav.includes(roleClass("picker")), "the picker's area role");
 });
+
+test("the picker's filter: the TUI's one row, a combobox for the list, in the form's area", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "mira", Name: "Mira" }] }] }]);
+  s.openPicker();
+  const html = bottom(render(<App store={s} />));
+  assert.ok(html.includes(roleClass("form")) && !html.includes("<textarea"), "the filter takes the input's place");
+  assert.match(html, new RegExp(`<label[^>]*>${str.pickerFilter()}: </label>`));
+  assert.match(html, /role="combobox"/);
+  assert.match(html, /aria-activedescendant="pick-fm\/mira"/);
+  assert.match(html, /aria-controls="kiln-picker"/);
+  assert.ok(html.includes(str.pickerHint()));
+});
+
+test("a world's overview has no input, but the picker's filter shows there", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([...three, { type: "Active", Key: "=fm" }]);
+  assert.doesNotMatch(bottom(render(<App store={s} />)), /<input|<textarea/);
+  s.openPicker();
+  assert.match(bottom(render(<App store={s} />)), /role="combobox"/);
+});

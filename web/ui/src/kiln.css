@@ -59,6 +59,11 @@ a.s { text-decoration: underline; }
 .ov button { padding: 0; }
 .ov-rule { border: 0; border-top: 1px solid currentColor; margin: calc(.5lh - .5px) 0; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
+.bottom.form { border-top-color: var(--role-rule-form-fg); }
+/* A one-field form, as the TUI's: the label, the field as wide as what's
+   typed, then the hint. */
+.pick-row { display: flex; white-space: pre; }
+.pick-row input { flex: none; field-sizing: content; min-width: 1ch; max-width: 100%; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
 .lock { padding: 1lh 1ch; }
 /* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
