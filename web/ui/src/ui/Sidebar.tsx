@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "preact/hooks";
 import { choose, pickerRows, selKey } from "../picker.ts";
+import type { PickRow } from "../picker.ts";
 import { sidebarRows } from "../sidebar.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -83,21 +84,39 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
-        {pickerRows(state.worlds, state.chars, p.filter).map((r) => {
-          if (r.kind === "world") {
-            return <li key={"=" + r.world} role="presentation" class={"pick " + roleClass("picker.world")}>{r.world}</li>;
-          }
-          // A character's row is lit across, one space in; "+ Character"
-          // is a chip, one space in.
-          const k = selKey(r);
-          const on = k === p.sel;
-          const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
-          if (r.kind === "add_char") {
-            return <li {...opts} class="pick"> <span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
-          }
-          return <li {...opts} class={"pick " + (on ? roleClass("picker.selected") : "")}> {r.name}</li>;
-        })}
+        {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
+          // Each world's options are a group named for it, so a screen
+          // reader says which world a character is in; its header row is
+          // the name drawn.
+          <li key={"=" + world} role="group" aria-label={world}>
+            <span aria-hidden="true" class={"pick " + roleClass("picker.world")}>{world}</span>
+            <ul role="none">
+              {rows.map((r) => {
+                // A character's row is lit across, one space in; "+
+                // Character" is a chip, one space in.
+                const k = selKey(r);
+                const on = k === p.sel;
+                const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
+                if (r.kind === "add_char") {
+                  return <li {...opts} class="pick"> <span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
+                }
+                return <li {...opts} class={"pick " + (on ? roleClass("picker.selected") : "")}> {r.kind === "char" ? r.name : ""}</li>;
+              })}
+            </ul>
+          </li>
+        ))}
       </ul>
     </nav>
   );
+}
+
+// groups splits the picker's rows by world: each world header's rows
+// after it.
+function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
+  const out: { world: string; rows: PickRow[] }[] = [];
+  for (const r of rows) {
+    if (r.kind === "world") out.push({ world: r.world, rows: [] });
+    else out.at(-1)?.rows.push(r);
+  }
+  return out;
 }

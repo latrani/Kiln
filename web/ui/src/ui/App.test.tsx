@@ -368,3 +368,16 @@ test("behind the picker, the scrollback is dimmed in scrollback.inactive; the ov
   s.closePicker();
   assert.doesNotMatch(render(<App store={s} />), /class="scroll dim/);
 });
+
+test("the picker's list groups each world's options under the world's name, for screen readers", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }, { ID: "pf", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  s.openPicker();
+  const html = render(<App store={s} />);
+  const list = html.slice(html.indexOf('role="listbox"'), html.indexOf("</nav>"));
+  const groups = [...list.matchAll(/<li role="group" aria-label="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(groups, ["fm", "pf"]);
+  assert.doesNotMatch(list, /role="presentation"/, "a listbox owns only options and groups");
+  assert.match(list, /<li role="group" aria-label="fm"><span aria-hidden="true"[^>]*>fm<\/span><ul role="none"><li[^>]*role="option"/);
+});

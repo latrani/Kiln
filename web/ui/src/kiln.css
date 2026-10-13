@@ -31,7 +31,8 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 /* The picker's rows: one line each; a character's lit across when
    highlighted; a click picks. */
 .side .pick { overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.side .pick[role="presentation"] { cursor: default; }
+.side li[role="group"] { display: block; }
+.side li[role="group"] > span { display: block; cursor: default; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
 .top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); display: flex; }
 .top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
