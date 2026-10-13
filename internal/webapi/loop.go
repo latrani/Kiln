@@ -39,12 +39,14 @@ type Loop struct {
 	opts          Options           // as Run was given them
 	drafts        map[string]string // saved drafts not yet restored, by key ("" for the idle input)
 	onDisk        map[string]string // the drafts last written
+	lk            looks             // the theme as last sent
 }
 
 // Options are how Run starts.
 type Options struct {
 	Autoconnect bool   // open and connect autoconnect characters first
 	Drafts      string // the file drafts are saved to and restored from; "" for none
+	ConfigDir   string // where themes are read from; "" for the built-in only
 }
 
 // say is a status for the loop to put up; see Say.
@@ -131,7 +133,7 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 		delete(l.drafts, "")
 	}
 	l.perform(effs)
-	l.send(anys(l.f.All()))
+	l.send(l.events(nil, true))
 	t := time.NewTicker(tickEvery)
 	defer t.Stop()
 	for {
@@ -157,18 +159,45 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 }
 
 // events is a turn's events, or with all everything, followed either way
-// by the turn's effects for the page.
+// by the turn's effects for the page. The theme goes first when the
+// config changed it, and with all right after Start.
 func (l *Loop) events(effs []app.Effect, all bool) []any {
+	themed := l.restyle()
 	if !all {
-		return anys(l.f.Turn(effs))
+		evs := anys(l.f.Turn(effs))
+		if themed {
+			evs = append([]any{l.lk.ev}, evs...)
+		}
+		return evs
 	}
 	evs := anys(l.f.All())
+	evs = append(evs[:1], append([]any{l.lk.ev}, evs[1:]...)...) // after Start
 	for _, e := range effs {
 		if _, ok := e.(app.Run); !ok {
 			evs = append(evs, feed.Effect{Effect: e})
 		}
 	}
 	return evs
+}
+
+// restyle loads the theme again if the config changed since it was
+// last loaded, saying on the status line why a theme or a character's
+// looks didn't load, as the TUI does. It reports whether the theme the
+// page has changed.
+func (l *Loop) restyle() bool {
+	if l.lk.loaded && l.a.Config() == l.lk.cfg {
+		return false
+	}
+	changed, err := l.lk.load(l.opts.ConfigDir, l.a.Config(), l.a.AllChars())
+	for _, k := range l.a.Order() {
+		if err := l.lk.lookErrs[k]; err != nil {
+			l.a.SetStatus(true, str.StatusCharError(k, err))
+		}
+	}
+	if err != nil {
+		l.a.SetStatus(true, str.StatusThemeNotLoaded(err))
+	}
+	return changed
 }
 
 func anys(evs []feed.Event) []any {
@@ -195,7 +224,7 @@ func (l *Loop) perform(effs []app.Effect) (quit bool) {
 }
 
 func (l *Loop) send(evs []any) {
-	b, err := Encode(evs, nil)
+	b, err := Encode(evs, l.lk.highlighter)
 	if err != nil {
 		return // a value that won't marshal is a bug here, not news for the page
 	}
@@ -254,6 +283,8 @@ func (l *Loop) open(k string) {
 	c, err := l.a.Open(k)
 	if c != nil && err != nil {
 		l.a.SetStatus(true, str.StatusCharError(k, err))
+	} else if lerr := l.lk.lookErrs[k]; c != nil && lerr != nil {
+		l.a.SetStatus(true, str.StatusCharError(k, lerr))
 	}
 	if d := l.drafts[k]; c != nil && d != "" {
 		l.a.SetDraft(k, d)

@@ -111,6 +111,6 @@ func run(k js.Value, p page) error {
 	if !p.saving {
 		l.Say(true, str.WebNotSaving())
 	}
-	l.Run(context.Background(), webapi.Options{Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json")}) //str:ok
+	l.Run(context.Background(), webapi.Options{Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir}) //str:ok
 	return nil
 }
