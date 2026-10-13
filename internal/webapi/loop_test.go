@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -685,5 +686,28 @@ func TestInputForACharacterSwitchedAwayKeepsItsDraft(t *testing.T) {
 	}
 	if got := h.a.Text(); got != "" {
 		t.Errorf("Rook's input %q: Kit's typing went to Rook", got)
+	}
+}
+
+func TestOverRanges(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		max  int
+		mode string
+		want [][2]int
+	}{
+		{"12345", 5, "batch", nil},
+		{"123456", 5, "batch", [][2]int{{5, 6}}},
+		{"123\n456789", 5, "batch", [][2]int{{9, 10}}},
+		{"1234567\n123456", 5, "batch", [][2]int{{5, 7}, {13, 14}}},
+		{"123\n456", 5, "flatten", [][2]int{{5, 7}}}, // "123 456": the 6th byte is "5"
+		{"1234567\n12", 5, "flatten", [][2]int{{5, 10}}},
+		{"éééé", 5, "batch", [][2]int{{2, 4}}}, // é is 2 bytes: the 3rd é ends at byte 6
+		{"ab😀", 3, "batch", [][2]int{{2, 4}}}, // the emoji is 4 bytes, 2 UTF-16 units
+		{"anything", 0, "batch", nil},
+	} {
+		if got := OverRanges(c.text, c.max, c.mode); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%q max %d %s: %v, want %v", c.text, c.max, c.mode, got, c.want)
+		}
 	}
 }

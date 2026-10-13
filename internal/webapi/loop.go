@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
@@ -278,6 +280,44 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 // mark the overflow as you type.
 func OverLimit(text string, maxLineBytes int, newlineMode string) bool {
 	return app.OverLimit(text, config.Character{MaxLineBytes: maxLineBytes, NewlineMode: newlineMode})
+}
+
+// OverRanges is where text runs past a Char event's MaxLineBytes, for
+// the page to mark as the TUI's input does: [start, end) in UTF-16 code
+// units (the browser's string offsets), from the character that takes a
+// line past the limit to the line's end. With newline_mode "flatten" the
+// lines count as one joined by spaces, so once past, the rest is over.
+// nil when nothing is.
+func OverRanges(text string, maxLineBytes int, newlineMode string) [][2]int {
+	if maxLineBytes <= 0 {
+		return nil
+	}
+	joined := newlineMode == "flatten" //str:ok
+	var out [][2]int
+	bytes, at, start := 0, 0, -1 // start: where the open range began
+	for _, r := range text {
+		if r == '\n' {
+			if joined {
+				bytes++ // the joining space
+			} else {
+				if start >= 0 {
+					out = append(out, [2]int{start, at})
+				}
+				bytes, start = 0, -1
+			}
+			at++
+			continue
+		}
+		bytes += utf8.RuneLen(r)
+		if start < 0 && bytes > maxLineBytes {
+			start = at
+		}
+		at += utf16.RuneLen(r)
+	}
+	if start >= 0 {
+		out = append(out, [2]int{start, at})
+	}
+	return out
 }
 
 // CheckField is what to say about a settings field (a config key) as
