@@ -269,6 +269,10 @@ test("the password form: a hidden username for password managers, the TUI's labe
   assert.match(html, /<input[^>]*type="password"[^>]*autocomplete="current-password"/);
   assert.match(html, new RegExp(`<label[^>]*>${str.viewPasswordLabel("Kit")}</label>`));
   assert.ok(html.includes(str.viewPasswordKeys()) && html.includes(roleClass("input.hint")));
+  const keys = html.match(/<span[^>]*id="([^"]+)"[^>]*>([^<]*)<\/span>/);
+  assert.equal(keys?.[2], str.viewPasswordKeys(), "the keys have an id");
+  assert.match(html, new RegExp(`<input[^>]*type="password"[^>]*aria-describedby="${keys?.[1]}"`), "the field is described by its keys");
+  assert.doesNotMatch(html, /aria-hidden/, "the keys are read");
   assert.ok(!html.includes("<textarea"), "the form takes the input's place");
 });
 

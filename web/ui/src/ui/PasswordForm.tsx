@@ -7,8 +7,9 @@ import { roleClass } from "../theme.ts";
 // PasswordForm is the TUI's password prompt as a real form, so password
 // managers fill it: a hidden username, the character's name @ its
 // world's id (so they tell worlds apart), and the password. Enter logs
-// in; Esc skips. The password goes to Go once, as the submit, and is
-// never held or drafted here.
+// in; Esc skips. The password goes to Go once, as the password action,
+// and is never held or drafted here; it stays in its field until the
+// form goes, so password managers see what was used.
 export function PasswordForm({ state }: { state: State }) {
   const ref = useRef<HTMLInputElement>(null);
   const key = state.active;
@@ -16,9 +17,7 @@ export function PasswordForm({ state }: { state: State }) {
   useEffect(() => ref.current?.focus(), [key]);
   const onSubmit = (e: Event) => {
     e.preventDefault();
-    const f = ref.current!;
-    state.typing?.password(key, f.value);
-    f.value = "";
+    state.typing?.password(key, ref.current!.value);
   };
   // Enter submits: with the hidden username beside it, the browser won't
   // by itself (no submit button, two fields).
@@ -35,8 +34,8 @@ export function PasswordForm({ state }: { state: State }) {
     <form class="password" onSubmit={onSubmit}>
       <input type="text" name="username" autocomplete="username" value={`${c.Name}@${c.World}`} hidden readOnly />
       <label for="kiln-password" class={roleClass("input.hint")}>{str.viewPasswordLabel(c.Name)}</label>
-      <input id="kiln-password" ref={ref} type="password" name="password" autocomplete="current-password" onKeyDown={onKeyDown} disabled={state.phase === "stopped"} />
-      <span class={roleClass("input.hint")} aria-hidden="true">{str.viewPasswordKeys()}</span>
+      <input id="kiln-password" ref={ref} type="password" name="password" autocomplete="current-password" aria-describedby="kiln-password-keys" onKeyDown={onKeyDown} disabled={state.phase === "stopped"} />
+      <span id="kiln-password-keys" class={roleClass("input.hint")}>{str.viewPasswordKeys()}</span>
     </form>
   );
 }
