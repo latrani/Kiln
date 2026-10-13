@@ -44,6 +44,28 @@ func TestScrollbackMoves(t *testing.T) {
 	login("fake/tester", 2000)
 	login("fake/second", 3000)
 	ev(`click("Tester")`)
+
+	// Typing is kept across switching: not sent, it's the character's
+	// draft; and keys typed just before a switch aren't lost.
+	textarea := `document.querySelector(".bottom textarea")`
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Tester") && document.activeElement === `+textarea, "Tester's input focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "half a pose"})
+	time.Sleep(500 * time.Millisecond)
+	ev(`click("Second")`)
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Second") && `+textarea+`.value === ""`, "Second's own input")
+	ev(`click("Tester")`)
+	waitFor(t, ev, textarea+`.value === "half a pose"`, "Tester's draft back")
+	waitFor(t, ev, `document.activeElement === `+textarea, "Tester's input focused again")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": " more"})
+	ev(`click("Second")`) // before the typing would have been sent
+	if got := ev(`(() => { const s = kilnPage.sent; const i = s.findLastIndex(a => a.Do === "input" && a.Text === "half a pose more"); return i >= 0 && i < s.findLastIndex(a => a.Do === "switch"); })()`); got != "true" {
+		t.Error("the typing didn't go before the switch")
+	}
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Second")`, "on Second")
+	ev(`click("Tester")`)
+	waitFor(t, ev, textarea+`.value === "half a pose more"`, "keys typed just before a switch kept")
+	ev(`(() => { const t = ` + textarea + `; t.select(); })()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": ""})
 	say := func(text string, n int) {
 		ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "` + text + `", N: ` + strconv.Itoa(n) + `})`)
 	}

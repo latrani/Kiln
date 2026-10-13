@@ -1,6 +1,7 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { Typing } from "./typing.ts";
+import { Store } from "./store.ts";
 
 const setup = () => {
   mock.timers.enable({ apis: ["setTimeout"] });
@@ -96,4 +97,22 @@ test("leaving the tab saves drafts after what's typed", (c) => {
   t.edit("kit", "half a pose");
   t.act({ Do: "save_drafts" });
   assert.deepEqual(sent.map((o) => [o.Do, o.Text]), [["input", "half a pose"], ["save_drafts", undefined]]);
+});
+
+test("the page numbers past anything Go has taken, so its typing is never older", (c) => {
+  const { t, sent } = setup();
+  c.after(() => mock.timers.reset());
+  t.saw(2001); // someone else's numbered actions
+  t.edit("k", "draft");
+  t.flush();
+  assert.ok(sent[0].N > 2001);
+  assert.equal(t.takes("k", 2001), false, "Go's text is older than the draft");
+});
+
+test("the store tells typing what Go has taken", () => {
+  const s = new Store();
+  s.apply([{ type: "Input", Key: "k", Text: "", Ack: 50 }]);
+  s.state.typing!.edit("k", "x");
+  s.state.typing!.ready(() => {});
+  assert.equal(s.state.typing!.takes("k", 50), false);
 });

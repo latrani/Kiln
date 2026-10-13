@@ -123,7 +123,9 @@ export class Store {
       case "Order": return { ...s, order: e.Keys ?? [] };
       case "Active": return { ...s, active: k };
       case "Char": return { ...s, chars: { ...s.chars, [k]: e } };
-      case "Input": return { ...s, inputs: { ...s.inputs, [k]: e } };
+      case "Input":
+        s.typing?.saw(e.Ack ?? 0);
+        return { ...s, inputs: { ...s.inputs, [k]: e } };
       case "Log": return { ...s, logs: { ...s.logs, [k]: e } };
       case "Filter": return { ...s, filters: { ...s.filters, [k]: e } };
       case "Closed":

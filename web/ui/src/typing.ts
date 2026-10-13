@@ -99,6 +99,13 @@ export class Typing {
     this.send_({ Do: "submit", Key: key, Text: text, N: r.n }, true);
   }
 
+  // saw notes an action number Go has taken, so the page's next number is
+  // past it: whatever else numbered actions (a test, an older page), the
+  // page's typing is never taken for older than Go's text.
+  saw(ack: number): void {
+    this.next = Math.max(this.next, ack);
+  }
+
   // takes reports whether to show Go's text for key, acked to ack.
   takes(key: string, ack: number): boolean {
     const r = this.recs.get(key);
