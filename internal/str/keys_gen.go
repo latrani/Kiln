@@ -1102,18 +1102,14 @@ func WebAnnounce(name, line any) string {
 	return get("web.announce", map[string]any{"name": name, "line": line})
 }
 
-// WebCharAttention is web.char_attention, by count:
-//   - one: "{name}, 1 unread, wants attention"
-//   - other: "{name}, {n} unread, wants attention"
-func WebCharAttention(n int, name any) string {
-	return count("web.char_attention", n, map[string]any{"n": n, "name": name})
+// WebCharPriority is web.char_priority: "{name}, {n} unread, including priority"
+func WebCharPriority(name any, n int) string {
+	return get("web.char_priority", map[string]any{"name": name, "n": n})
 }
 
-// WebCharUnread is web.char_unread, by count:
-//   - one: "{name}, 1 unread"
-//   - other: "{name}, {n} unread"
+// WebCharUnread is web.char_unread: "{name}, {n} unread"
 func WebCharUnread(n int, name any) string {
-	return count("web.char_unread", n, map[string]any{"n": n, "name": name})
+	return get("web.char_unread", map[string]any{"n": n, "name": name})
 }
 
 // WebCharacters is web.characters: "Characters"

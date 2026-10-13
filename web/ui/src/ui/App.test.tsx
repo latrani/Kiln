@@ -128,9 +128,9 @@ test("the sidebar: worlds, characters, the active one", () => {
   assert.match(kit, /<button[^>]*aria-current="true"[^>]*>Kit</);
 });
 
-test("the sidebar: unread, attention and closing", () => {
+test("the sidebar: unread, priority and closing", () => {
   const rook = row(page({ phase: "running" }, three), ">Rook<");
-  assert.ok(rook.includes(`aria-label="${str.webCharAttention(3, "Rook")}"`), rook);
+  assert.ok(rook.includes(`aria-label="${str.webCharPriority("Rook", 3)}"`), rook);
   assert.ok(rook.includes(str.glyph.attention) && rook.includes(roleClass("sidebar.attention")), rook);
   assert.match(rook, new RegExp(`class="${roleClass("sidebar.unread")}"[^>]*>3<`));
   assert.match(rook, new RegExp(`<button[^>]*aria-label="${str.webCloseChar("Rook")}"[^>]*>${str.glyph.remove}</button>`));

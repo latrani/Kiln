@@ -910,21 +910,11 @@ export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unkn
 /** web.announce: {name}: {line} */
 export function webAnnounce(name: unknown, line: unknown): string { return `${name}: ${line}`; }
 
-/** web.char_attention: one: {name}, 1 unread, wants attention · other: {name}, {n} unread, wants attention */
-export function webCharAttention(n: number, name: unknown): string {
-  switch (plural.select(n)) {
-    case "one": return `${name}, 1 unread, wants attention`;
-    default: return `${name}, ${n} unread, wants attention`;
-  }
-}
+/** web.char_priority: {name}, {n} unread, including priority */
+export function webCharPriority(name: unknown, n: number): string { return `${name}, ${n} unread, including priority`; }
 
-/** web.char_unread: one: {name}, 1 unread · other: {name}, {n} unread */
-export function webCharUnread(n: number, name: unknown): string {
-  switch (plural.select(n)) {
-    case "one": return `${name}, 1 unread`;
-    default: return `${name}, ${n} unread`;
-  }
-}
+/** web.char_unread: {name}, {n} unread */
+export function webCharUnread(n: number, name: unknown): string { return `${name}, ${n} unread`; }
 
 /** web.characters: Characters */
 export function webCharacters(): string { return `Characters`; }
