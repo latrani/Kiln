@@ -231,8 +231,18 @@ const bottom = (html: string) => html.slice(html.indexOf('class="bottom'), html.
 test("the input: its name, the gutter, and Go's text", () => {
   const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "a draft", Ack: 0 }]));
   assert.match(html, new RegExp(`<textarea[^>]*aria-label="${str.webInput("Kit")}"`));
-  assert.match(html, new RegExp(`<span[^>]*aria-hidden="true"[^>]*>${str.glyph.echo}</span>`));
+  assert.equal(marks(html), 1);
   assert.match(html, />a draft<\/textarea>|value="a draft"/);
+});
+
+// marks counts the input's › marks.
+const marks = (html: string) => html.split(`data-mark="${str.glyph.echo}"`).length - 1;
+
+test("each line sent on its own has its ›, as the TUI's input; flattened, only the first", () => {
+  const typed: Event = { type: "Input", Key: "fm/kit", Text: "one\ntwo\n", Ack: 0 };
+  assert.equal(marks(bottom(page({ phase: "running" }, [...three, typed]))), 3, "batch: the empty last line too");
+  const flat: Event = { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2, NewlineMode: "flatten" };
+  assert.equal(marks(bottom(page({ phase: "running" }, [...three, flat, typed]))), 1);
 });
 
 test("the input's hints, as the TUI's prompt", () => {

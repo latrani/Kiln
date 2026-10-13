@@ -79,6 +79,7 @@ export function Input({ state }: { state: State }) {
   }
   const ranges = over(value, c);
   const said = value ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does
+  const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›
 
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
@@ -127,8 +128,10 @@ export function Input({ state }: { state: State }) {
 
   return (
     <div class="input-row">
-      {!said && <span class="gutter" aria-hidden="true">{str.glyph.echo}</span>}
-      <div class={"field" + (ranges.length ? " marked" : "")} data-value={value}>
+      <div class={"field" + (said ? "" : " echo") + (ranges.length ? " marked" : "")}>
+        <div class="mirror" aria-hidden="true">
+          {value.split("\n").map((l, i) => <div data-mark={!said && (i === 0 || !flat) ? str.glyph.echo : undefined}>{l}</div>)}
+        </div>
         {ranges.length > 0 && <Overflow text={value} ranges={ranges} />}
         <textarea ref={ref} rows={1} value={value} placeholder={said}
           aria-label={c ? str.webInput(c.Name) : str.webInputIdle()} disabled={state.phase === "stopped"}

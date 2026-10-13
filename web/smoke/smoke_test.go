@@ -98,6 +98,24 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	if got := ev(`(() => { const t = document.querySelector(".bottom textarea"); return t.value === ` + jsString(long) + ` && t.selectionStart < t.value.length; })()`); got != "true" {
 		t.Error("↑ on a wrapped line's last row didn't move the caret up a row")
 	}
+	// Each line sent on its own has its ›, beside the row it starts on in
+	// the textarea, however the line before it wraps.
+	ev(`document.querySelector(".bottom textarea").select()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": long + "\nsecond"})
+	if got := ev(`(() => {
+		const t = document.querySelector(".bottom textarea"), lh = parseFloat(getComputedStyle(t).lineHeight);
+		const c = Object.assign(document.createElement("textarea"), { value: ` + jsString(long) + `, rows: 1 });
+		c.style.cssText = "position:absolute;height:0;padding:0;border:0;font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;width:" + t.clientWidth + "px";
+		document.body.append(c);
+		const rows = Math.round(c.scrollHeight / lh);
+		c.remove();
+		const ms = [...document.querySelectorAll(".bottom [data-mark]")];
+		const shown = ms.every(m => getComputedStyle(m, "::before").visibility === "visible" && getComputedStyle(m, "::before").content.includes(` + jsString(glyph.Echo) + `));
+		const tops = ms.map(m => Math.round((m.getBoundingClientRect().top - t.getBoundingClientRect().top) / lh));
+		return rows >= 2 && shown && tops.length === 2 && tops[0] === 0 && tops[1] === rows || JSON.stringify({ rows, tops, shown });
+	})()`); got != "true" {
+		t.Errorf("the marks: %s", got)
+	}
 
 	// /backup gives a file; /restore picks one and puts it back.
 	ev(`document.querySelector(".bottom textarea").select()`)
