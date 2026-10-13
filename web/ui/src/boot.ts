@@ -78,15 +78,16 @@ export function toBase64(bytes: Uint8Array): string {
 }
 
 // pickFile asks for a file (a backup to restore) and gives its bytes to
-// done; nothing if none is chosen.
-export function pickFile(accept: string, done: (bytes: Uint8Array) => void): void {
+// done, no more than max and one past it, so Go can say a file is too
+// big without the page reading all of one; nothing if none is chosen.
+export function pickFile(accept: string, max: number, done: (bytes: Uint8Array) => void): void {
   const f = Object.assign(document.createElement("input"), { type: "file", accept, hidden: true });
   document.body.append(f);
   f.addEventListener("cancel", () => f.remove());
   f.addEventListener("change", async () => {
     const file = f.files?.[0];
     f.remove();
-    if (file) done(new Uint8Array(await file.arrayBuffer()));
+    if (file) done(new Uint8Array(await file.slice(0, max + 1).arrayBuffer()));
   });
   f.click();
 }

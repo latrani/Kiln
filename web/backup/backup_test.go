@@ -113,6 +113,14 @@ func TestUnzipTooBig(t *testing.T) {
 	}
 }
 
+func TestUnzipFileTooBig(t *testing.T) {
+	dst := t.TempDir()
+	_, err := Unzip(make([]byte, MaxFile+1), filepath.Join(dst, "config"), filepath.Join(dst, "known_hosts"))
+	if err == nil || err.Error() != str.BackupFileTooBig(MaxFile>>20) {
+		t.Errorf("a file over MaxFile: %v", err)
+	}
+}
+
 // Each file is under the cap, but together they pass it. The error must
 // be the too-big one, and nothing may be written.
 func TestUnzipTooBigTogetherWritesNothing(t *testing.T) {

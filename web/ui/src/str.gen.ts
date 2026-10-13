@@ -11,6 +11,9 @@ export function backupEmpty(): string { return `no Kiln files in this backup`; }
 /** backup.file_name: kiln-backup-{date}.zip */
 export function backupFileName(date: unknown): string { return `kiln-backup-${date}.zip`; }
 
+/** backup.file_too_big: the file is over {mb} MB, too big to be a Kiln backup */
+export function backupFileTooBig(mb: unknown): string { return `the file is over ${mb} MB, too big to be a Kiln backup`; }
+
 /** backup.not_zip: not a zip file */
 export function backupNotZip(): string { return `not a zip file`; }
 

@@ -15,7 +15,7 @@ function effect(e: Event): void {
   if (e.effect === "SaveFile") {
     download(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
   } else if (e.effect === "Do" && e.Cmd === "/restore") {
-    pickFile(".zip,application/zip", (bytes) => store.state.act?.({ Do: "restore", Data: toBase64(bytes) }));
+    pickFile(".zip,application/zip", (globalThis as any).kiln.maxBackup, (bytes) => store.state.act?.({ Do: "restore", Data: toBase64(bytes) }));
   }
 }
 

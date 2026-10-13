@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -21,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +31,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/web/backup"
 )
 
 // launch starts the fake MUCK, the relay and Chrome, and opens the page
@@ -123,6 +126,22 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	}
 	said, _ := json.Marshal(restored)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && `+string(said)+`.includes(e.Text))`, "the backup restored")
+	// A file far too big to be a backup: the page reads only as much as
+	// one could be, and the status line says why it wasn't restored.
+	huge := filepath.Join(t.TempDir(), "huge.zip")
+	if err := os.WriteFile(huge, make([]byte, 4*backup.MaxFile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "/restore"})
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `document.querySelector('input[type="file"]')`, "the file picker again")
+	json.Unmarshal(devtools(t, ws, "Runtime.evaluate", map[string]any{"expression": `document.querySelector('input[type="file"]')`}), &picker)
+	devtools(t, ws, "DOM.setFileInputFiles", map[string]any{"files": []string{huge}, "objectId": picker.Result.ObjectID})
+	tooBig, _ := json.Marshal(str.StatusRestoreFailed(errors.New(str.BackupFileTooBig(backup.MaxFile >> 20))))
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && e.Text === `+string(tooBig)+`)`, "a file too big, refused")
+	if got := ev(`kilnPage.sent.filter(a => a.Do === "restore").at(-1).Data.length <= Math.ceil((` + strconv.Itoa(backup.MaxFile) + ` + 1) / 3) * 4`); got != "true" {
+		t.Error("the page read more of the file than a backup could be")
+	}
 
 	// The sidebar: as wide as the TUI's, in whole characters; and a
 	// character's name switches to it.

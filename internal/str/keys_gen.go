@@ -8,6 +8,9 @@ func BackupEmpty() string { return get("backup.empty", nil) }
 // BackupFileName is backup.file_name: "kiln-backup-{date}.zip"
 func BackupFileName(date any) string { return get("backup.file_name", map[string]any{"date": date}) }
 
+// BackupFileTooBig is backup.file_too_big: "the file is over {mb} MB, too big to be a Kiln backup"
+func BackupFileTooBig(mb any) string { return get("backup.file_too_big", map[string]any{"mb": mb}) }
+
 // BackupNotZip is backup.not_zip: "not a zip file"
 func BackupNotZip() string { return get("backup.not_zip", nil) }
 
