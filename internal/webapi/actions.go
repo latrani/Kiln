@@ -41,6 +41,18 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	case "switch": //str:ok
 		a.Switch(act.Key)
+	case "pick": //str:ok
+		// The picker's Enter on a character, as the TUI's pick: open it,
+		// show it and connect it. One already open (autoconnect, or opened
+		// since the page drew the picker) is only shown.
+		was := a.Char(act.Key) != nil
+		l.open(act.Key)
+		if a.Char(act.Key) != nil {
+			a.Switch(act.Key)
+			if !was {
+				effs = a.Connect(act.Key)
+			}
+		}
 	case "step": //str:ok
 		if k := a.StepTarget(act.N); k != "" {
 			a.Switch(k)

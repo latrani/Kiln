@@ -835,3 +835,44 @@ func TestRestoreFailingSaysSo(t *testing.T) {
 		t.Errorf("status %v", st)
 	}
 }
+
+func TestPickOpensSwitchesAndConnects(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"pick","Key":"fm/rook"}`)
+	if a := event(b, "Active"); a == nil || a["Key"] != "fm/rook" {
+		t.Errorf("active %v", a)
+	}
+	deadline := time.After(2 * time.Second)
+	for {
+		if c := event(b, "Char"); c != nil && c["Key"] == "fm/rook" && c["State"] != float64(session.Disconnected) {
+			return
+		}
+		select {
+		case b = <-h.batches:
+		case <-deadline:
+			t.Fatal("never connecting")
+		}
+	}
+}
+
+func TestPickAnOpenCharacterOnlySwitches(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	h.act(`{"Do":"switch","Key":"fm/kit"}`)
+	h.act(`{"Do":"pick","Key":"fm/rook"}`)
+	if got := h.a.Active(); got != "fm/rook" {
+		t.Errorf("active %q", got)
+	}
+	if h.a.Char("fm/rook").Sess != nil {
+		t.Error("picking an open character connected it")
+	}
+}
+
+func TestPickSomeoneUnknownDoesNothing(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"pick","Key":"fm/nobody"}`)
+	if h.a.Char("fm/nobody") != nil || h.a.Active() != "" {
+		t.Error("picked a character that isn't configured")
+	}
+}
