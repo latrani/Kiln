@@ -634,3 +634,15 @@ func TestCheckField(t *testing.T) {
 		t.Errorf("CheckField(port, 5555) = %q", got)
 	}
 }
+
+func TestAwaySaysSo(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"focus","In":true}`) // unfocused is away already
+	b := h.act(`{"Do":"away"}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusAway() {
+		t.Errorf("status %v", st)
+	}
+	if p := event(b, "Presence"); p == nil || p["State"] != float64(app.PresenceAway) {
+		t.Errorf("presence %v", p)
+	}
+}

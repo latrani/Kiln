@@ -71,6 +71,8 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		a.SkipLogin()
 	case "here": //str:ok
 		a.Here()
+	case "away": //str:ok
+		a.SetAway()
 	case "scrolled": //str:ok
 		a.Scrolled()
 	case "focus": //str:ok
