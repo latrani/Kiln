@@ -1,5 +1,6 @@
 // The theme on the page: a Theme event as a stylesheet, and the fold that
 // draws a span (see internal/webapi's Span).
+import * as str from "./str.gen.ts";
 import type { Color, Look, Looks, Span, TagLook, ThemeEvent } from "./types.ts";
 
 // Palette is the terminal's own colors: its foreground and background,
@@ -57,10 +58,16 @@ export const roleClass = (role: string): string => "r-" + role.replaceAll(".", "
 // and the divider with their variables.
 const lineRoles = ["rule", "rule.input", "rule.form", "rule.status", "divider"];
 
+// The glyphs kiln.css draws around Kiln's own lines.
+const glyphs = `--g-echo:${JSON.stringify(str.glyph.echo)};--g-sys:${JSON.stringify(str.glyph.sys)};--g-rule:${JSON.stringify(str.glyph.rule)}`;
+
 function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
-  const vars = [`color-scheme:${scheme}`, `--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`)];
+  const vars = [`color-scheme:${scheme}`, `--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`), glyphs];
   for (const r of lineRoles) vars.push(`--role-${r.replace(".", "-")}-fg:${color(l.Roles[r]?.FG, p) ?? p.fg}`);
-  let css = `:root{${vars.join(";")}}body{color:var(--term-fg);background:var(--term-bg)}`;
+  // A span's colors for this appearance (look.ts); unset, they're the
+  // terminal's own.
+  const a = scheme === "light" ? "l" : "d";
+  let css = `:root{${vars.join(";")}}body{color:var(--term-fg);background:var(--term-bg)}.s{color:var(--${a}-fg);background:var(--${a}-bg)}`;
   for (const [role, look] of Object.entries(l.Roles)) css += `.${roleClass(role)}{${lookCSS(look, p)}}`;
   return css;
 }
