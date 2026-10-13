@@ -3,9 +3,10 @@
 import * as esbuild from "esbuild";
 import { spawnSync } from "node:child_process";
 import { readdirSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-const here = new URL(".", import.meta.url).pathname;
+const here = fileURLToPath(new URL(".", import.meta.url));
 const tests = readdirSync(join(here, "src"), { recursive: true })
   .filter((f) => /\.test\.tsx?$/.test(f))
   .map((f) => join("src", f));
