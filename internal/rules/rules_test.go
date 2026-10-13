@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/latrani/Kiln/internal/classify"
@@ -99,5 +100,32 @@ func TestQuietWinsOverAttention(t *testing.T) {
 func TestJudgeIgnoresStyles(t *testing.T) {
 	if !(Judge{Attention: []string{"page"}}).Of([]classify.Tag{tag("page")}).Attention {
 		t.Error("an unstyled tag in the attention list didn't ask for attention")
+	}
+}
+
+func TestTagRunsNameStylesInFoldOrder(t *testing.T) {
+	th := mustTheme(t, `"page/in" = { fg = "#ff9f43" }
+self = { scope = "match", bold = true }
+url = { scope = "match", underline = true }
+quiet = { faint = true }`)
+	h := New(th)
+	plain := "Mira pages: Kit, see https://x.test"
+	got := h.TagRuns(plain, []classify.Tag{
+		tag("self", classify.Span{Start: 12, End: 15}),
+		tag("page/in/mira"), // falls back to page/in
+		tag("url", classify.Span{Start: 21, End: 35}),
+		tag("quiet"),
+	})
+	want := []TagRun{
+		{0, 12, []string{"page/in", "quiet"}},
+		{12, 15, []string{"page/in", "quiet", "self"}},
+		{15, 21, []string{"page/in", "quiet"}},
+		{21, 35, []string{"page/in", "quiet", "url"}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("TagRuns = %+v\nwant %+v", got, want)
+	}
+	if h.TagRuns(plain, []classify.Tag{tag("unstyled")}) != nil {
+		t.Error("a line with no styled tag should have no runs")
 	}
 }

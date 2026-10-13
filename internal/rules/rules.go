@@ -58,6 +58,7 @@ func in(list []string, tag string) bool {
 // hit is one styled tag name on a line, with the spans of the line's
 // tags that fall back to it.
 type hit struct {
+	name  string
 	ts    theme.TagStyle
 	spans []classify.Span
 }
@@ -69,13 +70,20 @@ func (h *Highlighter) Styled(tag string) (styled string, ok bool) {
 	return styled, ok
 }
 
-// Runs works out plain's styled runs from its tags; nil means the line
-// as the server sent it. Each tag takes the style of the most specific
+// TagRun is a stretch [Start, End) of a line's plain text and the styled
+// tag names drawn over it, in the order their styles fold.
+type TagRun struct {
+	Start, End int
+	Names      []string
+}
+
+// TagRuns works out which styled tags draw over each stretch of plain;
+// nil means none does. Each tag takes the style of the most specific
 // styled name up its slashes; tags that land on the same name count
-// once. Whole-line styles fold first, in tag order, then match-scope
-// ones on top of the text they matched. Later colors win and attributes
-// add up.
-func (h *Highlighter) Runs(plain string, tags []classify.Tag) []style.Run {
+// once. The names come in the order their styles fold: whole-line ones
+// first, in tag order, then match-scope ones over the text they matched,
+// in tag order. The runs cover all of plain, and neighbors differ.
+func (h *Highlighter) TagRuns(plain string, tags []classify.Tag) []TagRun {
 	var hits []hit
 	at := map[string]int{}
 	for _, t := range tags {
@@ -88,7 +96,7 @@ func (h *Highlighter) Runs(plain string, tags []classify.Tag) []style.Run {
 			continue
 		}
 		at[name] = len(hits)
-		hits = append(hits, hit{ts: ts, spans: slices.Clone(t.Spans)})
+		hits = append(hits, hit{name: name, ts: ts, spans: slices.Clone(t.Spans)})
 	}
 	hits = slices.DeleteFunc(hits, func(h hit) bool { return h.ts.Match && len(h.spans) == 0 })
 	if len(hits) == 0 {
@@ -105,15 +113,39 @@ func (h *Highlighter) Runs(plain string, tags []classify.Tag) []style.Run {
 	}
 	slices.Sort(cuts)
 	cuts = slices.Compact(cuts)
-	var runs []style.Run
+	var runs []TagRun
 	for i := 0; i+1 < len(cuts); i++ {
-		var st theme.Style
+		var names []string
 		for _, h := range hits {
 			if !h.ts.Match || covers(h.spans, cuts[i], cuts[i+1]) {
-				st = st.Over(h.ts.Style)
+				names = append(names, h.name)
 			}
 		}
-		run := style.Run{Start: cuts[i], End: cuts[i+1], SGR: st.SGR()}
+		if n := len(runs); n > 0 && slices.Equal(runs[n-1].Names, names) {
+			runs[n-1].End = cuts[i+1]
+			continue
+		}
+		runs = append(runs, TagRun{Start: cuts[i], End: cuts[i+1], Names: names})
+	}
+	return runs
+}
+
+// Runs works out plain's styled runs from its tags; nil means the line
+// as the server sent it. Each run folds its TagRuns names' styles: later
+// colors win and attributes add up.
+func (h *Highlighter) Runs(plain string, tags []classify.Tag) []style.Run {
+	trs := h.TagRuns(plain, tags)
+	if trs == nil {
+		return nil
+	}
+	var runs []style.Run
+	for _, tr := range trs {
+		var st theme.Style
+		for _, n := range tr.Names {
+			_, ts, _ := h.th.Tag(n)
+			st = st.Over(ts.Style)
+		}
+		run := style.Run{Start: tr.Start, End: tr.End, SGR: st.SGR()}
 		if n := len(runs); n > 0 && runs[n-1].SGR == run.SGR {
 			runs[n-1].End = run.End
 			continue
