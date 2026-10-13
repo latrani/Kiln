@@ -3,9 +3,8 @@
 Needs Go and node. Everything runs on your machine; the relay connects
 to real MUCKs over the internet.
 
-The page is a development page for Kiln's web API (`internal/webapi`):
-a list of open characters, a line to type in, and a log of every event
-the core sends. The real web UI comes next (part 3 of #125).
+The page is being built (part 3 of #125): for now it draws the TUI's
+five areas, empty, with the theme, the font and the status line.
 
 ```sh
 web/build.sh
@@ -16,7 +15,10 @@ go run ./cmd/kiln-relay -dev -allow web/dev-allow.toml \
 ```
 
 Open http://localhost:8080/kiln/. Rebuild with `web/build.sh` and reload
-after changing Go code; the relay reloads `dev-allow.toml` by itself.
+after changing Go or page code; the relay reloads `dev-allow.toml` by
+itself. Add `?record` to the address to keep every event Go sends in
+`kilnPage.events` (the smoke test does), and drive Kiln from the console
+with `kilnPage.act({Do: "open", Key: "world/char"})`.
 
 Tests:
 
@@ -31,13 +33,24 @@ node --test web/static/*.test.mjs
 
 The page lives in `web/ui` (Preact, TypeScript, esbuild): `npm ci` there
 once; `npm test` runs its tests (esbuild bundles each, Node runs them),
-`npm run check` type-checks. `web/ui/src/str.gen.ts` (the catalog and
-glyphs for the page) is made by `go generate ./internal/str`; don't edit
-it by hand.
+`npm run check` type-checks.
+
+- `src/main.tsx`: the entry; `src/boot.ts` starts Kiln (tab lock, memfs,
+  IndexedDB, preset, the wasm) and `src/store.ts` holds what Go sends.
+- `src/theme.ts`: the `Theme` event as a stylesheet, the terminal's
+  colors (Catppuccin), and the fold that draws a span.
+- `src/ui/`: one component per TUI part.
+- `src/str.gen.ts`: the catalog and glyphs, made by
+  `go generate ./internal/str`; don't edit it by hand.
+- `fonts/`: JetBrains Mono 2.304 and its license (OFL).
+
+`web/static` holds the boot modules (`memfs.mjs`, `persist.mjs`,
+`tablock.mjs`, bundled into the page) and, once built, the page.
 
 The smoke test builds the page, starts a fake MUCK and the relay, and
 drives the page in headless Chrome: it opens a character, connects,
-sends a line and waits for the echo. It needs Google Chrome
+sends a line, waits for the echo, and checks every glyph Kiln draws is
+one cell wide in the bundled font. It needs Google Chrome
 (`$KILN_CHROME` names another binary) and is skipped without
 `KILN_SMOKE=1`.
 
