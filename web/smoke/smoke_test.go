@@ -78,10 +78,10 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	// A second tab finds Kiln open in the first and says so, with Use
 	// here; taking over leaves the first tab saying so in turn.
 	ev2 := evaluator(t, another(page))
-	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab's Use here")
+	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab offering to take over")
 	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
 	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
-	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, saying so")
+	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")
 }
 
 // jsString is s as a JavaScript string literal.
