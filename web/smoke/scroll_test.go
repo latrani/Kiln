@@ -33,14 +33,25 @@ func TestScrollbackMoves(t *testing.T) {
 		window.click = (name) => [...document.querySelectorAll("nav button")].find(b => b.textContent === name).click();
 		window.firstShown = () => { const e = sc(); return [...e.querySelectorAll(".sb")].find(r => r.offsetTop + r.offsetHeight > e.scrollTop); };`)
 
-	login := func(k string, n int) {
+	prompt := func(k string, n int) { // open k and connect it, up to its password prompt
 		ev(`kilnPage.act({Do: "open", Key: "` + k + `"})`)
 		ev(`kilnPage.act({Do: "switch", Key: "` + k + `"})`) // input goes to the character showing
 		ev(`kilnPage.act({Do: "submit", Key: "` + k + `", Text: "", N: ` + strconv.Itoa(n) + `})`)
 		waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "`+k+`" && e.NeedPW)`, "the password prompt for "+k)
+	}
+	login := func(k string, n int) {
+		ev(`kilnPage.act({Do: "switch", Key: "` + k + `"})`)
 		ev(`kilnPage.act({Do: "submit", Key: "` + k + `", Text: "secret", N: ` + strconv.Itoa(n+1) + `})`)
 		waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Key === "`+k+`" && e.State === 2)`, k+" connected")
 	}
+	prompt("fake/tester", 2000)
+	prompt("fake/second", 3000)
+	// Half a password typed for Second doesn't follow you to Tester's prompt.
+	pw := `document.querySelector('.bottom input[type="password"]')`
+	waitFor(t, ev, `document.activeElement === `+pw, "Second's password field focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "partial"})
+	ev(`click("Tester")`)
+	waitFor(t, ev, `document.querySelector("header").textContent.includes("Tester") && `+pw+` && `+pw+`.value === ""`, "Tester's own, empty password field")
 	login("fake/tester", 2000)
 	login("fake/second", 3000)
 	ev(`click("Tester")`)
