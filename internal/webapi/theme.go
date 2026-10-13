@@ -110,7 +110,7 @@ func styledOf(t *theme.Theme) string {
 	for _, n := range slices.Sorted(maps.Keys(tags)) {
 		b.WriteString(n)
 		if tags[n].Match {
-			b.WriteString(" match")
+			b.WriteString(" match") //str:ok: a comparison key
 		}
 		b.WriteByte('\n')
 	}
