@@ -56,9 +56,9 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	// fake MUCK echoes the login.
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "fake/tester" && e.NeedPW)`, "the password prompt")
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "secret", N: 1001})`)
-	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Text.includes('You say, "connect Tester secret"')))`, "the login")
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
-	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Text.includes('You say, "hello"')))`, "the echo")
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
 }
 
 // buildPage builds the wasm into a copy of web/static and returns it.
