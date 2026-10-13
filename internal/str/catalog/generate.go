@@ -179,7 +179,8 @@ func WebJSON(en []byte) ([]byte, error) {
 	return append(b, '\n'), err
 }
 
-// jsReserved are names a TypeScript parameter can't have; such a
+// jsReserved are names a TypeScript parameter can't have (keywords, and
+// the generated module's helpers, which it would shadow); such a
 // placeholder gets a trailing _, as a Go keyword does.
 var jsReserved = map[string]bool{
 	"await": true, "break": true, "case": true, "catch": true, "class": true, "const": true, "continue": true,
@@ -189,6 +190,7 @@ var jsReserved = map[string]bool{
 	"package": true, "private": true, "protected": true, "public": true, "return": true, "static": true,
 	"super": true, "switch": true, "this": true, "throw": true, "true": true, "try": true, "typeof": true,
 	"var": true, "void": true, "while": true, "with": true, "yield": true,
+	"q": true, "c": true, "e": true, "plural": true, // the module's own helpers
 }
 
 // TS writes the catalog as a TypeScript module for the web page

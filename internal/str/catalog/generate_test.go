@@ -76,3 +76,21 @@ default = "{default} {err}"
 		t.Error("a verb the page can't fill should be an error")
 	}
 }
+
+// TestTSHelpersCantBeShadowed: a placeholder named like one of the
+// module's helpers gets a _, so the helper still works.
+func TestTSHelpersCantBeShadowed(t *testing.T) {
+	en := []byte(`a = "{q:%q} {c} {e} {plural}"`)
+	goSrc, err := Generate(en, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, err := TS(en, goSrc, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "export function a(q_: unknown, c_: unknown, e_: unknown, plural_: unknown): string { return `${q(q_)} ${c_} ${e_} ${plural_}`; }"
+	if !strings.Contains(string(ts), want) {
+		t.Errorf("missing %s in:\n%s", want, ts)
+	}
+}
