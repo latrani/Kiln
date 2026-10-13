@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -328,9 +329,9 @@ func (f *form) rows() (rows []string, curRow, curCol int) {
 func (f *form) fieldRow(i, w int) (text string, col int) {
 	fl := f.fields[i]
 	if fl.section {
-		mark := "► "
+		mark := glyph.Collapsed + " "
 		if f.expanded {
-			mark = "▼ "
+			mark = glyph.Open + " "
 		}
 		t := mark + fl.label
 		if i == f.focus {
@@ -351,7 +352,7 @@ func (f *form) fieldRow(i, w int) (text string, col int) {
 	if fl.choices != nil {
 		v := fl.shown[fl.choice]
 		if i == f.focus {
-			v = "◄ " + v + " ►"
+			v = glyph.ChoicePrev + " " + v + " " + glyph.ChoiceNext
 		} else {
 			v = "  " + v
 		}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
@@ -306,7 +307,7 @@ func (m *Model) View() tea.View {
 	cs := m.cur()
 	var cursor *tea.Cursor
 	top, _, _, _ := m.topBar(l.rw)
-	rule := strings.Repeat("─", l.rw)
+	rule := strings.Repeat(glyph.Rule, l.rw)
 	right = append(right, theme.Fill(theme.Status, top, l.rw), theme.Paint(theme.RuleStatus, rule))
 	if cs != nil && cs.browse != nil {
 		rows, x, y, show := cs.browse.view(l.rw, m.height-l.top-1)
@@ -408,7 +409,7 @@ func (m *Model) overview(world string, w, h int) []string {
 			continue
 		}
 		if len(rows) > 0 {
-			rows, keys = append(rows, theme.Paint(theme.ScrollbackRule, strings.Repeat("─", w))), append(keys, "")
+			rows, keys = append(rows, theme.Paint(theme.ScrollbackRule, strings.Repeat(glyph.Rule, w))), append(keys, "")
 		}
 		when := str.ViewOverviewQuiet()
 		if t, ok := m.a.LastTime(k); ok {

@@ -10,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
@@ -336,7 +337,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
 		if i == max(0, start) || v[i-1].Day != l.Day { // the top line's day always shows, so the date stays in sight
-			rows = append(rows, theme.Paint(theme.LogDay, "── "+app.DayLabel(l.Day)+" ──"))
+			rows = append(rows, theme.Paint(theme.LogDay, dayRule+" "+app.DayLabel(l.Day)+" "+dayRule))
 			b.rowLines = append(b.rowLines, nil)
 			if len(b.rowLines) >= bodyH {
 				break
@@ -383,7 +384,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	}
 
 	// Action bar.
-	rows = append(rows, theme.Paint(theme.Rule, strings.Repeat("─", w)))
+	rows = append(rows, theme.Paint(theme.Rule, strings.Repeat(glyph.Rule, w)))
 	switch {
 	case b.prompt == promptFormat:
 		rows = append(rows, theme.Fill(theme.LogBar, b.promptLabel(), w))
@@ -400,7 +401,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		}
 		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, hints), w))
 	}
-	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat("─", w)))
+	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat(glyph.Rule, w)))
 	return rows, curX, curY, showCur
 }
 
