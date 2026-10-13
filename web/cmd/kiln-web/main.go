@@ -3,7 +3,7 @@
 // Command kiln-web is Kiln's core in a browser tab: built for GOOS=js,
 // it runs the web API (internal/webapi) for the page, keeps files in the
 // page's memfs (the page saves them to IndexedDB: persist.mjs), and
-// reaches MUCKs through kiln-relay. web/static/kiln.js starts it; see
+// reaches MUCKs through kiln-relay. The page starts it (web/ui/src/boot.ts); see
 // docs/web-dev.md.
 package main
 

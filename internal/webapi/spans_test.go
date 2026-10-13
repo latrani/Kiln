@@ -41,9 +41,10 @@ func perByte[T any](spans []T, text func(T) string, style func(T) ansi.SpanStyle
 	return out
 }
 
-// TestSpansDrawWhatTheTUIPaints: the page's fold over the spans gives,
-// byte for byte, what the TUI paints.
-func TestSpansDrawWhatTheTUIPaints(t *testing.T) {
+// foldTheme is the theme the span tests draw with, its highlighter, and
+// its tags as the page gets them.
+func foldTheme(t *testing.T) (*rules.Highlighter, map[string]theme.TagLook) {
+	t.Helper()
 	th, err := theme.FromTOML(`[tags]
 page = { fg = "#ff9f43", bold = true }
 "page/in" = { italic = true }
@@ -53,15 +54,21 @@ hot = { scope = "match", fg = "green" }`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hl := rules.New(th)
 	_, looks := th.Looks()
+	return rules.New(th), looks
+}
+
+type spanCase struct {
+	name, text string
+	tags       []classify.Tag
+}
+
+// spanCases are lines whose spans must draw as the TUI paints them.
+func spanCases() []spanCase {
 	match := func(name string, start, end int) classify.Tag {
 		return classify.Tag{Name: name, Spans: []classify.Span{{Start: start, End: end}}}
 	}
-	for _, c := range []struct {
-		name, text string
-		tags       []classify.Tag
-	}{
+	return []spanCase{
 		{"plain", "Rook waves.", nil},
 		{"server colors only", "\x1b[31mred\x1b[0m plain", nil},
 		{"whole line over server color", "\x1b[32mMira\x1b[0m pages: hi", []classify.Tag{{Name: "page/in"}}},
@@ -72,7 +79,14 @@ hot = { scope = "match", fg = "green" }`)
 		{"a match's color wins over the line's", "Mira pages Kit", []classify.Tag{match("hot", 11, 14), {Name: "page"}}},
 		{"default clears nothing", "\x1b[33mquiet\x1b[0m", []classify.Tag{{Name: "quiet"}}},
 		{"multibyte before a match", "café ☕ Kit", []classify.Tag{match("self", len("café ☕ "), len("café ☕ Kit"))}},
-	} {
+	}
+}
+
+// TestSpansDrawWhatTheTUIPaints: the page's fold over the spans gives,
+// byte for byte, what the TUI paints.
+func TestSpansDrawWhatTheTUIPaints(t *testing.T) {
+	hl, looks := foldTheme(t)
+	for _, c := range spanCases() {
 		t.Run(c.name, func(t *testing.T) {
 			plain := ansi.Strip(c.text)
 			painted := style.Highlight(c.text, hl.Runs(plain, c.tags))

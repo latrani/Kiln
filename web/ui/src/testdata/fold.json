@@ -1,0 +1,582 @@
+[
+ {
+  "Name": "plain",
+  "Spans": [
+   {
+    "Text": "Rook waves."
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {}
+  ]
+ },
+ {
+  "Name": "server colors only",
+  "Spans": [
+   {
+    "Text": "red",
+    "FG": "ansi:1"
+   },
+   {
+    "Text": " plain"
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {
+    "FG": "ansi:1"
+   },
+   {}
+  ]
+ },
+ {
+  "Name": "whole line over server color",
+  "Spans": [
+   {
+    "Text": "Mira",
+    "FG": "ansi:2",
+    "Tags": [
+     "page/in"
+    ]
+   },
+   {
+    "Text": " pages: hi",
+    "Tags": [
+     "page/in"
+    ]
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   }
+  ]
+ },
+ {
+  "Name": "match over part",
+  "Spans": [
+   {
+    "Text": "Rook says, \"Evening,"
+   },
+   {
+    "Text": " Ki",
+    "Tags": [
+     "self"
+    ]
+   },
+   {
+    "Text": "t.\""
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {},
+   {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true
+   },
+   {}
+  ]
+ },
+ {
+  "Name": "reset inside a match",
+  "Spans": [
+   {
+    "Text": "Kit "
+   },
+   {
+    "Text": "Kit",
+    "FG": "ansi:1",
+    "Tags": [
+     "self"
+    ]
+   },
+   {
+    "Text": " Kit"
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {},
+   {
+    "FG": "ansi:1",
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true
+   },
+   {}
+  ]
+ },
+ {
+  "Name": "reset with color inside a line tag",
+  "Spans": [
+   {
+    "Text": "a ",
+    "Tags": [
+     "page"
+    ]
+   },
+   {
+    "Text": "b",
+    "FG": "ansi:1",
+    "Tags": [
+     "page"
+    ]
+   },
+   {
+    "Text": " c",
+    "Tags": [
+     "page"
+    ]
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   {
+    "FG": "#ff9f43",
+    "Bold": true
+   }
+  ]
+ },
+ {
+  "Name": "line and match overlap",
+  "Spans": [
+   {
+    "Text": "Kit",
+    "Bold": true,
+    "Tags": [
+     "page",
+     "self"
+    ]
+   },
+   {
+    "Text": " pages",
+    "Tags": [
+     "page"
+    ]
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {
+    "FG": "#ff9f43",
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true
+   },
+   {
+    "FG": "#ff9f43",
+    "Bold": true
+   }
+  ]
+ },
+ {
+  "Name": "a match's color wins over the line's",
+  "Spans": [
+   {
+    "Text": "Mira pages ",
+    "Tags": [
+     "page"
+    ]
+   },
+   {
+    "Text": "Kit",
+    "Tags": [
+     "page",
+     "hot"
+    ]
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   {
+    "FG": "ansi:2",
+    "Bold": true
+   }
+  ]
+ },
+ {
+  "Name": "default clears nothing",
+  "Spans": [
+   {
+    "Text": "quiet",
+    "FG": "ansi:3",
+    "Tags": [
+     "quiet"
+    ]
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {
+    "FG": "ansi:3",
+    "Faint": true
+   }
+  ]
+ },
+ {
+  "Name": "multibyte before a match",
+  "Spans": [
+   {
+    "Text": "café ☕ "
+   },
+   {
+    "Text": "Kit",
+    "Tags": [
+     "self"
+    ]
+   }
+  ],
+  "Tags": {
+   "highlight": {
+    "FG": "#ffd166",
+    "Bold": true,
+    "Match": true
+   },
+   "hot": {
+    "FG": "ansi:2",
+    "Match": true
+   },
+   "page": {
+    "FG": "#ff9f43",
+    "Bold": true
+   },
+   "page/in": {
+    "FG": "#ff9f43",
+    "Bold": true,
+    "Italic": true
+   },
+   "quiet": {
+    "Faint": true
+   },
+   "self": {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true,
+    "Match": true
+   },
+   "whisper": {
+    "FG": "#c39bd3",
+    "Italic": true
+   }
+  },
+  "Want": [
+   {},
+   {
+    "BG": "ansi:4",
+    "Bold": true,
+    "Reverse": true
+   }
+  ]
+ }
+]

@@ -5,3 +5,9 @@
 /web/static/wasm_exec.js
 /web/preset.local/
 /web/dev-allow.toml
+/web/ui/node_modules/
+/web/ui/.test-out/
+/web/static/app.js*
+/web/static/app.css*
+/web/static/fonts/
+/web/static/index.html

@@ -1097,11 +1097,31 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
+// WebCharacters is web.characters: "Characters"
+func WebCharacters() string { return get("web.characters", nil) }
+
+// WebLoading is web.loading: "loading Kiln… {got} MB"
+func WebLoading(got any) string { return get("web.loading", map[string]any{"got": got}) }
+
+// WebLoadingSize is web.loading_size: "loading Kiln… {got}/{total} MB"
+func WebLoadingSize(got, total any) string {
+	return get("web.loading_size", map[string]any{"got": got, "total": total})
+}
+
+// WebNeedsJs is web.needs_js: "Kiln needs JavaScript."
+func WebNeedsJs() string { return get("web.needs_js", nil) }
+
 // WebNotSaving is web.not_saving: "this browser isn't saving Kiln's configuration"
 func WebNotSaving() string { return get("web.not_saving", nil) }
 
 // WebOtherTab is web.other_tab: "Kiln's open in another tab."
 func WebOtherTab() string { return get("web.other_tab", nil) }
+
+// WebReload is web.reload: "Reload"
+func WebReload() string { return get("web.reload", nil) }
+
+// WebStopped is web.stopped: "Kiln stopped."
+func WebStopped() string { return get("web.stopped", nil) }
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }

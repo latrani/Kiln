@@ -26,6 +26,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/latrani/Kiln/internal/glyph"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func TestPageConnectsAndEchoes(t *testing.T) {
@@ -44,7 +47,7 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	muckPort := fakeMuck(t)
 	preset, allow := config(t, muckPort)
 	page := startRelay(t, root, static, preset, allow)
-	ws := openTab(t, chrome, page)
+	ws, another := openTab(t, chrome, page+"?record")
 
 	ev := evaluator(t, ws)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
@@ -59,28 +62,53 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
+
+	// Every glyph Kiln draws comes from the bundled font, one cell wide. A
+	// glyph drawn by a fallback measures differently under a serif and a
+	// monospace fallback; the bundled face itself must have loaded.
+	ev(`document.fonts.load('16px "JetBrains Mono"')`)
+	waitFor(t, ev, `[...document.fonts].some(f => f.family.replace(/"/g, "") === "JetBrains Mono" && f.status === "loaded")`, "the bundled font")
+	var gs []string
+	for _, g := range glyph.All {
+		gs = append(gs, g[1])
+	}
+	list, _ := json.Marshal(gs)
+	ev(`(() => { const c = document.createElement("canvas").getContext("2d");
+		const w = (font, s) => { c.font = font; return c.measureText(s).width; };
+		const cell = w('16px "JetBrains Mono", monospace', "M");
+		window.kilnGlyphs = ` + string(list) + `.filter(g =>
+			Math.abs(w('16px "JetBrains Mono", serif', g) - w('16px "JetBrains Mono", monospace', g)) > 0.01 ||
+			Math.abs(w('16px "JetBrains Mono", monospace', g) - cell) > 0.01).join(""); })()`)
+	waitFor(t, ev, `window.kilnGlyphs === ""`, "every glyph one cell wide")
+
+	// A second tab finds Kiln open in the first and says so, with Use
+	// here; taking over leaves the first tab saying so in turn.
+	ev2 := evaluator(t, another(page))
+	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab offering to take over")
+	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
+	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
+	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")
 }
 
-// buildPage builds the wasm into a copy of web/static and returns it.
+// jsString is s as a JavaScript string literal.
+func jsString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
+// buildPage builds the page (web/ui) and the wasm into a scratch
+// directory and returns it. The page needs web/ui's packages installed.
 func buildPage(t *testing.T, root string) string {
 	t.Helper()
 	dir := t.TempDir()
-	src := filepath.Join(root, "web", "static")
-	ents, err := os.ReadDir(src)
-	if err != nil {
-		t.Fatal(err)
+	ui := filepath.Join(root, "web", "ui")
+	if _, err := os.Stat(filepath.Join(ui, "node_modules")); err != nil {
+		t.Skip("run npm ci in web/ui first")
 	}
-	for _, e := range ents {
-		if e.IsDir() || strings.HasSuffix(e.Name(), ".test.mjs") {
-			continue
-		}
-		b, err := os.ReadFile(filepath.Join(src, e.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, e.Name()), b, 0o644); err != nil {
-			t.Fatal(err)
-		}
+	page := exec.Command("node", "build.mjs", dir)
+	page.Dir = ui
+	if out, err := page.CombinedOutput(); err != nil {
+		t.Fatalf("building the page: %v\n%s", err, out)
 	}
 	build := exec.Command("go", "build", "-o", filepath.Join(dir, "kiln.wasm"), "./cmd/kiln-web")
 	build.Dir = filepath.Join(root, "web")
@@ -202,7 +230,9 @@ func startRelay(t *testing.T, root, static, preset, allow string) string {
 
 // openTab starts headless Chrome on page and returns a DevTools
 // connection to its tab.
-func openTab(t *testing.T, chrome, page string) *websocket.Conn {
+// openTab starts headless Chrome on page and returns its tab, and a way
+// to open another tab in the same browser (sharing its storage and locks).
+func openTab(t *testing.T, chrome, page string) (*websocket.Conn, func(page string) *websocket.Conn) {
 	t.Helper()
 	profile := t.TempDir()
 	cmd := exec.Command(chrome, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+profile,
@@ -221,6 +251,13 @@ func openTab(t *testing.T, chrome, page string) *websocket.Conn {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	tab := func(page string) *websocket.Conn { return newTab(t, port, page) }
+	return tab(page), tab
+}
+
+// newTab opens page in another tab of the Chrome listening on port.
+func newTab(t *testing.T, port, page string) *websocket.Conn {
+	t.Helper()
 	req, _ := http.NewRequest(http.MethodPut, "http://127.0.0.1:"+port+"/json/new?"+page, nil)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

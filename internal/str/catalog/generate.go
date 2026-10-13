@@ -147,38 +147,6 @@ func FuncName(key string) string {
 // quoteForComment renders a template for a one-line doc comment.
 func quoteForComment(t Template) string { return fmt.Sprintf("%q", t.String()) }
 
-// WebJSON is the catalog's [web] table as JSON, keys without "web.", for
-// the web page (web/static/strings.json). The page fills {name}
-// placeholders and nothing else, so plural entries, fmt verbs and literal
-// braces are errors here.
-func WebJSON(en []byte) ([]byte, error) {
-	c, err := Parse(en)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]string{}
-	for k, e := range c {
-		name, ok := strings.CutPrefix(k, "web.")
-		if !ok {
-			continue
-		}
-		if e.Plural() {
-			return nil, fmt.Errorf("%s: the page can't show plural entries", k) //str:ok
-		}
-		for _, s := range e.Forms[""] {
-			if s.Name != "" && s.Verb != "%v" {
-				return nil, fmt.Errorf("%s: the page can't use fmt verbs", k) //str:ok
-			}
-			if s.Name == "" && strings.ContainsAny(s.Text, "{}") {
-				return nil, fmt.Errorf("%s: the page can't show braces", k) //str:ok
-			}
-		}
-		out[name] = e.Forms[""].String()
-	}
-	b, err := json.MarshalIndent(out, "", "  ") // map keys come out sorted
-	return append(b, '\n'), err
-}
-
 // jsReserved are names a TypeScript parameter can't have (keywords, and
 // the generated module's helpers, which it would shadow); such a
 // placeholder gets a trailing _, as a Go keyword does.
