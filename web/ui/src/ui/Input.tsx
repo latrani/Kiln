@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { keyAction } from "../input.ts";
-import type { State } from "../store.ts";
+import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
@@ -65,7 +65,7 @@ function caretRows(t: HTMLTextAreaElement): { first: boolean; last: boolean } {
 // PgUp/PgDn scroll the scrollback. The hint is its placeholder. Focus
 // comes here on load, after a switch, and with a letter typed outside
 // any control.
-export function Input({ state }: { state: State }) {
+export function Input({ state, store }: { state: State; store: Store }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [, redraw] = useState(0);
   const c = state.chars[state.active];
@@ -102,7 +102,10 @@ export function Input({ state }: { state: State }) {
     e.preventDefault();
     switch (does) {
       case "submit":
-        if (!c && !t.value) return; // the picker, in step 4
+        if (!c && !t.value) {
+          store.openPicker(); // nothing to send to: choose a connection, as the TUI's Enter
+          return;
+        }
         typing?.submit(key, t.value);
         redraw((n) => n + 1);
         return;

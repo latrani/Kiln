@@ -300,3 +300,24 @@ test("a hint has no ›, as the TUI's prompt: it isn't a line bound for the serv
   const typed = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }, { type: "Input", Key: "fm/rook", Text: "hi", Ack: 0 }]));
   assert.ok(typed.includes(str.glyph.echo), "typed: the ›");
 });
+
+test("the sidebar ends with + Connection, after a gap, as the TUI's", () => {
+  const html = page({ phase: "running" }, three);
+  const add = `class="chip ${roleClass("sidebar.add")}">${str.sidebarOpenConnection()}</button>`;
+  assert.ok(html.includes(add), html);
+  assert.match(html, new RegExp(`<li aria-hidden="true"> </li><li><button class="chip ${roleClass("sidebar.add")}"`), "a gap before it");
+});
+
+test("with the picker open, the sidebar is the picker: worlds, characters to open, + Character", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "mira", Name: "Mira" }] }] }]);
+  s.openPicker();
+  const html = render(<App store={s} />);
+  const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+  assert.match(nav, /role="listbox"/);
+  assert.ok(nav.includes("Mira") && !nav.includes(" Kit<"), "Kit's open: not offered");
+  assert.ok(nav.includes(str.pickerAddCharacter()));
+  assert.match(nav, /aria-selected="true"[^>]*>[^<]*Mira/);
+  assert.ok(nav.includes(roleClass("picker")), "the picker's area role");
+});

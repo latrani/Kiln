@@ -4,6 +4,8 @@
 // this order (feed.worlds). A world's own row can be highlighted once its
 // editor comes (step 4b), and "+ World" comes with it.
 
+import type { Store } from "./store.ts";
+
 // WorldInfo is a world of the Worlds event.
 export interface WorldInfo {
   ID: string;
@@ -76,4 +78,36 @@ export function pagePick(rows: PickRow[], sel: string, dir: number, page: number
     if (k) return k;
   }
   return movePick(rows, sel, dir);
+}
+
+// choose acts on the picker's row sel, as Enter or a click does: a
+// character opens, connects and shows (pick), closing the picker; "+
+// Character" asks for the new character's name. Nothing for "".
+export function choose(store: Store, sel: string): void {
+  if (sel.startsWith("+")) {
+    store.setPicker({ adding: sel.slice(1), name: "", error: undefined });
+  } else if (sel) {
+    store.state.act?.({ Do: "pick", Key: sel });
+    store.closePicker();
+  }
+}
+
+// PickerKeyish is the part of a keydown pickerKey reads; onBody is
+// whether focus was on no control (the page's body).
+interface PickerKeyish {
+  key: string;
+  ctrlKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  onBody: boolean;
+}
+
+// pickerKey is what a key does to the picker from anywhere on the page:
+// Ctrl+O shows or hides it, as the TUI's; Enter on a world's overview
+// (active "=world", which has no input) shows it, as the TUI's.
+export function pickerKey(e: PickerKeyish, active: string): "toggle" | "open" | undefined {
+  if (e.key.toLowerCase() === "o" && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return "toggle";
+  if (e.key === "Enter" && e.onBody && active.startsWith("=") && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return "open";
+  return undefined;
 }

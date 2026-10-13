@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixPick, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { choose, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { Store } from "./store.ts";
 
 const worlds = [
   { ID: "Bay", Characters: [{ ID: "ash", Name: "Ash", Aliases: ["cinder"] }] },
@@ -45,4 +46,29 @@ test("↑/↓ move a row, stopping at the ends; PgUp/PgDn a page of rows", () =>
   assert.equal(movePick(rows, "+fm", 1), "+fm");
   assert.equal(pagePick(rows, "Bay/ash", 1, 3), "fm/kit", "three rows on: the world row, then Kit");
   assert.equal(pagePick(rows, "+fm", -1, 100), "Bay/ash");
+});
+
+test("choosing a character picks it and closes the picker; + Character opens the name form", () => {
+  const sent: object[] = [];
+  const s = new Store();
+  s.set({ act: (o) => sent.push(o) });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  s.openPicker();
+  choose(s, "+fm");
+  assert.equal(s.state.picker?.adding, "fm");
+  choose(s, "fm/kit");
+  assert.deepEqual(sent, [{ Do: "pick", Key: "fm/kit" }]);
+  assert.equal(s.state.picker, undefined);
+});
+
+const key = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean; shiftKey?: boolean } = {}, onBody = true) =>
+  ({ key, ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, ...mods, onBody });
+
+test("Ctrl+O shows or hides the picker anywhere; Enter on a world's overview shows it", () => {
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), ""), "toggle");
+  assert.equal(pickerKey(key("O", { ctrlKey: true, shiftKey: true }), ""), undefined);
+  assert.equal(pickerKey(key("o", { ctrlKey: true, metaKey: true }), ""), undefined);
+  assert.equal(pickerKey(key("Enter"), "=fm"), "open");
+  assert.equal(pickerKey(key("Enter", {}, false), "=fm"), undefined, "Enter on a link or button is its own");
+  assert.equal(pickerKey(key("Enter"), "fm/kit"), undefined);
 });

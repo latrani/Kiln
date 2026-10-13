@@ -1,9 +1,10 @@
 // The sidebar's rows, as the TUI lists them (internal/ui/sidebar.go's
-// sidebarRows), less "+ Connection", which comes with the picker.
+// sidebarRows).
 
-export type Row = { kind: "world"; world: string } | { kind: "char"; key: string; world: string };
+export type Row = { kind: "world"; world: string } | { kind: "char"; key: string; world: string } | { kind: "gap" } | { kind: "add" };
 
-// sidebarRows lists the open characters under their worlds, in order. A
+// sidebarRows lists the open characters under their worlds, in order,
+// then a blank row and "+ Connection" (only that, with nothing open). A
 // key whose Char event hasn't come yet is left out.
 export function sidebarRows(order: string[], chars: Record<string, { World: string }>): Row[] {
   const rows: Row[] = [];
@@ -17,5 +18,7 @@ export function sidebarRows(order: string[], chars: Record<string, { World: stri
     }
     rows.push({ kind: "char", key, world: c.World });
   }
+  if (rows.length) rows.push({ kind: "gap" });
+  rows.push({ kind: "add" });
   return rows;
 }

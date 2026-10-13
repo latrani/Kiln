@@ -21,11 +21,11 @@ export function App({ store }: { store: Store }) {
     <>
       <style dangerouslySetInnerHTML={{ __html: themeCSS(s.theme) }} />
       <div class="kiln" style={{ "--side": sidebarCSS() }}>
-        <Sidebar state={s} />
+        <Sidebar state={s} store={store} />
         <div class="divider" />
         <TopBar state={s} />
         <Scrollback state={s} />
-        <BottomPane state={s} />
+        <BottomPane state={s} store={store} />
         <StatusLine state={s} />
       </div>
       <Announcer store={store} />

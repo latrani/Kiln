@@ -1162,6 +1162,9 @@ func WebNotSaving() string { return get("web.not_saving", nil) }
 // WebOtherTab is web.other_tab: "Kiln's open in another tab."
 func WebOtherTab() string { return get("web.other_tab", nil) }
 
+// WebPicker is web.picker: "Open a connection"
+func WebPicker() string { return get("web.picker", nil) }
+
 // WebReload is web.reload: "Reload"
 func WebReload() string { return get("web.reload", nil) }
 
