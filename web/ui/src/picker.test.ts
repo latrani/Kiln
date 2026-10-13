@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { choose, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { answered, choose, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
 import { Store } from "./store.ts";
 
 const worlds = [
@@ -71,4 +71,25 @@ test("Ctrl+O shows or hides the picker anywhere; Enter on a world's overview sho
   assert.equal(pickerKey(key("Enter"), "=fm"), "open");
   assert.equal(pickerKey(key("Enter", {}, false), "=fm"), undefined, "Enter on a link or button is its own");
   assert.equal(pickerKey(key("Enter"), "fm/kit"), undefined);
+});
+
+test("a saved character is picked; a refused name says why", () => {
+  const sent: object[] = [];
+  const s = new Store();
+  s.set({ act: (o) => sent.push(o) });
+  s.openPicker();
+  s.setPicker({ adding: "fm", name: "Ash" });
+  answered(s, { n: 1, Op: "add_character", Problems: [{ Field: "name", Msg: "taken" }] });
+  assert.equal(s.state.picker?.error, "taken");
+  answered(s, { n: 2, Op: "add_character", Key: "fm/Ash" });
+  assert.deepEqual(sent, [{ Do: "pick", Key: "fm/Ash" }]);
+  assert.equal(s.state.picker, undefined);
+});
+
+test("an answer to something else leaves the picker be", () => {
+  const s = new Store();
+  s.openPicker();
+  s.setPicker({ adding: "fm" });
+  answered(s, { n: 1, Op: "save_world", Key: "" });
+  assert.equal(s.state.picker?.adding, "fm");
 });

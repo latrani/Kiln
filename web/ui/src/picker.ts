@@ -4,7 +4,7 @@
 // this order (feed.worlds). A world's own row can be highlighted once its
 // editor comes (step 4b), and "+ World" comes with it.
 
-import type { Store } from "./store.ts";
+import type { Answer, Store } from "./store.ts";
 
 // WorldInfo is a world of the Worlds event.
 export interface WorldInfo {
@@ -110,4 +110,18 @@ export function pickerKey(e: PickerKeyish, active: string): "toggle" | "open" | 
   if (e.key.toLowerCase() === "o" && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return "toggle";
   if (e.key === "Enter" && e.onBody && active.startsWith("=") && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return "open";
   return undefined;
+}
+
+// answered takes Go's answer to adding a character, while the picker
+// asks for one: saved, it's picked (opened, connected and shown) and the
+// picker closes, as the TUI's; refused, the form says why (the first
+// problem, as the TUI's). An answer to anything else is left be.
+export function answered(store: Store, a: Answer): void {
+  if (a.Op !== "add_character" || !store.state.picker?.adding) return;
+  if (a.Problems?.length) {
+    store.setPicker({ error: a.Problems[0].Msg });
+  } else if (a.Key) {
+    store.state.act?.({ Do: "pick", Key: a.Key });
+    store.closePicker();
+  }
 }

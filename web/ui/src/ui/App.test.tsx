@@ -344,3 +344,17 @@ test("a world's overview has no input, but the picker's filter shows there", () 
   s.openPicker();
   assert.match(bottom(render(<App store={s} />)), /role="combobox"/);
 });
+
+test("adding a character: the TUI's one-row name form; a problem replaces the hint", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply(three);
+  s.openPicker();
+  s.setPicker({ adding: "fm", name: "A B", error: "no spaces" });
+  const html = bottom(render(<App store={s} />));
+  assert.match(html, new RegExp(`<label[^>]*>${str.pickerName()}: </label>`));
+  assert.match(html, /aria-invalid="true"/);
+  assert.ok(html.includes("no spaces") && html.includes(roleClass("form.error")) && !html.includes(str.pickerAddCharHint()));
+  s.setPicker({ error: undefined });
+  assert.ok(bottom(render(<App store={s} />)).includes(str.pickerAddCharHint()), "no problem: the hint");
+});
