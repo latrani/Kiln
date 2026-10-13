@@ -23,6 +23,7 @@ import (
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/webapi"
+	"github.com/latrani/Kiln/web/backup"
 	"github.com/latrani/Kiln/web/tz"
 	"github.com/latrani/Kiln/web/wsdial"
 )
@@ -129,6 +130,10 @@ func run(k js.Value, p page) error {
 	if !p.saving {
 		l.Say(true, str.WebNotSaving())
 	}
-	l.Run(context.Background(), webapi.Options{Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir}) //str:ok
+	l.Run(context.Background(), webapi.Options{
+		Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir, //str:ok
+		Backup:  func() ([]byte, error) { return backup.Zip(cfgDir, kh.Path) },
+		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir, kh.Path) },
+	})
 	return nil
 }

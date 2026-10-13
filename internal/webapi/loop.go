@@ -49,6 +49,13 @@ type Options struct {
 	Autoconnect bool   // open and connect autoconnect characters first
 	Drafts      string // the file drafts are saved to and restored from; "" for none
 	ConfigDir   string // where themes are read from; "" for the built-in only
+
+	// Backup makes a backup of Kiln's files for /backup, which the page
+	// downloads; Restore puts one back from the bytes of the file the
+	// page picked for /restore, saying how many files it wrote. nil for
+	// none (the commands then go to the page as they are).
+	Backup  func() ([]byte, error)
+	Restore func(data []byte) (int, error)
 }
 
 // say is a status for the loop to put up; see Say.

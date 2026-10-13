@@ -24,6 +24,7 @@ type Action struct {
 	Item                                               *scene.Item
 	WorldSettings                                      *config.WorldSettings
 	CharSettings                                       *config.CharacterSettings
+	Data                                               []byte // a file's bytes (restore), base64 in JSON
 }
 
 // do carries out act. See step for what it returns.
@@ -71,6 +72,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 			}
 		case "submit": //str:ok
 			_, effs = a.Submit()
+			effs = l.backup(effs)
 			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
@@ -95,6 +97,8 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		a.Focus(act.In)
 	case "page": //str:ok
 		effs = a.RequestOlder(act.Key)
+	case "restore": //str:ok
+		l.restore(act.Data)
 	case "answer_save": //str:ok
 		a.AnswerSave(act.Save)
 	case "resize": //str:ok
@@ -117,6 +121,44 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	}
 	return extra, effs, all
+}
+
+// backup does /backup when Run was given a way to: the page gets the
+// file to download, or the status line says why there's none.
+func (l *Loop) backup(effs []app.Effect) []app.Effect {
+	if l.opts.Backup == nil {
+		return effs
+	}
+	out := effs[:0:0]
+	for _, e := range effs {
+		if d, ok := e.(app.Do); ok && d.Cmd == "/backup" { //str:ok
+			data, err := l.opts.Backup()
+			if err != nil {
+				l.a.SetStatus(true, str.StatusBackupFailed(err))
+				continue
+			}
+			e = app.SaveFile{Name: str.BackupFileName(l.a.Now().Format("2006-01-02")), Data: data} //str:ok
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// restore puts back the backup the page read for /restore, then reads
+// the config again; Reload says why when it can't.
+func (l *Loop) restore(data []byte) {
+	if l.opts.Restore == nil {
+		return
+	}
+	n, err := l.opts.Restore(data)
+	switch {
+	case err != nil:
+		l.a.SetStatus(true, str.StatusRestoreFailed(err))
+	case n > 0:
+		if _, ok := l.a.Reload(); ok {
+			l.a.SetStatus(false, str.StatusRestored(n))
+		}
+	}
 }
 
 // inputKey names the active input: the active character's key, or "" for

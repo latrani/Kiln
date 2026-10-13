@@ -5,6 +5,9 @@ package str
 // BackupEmpty is backup.empty: "no Kiln files in this backup"
 func BackupEmpty() string { return get("backup.empty", nil) }
 
+// BackupFileName is backup.file_name: "kiln-backup-{date}.zip"
+func BackupFileName(date any) string { return get("backup.file_name", map[string]any{"date": date}) }
+
 // BackupNotZip is backup.not_zip: "not a zip file"
 func BackupNotZip() string { return get("backup.not_zip", nil) }
 
@@ -790,6 +793,11 @@ func StatusAlreadyConnected(name any) string {
 // StatusAway is status.away: "away until your next key or click"
 func StatusAway() string { return get("status.away", nil) }
 
+// StatusBackupFailed is status.backup_failed: "couldn't back up: {err}"
+func StatusBackupFailed(err error) string {
+	return get("status.backup_failed", map[string]any{"err": err})
+}
+
 // StatusBadAction is status.bad_action: "the page sent something Kiln can't use: {err}"
 func StatusBadAction(err error) string { return get("status.bad_action", map[string]any{"err": err}) }
 
@@ -883,6 +891,16 @@ func StatusPasswordSaved() string { return get("status.password_saved", nil) }
 
 // StatusQuitHint is status.quit_hint: "Press Ctrl+{key} again to quit"
 func StatusQuitHint(key any) string { return get("status.quit_hint", map[string]any{"key": key}) }
+
+// StatusRestoreFailed is status.restore_failed: "couldn't restore: {err}"
+func StatusRestoreFailed(err error) string {
+	return get("status.restore_failed", map[string]any{"err": err})
+}
+
+// StatusRestored is status.restored, by count:
+//   - one: "restored 1 file"
+//   - other: "restored {n} files"
+func StatusRestored(n int) string { return count("status.restored", n, map[string]any{"n": n}) }
 
 // StatusSkippedLogin is status.skipped_login: "skipped login"
 func StatusSkippedLogin() string { return get("status.skipped_login", nil) }

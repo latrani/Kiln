@@ -2,6 +2,7 @@ package webapi
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -83,11 +84,17 @@ func start(t *testing.T) *harness {
 
 func startOn(t *testing.T, a *app.App, dir string) *harness {
 	t.Helper()
+	return startWith(t, a, dir, Options{})
+}
+
+// startWith is startOn with Run's options.
+func startWith(t *testing.T, a *app.App, dir string, opts Options) *harness {
+	t.Helper()
 	h := &harness{t: t, a: a, dir: dir, batches: make(chan []map[string]any, 100)}
 	h.l = New(a, func(b []byte) { h.batches <- decode(t, b) })
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go h.l.Run(ctx, Options{})
+	go h.l.Run(ctx, opts)
 	h.next() // the first batch: everything
 	return h
 }
@@ -703,11 +710,57 @@ func TestOverRanges(t *testing.T) {
 		{"123\n456", 5, "flatten", [][2]int{{5, 7}}}, // "123 456": the 6th byte is "5"
 		{"1234567\n12", 5, "flatten", [][2]int{{5, 10}}},
 		{"éééé", 5, "batch", [][2]int{{2, 4}}}, // é is 2 bytes: the 3rd é ends at byte 6
-		{"ab😀", 3, "batch", [][2]int{{2, 4}}}, // the emoji is 4 bytes, 2 UTF-16 units
+		{"ab😀", 3, "batch", [][2]int{{2, 4}}},  // the emoji is 4 bytes, 2 UTF-16 units
 		{"anything", 0, "batch", nil},
 	} {
 		if got := OverRanges(c.text, c.max, c.mode); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%q max %d %s: %v, want %v", c.text, c.max, c.mode, got, c.want)
 		}
+	}
+}
+
+func TestBackupIsADownload(t *testing.T) {
+	a, dir := newApp(t)
+	h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return []byte("zip!"), nil }})
+	b := h.act(`{"Do":"submit","Key":"","Text":"/backup","N":1}`)
+	e := event(b, "Effect")
+	if e == nil || e["effect"] != "SaveFile" || e["Name"] != str.BackupFileName(a.Now().Format("2006-01-02")) || e["Data"] != base64.StdEncoding.EncodeToString([]byte("zip!")) {
+		t.Errorf("effect %v", e)
+	}
+}
+
+func TestBackupFailingSaysSo(t *testing.T) {
+	a, dir := newApp(t)
+	boom := errors.New("boom")
+	h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return nil, boom }})
+	b := h.act(`{"Do":"submit","Key":"","Text":"/backup","N":1}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusBackupFailed(boom) || st["Err"] != true {
+		t.Errorf("status %v", st)
+	}
+	if event(b, "Effect") != nil {
+		t.Error("an effect after a failed backup")
+	}
+}
+
+func TestRestoreTakesTheFile(t *testing.T) {
+	a, dir := newApp(t)
+	var got []byte
+	h := startWith(t, a, dir, Options{Restore: func(b []byte) (int, error) { got = b; return 3, nil }})
+	b := h.act(`{"Do":"restore","Data":"` + base64.StdEncoding.EncodeToString([]byte("zip!")) + `"}`)
+	if string(got) != "zip!" {
+		t.Errorf("restored %q", got)
+	}
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusRestored(3) {
+		t.Errorf("status %v", st)
+	}
+}
+
+func TestRestoreFailingSaysSo(t *testing.T) {
+	a, dir := newApp(t)
+	boom := errors.New("boom")
+	h := startWith(t, a, dir, Options{Restore: func([]byte) (int, error) { return 0, boom }})
+	b := h.act(`{"Do":"restore","Data":"eA=="}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusRestoreFailed(boom) || st["Err"] != true {
+		t.Errorf("status %v", st)
 	}
 }
