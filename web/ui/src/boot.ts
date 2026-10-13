@@ -15,8 +15,10 @@ const CONFIG = `${HOME}/.config/kiln`;
 // readWithProgress reads res's body, saying after each chunk how much has
 // come and, when the server said, how much there is.
 export async function readWithProgress(res: Response, onProgress: (got: number, total?: number) => void): Promise<ArrayBuffer> {
+  // A compressed response's length is what came over the wire, not the
+  // file; and a length the download outgrows was wrong anyway.
   const n = Number(res.headers.get("content-length"));
-  const total = Number.isFinite(n) && n > 0 ? n : undefined;
+  let total = Number.isFinite(n) && n > 0 && !res.headers.get("content-encoding") ? n : undefined;
   const chunks: Uint8Array[] = [];
   let got = 0;
   const reader = res.body!.getReader();
@@ -25,6 +27,7 @@ export async function readWithProgress(res: Response, onProgress: (got: number, 
     if (done) break;
     chunks.push(value);
     got += value.byteLength;
+    if (total !== undefined && got > total) total = undefined;
     onProgress(got, total);
   }
   const out = new Uint8Array(got);
@@ -161,7 +164,7 @@ export async function boot(store: Store): Promise<void> {
     }
   };
   g.kilnReady = () => {
-    g.kiln.start(relay.href, onBatch, saving);
+    g.kiln.start(relay.href, onBatch, store.state.saving); // storage may have failed since it loaded
     store.set({ phase: "running", progress: undefined });
   };
 

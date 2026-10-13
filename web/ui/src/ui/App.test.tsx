@@ -16,8 +16,15 @@ const page = (patch: Partial<State> = {}, batch: Event[] = []) => {
 
 test("five areas, with landmarks", () => {
   const html = page({ phase: "running" });
-  for (const want of ["<header", "<nav", "<main", 'role="log"', 'class="bottom', 'role="status"']) assert.ok(html.includes(want), want);
+  for (const want of ["<header", "<nav", 'class="bottom', 'role="status"']) assert.ok(html.includes(want), want);
   assert.ok(html.includes(`aria-label="${str.webCharacters()}"`));
+  assert.match(html, /<main(?![^>]*role=)[^>]*>\s*<div[^>]*role="log"/, "the scrollback is the main landmark, with the log inside it");
+});
+
+test("buttons look like the TUI's", () => {
+  for (const patch of [{ phase: "locked", onUseHere: () => {} }, { phase: "stopped" }] as Partial<State>[]) {
+    assert.match(page(patch), /<button[^>]*class="[^"]*r-form-button/, JSON.stringify(patch.phase));
+  }
 });
 
 test("loading shows progress in the status line", () => {

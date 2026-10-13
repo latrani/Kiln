@@ -24,7 +24,7 @@ export function StatusLine({ state }: { state: State }) {
       {loading && <span>{loadingText(state.progress!.got, state.progress!.total)}</span>}
       <span role="status" class={!state.saving && !state.status?.Text ? err : undefined}><span key={gen}>{polite}</span></span>
       <span role="alert" class={err}><span key={gen}>{urgent}</span></span>
-      {state.phase === "stopped" && <button onClick={() => location.reload()}>{str.webReload()}</button>}
+      {state.phase === "stopped" && <button class={roleClass("form.button")} onClick={() => location.reload()}>{str.webReload()}</button>}
     </div>
   );
 }

@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { loadingText, readWithProgress } from "./boot.ts";
 import * as str from "./str.gen.ts";
 
-const res = (chunks: number[], length?: number) =>
+const res = (chunks: number[], length?: number, encoding?: string) =>
   new Response(new ReadableStream({
     start(c) {
       for (const n of chunks) c.enqueue(new Uint8Array(n));
       c.close();
     },
-  }), { headers: length === undefined ? {} : { "content-length": String(length) } });
+  }), { headers: { ...(length === undefined ? {} : { "content-length": String(length) }), ...(encoding ? { "content-encoding": encoding } : {}) } });
 
 test("progress counts every byte against the length", async () => {
   const seen: [number, number | undefined][] = [];
@@ -34,4 +34,16 @@ test("the words, in megabytes to one place", () => {
   assert.equal(loadingText(2_100_000, 6_400_000), str.webLoadingSize("2.1", "6.4"));
   assert.equal(loadingText(2_100_000), str.webLoading("2.1"));
   assert.ok(!loadingText(0, 0).includes("NaN"));
+});
+
+test("a compressed download's length isn't the size", async () => {
+  const seen: [number, number | undefined][] = [];
+  await readWithProgress(res([5, 5], 4, "gzip"), (g, t) => seen.push([g, t]));
+  assert.deepEqual(seen, [[5, undefined], [10, undefined]]);
+});
+
+test("a length the download outgrows is dropped", async () => {
+  const seen: [number, number | undefined][] = [];
+  await readWithProgress(res([3, 3], 4), (g, t) => seen.push([g, t]));
+  assert.deepEqual(seen, [[3, 4], [6, undefined]]);
 });

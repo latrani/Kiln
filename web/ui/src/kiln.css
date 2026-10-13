@@ -25,4 +25,6 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
 .lock { padding: 1lh 1ch; }
+/* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }
+button:disabled { cursor: default; opacity: .6; }
