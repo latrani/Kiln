@@ -8,6 +8,7 @@ package feed
 import (
 	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/session"
@@ -170,17 +171,22 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	return evs
 }
 
+// worlds is every configured world and its characters, in the picker's
+// order: worlds by id, characters by name, ignoring case.
 func worlds(a *app.App) Worlds {
 	var out Worlds
 	if cfg := a.Config(); cfg != nil {
 		for _, w := range cfg.Worlds {
 			ws := World{ID: w.ID}
-			for _, c := range w.Characters {
-				ws.Characters = append(ws.Characters, Character{ID: c.ID, Name: c.Name})
+			chars := slices.Clone(w.Characters)
+			slices.SortFunc(chars, app.CompareChars)
+			for _, c := range chars {
+				ws.Characters = append(ws.Characters, Character{ID: c.ID, Name: c.Name, Aliases: c.Aliases})
 			}
 			out.Worlds = append(out.Worlds, ws)
 		}
 	}
+	slices.SortFunc(out.Worlds, func(x, y World) int { return strings.Compare(strings.ToLower(x.ID), strings.ToLower(y.ID)) })
 	return out
 }
 
