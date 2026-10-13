@@ -277,3 +277,11 @@ test("while Kiln loads, the input takes typing", () => {
   assert.match(html, /<textarea/);
   assert.doesNotMatch(html, /<textarea[^>]*disabled/);
 });
+
+test("a hint has no ›, as the TUI's prompt: it isn't a line bound for the server", () => {
+  const dis = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(dis.includes(str.viewDisconnected()) && !dis.includes(str.glyph.echo), dis);
+  assert.ok(bottom(page({ phase: "running" }, three)).includes(str.glyph.echo), "connected: the ›");
+  const typed = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }, { type: "Input", Key: "fm/rook", Text: "hi", Ack: 0 }]));
+  assert.ok(typed.includes(str.glyph.echo), "typed: the ›");
+});

@@ -59,6 +59,7 @@ export function Input({ state }: { state: State }) {
     else value = typing.text(key) ?? value;
   }
   const ranges = over(value, c);
+  const said = value ? undefined : hint(c); // shown instead of the ›, as the TUI does
 
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
@@ -105,10 +106,10 @@ export function Input({ state }: { state: State }) {
 
   return (
     <div class="input-row">
-      <span class="gutter" aria-hidden="true">{str.glyph.echo}</span>
+      {!said && <span class="gutter" aria-hidden="true">{str.glyph.echo}</span>}
       <div class={"field" + (ranges.length ? " marked" : "")} data-value={value}>
         {ranges.length > 0 && <Overflow text={value} ranges={ranges} />}
-        <textarea ref={ref} rows={1} value={value} placeholder={value ? undefined : hint(c)}
+        <textarea ref={ref} rows={1} value={value} placeholder={said}
           aria-label={c ? str.webInput(c.Name) : str.webInputIdle()} disabled={state.phase === "stopped"}
           spellcheck={false} autocomplete="off" onInput={onInput} onKeyDown={onKeyDown} />
       </div>

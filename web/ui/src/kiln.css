@@ -77,4 +77,4 @@ button:disabled { cursor: default; opacity: .6; }
 /* The password form, one row as the TUI's prompt: the label, the
    password (drawn as the browser's bullets), the keys. */
 .password { display: flex; white-space: pre; }
-.password input { flex: 0 1 24ch; min-width: 10ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
+.password input { flex: none; field-sizing: content; min-width: 1ch; max-width: 40ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
