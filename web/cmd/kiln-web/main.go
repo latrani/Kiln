@@ -43,6 +43,9 @@ func main() {
 	k.Set("overLimit", js.FuncOf(func(_ js.Value, a []js.Value) any { //str:ok
 		return webapi.OverLimit(a[0].String(), a[1].Int(), a[2].String())
 	}))
+	k.Set("check", js.FuncOf(func(_ js.Value, a []js.Value) any { //str:ok
+		return webapi.CheckField(a[0].String(), a[1].String())
+	}))
 	js.Global().Set("kiln", k)    //str:ok
 	js.Global().Call("kilnReady") //str:ok
 	p := <-started

@@ -277,6 +277,16 @@ func OverLimit(text string, maxLineBytes int, newlineMode string) bool {
 	return app.OverLimit(text, config.Character{MaxLineBytes: maxLineBytes, NewlineMode: newlineMode})
 }
 
+// CheckField is what to say about a settings field (a config key) as
+// value is typed, "" when it's fine: app.CheckField, for the page's live
+// hints.
+func CheckField(field, value string) string {
+	if err := app.CheckField(field, value); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 // open opens character k, saying why on the status line if it couldn't
 // load, and restores its saved draft.
 func (l *Loop) open(k string) {

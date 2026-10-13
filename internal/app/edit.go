@@ -53,6 +53,24 @@ func AcceptAliases(s string) error {
 	return nil
 }
 
+// liveChecks are the fields checked as they're typed, by config key.
+//
+//str:ok: config keys
+var liveChecks = map[string]func(string) error{
+	"id": AcceptWorldID, "port": AcceptPort, "host": AcceptHost,
+	"use": AcceptPacks, "max_line_bytes": AcceptByteCount, "aliases": AcceptAliases,
+}
+
+// CheckField is what a front end says about field (a config key) as
+// value is typed: the rule the TUI applies to keystrokes. nil for a
+// field with no live check.
+func CheckField(field, value string) error {
+	if f := liveChecks[field]; f != nil {
+		return f(value)
+	}
+	return nil
+}
+
 // List splits a comma- or space-separated field into its items.
 func List(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })

@@ -625,3 +625,12 @@ func TestIdleDraftIsRestored(t *testing.T) {
 		t.Errorf("idle input %v", in)
 	}
 }
+
+func TestCheckField(t *testing.T) {
+	if got, want := CheckField("port", "55a"), app.AcceptPort("55a").Error(); got != want {
+		t.Errorf("CheckField(port, 55a) = %q, want %q", got, want)
+	}
+	if got := CheckField("port", "5555"); got != "" {
+		t.Errorf("CheckField(port, 5555) = %q", got)
+	}
+}
