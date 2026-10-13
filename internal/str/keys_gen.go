@@ -1097,6 +1097,11 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
+// WebAnnounce is web.announce: "{name}: {line}"
+func WebAnnounce(name, line any) string {
+	return get("web.announce", map[string]any{"name": name, "line": line})
+}
+
 // WebCharAttention is web.char_attention, by count:
 //   - one: "{name}, 1 unread, wants attention"
 //   - other: "{name}, {n} unread, wants attention"
@@ -1139,6 +1144,12 @@ func WebReload() string { return get("web.reload", nil) }
 
 // WebStopped is web.stopped: "Kiln stopped."
 func WebStopped() string { return get("web.stopped", nil) }
+
+// WebTitle is web.title: "Kiln"
+func WebTitle() string { return get("web.title", nil) }
+
+// WebTitleUnread is web.title_unread: "({n}) Kiln"
+func WebTitleUnread(n int) string { return get("web.title_unread", map[string]any{"n": n}) }
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }

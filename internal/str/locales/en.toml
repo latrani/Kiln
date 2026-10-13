@@ -386,6 +386,11 @@ char_unread = { one = "{name}, 1 unread", other = "{name}, {n} unread" }
 char_attention = { one = "{name}, 1 unread, wants attention", other = "{name}, {n} unread, wants attention" }
 # The × beside a disconnected character, for screen readers.
 close_char = "Close {name}"
+# The browser tab's title; with unread lines, how many.
+title = "Kiln"
+title_unread = "({n}) Kiln"
+# A line that wants you, from a character not showing, read aloud.
+announce = "{name}: {line}"
 
 # Back up and Restore in the web build.
 [backup]

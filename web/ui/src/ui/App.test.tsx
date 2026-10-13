@@ -43,20 +43,24 @@ test("stopped: Reload", () => {
   assert.ok(page({ phase: "stopped" }).includes(`>${str.webReload()}</button>`));
 });
 
+// top and status are the top bar and the status line.
+const top = (html: string) => html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+const status = (html: string) => html.slice(html.indexOf('class="status '), html.indexOf("</div>", html.indexOf('class="status ')));
+
 // liveRegions is each live region's role and text, in order.
 const liveRegions = (html: string) => [...html.matchAll(/<(\w+)[^>]*role="(status|alert)"[^>]*>(.*?)<\/\1>/g)].map((m) => [m[2], m[3].replace(/<[^>]*>/g, "")]);
 
 test("the status line keeps one polite and one urgent region, always", () => {
   for (const patch of [{ phase: "running" }, { phase: "loading", progress: { got: 1, total: 2 } }, { phase: "stopped" }] as Partial<State>[]) {
-    assert.deepEqual(liveRegions(page(patch)).map((r) => r[0]), ["status", "alert"], JSON.stringify(patch));
+    assert.deepEqual(liveRegions(status(page(patch))).map((r) => r[0]), ["status", "alert"], JSON.stringify(patch));
   }
 });
 
 test("errors go in the urgent region, the rest in the polite one", () => {
-  assert.deepEqual(liveRegions(page({ phase: "running" }, [{ type: "Status", Text: "boom", Err: true, Gen: 1 }])), [["status", ""], ["alert", "boom"]]);
-  assert.deepEqual(liveRegions(page({ phase: "running" }, [{ type: "Status", Text: "hi", Err: false, Gen: 1 }])), [["status", "hi"], ["alert", ""]]);
-  assert.deepEqual(liveRegions(page({ phase: "running", saving: false })), [["status", str.webNotSaving()], ["alert", ""]]);
-  assert.deepEqual(liveRegions(page({ phase: "stopped" })), [["status", ""], ["alert", str.webStopped()]]);
+  assert.deepEqual(liveRegions(status(page({ phase: "running" }, [{ type: "Status", Text: "boom", Err: true, Gen: 1 }]))), [["status", ""], ["alert", "boom"]]);
+  assert.deepEqual(liveRegions(status(page({ phase: "running" }, [{ type: "Status", Text: "hi", Err: false, Gen: 1 }]))), [["status", "hi"], ["alert", ""]]);
+  assert.deepEqual(liveRegions(status(page({ phase: "running", saving: false }))), [["status", str.webNotSaving()], ["alert", ""]]);
+  assert.deepEqual(liveRegions(status(page({ phase: "stopped" }))), [["status", ""], ["alert", str.webStopped()]]);
 });
 
 test("download progress isn't read aloud chunk by chunk", () => {
@@ -169,4 +173,28 @@ test("nothing configured: the empty pane, and nothing breaks", () => {
   const html = page({ phase: "running" }, [{ type: "Worlds", Worlds: [] }]);
   if (str.viewNoCharacters()) assert.ok(html.includes(str.viewNoCharacters()));
   assert.ok(html.includes("<main"));
+});
+
+
+test("the top bar: where you are, and the presence chip", () => {
+  const kit = top(page({ phase: "running" }, three));
+  assert.ok(kit.includes("fm" + str.separator() + "Kit"), kit);
+  assert.match(kit, new RegExp(`<button[^>]*class="[^"]*${roleClass("status.presence.unknown")}[^"]*"[^>]*>${str.viewPresenceUnknown().replace("?", "\\?")}</button>`));
+  assert.ok(top(page({ phase: "running" }, [...three, { type: "Presence", State: 1 }])).includes(roleClass("status.presence.here")));
+  assert.ok(top(page({ phase: "running" }, [...three, { type: "Presence", State: 2 }])).includes(str.viewPresenceAway()));
+  const world = top(page({ phase: "running" }, [...three, { type: "Active", Key: "=fm" }]));
+  assert.ok(world.includes(">fm<") && !world.includes("<button"), world);
+});
+
+test("the status line: the connection, unless there's news", () => {
+  const since = "Connected since 21:14";
+  const on = [...three, { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2, ConnectedSince: since }];
+  assert.ok(status(page({ phase: "running" }, on)).includes(since));
+  assert.ok(status(page({ phase: "running" }, [...on, { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 0 }])).includes(str.stateDisconnected()));
+  const news = status(page({ phase: "running" }, [...on, { type: "Status", Text: "saved", Err: false, Gen: 1 }]));
+  assert.ok(news.includes("saved") && !news.includes(since), news);
+});
+
+test("the background announcer is always there, politely", () => {
+  assert.match(page({ phase: "running" }), /<div[^>]*role="status"[^>]*class="sr-only"/);
 });

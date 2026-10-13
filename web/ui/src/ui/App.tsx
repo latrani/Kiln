@@ -3,6 +3,9 @@
 import type { Store } from "../store.ts";
 import { sidebarCSS } from "../layout.ts";
 import { themeCSS } from "../theme.ts";
+import { useEffect } from "preact/hooks";
+import { titleFor } from "../title.ts";
+import { Announcer } from "./Announcer.tsx";
 import { BottomPane } from "./BottomPane.tsx";
 import { Scrollback } from "./Scrollback.tsx";
 import { Sidebar } from "./Sidebar.tsx";
@@ -12,6 +15,8 @@ import { useStore } from "./use.ts";
 
 export function App({ store }: { store: Store }) {
   const s = useStore(store);
+  const title = titleFor(s);
+  useEffect(() => { document.title = title; }, [title]);
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: themeCSS(s.theme) }} />
@@ -23,6 +28,7 @@ export function App({ store }: { store: Store }) {
         <BottomPane state={s} />
         <StatusLine state={s} />
       </div>
+      <Announcer store={store} />
     </>
   );
 }

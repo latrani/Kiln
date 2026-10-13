@@ -907,6 +907,9 @@ export function viewStoreKeychain(): string { return `the keychain`; }
 /** view.too_small: Kiln needs at least {min_w}x{min_h} (now {w}x{h}) */
 export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unknown): string { return `Kiln needs at least ${min_w}x${min_h} (now ${w}x${h})`; }
 
+/** web.announce: {name}: {line} */
+export function webAnnounce(name: unknown, line: unknown): string { return `${name}: ${line}`; }
+
 /** web.char_attention: one: {name}, 1 unread, wants attention · other: {name}, {n} unread, wants attention */
 export function webCharAttention(n: number, name: unknown): string {
   switch (plural.select(n)) {
@@ -949,6 +952,12 @@ export function webReload(): string { return `Reload`; }
 
 /** web.stopped: Kiln stopped. */
 export function webStopped(): string { return `Kiln stopped.`; }
+
+/** web.title: Kiln */
+export function webTitle(): string { return `Kiln`; }
+
+/** web.title_unread: ({n}) Kiln */
+export function webTitleUnread(n: number): string { return `(${n}) Kiln`; }
 
 /** web.use_here: Use here */
 export function webUseHere(): string { return `Use here`; }
