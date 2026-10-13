@@ -5,6 +5,7 @@ import { App } from "./App.tsx";
 import { Store } from "../store.ts";
 import type { Event, State } from "../store.ts";
 import { loadingText } from "../boot.ts";
+import { sidebarCSS } from "../layout.ts";
 import * as str from "../str.gen.ts";
 
 const page = (patch: Partial<State> = {}, batch: Event[] = []) => {
@@ -70,4 +71,8 @@ test("the theme goes into the page's style", () => {
 
 test("loading, before any theme, is already in the terminal's colors", () => {
   assert.ok(page({ phase: "loading", progress: { got: 1 } }).includes("--term-bg:"));
+});
+
+test("the sidebar's width is the TUI's", () => {
+  assert.ok(page({ phase: "running" }).includes(`--side:${sidebarCSS()}`));
 });

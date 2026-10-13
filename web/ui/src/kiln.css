@@ -14,7 +14,7 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .kiln {
   display: grid;
   height: 100dvh;
-  grid-template-columns: 16ch 1px 1fr;
+  grid-template-columns: var(--side) 1px 1fr; /* layout.ts's sidebarCSS */
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
 }
