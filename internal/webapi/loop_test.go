@@ -378,7 +378,7 @@ func TestActNeverBlocksAfterTheLoopEnds(t *testing.T) {
 	}
 }
 
-func TestSubmitForAnInputThatIsntActiveIsDropped(t *testing.T) {
+func TestSubmitForAnInputThatIsntActiveIsntSent(t *testing.T) {
 	h := start(t)
 	act := event(h.act(`{"Do":"open","Key":"fm/kit"}`), "Active")["Key"].(string)
 	if a := event(h.act(`{"Do":"open","Key":"fm/rook"}`), "Active"); a != nil {
@@ -389,8 +389,11 @@ func TestSubmitForAnInputThatIsntActiveIsDropped(t *testing.T) {
 		other = "fm/rook"
 	}
 	b := h.act(`{"Do":"submit","Key":"` + other + `","Text":"/notify off","N":1}`)
-	if in := event(b, "Input"); in != nil {
+	if in := inputOf(b, act); in != nil {
 		t.Errorf("a submit for %s went to %s: %v", other, act, in)
+	}
+	if st := event(b, "Status"); st != nil && st["Text"] != "" {
+		t.Errorf("the command ran: %v", st)
 	}
 }
 
@@ -693,6 +696,74 @@ func TestInputForACharacterSwitchedAwayKeepsItsDraft(t *testing.T) {
 	}
 	if got := h.a.Text(); got != "" {
 		t.Errorf("Rook's input %q: Kit's typing went to Rook", got)
+	}
+}
+
+// inputOf is b's Input event for key, nil if none.
+func inputOf(b []map[string]any, key string) map[string]any {
+	for _, e := range b {
+		if e["type"] == "Input" && e["Key"] == key {
+			return e
+		}
+	}
+	return nil
+}
+
+// promptUp opens and connects fm/kit and waits for its password prompt
+// (fm has no saved passwords).
+func (h *harness) promptUp() {
+	h.t.Helper()
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	for b := h.act(`{"Do":"submit","Key":"fm/kit","Text":"","N":1}`); ; b = h.next() {
+		if in := inputOf(b, "fm/kit"); in != nil && in["NeedPW"] == true {
+			return
+		}
+	}
+}
+
+func TestSubmitForACharacterSwitchedAwayKeepsItAsItsDraft(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	h.act(`{"Do":"switch","Key":"fm/rook"}`)
+	b := h.act(`{"Do":"submit","Key":"fm/kit","Text":"a pose","N":7}`) // Enter before the page heard of the switch
+	if got := h.a.Draft("fm/kit"); got != "a pose" {
+		t.Errorf("Kit's draft %q", got)
+	}
+	if in := inputOf(b, "fm/kit"); in == nil || in["Text"] != "a pose" || in["Ack"] != float64(7) {
+		t.Errorf("Kit's input %v: the page cleared it and should hear it back", in)
+	}
+}
+
+func TestTypingDuringThePasswordPromptIsTheDraft(t *testing.T) {
+	h := start(t)
+	h.promptUp()
+	h.act(`{"Do":"input","Key":"fm/kit","Text":"half a pose","N":3}`) // typed before the page heard of the prompt
+	if got := h.a.Draft("fm/kit"); got != "half a pose" {
+		t.Errorf("draft %q", got)
+	}
+	h.act(`{"Do":"cancel"}`)
+	if got := h.a.Text(); got != "half a pose" {
+		t.Errorf("after skipping the login, the input holds %q", got)
+	}
+}
+
+func TestSubmitDuringThePasswordPromptIsntThePassword(t *testing.T) {
+	h := start(t)
+	h.promptUp()
+	b := h.act(`{"Do":"submit","Key":"fm/kit","Text":"a pose","N":3}`) // Enter before the page heard of the prompt
+	if !h.a.Char("fm/kit").NeedPW {
+		t.Fatal("the pose was taken as the password")
+	}
+	if in := inputOf(b, "fm/kit"); in == nil || in["Text"] != "a pose" || in["Ack"] != float64(3) {
+		t.Errorf("Kit's input %v: the page cleared it and should hear it back", in)
+	}
+	h.act(`{"Do":"password","Key":"fm/kit","Text":"hunter2","N":4}`)
+	if h.a.Char("fm/kit").NeedPW {
+		t.Error("the password wasn't taken")
+	}
+	if got := h.a.Text(); got != "a pose" {
+		t.Errorf("after logging in, the input holds %q", got)
 	}
 }
 

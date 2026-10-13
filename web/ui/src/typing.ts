@@ -96,14 +96,16 @@ export class Typing {
     this.rec(key).text = "";
   }
 
-  // password sends key's password: a submit, never recorded (send's
-  // secret) and never held here.
+  // password sends key's password: the password action, which Go takes
+  // only as the prompt's answer (a submit sent just as the prompt went up
+  // is a draft, not the password). Never recorded (send's secret) and
+  // never held here.
   password(key: string, text: string): void {
     this.flush();
     if (!this.send_) return;
     const r = this.rec(key);
     r.n = ++this.next;
-    this.send_({ Do: "submit", Key: key, Text: text, N: r.n }, true);
+    this.send_({ Do: "password", Key: key, Text: text, N: r.n }, true);
   }
 
   // saw notes an action number Go has taken, so the page's next number is

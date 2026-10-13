@@ -138,3 +138,14 @@ test("with nothing opened, it stays the command input's", (c) => {
   t.ready((o) => sent.push(o), "");
   assert.deepEqual(sent.map((o) => [o.Key, o.Text]), [["", "/help"]]);
 });
+
+test("a password goes as the password action, kept secret, never as a submit", () => {
+  const sent: [any, boolean | undefined][] = [];
+  const t = new Typing(300);
+  t.ready((o, secret) => sent.push([o, secret]));
+  t.password("kit", "hunter2");
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0][0].Do, "password");
+  assert.equal(sent[0][0].Key, "kit");
+  assert.equal(sent[0][1], true);
+});

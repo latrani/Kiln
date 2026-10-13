@@ -51,14 +51,18 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	case "input", "submit", "older", "newer": //str:ok
 		k := l.inputKey()
-		if act.Key != k {
-			// The page hadn't heard the active input changed. Typing for a
-			// character still open is its draft (unless its password
-			// prompt is up: that text is the password); anything else is
-			// dropped rather than sent somewhere else.
-			if c := a.Char(act.Key); act.Do == "input" && c != nil && !c.NeedPW { //str:ok
+		if c := a.Char(act.Key); act.Key != k || c != nil && c.NeedPW {
+			// The page hadn't heard the active input changed, or that the
+			// password prompt went up. Typed or sent for a character still
+			// open, the text is its draft, never sent somewhere else or as
+			// the password (that's the password action); the page cleared
+			// what it sent, so it hears it back. Anything else is dropped.
+			if c != nil && (act.Do == "input" || act.Do == "submit") { //str:ok
 				a.SetDraft(act.Key, act.Text)
 				l.f.Told(act.Key, act.N)
+				if act.Do == "submit" { //str:ok
+					l.f.Resend(act.Key)
+				}
 			}
 			break
 		}
@@ -83,6 +87,15 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 		if act.Do != "input" { //str:ok
 			l.f.Resend(k) // the page waits to hear the action was taken, changed or not
+		}
+	case "password": //str:ok
+		// The password form's submit: the password prompt's answer, and
+		// only that.
+		if c := a.Char(act.Key); c != nil && c.NeedPW && act.Key == l.inputKey() {
+			a.SetInput(act.Text)
+			l.f.Told(act.Key, act.N)
+			_, effs = a.Submit()
+			l.f.Resend(act.Key)
 		}
 	case "cancel": //str:ok
 		a.Unconfirm()
