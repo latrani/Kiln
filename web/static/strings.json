@@ -1,4 +1,5 @@
 {
+  "needs_js": "Kiln needs JavaScript.",
   "not_saving": "this browser isn't saving Kiln's configuration",
   "other_tab": "Kiln's open in another tab.",
   "use_here": "Use here"

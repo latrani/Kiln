@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc",
+    "test": "node test.mjs",
+    "build": "node build.mjs ../static"
+  },
+  "dependencies": {
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "esbuild": "0.28.2",
+    "preact-render-to-string": "6.7.0",
+    "typescript": "6.0.3"
+  }
+}

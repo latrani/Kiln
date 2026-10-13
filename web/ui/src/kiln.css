@@ -1,0 +1,6 @@
+/* JetBrains Mono, bundled (fonts/OFL.txt). font-display: block, since
+   widths are counted in ch: a fallback font first would jump the layout. */
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: block; src: url("../fonts/JetBrainsMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("../fonts/JetBrainsMono-Bold.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: italic; font-display: block; src: url("../fonts/JetBrainsMono-Italic.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: italic; font-display: block; src: url("../fonts/JetBrainsMono-BoldItalic.woff2") format("woff2"); }

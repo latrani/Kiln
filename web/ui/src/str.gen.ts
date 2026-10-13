@@ -907,6 +907,9 @@ export function viewStoreKeychain(): string { return `the keychain`; }
 /** view.too_small: Kiln needs at least {min_w}x{min_h} (now {w}x{h}) */
 export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unknown): string { return `Kiln needs at least ${min_w}x${min_h} (now ${w}x${h})`; }
 
+/** web.needs_js: Kiln needs JavaScript. */
+export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }
+
 /** web.not_saving: this browser isn't saving Kiln's configuration */
 export function webNotSaving(): string { return `this browser isn't saving Kiln's configuration`; }
 

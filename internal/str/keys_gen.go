@@ -1097,6 +1097,9 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
+// WebNeedsJs is web.needs_js: "Kiln needs JavaScript."
+func WebNeedsJs() string { return get("web.needs_js", nil) }
+
 // WebNotSaving is web.not_saving: "this browser isn't saving Kiln's configuration"
 func WebNotSaving() string { return get("web.not_saving", nil) }
 

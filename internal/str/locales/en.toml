@@ -373,6 +373,7 @@ flag_preset = "with -dev: the config dir to preload in the browser"
 other_tab = "Kiln's open in another tab."
 use_here = "Use here"
 not_saving = "this browser isn't saving Kiln's configuration"
+needs_js = "Kiln needs JavaScript."
 
 # Back up and Restore in the web build.
 [backup]
