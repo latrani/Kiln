@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/session"
 )
 
 // Identities of per-character small things in Feed.small: never shown.
@@ -115,7 +116,7 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	open := map[string]bool{}
 	for _, k := range a.Order() {
 		open[k] = true
-		put(idChar+k, char(a.Char(k)))
+		put(idChar+k, char(a, a.Char(k)))
 		put(idInput+k, f.input(k))
 	}
 	var gone []string
@@ -172,13 +173,21 @@ func worlds(a *app.App) Worlds {
 	return out
 }
 
-func char(c *app.Char) Char {
-	return Char{
+func char(a *app.App, c *app.Char) Char {
+	ch := Char{
 		Key: c.Key, World: c.Ch.World, ID: c.Ch.ID, Name: c.Ch.Name,
 		State: c.State, Unread: c.Unread, Attention: c.Attention,
 		CertChanged: c.Pin != nil, Orphan: c.Orphan, ConnectedAt: c.ConnectedAt,
 		MaxLineBytes: c.Ch.MaxLineBytes, NewlineMode: c.Ch.NewlineMode, More: c.More, Loading: c.Loading,
 	}
+	now := a.Now()
+	if c.State == session.Connected && !c.ConnectedAt.IsZero() {
+		ch.ConnectedSince = app.ConnectedSince(c.ConnectedAt, now)
+	}
+	if t, ok := a.LastTime(c.Key); ok {
+		ch.LastSeen = app.Clock(t, now)
+	}
+	return ch
 }
 
 // scrollback is c's Lines event, if its lines changed.

@@ -510,3 +510,27 @@ func TestEmptyOrderIsAnEmptyList(t *testing.T) {
 		t.Error("Order.Keys is nil")
 	}
 }
+
+func TestCharSaysWhenAsPeopleRead(t *testing.T) {
+	a, _ := newApp(t)
+	f := New(a)
+	open(t, a, "fm/kit", "fm/rook")
+	f.All()
+	s := attach(a, "fm/kit")
+	a.Handle(app.SessionMsg{Key: "fm/kit", Sess: s, OK: true, Ev: session.Event{Kind: session.EventState, State: session.Connected}})
+	line(a, "fm/kit", s, "hi")
+	var kit, rook Char
+	for _, e := range f.All() {
+		if c, ok := e.(Char); ok && c.Key == "fm/kit" {
+			kit = c
+		} else if ok {
+			rook = c
+		}
+	}
+	if kit.ConnectedSince != app.ConnectedSince(day, day) || kit.LastSeen != app.Clock(day, day) {
+		t.Errorf("Kit says %q, %q", kit.ConnectedSince, kit.LastSeen)
+	}
+	if rook.ConnectedSince != "" || rook.LastSeen != "" {
+		t.Errorf("Rook says %q, %q", rook.ConnectedSince, rook.LastSeen)
+	}
+}
