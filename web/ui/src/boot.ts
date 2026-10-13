@@ -186,19 +186,22 @@ export async function boot(store: Store): Promise<void> {
   // onBatch must never throw: it runs inside a call from Go. It may call
   // kiln.act: Go queues it, never waits.
   // The first batch means Go's loop runs and takes actions: what was done
-  // and typed while it loaded goes now, in order.
+  // and typed while it loaded goes now, in order, once the batch says
+  // which input is showing.
   let running = false;
   const onBatch = (json: string) => {
-    if (!running) {
-      running = true;
-      typing.ready(send);
-    }
     try {
       const batch: Event[] = JSON.parse(json);
       if (record) events.push(...batch);
       store.apply(batch);
     } catch (e) {
       console.error(e);
+    }
+    if (!running) {
+      running = true;
+      const s = store.state;
+      typing.ready(send, s.chars[s.active] ? s.active : ""); // after the batch: it says what Kiln opened with
+      store.set({}); // draw the typing where it went
     }
   };
   g.kilnReady = () => {

@@ -116,3 +116,25 @@ test("the store tells typing what Go has taken", () => {
   s.state.typing!.ready(() => {});
   assert.equal(s.state.typing!.takes("k", 50), false);
 });
+
+test("typing while Kiln loaded goes to the character it opened with", (c) => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  c.after(() => mock.timers.reset());
+  const sent: any[] = [];
+  const t = new Typing(300);
+  t.edit("", "hello all");
+  t.ready((o) => sent.push(o), "fm/kit");
+  assert.deepEqual(sent.map((o) => [o.Do, o.Key, o.Text]), [["input", "fm/kit", "hello all"]]);
+  assert.equal(t.text("fm/kit"), "hello all");
+  assert.equal(t.text(""), undefined);
+});
+
+test("with nothing opened, it stays the command input's", (c) => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  c.after(() => mock.timers.reset());
+  const sent: any[] = [];
+  const t = new Typing(300);
+  t.edit("", "/help");
+  t.ready((o) => sent.push(o), "");
+  assert.deepEqual(sent.map((o) => [o.Key, o.Text]), [["", "/help"]]);
+});

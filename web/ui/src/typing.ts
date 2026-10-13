@@ -23,8 +23,15 @@ export class Typing {
   constructor(private wait = 300) {}
 
   // ready starts sending, through send, once Kiln's loop runs: first the
-  // actions taken before, in order, then typing held until now.
-  ready(send: (o: object, secret?: boolean) => void): void {
+  // actions taken before, in order, then typing held until now. Typed
+  // while it loaded, the text was the only input there was (""); if Kiln
+  // opened with a character showing (autoconnect), it's that character's.
+  ready(send: (o: object, secret?: boolean) => void, home = ""): void {
+    const idle = this.recs.get("");
+    if (home && idle?.pending && !this.recs.get(home)?.pending) {
+      this.recs.delete("");
+      this.recs.set(home, idle);
+    }
     this.send_ = send;
     for (const [o, secret] of this.queue.splice(0)) send(o, secret);
     this.flush();
