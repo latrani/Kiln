@@ -381,3 +381,29 @@ func TestPaletteSubTableErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestLooks(t *testing.T) {
+	th, err := FromTOML(`[palette]
+accent = "#FF9F43"
+[ui]
+"sidebar.active" = { fg = "accent", bold = true }
+[tags]
+page = { fg = "red", reverse = true }
+self = { scope = "match", underline = true }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles, tags := th.Looks()
+	if got := roles[SidebarActive]; got.FG != "#ff9f43" || !got.Bold {
+		t.Errorf("sidebar.active %+v", got)
+	}
+	if got := tags["page"]; got.FG != "ansi:1" || !got.Reverse || got.Match {
+		t.Errorf("page %+v", got)
+	}
+	if got := tags["self"]; !got.Underline || !got.Match {
+		t.Errorf("self %+v", got)
+	}
+	if len(roles) != len(Roles) {
+		t.Errorf("%d roles, want %d", len(roles), len(Roles))
+	}
+}
