@@ -122,3 +122,13 @@ test("Saved and Problems are the latest answer, numbered", () => {
   assert.equal(s.state.answer?.n, 2);
   assert.equal(s.state.answer?.Problems?.[0].Msg, "no");
 });
+
+test("the picker's highlight follows what Go sends: worlds coming, the highlighted character opening", () => {
+  const s = new Store();
+  s.openPicker(); // before the worlds came: nothing to highlight
+  assert.equal(s.state.picker?.sel, "");
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] }]);
+  assert.equal(s.state.picker?.sel, "fm/kit");
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", Name: "Kit" }]);
+  assert.equal(s.state.picker?.sel, "fm/rook", "Kit's open now: not offered");
+});

@@ -126,6 +126,13 @@ export class Store {
         console.error("event not applied", e, err);
       }
     }
+    if (s.picker) {
+      // What's offered may have changed (worlds, a character opening or
+      // closing): the highlight stays on a row there is, as the TUI's
+      // fixPick after a reload.
+      const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter), s.picker.sel);
+      if (sel !== s.picker.sel) s = { ...s, picker: { ...s.picker, sel } };
+    }
     this.state = s;
     for (const e of effects) {
       try {
