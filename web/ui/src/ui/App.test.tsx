@@ -6,6 +6,7 @@ import { Store } from "../store.ts";
 import type { Event, State } from "../store.ts";
 import { loadingText } from "../boot.ts";
 import { sidebarCSS } from "../layout.ts";
+import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
 
 const page = (patch: Partial<State> = {}, batch: Event[] = []) => {
@@ -102,4 +103,45 @@ test("older history on its way: the loading row", () => {
 test("the server's prompt sits after the lines", () => {
   const html = page({ phase: "running" }, kitOpen([{ type: "Input", Key: "fm/kit", Text: "", Prompt: [{ Text: "Password: " }] }]));
   assert.ok(html.indexOf("Password: ") > html.indexOf("second line"));
+});
+
+const three: Event[] = [
+  { type: "Order", Keys: ["fm/kit", "fm/rook", "pf/ash"] },
+  { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2 },
+  { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, Unread: 3, Attention: true },
+  { type: "Char", Key: "pf/ash", World: "pf", Name: "Ash", State: 1 },
+  { type: "Active", Key: "fm/kit" },
+];
+// row is the sidebar's <li> holding text.
+const row = (html: string, text: string) => [...html.matchAll(/<li[^>]*>.*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(text)) ?? "";
+
+test("the sidebar: worlds, characters, the active one", () => {
+  const html = page({ phase: "running" }, three);
+  const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+  assert.ok(nav.indexOf(">fm<") < nav.indexOf(">Kit<") && nav.indexOf(">Rook<") < nav.indexOf(">pf<") && nav.indexOf(">pf<") < nav.indexOf(">Ash<"), nav);
+  const kit = row(html, ">Kit<");
+  assert.ok(kit.includes(roleClass("sidebar.active")), kit);
+  assert.match(kit, /<button[^>]*aria-current="true"[^>]*>Kit</);
+});
+
+test("the sidebar: unread, attention and closing", () => {
+  const rook = row(page({ phase: "running" }, three), ">Rook<");
+  assert.ok(rook.includes(`aria-label="${str.webCharAttention(3, "Rook")}"`), rook);
+  assert.ok(rook.includes(str.glyph.attention) && rook.includes(roleClass("sidebar.attention")), rook);
+  assert.match(rook, new RegExp(`class="${roleClass("sidebar.unread")}"[^>]*>3<`));
+  assert.match(rook, new RegExp(`<button[^>]*aria-label="${str.webCloseChar("Rook")}"[^>]*>${str.glyph.remove}</button>`));
+  const quiet = page({ phase: "running" }, [...three, { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, Unread: 2 }]);
+  assert.ok(row(quiet, ">Rook<").includes(`aria-label="${str.webCharUnread(2, "Rook")}"`));
+  assert.ok(!row(quiet, ">Rook<").includes(str.glyph.attention));
+});
+
+test("the sidebar: a character connecting", () => {
+  const ash = row(page({ phase: "running" }, three), ">Ash<");
+  assert.match(ash, new RegExp(`class="[^"]*${roleClass("sidebar.connecting")}[^"]*"[^>]*>${str.glyph.connecting}<`), ash);
+  assert.ok(!ash.includes(str.webCloseChar("Ash")));
+});
+
+test("the sidebar: a world's overview is active on its world", () => {
+  const html = page({ phase: "running" }, [...three, { type: "Active", Key: "=fm" }]);
+  assert.match(html, new RegExp(`<button[^>]*class="[^"]*${roleClass("sidebar.active")}[^"]*"[^>]*aria-current="true"[^>]*>fm<`));
 });

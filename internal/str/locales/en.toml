@@ -380,6 +380,12 @@ stopped = "Kiln stopped."
 reload = "Reload"
 # The sidebar's name for screen readers.
 characters = "Characters"
+# A character's name in the sidebar, for screen readers, when lines have
+# come you haven't read; and when one of them wants you.
+char_unread = { one = "{name}, 1 unread", other = "{name}, {n} unread" }
+char_attention = { one = "{name}, 1 unread, wants attention", other = "{name}, {n} unread, wants attention" }
+# The × beside a disconnected character, for screen readers.
+close_char = "Close {name}"
 
 # Back up and Restore in the web build.
 [backup]

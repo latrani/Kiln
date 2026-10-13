@@ -19,6 +19,13 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
 }
 .side { grid-area: side; overflow-y: auto; }
+/* A sidebar row is one line: the name gives way (cut with …) to the
+   badge and the activity, as the TUI's fitName does. */
+.side ul { list-style: none; margin: 0; padding: 0; }
+.side li { display: flex; white-space: pre; }
+.side button { padding: 0; text-align: left; }
+.side .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+.side .activity { flex: none; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
 .top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); }
 .body { grid-area: body; min-height: 0; position: relative; display: flex; flex-direction: column; }

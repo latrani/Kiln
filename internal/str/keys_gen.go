@@ -1097,8 +1097,25 @@ func ViewTooSmall(min_w, min_h, w, h any) string {
 	return get("view.too_small", map[string]any{"min_w": min_w, "min_h": min_h, "w": w, "h": h})
 }
 
+// WebCharAttention is web.char_attention, by count:
+//   - one: "{name}, 1 unread, wants attention"
+//   - other: "{name}, {n} unread, wants attention"
+func WebCharAttention(n int, name any) string {
+	return count("web.char_attention", n, map[string]any{"n": n, "name": name})
+}
+
+// WebCharUnread is web.char_unread, by count:
+//   - one: "{name}, 1 unread"
+//   - other: "{name}, {n} unread"
+func WebCharUnread(n int, name any) string {
+	return count("web.char_unread", n, map[string]any{"n": n, "name": name})
+}
+
 // WebCharacters is web.characters: "Characters"
 func WebCharacters() string { return get("web.characters", nil) }
+
+// WebCloseChar is web.close_char: "Close {name}"
+func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
 
 // WebLoading is web.loading: "loading Kiln… {got} MB"
 func WebLoading(got any) string { return get("web.loading", map[string]any{"got": got}) }

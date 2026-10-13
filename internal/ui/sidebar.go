@@ -229,7 +229,7 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	lead, leadRole := " ", theme.SidebarChar
 	switch {
 	case cs.State == session.Connecting:
-		lead, leadRole = " … ", theme.SidebarConnecting
+		lead, leadRole = " "+glyph.Connecting+" ", theme.SidebarConnecting
 	case closable(cs):
 		lead, leadRole = " "+glyph.Remove+" ", theme.SidebarDisconnected
 	}

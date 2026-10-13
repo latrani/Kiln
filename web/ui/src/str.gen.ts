@@ -907,8 +907,27 @@ export function viewStoreKeychain(): string { return `the keychain`; }
 /** view.too_small: Kiln needs at least {min_w}x{min_h} (now {w}x{h}) */
 export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unknown): string { return `Kiln needs at least ${min_w}x${min_h} (now ${w}x${h})`; }
 
+/** web.char_attention: one: {name}, 1 unread, wants attention · other: {name}, {n} unread, wants attention */
+export function webCharAttention(n: number, name: unknown): string {
+  switch (plural.select(n)) {
+    case "one": return `${name}, 1 unread, wants attention`;
+    default: return `${name}, ${n} unread, wants attention`;
+  }
+}
+
+/** web.char_unread: one: {name}, 1 unread · other: {name}, {n} unread */
+export function webCharUnread(n: number, name: unknown): string {
+  switch (plural.select(n)) {
+    case "one": return `${name}, 1 unread`;
+    default: return `${name}, ${n} unread`;
+  }
+}
+
 /** web.characters: Characters */
 export function webCharacters(): string { return `Characters`; }
+
+/** web.close_char: Close {name} */
+export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 
 /** web.loading: loading Kiln… {got} MB */
 export function webLoading(got: unknown): string { return `loading Kiln… ${got} MB`; }
@@ -950,4 +969,5 @@ export const glyph = {
   choiceNext: "►",
   add: "+",
   menu: "≡",
+  connecting: "…",
 } as const;

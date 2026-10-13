@@ -64,6 +64,22 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
 	waitFor(t, ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes('You say, "hello"'))`, "the echo on the page")
 
+	// The sidebar: as wide as the TUI's, in whole characters; and a
+	// character's name switches to it.
+	waitFor(t, ev, `(() => {
+		const p = Object.assign(document.createElement("span"), { style: "position:absolute;width:1ch" });
+		document.querySelector("nav").append(p);
+		const n = document.querySelector("nav").getBoundingClientRect().width / p.getBoundingClientRect().width;
+		p.remove();
+		return Math.abs(n - Math.round(n)) < 0.01 && n >= 14 && n <= 22;
+	})()`, "the sidebar a whole number of characters wide")
+	ev(`kilnPage.act({Do: "open", Key: "fake/second"})`)
+	waitFor(t, ev, `[...document.querySelectorAll("nav button")].some(b => b.textContent === "Second")`, "a second character in the sidebar")
+	ev(`[...document.querySelectorAll("nav button")].find(b => b.textContent === "Second").click()`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key === "fake/second"`, "switching from the sidebar")
+	ev(`[...document.querySelectorAll("nav button")].find(b => b.textContent === "Tester").click()`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key === "fake/tester"`, "switching back from the sidebar")
+
 	// Every glyph Kiln draws comes from the bundled font, one cell wide. A
 	// glyph drawn by a fallback measures differently under a serif and a
 	// monospace fallback; the bundled face itself must have loaded.
@@ -183,7 +199,7 @@ func config(t *testing.T, port int) (preset, allow string) {
 	if err := os.MkdirAll(filepath.Join(preset, "worlds"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	world := fmt.Sprintf("host = \"127.0.0.1\"\nport = %d\ntls = true\ntls_trust = \"pin\"\n\n[[characters]]\nid = \"tester\"\nname = \"Tester\"\n", port)
+	world := fmt.Sprintf("host = \"127.0.0.1\"\nport = %d\ntls = true\ntls_trust = \"pin\"\n\n[[characters]]\nid = \"tester\"\nname = \"Tester\"\n\n[[characters]]\nid = \"second\"\nname = \"Second\"\n", port)
 	if err := os.WriteFile(filepath.Join(preset, "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
 		t.Fatal(err)
 	}
