@@ -95,6 +95,10 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	if err := os.WriteFile(file, zip, 0o600); err != nil || len(zip) == 0 {
 		t.Fatalf("backup of %d bytes: %v", len(zip), err)
 	}
+	// Headless Chrome may dismiss a file chooser at once (the page then
+	// drops its file input); intercepted, it stays open for the test.
+	devtools(t, ws, "Page.enable", nil)
+	devtools(t, ws, "Page.setInterceptFileChooserDialog", map[string]any{"enabled": true})
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "/restore"})
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `document.querySelector('input[type="file"]')`, "the file picker")
