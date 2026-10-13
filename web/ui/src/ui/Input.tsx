@@ -9,7 +9,9 @@ const connecting = 1, connected = 2, failed = 3;
 
 // hint is what the empty input says, as the TUI's prompt: how to choose
 // a connection with nothing open, or why there's nothing to send to yet.
-function hint(c: any): string | undefined {
+// Nothing while Kiln loads: there's nothing to choose from yet.
+function hint(c: any, running: boolean): string | undefined {
+  if (!running) return undefined;
   if (!c) return str.viewNothingOpen();
   if (c.State === connected) return undefined;
   if (c.CertChanged) return str.viewCertChanged();
@@ -76,7 +78,7 @@ export function Input({ state }: { state: State }) {
     else value = typing.text(key) ?? value;
   }
   const ranges = over(value, c);
-  const said = value ? undefined : hint(c); // shown instead of the ›, as the TUI does
+  const said = value ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does
 
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {

@@ -280,6 +280,7 @@ test("while Kiln loads, the input takes typing", () => {
   const html = bottom(page({ phase: "loading", progress: { got: 1 } }));
   assert.match(html, /<textarea/);
   assert.doesNotMatch(html, /<textarea[^>]*disabled/);
+  assert.ok(!html.includes(str.viewNothingOpen()), "no hint to choose a connection before there are any");
 });
 
 test("a hint has no ›, as the TUI's prompt: it isn't a line bound for the server", () => {
