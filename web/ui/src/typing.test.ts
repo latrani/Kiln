@@ -89,3 +89,11 @@ test("actions before Kiln runs wait their turn, after what was typed", (c) => {
   t.ready((o) => sent.push(o));
   assert.deepEqual(sent.map((o) => o.Do), ["resize", "input", "focus"]);
 });
+
+test("leaving the tab saves drafts after what's typed", (c) => {
+  const { t, sent } = setup();
+  c.after(() => mock.timers.reset());
+  t.edit("kit", "half a pose");
+  t.act({ Do: "save_drafts" });
+  assert.deepEqual(sent.map((o) => [o.Do, o.Text]), [["input", "half a pose"], ["save_drafts", undefined]]);
+});

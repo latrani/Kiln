@@ -271,3 +271,9 @@ test("the password form: a hidden username for password managers, the TUI's labe
   assert.ok(html.includes(str.viewPasswordKeys()) && html.includes(roleClass("input.hint")));
   assert.ok(!html.includes("<textarea"), "the form takes the input's place");
 });
+
+test("while Kiln loads, the input takes typing", () => {
+  const html = bottom(page({ phase: "loading", progress: { got: 1 } }));
+  assert.match(html, /<textarea/);
+  assert.doesNotMatch(html, /<textarea[^>]*disabled/);
+});
