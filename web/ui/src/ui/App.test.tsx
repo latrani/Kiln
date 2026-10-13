@@ -30,15 +30,30 @@ test("another tab: the message and Use here, in the scrollback", () => {
   assert.ok(html.includes(`>${str.webUseHere()}</button>`));
 });
 
-test("stopped: an alert and Reload", () => {
-  const html = page({ phase: "stopped" });
-  assert.ok(html.includes('role="alert"') && html.includes(str.webStopped()));
-  assert.ok(html.includes(`>${str.webReload()}</button>`));
+test("stopped: Reload", () => {
+  assert.ok(page({ phase: "stopped" }).includes(`>${str.webReload()}</button>`));
 });
 
-test("a status error is an alert; otherwise not saving stays", () => {
-  assert.match(page({ phase: "running" }, [{ type: "Status", Text: "boom", Err: true, Gen: 1 }]), /role="alert"[^>]*>boom</);
-  assert.ok(page({ phase: "running", saving: false }).includes(str.webNotSaving()));
+// liveRegions is each live region's role and text, in order.
+const liveRegions = (html: string) => [...html.matchAll(/<(\w+)[^>]*role="(status|alert)"[^>]*>(.*?)<\/\1>/g)].map((m) => [m[2], m[3].replace(/<[^>]*>/g, "")]);
+
+test("the status line keeps one polite and one urgent region, always", () => {
+  for (const patch of [{ phase: "running" }, { phase: "loading", progress: { got: 1, total: 2 } }, { phase: "stopped" }] as Partial<State>[]) {
+    assert.deepEqual(liveRegions(page(patch)).map((r) => r[0]), ["status", "alert"], JSON.stringify(patch));
+  }
+});
+
+test("errors go in the urgent region, the rest in the polite one", () => {
+  assert.deepEqual(liveRegions(page({ phase: "running" }, [{ type: "Status", Text: "boom", Err: true, Gen: 1 }])), [["status", ""], ["alert", "boom"]]);
+  assert.deepEqual(liveRegions(page({ phase: "running" }, [{ type: "Status", Text: "hi", Err: false, Gen: 1 }])), [["status", "hi"], ["alert", ""]]);
+  assert.deepEqual(liveRegions(page({ phase: "running", saving: false })), [["status", str.webNotSaving()], ["alert", ""]]);
+  assert.deepEqual(liveRegions(page({ phase: "stopped" })), [["status", ""], ["alert", str.webStopped()]]);
+});
+
+test("download progress isn't read aloud chunk by chunk", () => {
+  const html = page({ phase: "loading", progress: { got: 2_100_000, total: 6_400_000 } });
+  assert.ok(html.includes(loadingText(2_100_000, 6_400_000)));
+  assert.ok(!liveRegions(html).some((r) => r[1].includes(loadingText(2_100_000, 6_400_000))));
 });
 
 test("the theme goes into the page's style", () => {

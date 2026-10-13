@@ -3,29 +3,28 @@ import type { State } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
-// StatusLine is the bottom row. It says one thing: that Kiln stopped,
-// how the download's going, Kiln's status, or that nothing's being saved.
-// Errors interrupt (alert); the rest wait their turn (status).
+// StatusLine is the bottom row. Two live regions are always there, so
+// screen readers are watching them before anything's said: a polite one
+// for news and an urgent one for errors (Kiln stopping, a status error).
+// A new status replaces the region's text node (keyed by Gen), so the
+// same words said again are read again. Download progress isn't live:
+// read chunk by chunk it would be a flood.
 export function StatusLine({ state }: { state: State }) {
   const err = roleClass("status.error");
-  let said;
-  if (state.phase === "stopped") {
-    said = (
-      <>
-        <span role="alert" class={err}>{str.webStopped()}</span>
-        <button onClick={() => location.reload()}>{str.webReload()}</button>
-      </>
-    );
-  } else if (state.phase === "loading" && state.progress) {
-    said = <span role="status">{loadingText(state.progress.got, state.progress.total)}</span>;
-  } else if (state.status?.Text) {
-    said = state.status.Err
-      ? <span role="alert" class={err}>{state.status.Text}</span>
-      : <span role="status">{state.status.Text}</span>;
-  } else if (!state.saving) {
-    said = <span role="status" class={err}>{str.webNotSaving()}</span>;
-  } else {
-    said = <span role="status" />;
-  }
-  return <div class={`status ${roleClass("status")}`}>{said}</div>;
+  let polite = "", urgent = "", gen = 0;
+  if (state.phase === "stopped") urgent = str.webStopped();
+  else if (state.status?.Text) {
+    gen = state.status.Gen;
+    if (state.status.Err) urgent = state.status.Text;
+    else polite = state.status.Text;
+  } else if (!state.saving) polite = str.webNotSaving();
+  const loading = state.phase === "loading" && state.progress;
+  return (
+    <div class={`status ${roleClass("status")}`}>
+      {loading && <span>{loadingText(state.progress!.got, state.progress!.total)}</span>}
+      <span role="status" class={!state.saving && !state.status?.Text ? err : undefined}><span key={gen}>{polite}</span></span>
+      <span role="alert" class={err}><span key={gen}>{urgent}</span></span>
+      {state.phase === "stopped" && <button onClick={() => location.reload()}>{str.webReload()}</button>}
+    </div>
+  );
 }
