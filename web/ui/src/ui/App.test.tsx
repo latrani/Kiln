@@ -261,3 +261,13 @@ test("a world's overview has no input, as the TUI's", () => {
 test("Kiln stopped: the input is disabled", () => {
   assert.match(bottom(page({ phase: "stopped" })), /<textarea[^>]*disabled/);
 });
+
+test("the password form: a hidden username for password managers, the TUI's label and keys", () => {
+  const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "", Ack: 0, NeedPW: true }]));
+  assert.match(html, /<form/);
+  assert.match(html, /<input[^>]*type="text"[^>]*name="username"[^>]*autocomplete="username"[^>]*value="Kit@fm"[^>]*hidden/);
+  assert.match(html, /<input[^>]*type="password"[^>]*autocomplete="current-password"/);
+  assert.match(html, new RegExp(`<label[^>]*>${str.viewPasswordLabel("Kit")}</label>`));
+  assert.ok(html.includes(str.viewPasswordKeys()) && html.includes(roleClass("input.hint")));
+  assert.ok(!html.includes("<textarea"), "the form takes the input's place");
+});

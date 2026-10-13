@@ -67,8 +67,13 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	// The default login line asks for the password: answer it, and the
 	// fake MUCK echoes the login.
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "fake/tester" && e.NeedPW)`, "the password prompt")
-	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "secret", N: 1001})`)
+	waitFor(t, ev, `document.activeElement === document.querySelector('.bottom input[type="password"]')`, "the password field focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "secret"})
+	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
+	if got := ev(`JSON.stringify(kilnPage.sent).includes("secret")`); got != "false" {
+		t.Error("the password is in the page's record of what it sent")
+	}
 	// Typed and sent as a person does: the input has focus, and Enter sends.
 	waitFor(t, ev, `document.activeElement === document.querySelector(".bottom textarea")`, "the input focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "hello"})
