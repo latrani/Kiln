@@ -28,6 +28,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/latrani/Kiln/internal/glyph"
+	"github.com/latrani/Kiln/internal/str"
 )
 
 func TestPageConnectsAndEchoes(t *testing.T) {
@@ -46,7 +47,7 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	muckPort := fakeMuck(t)
 	preset, allow := config(t, muckPort)
 	page := startRelay(t, root, static, preset, allow)
-	ws := openTab(t, chrome, page+"?record")
+	ws, another := openTab(t, chrome, page+"?record")
 
 	ev := evaluator(t, ws)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
@@ -73,6 +74,20 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 		const w = c.measureText("M").width;
 		window.kilnGlyphs = ` + string(list) + `.filter(g => Math.abs(c.measureText(g).width - w) > 0.01).join(""); })()`)
 	waitFor(t, ev, `window.kilnGlyphs === ""`, "every glyph one cell wide")
+
+	// A second tab finds Kiln open in the first and says so, with Use
+	// here; taking over leaves the first tab saying so in turn.
+	ev2 := evaluator(t, another(page))
+	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab's Use here")
+	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
+	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
+	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, saying so")
+}
+
+// jsString is s as a JavaScript string literal.
+func jsString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // buildPage builds the page (web/ui) and the wasm into a scratch
@@ -209,7 +224,9 @@ func startRelay(t *testing.T, root, static, preset, allow string) string {
 
 // openTab starts headless Chrome on page and returns a DevTools
 // connection to its tab.
-func openTab(t *testing.T, chrome, page string) *websocket.Conn {
+// openTab starts headless Chrome on page and returns its tab, and a way
+// to open another tab in the same browser (sharing its storage and locks).
+func openTab(t *testing.T, chrome, page string) (*websocket.Conn, func(page string) *websocket.Conn) {
 	t.Helper()
 	profile := t.TempDir()
 	cmd := exec.Command(chrome, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+profile,
@@ -228,6 +245,13 @@ func openTab(t *testing.T, chrome, page string) *websocket.Conn {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	tab := func(page string) *websocket.Conn { return newTab(t, port, page) }
+	return tab(page), tab
+}
+
+// newTab opens page in another tab of the Chrome listening on port.
+func newTab(t *testing.T, port, page string) *websocket.Conn {
+	t.Helper()
 	req, _ := http.NewRequest(http.MethodPut, "http://127.0.0.1:"+port+"/json/new?"+page, nil)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
