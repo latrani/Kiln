@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str/catalog"
 )
 
@@ -27,6 +28,17 @@ func TestGeneratedIsFresh(t *testing.T) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Error("keys_gen.go is stale: run go generate ./internal/str")
+	}
+	gotTS, err := os.ReadFile("../../web/ui/src/str.gen.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTS, err := catalog.TS(en, got, glyph.All)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(gotTS, wantTS) {
+		t.Error("web/ui/src/str.gen.ts is stale: run go generate ./internal/str")
 	}
 	gotJS, err := os.ReadFile("../../web/static/strings.json")
 	if err != nil {

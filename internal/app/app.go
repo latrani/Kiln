@@ -224,6 +224,9 @@ func tagInputs(ch config.Character) any {
 // Config is the config last applied; nil before the first.
 func (a *App) Config() *config.Config { return a.cfg }
 
+// Now is the time, by the clock Deps gave.
+func (a *App) Now() time.Time { return a.d.Now() }
+
 // Find looks up a configured character by key.
 func (a *App) Find(k string) (config.Character, bool) {
 	if a.cfg != nil {

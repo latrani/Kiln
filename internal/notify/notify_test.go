@@ -82,3 +82,9 @@ func TestClipboard(t *testing.T) {
 		t.Errorf("in tmux = %q, want %q", got, want)
 	}
 }
+
+func TestClean(t *testing.T) {
+	if got := Clean("\x1b[31mMira\x07\x1b[0m pages \x85"); got != "Mira pages" {
+		t.Errorf("Clean = %q", got)
+	}
+}

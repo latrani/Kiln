@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/latrani/Kiln/internal/glyph"
+
 // Log-mode (browse, in the code) key bindings and glyphs live here so they can be retuned in
 // one place. Keys are tea.KeyPressMsg.String() values.
 
@@ -67,10 +69,10 @@ const openFilterKey = "f"
 // Filter panel glyphs: a parent's disclosure, the mark on a collapsed
 // parent with a filter set under it, and the × that removes a text row.
 const (
-	glyphOpen      = "▼"
-	glyphCollapsed = "►"
-	glyphFiltered  = "•"
-	glyphRemove    = "×"
+	glyphOpen      = glyph.Open
+	glyphCollapsed = glyph.Collapsed
+	glyphFiltered  = glyph.Filtered
+	glyphRemove    = glyph.Remove
 )
 
 // Export format keys, pressed after actExport.
@@ -78,6 +80,6 @@ var exportFormatKeys = map[string]string{"p": "plain", "a": "ansi", "h": "html"}
 
 // Browse glyphs.
 const (
-	glyphSelected = "▌"
-	glyphExcluded = "░"
+	glyphSelected = glyph.Selected
+	glyphExcluded = glyph.Excluded
 )

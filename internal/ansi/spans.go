@@ -6,13 +6,16 @@ import (
 	"strings"
 )
 
-// SpanStyle is the SGR state for a run of text. Colors are "#rrggbb", or
-// "" for the terminal default.
+// SpanStyle is the SGR state for a run of text. Colors are "ansi:N" for
+// one of the terminal's own sixteen (N 0–15), "#rrggbb", or "" for the
+// terminal default.
 type SpanStyle struct {
-	FG, BG    string
-	Bold      bool
-	Italic    bool
-	Underline bool
+	FG, BG    string `json:",omitempty"`
+	Bold      bool   `json:",omitempty"`
+	Faint     bool   `json:",omitempty"`
+	Italic    bool   `json:",omitempty"`
+	Underline bool   `json:",omitempty"`
+	Reverse   bool   `json:",omitempty"`
 }
 
 // Span is a run of text drawn in one style.
@@ -22,7 +25,8 @@ type Span struct {
 }
 
 // Spans splits s into styled runs by interpreting its SGR sequences
-// (16-color, 256-color and truecolor; bold, italic, underline). Other
+// (16-color, 256-color and truecolor; bold, faint, italic, underline,
+// reverse). Other
 // escape sequences are dropped. Adjacent runs never share a style.
 func Spans(s string) []Span {
 	var out []Span
@@ -77,8 +81,10 @@ func applySGR(st SpanStyle, params string) SpanStyle {
 			st = SpanStyle{}
 		case n == 1:
 			st.Bold = true
+		case n == 2:
+			st.Faint = true
 		case n == 22:
-			st.Bold = false
+			st.Bold, st.Faint = false, false
 		case n == 3:
 			st.Italic = true
 		case n == 23:
@@ -87,16 +93,20 @@ func applySGR(st SpanStyle, params string) SpanStyle {
 			st.Underline = true
 		case n == 24:
 			st.Underline = false
+		case n == 7:
+			st.Reverse = true
+		case n == 27:
+			st.Reverse = false
 		case n >= 30 && n <= 37:
-			st.FG = palette16[n-30]
+			st.FG = sixteen(n - 30)
 		case n >= 90 && n <= 97:
-			st.FG = palette16[n-90+8]
+			st.FG = sixteen(n - 90 + 8)
 		case n == 39:
 			st.FG = ""
 		case n >= 40 && n <= 47:
-			st.BG = palette16[n-40]
+			st.BG = sixteen(n - 40)
 		case n >= 100 && n <= 107:
-			st.BG = palette16[n-100+8]
+			st.BG = sixteen(n - 100 + 8)
 		case n == 49:
 			st.BG = ""
 		case n == 38 || n == 48:
@@ -122,19 +132,34 @@ func applySGR(st SpanStyle, params string) SpanStyle {
 	return st
 }
 
+// sixteen names one of the terminal's own sixteen colors.
+func sixteen(i int) string { return "ansi:" + strconv.Itoa(i) } //str:ok: a color reference
+
+// Hex is c as a hex color: one of the terminal's sixteen ("ansi:N") as
+// xterm's default for it, anything else as it is.
+func Hex(c string) string {
+	if n, ok := strings.CutPrefix(c, "ansi:"); ok { //str:ok: a color reference
+		if i, err := strconv.Atoi(n); err == nil && i >= 0 && i < 16 {
+			return palette16[i]
+		}
+	}
+	return c
+}
+
 // palette16 is the xterm default 16-color palette.
 var palette16 = [16]string{
 	"#000000", "#cd0000", "#00cd00", "#cdcd00", "#0000ee", "#cd00cd", "#00cdcd", "#e5e5e5",
 	"#7f7f7f", "#ff0000", "#00ff00", "#ffff00", "#5c5cff", "#ff00ff", "#00ffff", "#ffffff",
 }
 
-// color256 maps an xterm 256-color index to "#rrggbb" ("" if invalid).
+// color256 maps an xterm 256-color index to a color: one of the
+// sixteen as "ansi:N", the rest as "#rrggbb" ("" if invalid).
 func color256(n int) string {
 	switch {
 	case n < 0 || n > 255:
 		return ""
 	case n < 16:
-		return palette16[n]
+		return sixteen(n)
 	case n < 232:
 		n -= 16
 		level := func(v int) int {

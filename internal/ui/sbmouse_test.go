@@ -15,21 +15,6 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-func TestTrimURL(t *testing.T) {
-	for in, want := range map[string]string{
-		"https://x.test/a.":           "https://x.test/a",
-		"https://x.test/a),":          "https://x.test/a",
-		"https://en.wiki/Foo_(bar)":   "https://en.wiki/Foo_(bar)",
-		"https://en.wiki/Foo_(bar)).": "https://en.wiki/Foo_(bar)",
-		"http://x.test/?q=1&r=2!":     "http://x.test/?q=1&r=2",
-		"https://x.test/[1]]":         "https://x.test/[1]",
-	} {
-		if got := trimURL(in); got != want {
-			t.Errorf("trimURL(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 // sbWith is a scrollback of lines, width w, drawn h rows tall.
 func sbWith(w, h int, lines ...string) *Scrollback {
 	var s Scrollback

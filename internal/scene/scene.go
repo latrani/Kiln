@@ -83,10 +83,10 @@ pre { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-spac
 func spanCSS(s ansi.SpanStyle) string {
 	var parts []string
 	if s.FG != "" {
-		parts = append(parts, "color:"+s.FG) //str:ok
+		parts = append(parts, "color:"+ansi.Hex(s.FG)) //str:ok
 	}
 	if s.BG != "" {
-		parts = append(parts, "background:"+s.BG) //str:ok
+		parts = append(parts, "background:"+ansi.Hex(s.BG)) //str:ok
 	}
 	if s.Bold {
 		parts = append(parts, "font-weight:bold") //str:ok

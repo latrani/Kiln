@@ -3,11 +3,15 @@ package ui
 import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
+
+// dayRule is drawn either side of a day's label.
+const dayRule = glyph.Rule + glyph.Rule
 
 // paint draws l for the terminal: a server line in its tags' styles
 // from hl, over the server's own colors; Kiln's lines in their roles.
@@ -17,9 +21,9 @@ func paint(hl *rules.Highlighter, l app.Line) string {
 	case app.Echo:
 		return theme.Paint(theme.ScrollbackEcho, gutterMark+l.Text())
 	case app.Sys:
-		return theme.Paint(theme.ScrollbackSys, "* "+l.Text())
+		return theme.Paint(theme.ScrollbackSys, glyph.Sys+" "+l.Text())
 	case app.Day:
-		return theme.Paint(theme.ScrollbackDay, "── "+app.DayLabel(l.Day)+" ──")
+		return theme.Paint(theme.ScrollbackDay, dayRule+" "+app.DayLabel(l.Day)+" "+dayRule)
 	case app.HistoryEnd:
 		return theme.Paint(theme.ScrollbackHistoryEnd, str.ScrollbackHistoryEnds(l.Entry.Time.Format(str.DateDayTime())))
 	}
@@ -34,7 +38,7 @@ func plainShown(l app.Line) string {
 	case app.Echo:
 		return gutterMark + l.Plain()
 	case app.Sys:
-		return "* " + l.Plain()
+		return glyph.Sys + " " + l.Plain()
 	}
 	return l.Plain()
 }

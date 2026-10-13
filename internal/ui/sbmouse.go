@@ -1,13 +1,13 @@
 package ui
 
 import (
-	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -54,10 +54,7 @@ func (l *sbLine) plainRows(w int) (plain string, rows []string, starts []int) {
 			pos += len(r)
 		}
 		l.plainW = w
-		l.links = nil
-		for _, m := range urlRE.FindAllStringIndex(l.plain, -1) {
-			l.links = append(l.links, [2]int{m[0], m[0] + len(trimURL(l.plain[m[0]:m[1]]))})
-		}
+		l.links = app.Links(l.plain)
 	}
 	return l.plain, l.pRows, l.pStarts
 }
@@ -84,25 +81,6 @@ func (s *Scrollback) At(y, x int) (p sbPos, ok bool) {
 	ref := s.shown[y]
 	_, rows, starts := s.lines[ref.line].plainRows(s.w())
 	return sbPos{ref.line, starts[ref.row] + colToByte(rows[ref.row], max(0, x-rowIndent(ref.row)))}, true
-}
-
-// urlRE finds web links. Trailing punctuation is trimmed by trimURL.
-var urlRE = regexp.MustCompile(`https?://[^\s<>"'` + "`" + `]+`) //str:ok
-
-// trimURL drops sentence punctuation after a link, and a closing bracket
-// that doesn't close one inside it.
-func trimURL(u string) string {
-	for u != "" {
-		switch c := u[len(u)-1]; {
-		case strings.IndexByte(".,;:!?'\"", c) >= 0:
-		case c == ')' && strings.Count(u, "(") < strings.Count(u, ")"):
-		case c == ']' && strings.Count(u, "[") < strings.Count(u, "]"):
-		default:
-			return u
-		}
-		u = u[:len(u)-1]
-	}
-	return u
 }
 
 // linkAt is the byte range of the link at p, if there is one.

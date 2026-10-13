@@ -1,12 +1,14 @@
 // Command gen writes keys_gen.go from locales/en.toml: one function per
-// catalog entry, and web/static/strings.json, the [web] table for the
-// page. Run it with go generate ./internal/str.
+// catalog entry; web/ui/src/str.gen.ts, the same for the page, with the
+// glyphs; and web/static/strings.json, the [web] table for the
+// development page. Run it with go generate ./internal/str.
 package main
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str/catalog"
 )
 
@@ -17,6 +19,12 @@ func main() {
 		var src []byte
 		if src, err = catalog.Generate(data, prev); err == nil {
 			err = os.WriteFile("keys_gen.go", src, 0o644)
+		}
+		if err == nil {
+			var ts []byte
+			if ts, err = catalog.TS(data, src, glyph.All); err == nil {
+				err = os.WriteFile("../../web/ui/src/str.gen.ts", ts, 0o644)
+			}
 		}
 		if err == nil {
 			var js []byte

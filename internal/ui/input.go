@@ -10,13 +10,14 @@ import (
 
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
 // Input gutter, that we show at the beginning of the line we send to the server
 // (and the aligner that goes below it for continuation rows)
 const (
-	gutterMark  = "›"
+	gutterMark  = glyph.Echo
 	gutterBlank = " "
 	gutterWidth = 1
 )

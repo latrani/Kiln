@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/session"
 )
 
 // Identities of per-character small things in Feed.small: never shown.
@@ -73,6 +74,17 @@ func (f *Feed) Told(key string, ack int) {
 	f.small[idInput+key] = f.input(key)
 }
 
+// Restyle sends character key's scrollback and log-mode lines again on
+// the next turn, as a Replace: the front end's styling of them changed
+// (which tags have styles), though the lines didn't.
+func (f *Feed) Restyle(key string) {
+	for _, m := range []map[string]*sent{f.lines, f.logs} {
+		if s := m[key]; s != nil {
+			s.gen = -1 // no generation the core hands out
+		}
+	}
+}
+
 // Resend sends key's input on the next turn even if it hasn't changed:
 // the page is waiting to hear its action was taken.
 func (f *Feed) Resend(key string) { delete(f.small, idInput+key) }
@@ -115,7 +127,7 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	open := map[string]bool{}
 	for _, k := range a.Order() {
 		open[k] = true
-		put(idChar+k, char(a.Char(k)))
+		put(idChar+k, char(a, a.Char(k)))
 		put(idInput+k, f.input(k))
 	}
 	var gone []string
@@ -172,13 +184,21 @@ func worlds(a *app.App) Worlds {
 	return out
 }
 
-func char(c *app.Char) Char {
-	return Char{
+func char(a *app.App, c *app.Char) Char {
+	ch := Char{
 		Key: c.Key, World: c.Ch.World, ID: c.Ch.ID, Name: c.Ch.Name,
 		State: c.State, Unread: c.Unread, Attention: c.Attention,
 		CertChanged: c.Pin != nil, Orphan: c.Orphan, ConnectedAt: c.ConnectedAt,
 		MaxLineBytes: c.Ch.MaxLineBytes, NewlineMode: c.Ch.NewlineMode, More: c.More, Loading: c.Loading,
 	}
+	now := a.Now()
+	if c.State == session.Connected && !c.ConnectedAt.IsZero() {
+		ch.ConnectedSince = app.ConnectedSince(c.ConnectedAt, now)
+	}
+	if t, ok := a.LastTime(c.Key); ok {
+		ch.LastSeen = app.Clock(t, now)
+	}
+	return ch
 }
 
 // scrollback is c's Lines event, if its lines changed.

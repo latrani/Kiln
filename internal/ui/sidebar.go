@@ -8,6 +8,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
@@ -97,7 +98,7 @@ var addLabel = str.SidebarOpenConnection()
 const badgeX = 1
 
 // attentionMark prefixes the unread count when a line needed attention.
-func attentionMark() string { return theme.Paint(theme.SidebarAttention, "●") }
+func attentionMark() string { return theme.Paint(theme.SidebarAttention, glyph.Attention) }
 
 // sidebarRows lists the open characters under their worlds, then a blank
 // row and the open-connection row.
@@ -230,7 +231,7 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 	case cs.State == session.Connecting:
 		lead, leadRole = " … ", theme.SidebarConnecting
 	case closable(cs):
-		lead, leadRole = " × ", theme.SidebarDisconnected
+		lead, leadRole = " "+glyph.Remove+" ", theme.SidebarDisconnected
 	}
 	active := r.char == m.a.Active()
 	count, activity := "", ""

@@ -70,6 +70,15 @@ func (c color) css() string {
 	return strings.ToLower(c.hex)
 }
 
+// ref is c as data: "ansi:N" for one of the terminal's sixteen, else
+// its hex.
+func (c color) ref() string {
+	if c.ansi >= 0 {
+		return fmt.Sprintf("ansi:%d", c.ansi) //str:ok: a color reference
+	}
+	return strings.ToLower(c.hex)
+}
+
 // fileStyle is a role's style as a file writes it: unset fields are nil,
 // so a role can inherit them, and a later file can turn a flag back off.
 type fileStyle struct {
@@ -132,6 +141,31 @@ func (s style) sgr() string {
 		return ""
 	}
 	return "\x1b[" + strings.Join(codes, ";") + "m"
+}
+
+// Look is a resolved style as data, for a front end that draws it
+// itself. Colors are "#rrggbb", "ansi:N" (one of the terminal's
+// sixteen) or "" for none.
+type Look struct {
+	FG, BG                                  string `json:",omitempty"`
+	Bold, Faint, Italic, Underline, Reverse bool   `json:",omitempty"`
+}
+
+// TagLook is a tag's Look, and whether it's for the text the tag matched.
+type TagLook struct {
+	Look
+	Match bool `json:",omitempty"`
+}
+
+func (s style) look() Look {
+	l := Look{Bold: s.bold, Faint: s.faint, Italic: s.italic, Underline: s.underline, Reverse: s.reverse}
+	if s.fg != nil {
+		l.FG = s.fg.ref()
+	}
+	if s.bg != nil {
+		l.BG = s.bg.ref()
+	}
+	return l
 }
 
 // Style is a resolved style, for tag styles, which fold together.
@@ -231,6 +265,19 @@ func (t *Theme) Paint(r Role, text string) string {
 		return s + text + Reset
 	}
 	return text
+}
+
+// Looks is every role's and tag's style, as data.
+func (t *Theme) Looks() (roles map[Role]Look, tags map[string]TagLook) {
+	roles = make(map[Role]Look, len(Roles))
+	for _, r := range Roles {
+		roles[r] = t.styles[r].look()
+	}
+	tags = make(map[string]TagLook, len(t.tags))
+	for n, ts := range t.tags {
+		tags[n] = TagLook{Look: ts.Style.s.look(), Match: ts.Match}
+	}
+	return roles, tags
 }
 
 // CSS is r's colors as CSS hex colors, "" where r sets none.
