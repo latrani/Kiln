@@ -57,20 +57,23 @@ export const roleClass = (role: string): string => "r-" + role.replaceAll(".", "
 // and the divider with their variables.
 const lineRoles = ["rule", "rule.input", "rule.form", "rule.status", "divider"];
 
-function sheet(l: Looks, p: Palette): string {
-  const vars = [`--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`)];
+function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
+  const vars = [`color-scheme:${scheme}`, `--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`)];
   for (const r of lineRoles) vars.push(`--role-${r.replace(".", "-")}-fg:${color(l.Roles[r]?.FG, p) ?? p.fg}`);
   let css = `:root{${vars.join(";")}}body{color:var(--term-fg);background:var(--term-bg)}`;
   for (const [role, look] of Object.entries(l.Roles)) css += `.${roleClass(role)}{${lookCSS(look, p)}}`;
   return css;
 }
 
+const none: Looks = { Roles: {}, Tags: {} };
+
 // themeCSS is t as a stylesheet: dark unless the setting, or with auto
-// the system, says light.
-export function themeCSS(t: ThemeEvent): string {
-  if (t.Appearance === "light") return sheet(t.Light, latte);
-  if (t.Appearance === "dark") return sheet(t.Dark, macchiato);
-  return sheet(t.Dark, macchiato) + `@media (prefers-color-scheme: light){${sheet(t.Light, latte)}}`;
+// the system, says light. Before Go's first theme (loading, another tab
+// has Kiln) it's the terminal's colors alone, following the system.
+export function themeCSS(t: ThemeEvent | undefined): string {
+  if (t?.Appearance === "light") return sheet(t.Light, latte, "light");
+  if (t?.Appearance === "dark") return sheet(t.Dark, macchiato, "dark");
+  return sheet(t?.Dark ?? none, macchiato, "dark") + `@media (prefers-color-scheme: light){${sheet(t?.Light ?? none, latte, "light")}}`;
 }
 
 // fold is a span's look: the server's style, then each named tag's style

@@ -60,3 +60,7 @@ test("the theme goes into the page's style", () => {
   const html = page({ phase: "running" }, [{ type: "Theme", Appearance: "dark", Dark: { Roles: { status: { FG: "#123456" } }, Tags: {} }, Light: { Roles: {}, Tags: {} } }]);
   assert.ok(html.includes("#123456"));
 });
+
+test("loading, before any theme, is already in the terminal's colors", () => {
+  assert.ok(page({ phase: "loading", progress: { got: 1 } }).includes("--term-bg:"));
+});

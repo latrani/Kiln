@@ -13,7 +13,7 @@ export function App({ store }: { store: Store }) {
   const s = useStore(store);
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: s.theme ? themeCSS(s.theme) : "" }} />
+      <style dangerouslySetInnerHTML={{ __html: themeCSS(s.theme) }} />
       <div class="kiln">
         <Sidebar state={s} />
         <div class="divider" />

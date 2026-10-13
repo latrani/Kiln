@@ -56,3 +56,17 @@ test("the sixteen, the default colors and the rules are variables", () => {
   assert.ok(css.includes("--role-rule-status-fg:#222222"));
   assert.ok(css.includes(`--role-divider-fg:${macchiato.fg}`), "a rule with no color falls back to the terminal's");
 });
+
+test("before Go's theme, the terminal's colors still draw the page", () => {
+  const css = themeCSS(undefined);
+  assert.ok(css.includes(`--term-bg:${macchiato.bg}`) && css.includes(`--term-bg:${latte.bg}`));
+  assert.ok(css.includes(`--role-rule-fg:${macchiato.fg}`));
+  assert.ok(css.includes("@media (prefers-color-scheme: light)"));
+});
+
+test("the browser's own parts follow the appearance", () => {
+  assert.ok(themeCSS(ev("dark")).includes("color-scheme:dark"));
+  assert.ok(themeCSS(ev("light")).includes("color-scheme:light"));
+  const auto = themeCSS(ev("auto"));
+  assert.ok(auto.includes("color-scheme:dark") && auto.includes("color-scheme:light"));
+});
