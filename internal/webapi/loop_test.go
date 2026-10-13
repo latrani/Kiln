@@ -646,3 +646,30 @@ func TestAwaySaysSo(t *testing.T) {
 		t.Errorf("presence %v", p)
 	}
 }
+
+func TestStepAndNextUnreadSwitch(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	// active sends js and is the Active event's key that follows; opening
+	// sends more batches as history loads, so it reads on until one comes.
+	active := func(js string) any {
+		h.l.Act([]byte(js))
+		for {
+			if e := event(h.next(), "Active"); e != nil {
+				return e["Key"]
+			}
+		}
+	}
+	active(`{"Do":"switch","Key":"=fm"}`) // whichever opened active, this changes it
+	active(`{"Do":"switch","Key":"fm/kit"}`)
+	if got := active(`{"Do":"step","N":1}`); got != "fm/rook" {
+		t.Errorf("step 1 from Kit: %v", got)
+	}
+	if got := active(`{"Do":"step","N":-1}`); got != "fm/kit" {
+		t.Errorf("step -1 from Rook: %v", got)
+	}
+	if got := active(`{"Do":"next_unread","N":1}`); got != "fm/rook" {
+		t.Errorf("next unread, none unread: %v, want the last one active", got)
+	}
+}

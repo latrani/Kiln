@@ -80,6 +80,12 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	ev(`[...document.querySelectorAll("nav button")].find(b => b.textContent === "Tester").click()`)
 	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key === "fake/tester"`, "switching back from the sidebar")
 
+	// Presence: a key is you here. Ctrl+↓ steps to the next character.
+	ev(`window.dispatchEvent(new FocusEvent("focus")); document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }))`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Presence").at(-1)?.State === 1`, "presence here")
+	ev(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", ctrlKey: true, bubbles: true }))`)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Active").at(-1).Key !== "fake/tester"`, "Ctrl+Down switching")
+
 	// Every glyph Kiln draws comes from the bundled font, one cell wide. A
 	// glyph drawn by a fallback measures differently under a serif and a
 	// monospace fallback; the bundled face itself must have loaded.

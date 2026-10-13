@@ -2,6 +2,8 @@
 import "./kiln.css";
 import { render } from "preact";
 import { boot, download } from "./boot.ts";
+import { paneSize } from "./layout.ts";
+import { watch } from "./presence.ts";
 import { Store } from "./store.ts";
 import type { Event } from "./store.ts";
 import { App } from "./ui/App.tsx";
@@ -15,6 +17,13 @@ function effect(e: Event): void {
 
 const store = new Store(effect);
 render(<App store={store} />, document.getElementById("kiln")!);
+// Once Kiln runs, tell it what the page sees of you and the pane's size.
+const stop = store.subscribe(() => {
+  const { phase, act } = store.state;
+  if (phase !== "running" || !act) return;
+  stop();
+  watch(act, document.querySelector("main")!, paneSize);
+});
 boot(store).catch((e) => {
   console.error(e);
   store.set({ phase: "stopped" });
