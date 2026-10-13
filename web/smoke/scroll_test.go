@@ -41,7 +41,7 @@ func TestScrollbackMoves(t *testing.T) {
 	}
 	login := func(k string, n int) {
 		ev(`kilnPage.act({Do: "switch", Key: "` + k + `"})`)
-		ev(`kilnPage.act({Do: "submit", Key: "` + k + `", Text: "secret", N: ` + strconv.Itoa(n+1) + `})`)
+		ev(`kilnPage.act({Do: "password", Key: "` + k + `", Text: "secret", N: ` + strconv.Itoa(n+1) + `})`)
 		waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Key === "`+k+`" && e.State === 2)`, k+" connected")
 	}
 	prompt("fake/tester", 2000)
@@ -89,10 +89,13 @@ func TestScrollbackMoves(t *testing.T) {
 	waitFor(t, ev, `!atEnd() && pillN() > 0 && pillN() === [...sc().querySelectorAll(".sb")].filter(r => r.offsetTop >= sc().scrollTop + sc().clientHeight).length`, "the pager stopping, the pill counting")
 	waitFor(t, ev, `row("spam 80").closest('[role="log"]') !== null`, "new lines in the live region")
 
+	// Esc in the input goes back to the end, as the TUI's does.
+	ev(`document.querySelector(".bottom textarea").focus()`)
+	pressKey(t, ws, "Escape", 27)
+	waitFor(t, ev, `atEnd() && pillN() === -1`, "Esc going to the end")
+
 	// Live, the pane narrows: the lines rewrap, and the view stays at the
 	// end. The MUCK is told the scroller's width in characters.
-	ev(`document.querySelector("main .pill").click()`)
-	waitFor(t, ev, `atEnd() && pillN() === -1`, "the pill going to the end")
 	// Checked two frames later, before the page's resize could reach Go and
 	// come back.
 	if got := ev(`new Promise(r => {

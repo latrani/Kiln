@@ -58,7 +58,8 @@ function caretRows(t: HTMLTextAreaElement): { first: boolean; last: boolean } {
 
 // Input is the TUI's input: what you type for the character showing (or,
 // with nothing open, commands), sent with Enter; Shift+Enter is a new
-// line; ↑/↓ from the first or last row recall history; Esc cancels;
+// line; ↑/↓ from the first or last row recall history; Esc cancels
+// and, as the pill does, goes back to the end of the scrollback;
 // PgUp/PgDn scroll the scrollback. The hint is its placeholder. Focus
 // comes here on load, after a switch, and with a letter typed outside
 // any control.
@@ -108,6 +109,7 @@ export function Input({ state }: { state: State }) {
         return;
       case "cancel":
         typing?.act({ Do: "cancel" });
+        document.querySelector<HTMLElement>("main .pill")?.click(); // back to live, from a pause or a scroll
         return;
       case "page_up":
       case "page_down": {
