@@ -42,3 +42,11 @@ test("Esc cancels; PgUp and PgDn scroll the scrollback", () => {
   assert.equal(keyAction(k("PageDown"), at("", 0)), "page_down");
   assert.equal(keyAction(k("a"), at("", 0)), undefined);
 });
+
+test("rows are screen rows when the page measured them: a wrapped line has several", () => {
+  const long = "x".repeat(300); // one line, wrapped
+  assert.equal(keyAction(k("ArrowUp"), { ...at(long, 300), first: false, last: true }), undefined, "the last row of three: the caret moves up");
+  assert.equal(keyAction(k("ArrowUp"), { ...at(long, 5), first: true, last: false }), "older");
+  assert.equal(keyAction(k("ArrowDown"), { ...at(long, 5), first: true, last: false }), undefined);
+  assert.equal(keyAction(k("ArrowDown"), { ...at(long, 300), first: false, last: true }), "newer");
+});

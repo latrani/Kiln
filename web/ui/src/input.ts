@@ -27,11 +27,22 @@ interface Keyish {
   isComposing: boolean;
 }
 
-// keyAction is what a key in the input does, the caret at start..end in
-// value; undefined leaves it to the browser. ↑ and ↓ recall history only
-// from the first and last rows, so they still move through a multi-line
-// draft; with a modifier they're the switching keys.
-export function keyAction(e: Keyish, caret: { start: number; end: number; value: string }): KeyDo {
+// Caret is where the caret is: start..end in value, and when the page
+// could measure it, whether it's on the first or last screen row.
+export interface Caret {
+  start: number;
+  end: number;
+  value: string;
+  first?: boolean;
+  last?: boolean;
+}
+
+// keyAction is what a key in the input does; undefined leaves it to the
+// browser. ↑ and ↓ recall history only from the first and last rows, as
+// the TUI's screen rows, so they still move through a wrapped or
+// multi-line draft (without a measure, rows are lines); with a modifier
+// they're the switching keys.
+export function keyAction(e: Keyish, caret: Caret): KeyDo {
   if (e.isComposing) return undefined;
   const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
   switch (e.key) {
@@ -44,9 +55,9 @@ export function keyAction(e: Keyish, caret: { start: number; end: number; value:
     case "PageDown":
       return plain ? "page_down" : undefined;
     case "ArrowUp":
-      return plain && caret.start === caret.end && !caret.value.slice(0, caret.start).includes("\n") ? "older" : undefined;
+      return plain && caret.start === caret.end && (caret.first ?? !caret.value.slice(0, caret.start).includes("\n")) ? "older" : undefined;
     case "ArrowDown":
-      return plain && caret.start === caret.end && !caret.value.slice(caret.end).includes("\n") ? "newer" : undefined;
+      return plain && caret.start === caret.end && (caret.last ?? !caret.value.slice(caret.end).includes("\n")) ? "newer" : undefined;
   }
   return undefined;
 }

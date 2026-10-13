@@ -40,6 +40,22 @@ function Overflow({ text, ranges }: { text: string; ranges: [number, number][] }
   return <div class="overflow" aria-hidden="true">{parts}</div>;
 }
 
+// caretRows says whether the caret is on t's first or last screen row:
+// the text up to it, laid out as t lays it out, shows where its row is.
+function caretRows(t: HTMLTextAreaElement): { first: boolean; last: boolean } {
+  const m = document.createElement("div");
+  const cs = getComputedStyle(t);
+  m.style.cssText = `position:absolute;visibility:hidden;top:0;left:0;width:${t.clientWidth}px;font:${cs.font};letter-spacing:${cs.letterSpacing};white-space:pre-wrap;overflow-wrap:anywhere;tab-size:${cs.tabSize};padding:0;border:0`;
+  const mark = document.createElement("span");
+  mark.textContent = "\u200b";
+  m.append(t.value.slice(0, t.selectionStart), mark, t.value.slice(t.selectionStart) + "\u200b");
+  t.parentElement!.append(m);
+  const lh = parseFloat(cs.lineHeight) || mark.offsetHeight;
+  const top = mark.offsetTop, all = m.scrollHeight;
+  m.remove();
+  return { first: top < lh / 2, last: top + lh * 1.5 > all };
+}
+
 // Input is the TUI's input: what you type for the character showing (or,
 // with nothing open, commands), sent with Enter; Shift+Enter is a new
 // line; ↑/↓ from the first or last row recall history; Esc cancels;
@@ -76,7 +92,8 @@ export function Input({ state }: { state: State }) {
 
   const onKeyDown = (e: KeyboardEvent) => {
     const t = e.currentTarget as HTMLTextAreaElement;
-    const does = keyAction(e, { start: t.selectionStart, end: t.selectionEnd, value: t.value });
+    const rows = e.key === "ArrowUp" || e.key === "ArrowDown" ? caretRows(t) : {};
+    const does = keyAction(e, { start: t.selectionStart, end: t.selectionEnd, value: t.value, ...rows });
     if (!does) return;
     e.preventDefault();
     switch (does) {

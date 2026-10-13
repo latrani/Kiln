@@ -83,6 +83,16 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `document.querySelector(".bottom textarea").value === ""`, "the input cleared")
 	pressKey(t, ws, "ArrowUp", 38)
 	waitFor(t, ev, `document.querySelector(".bottom textarea").value === "hello"`, "history recalled")
+	// ↑ in a long line wrapped over several rows moves the caret up a row,
+	// as the TUI's; only on the first row does it recall history.
+	long := strings.Repeat("a long pose wraps ", 30)
+	ev(`document.querySelector(".bottom textarea").select()`)
+	devtools(t, ws, "Input.insertText", map[string]any{"text": long})
+	pressKey(t, ws, "ArrowUp", 38)
+	time.Sleep(500 * time.Millisecond) // long enough for history to come back, were it asked
+	if got := ev(`(() => { const t = document.querySelector(".bottom textarea"); return t.value === ` + jsString(long) + ` && t.selectionStart < t.value.length; })()`); got != "true" {
+		t.Error("↑ on a wrapped line's last row didn't move the caret up a row")
+	}
 
 	// /backup gives a file; /restore picks one and puts it back.
 	ev(`document.querySelector(".bottom textarea").select()`)
