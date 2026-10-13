@@ -69,9 +69,15 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "fake/tester" && e.NeedPW)`, "the password prompt")
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "secret", N: 1001})`)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
-	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "hello", N: 1002})`)
+	// Typed and sent as a person does: the input has focus, and Enter sends.
+	waitFor(t, ev, `document.activeElement === document.querySelector(".bottom textarea")`, "the input focused")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "hello"})
+	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
 	waitFor(t, ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes('You say, "hello"'))`, "the echo on the page")
+	waitFor(t, ev, `document.querySelector(".bottom textarea").value === ""`, "the input cleared")
+	pressKey(t, ws, "ArrowUp", 38)
+	waitFor(t, ev, `document.querySelector(".bottom textarea").value === "hello"`, "history recalled")
 
 	// The sidebar: as wide as the TUI's, in whole characters; and a
 	// character's name switches to it.
@@ -120,6 +126,19 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
 	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
 	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")
+}
+
+// pressKey presses and lets go of a key in the tab, as a keyboard does.
+func pressKey(t *testing.T, ws *websocket.Conn, key string, code int) {
+	t.Helper()
+	for _, typ := range []string{"rawKeyDown", "keyUp"} {
+		p := map[string]any{"type": typ, "key": key, "code": key, "windowsVirtualKeyCode": code, "nativeVirtualKeyCode": code}
+		if typ == "rawKeyDown" && key == "Enter" {
+			p["text"] = "\r"
+			p["type"] = "keyDown"
+		}
+		devtools(t, ws, "Input.dispatchKeyEvent", p)
+	}
 }
 
 // jsString is s as a JavaScript string literal.

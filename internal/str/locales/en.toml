@@ -390,6 +390,10 @@ char_unread = "{name}, {n} unread"
 char_priority = "{name}, {n} unread, including priority"
 # The × beside a disconnected character, for screen readers.
 close_char = "Close {name}"
+# The input's name for screen readers: what you type goes to {name}, or
+# with nothing open it's for commands.
+input = "Send to {name}"
+input_idle = "Command"
 # The browser tab's title; with unread lines, how many.
 title = "Kiln"
 title_unread = "({n}) Kiln"

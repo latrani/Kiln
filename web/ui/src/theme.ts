@@ -54,9 +54,10 @@ export function lookCSS(l: Look, p: Palette): string {
 // roleClass is the class that draws a theme role.
 export const roleClass = (role: string): string => "r-" + role.replaceAll(".", "-").replaceAll("_", "-");
 
-// The roles drawn as lines rather than text: kiln.css colors the borders
-// and the divider with their variables.
-const lineRoles = ["rule", "rule.input", "rule.form", "rule.status", "divider"];
+// The roles a class can't reach, drawn through variables in kiln.css:
+// the rules and the divider (borders), and the input's hint (its
+// placeholder).
+const lineRoles = ["rule", "rule.input", "rule.form", "rule.status", "divider", "input.hint"];
 
 // The glyphs kiln.css draws around Kiln's own lines.
 const glyphs = `--g-echo:${JSON.stringify(str.glyph.echo)};--g-sys:${JSON.stringify(str.glyph.sys)};--g-rule:${JSON.stringify(str.glyph.rule)}`;

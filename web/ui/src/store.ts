@@ -1,5 +1,6 @@
 // The page's one store: Go's batches applied a batch at a time, plus the
 // page's own state (how far it's got starting Kiln, whether it's saving).
+import { Typing } from "./typing.ts";
 import type { Span, ThemeEvent } from "./types.ts";
 
 // Phase is how far the page has got: another tab has Kiln, the wasm is
@@ -35,7 +36,8 @@ export interface State {
   progress?: { got: number; total?: number };
   saving: boolean;
   onUseHere?: () => void; // takes Kiln over from another tab
-  act?: (o: object) => void; // asks Kiln for something (webapi's actions)
+  act?: (o: object) => void; // asks Kiln for something (webapi's actions), after what's typed
+  typing?: Typing; // what's typed, sent ahead of every other action
   theme?: ThemeEvent;
   worlds: any[];
   order: string[];
@@ -53,8 +55,8 @@ export interface State {
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
-const fresh = ({ phase, progress, saving, onUseHere, act }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act">): State => ({
-  phase, progress, saving, onUseHere, act,
+const fresh = ({ phase, progress, saving, onUseHere, act, typing }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing">): State => ({
+  phase, progress, saving, onUseHere, act, typing,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {},
 });
 
@@ -84,7 +86,7 @@ const without = <T>(m: Record<string, T>, k: string): Record<string, T> => {
 };
 
 export class Store {
-  state: State = fresh({ phase: "loading", saving: true });
+  state: State = fresh({ phase: "loading", saving: true, typing: new Typing() });
   private subs = new Set<() => void>();
 
   constructor(private onEffect?: (e: Event) => void) {}

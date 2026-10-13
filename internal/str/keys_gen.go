@@ -1136,6 +1136,12 @@ func WebCharacters() string { return get("web.characters", nil) }
 // WebCloseChar is web.close_char: "Close {name}"
 func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
 
+// WebInput is web.input: "Send to {name}"
+func WebInput(name any) string { return get("web.input", map[string]any{"name": name}) }
+
+// WebInputIdle is web.input_idle: "Command"
+func WebInputIdle() string { return get("web.input_idle", nil) }
+
 // WebLoading is web.loading: "loading Kiln… {got} MB"
 func WebLoading(got any) string { return get("web.loading", map[string]any{"got": got}) }
 

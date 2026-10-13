@@ -224,3 +224,40 @@ test("the overview, the lock and the empty pane aren't in the live region", () =
   const lock = page({ phase: "locked" });
   assert.ok(lock.includes(str.webOtherTab()) && !logRegion(lock).includes(str.webOtherTab()));
 });
+
+// bottom is the bottom pane.
+const bottom = (html: string) => html.slice(html.indexOf('class="bottom'), html.indexOf('class="status '));
+
+test("the input: its name, the gutter, and Go's text", () => {
+  const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "a draft", Ack: 0 }]));
+  assert.match(html, new RegExp(`<textarea[^>]*aria-label="${str.webInput("Kit")}"`));
+  assert.match(html, new RegExp(`<span[^>]*aria-hidden="true"[^>]*>${str.glyph.echo}</span>`));
+  assert.match(html, />a draft<\/textarea>|value="a draft"/);
+});
+
+test("the input's hints, as the TUI's prompt", () => {
+  const dis = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(dis.includes(`placeholder="${str.viewDisconnected()}"`), dis);
+  const con = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "pf/ash" }]));
+  assert.ok(con.includes(`placeholder="${str.viewConnecting()}"`), con);
+  const failed = bottom(page({ phase: "running" }, [...three, { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 3 }, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(failed.includes(`placeholder="${str.viewConnectFailed()}"`), failed);
+  const cert = bottom(page({ phase: "running" }, [...three, { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, CertChanged: true }, { type: "Active", Key: "fm/rook" }]));
+  assert.ok(cert.includes(`placeholder="${str.viewCertChanged()}"`), cert);
+  const live = bottom(page({ phase: "running" }, three));
+  assert.ok(!live.includes("placeholder="), "connected: no hint");
+});
+
+test("nothing open: the command input and its hint", () => {
+  const html = bottom(page({ phase: "running" }, [{ type: "Worlds", Worlds: [] }]));
+  assert.match(html, new RegExp(`<textarea[^>]*aria-label="${str.webInputIdle()}"`));
+  assert.ok(html.includes(`placeholder="${str.viewNothingOpen()}"`), html);
+});
+
+test("a world's overview has no input, as the TUI's", () => {
+  assert.ok(!bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "=fm" }])).includes("<textarea"));
+});
+
+test("Kiln stopped: the input is disabled", () => {
+  assert.match(bottom(page({ phase: "stopped" })), /<textarea[^>]*disabled/);
+});
