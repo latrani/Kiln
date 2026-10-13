@@ -90,7 +90,7 @@ func (a *App) Handle(msg SessionMsg) (ev Event, ok bool, effs []Effect) {
 		}
 		if msg.Key != a.active && msg.Ev.Entry.Dir == logstore.In && !ev.Line.Quiet {
 			c.Unread++
-			c.Attention = c.Attention || ev.Line.Attention
+			c.Priority = c.Priority || ev.Line.Priority
 		}
 		if c.Log != nil {
 			c.Log.appendLive(msg.Ev.Entry)

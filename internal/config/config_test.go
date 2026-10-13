@@ -214,7 +214,7 @@ func TestStarterPackLoads(t *testing.T) {
 		t.Fatal(err)
 	}
 	kit, _ := cfg.Find("fm", "kit")
-	if len(kit.Rules.Classify) == 0 || len(kit.Rules.Attention) == 0 {
+	if len(kit.Rules.Classify) == 0 || len(kit.Rules.Priority) == 0 {
 		t.Errorf("fuzzball pack rules missing: %+v", kit.Rules)
 	}
 	if kit.MaxLineBytes != 2047 {
@@ -458,7 +458,7 @@ func TestLogAndExportSettings(t *testing.T) {
 func TestNotifyInheritsAndDefaults(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, map[string]string{
-		"config.toml":   "[defaults]\nnotify = \"attention\"\n",
+		"config.toml":   "[defaults]\nnotify = \"priority\"\n",
 		"worlds/a.toml": "host = \"h\"\nport = 1\nnotify = \"all\"\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n[[characters]]\nid = \"rook\"\nname = \"Rook\"\nnotify = \"none\"\n",
 		"worlds/b.toml": "host = \"h\"\nport = 1\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\n",
 	})
@@ -469,7 +469,7 @@ func TestNotifyInheritsAndDefaults(t *testing.T) {
 	for _, c := range []struct {
 		world, char string
 		want        notify.Level
-	}{{"a", "kit", notify.All}, {"a", "rook", notify.None}, {"b", "ash", notify.Attention}} {
+	}{{"a", "kit", notify.All}, {"a", "rook", notify.None}, {"b", "ash", notify.Priority}} {
 		ch, _ := cfg.Find(c.world, c.char)
 		if ch.Notify != c.want {
 			t.Errorf("%s/%s Notify = %q, want %q", c.world, c.char, ch.Notify, c.want)
@@ -559,16 +559,16 @@ func TestNotifyIdleNumberIsFriendly(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
-func TestAttentionAndQuietAddUp(t *testing.T) {
+func TestPriorityAndQuietAddUp(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
 	os.MkdirAll(filepath.Join(dir, "packs"), 0o700)
-	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[defaults]\nattention = [\"self\"]\n"), 0o600)
-	os.WriteFile(filepath.Join(dir, "packs", "p.toml"), []byte("attention = [\"page/in\", \"self\"]\nquiet = [\"spam\"]\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[defaults]\npriority = [\"self\"]\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "packs", "p.toml"), []byte("priority = [\"page/in\", \"self\"]\nquiet = [\"spam\"]\n"), 0o600)
 	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte(`host = "h"
 port = 1
 use = ["p"]
-attention = ["whisper/in"]
+priority = ["whisper/in"]
 
 [[characters]]
 name = "Kit"
@@ -579,8 +579,8 @@ quiet = ["wiki"]
 		t.Fatal(err)
 	}
 	kit, _ := cfg.Find("fm", "Kit")
-	if want := []string{"self", "page/in", "whisper/in"}; !slices.Equal(kit.Rules.Attention, want) {
-		t.Errorf("attention = %v, want %v", kit.Rules.Attention, want)
+	if want := []string{"self", "page/in", "whisper/in"}; !slices.Equal(kit.Rules.Priority, want) {
+		t.Errorf("priority = %v, want %v", kit.Rules.Priority, want)
 	}
 	if want := []string{"spam", "wiki"}; !slices.Equal(kit.Rules.Quiet, want) {
 		t.Errorf("quiet = %v, want %v", kit.Rules.Quiet, want)
@@ -649,6 +649,9 @@ func TestLooksOnlyInWorlds(t *testing.T) {
 		{"packs/p.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
 		{"config.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
 		{"config.toml", "[palette.x]\ny = 1\n", "palette.x"},
+		// "attention" was renamed priority: no longer a key.
+		{"packs/p.toml", "attention = [\"page/in\"]\n", "attention"},
+		{"config.toml", "[defaults]\nattention = [\"self\"]\n", "defaults.attention"},
 	} {
 		dir := t.TempDir()
 		write(t, dir, map[string]string{c.file: c.body, "worlds/fm.toml": "host = \"h\"\nport = 1\nuse = [\"p\"]\n", "packs/p.toml": ""})

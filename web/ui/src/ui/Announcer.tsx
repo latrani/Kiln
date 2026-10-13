@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { announcements } from "../announce.ts";
 import type { Store } from "../store.ts";
 
-// Announcer reads aloud lines that want you from characters not showing
+// Announcer reads aloud priority lines from characters not showing
 // (the showing one's are in the scrollback's log). Its region is always
 // there, hidden from sight; each new message replaces its text node, so
 // the same words come again are read again.

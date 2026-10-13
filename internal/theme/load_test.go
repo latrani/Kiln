@@ -36,7 +36,7 @@ func TestBuiltinLook(t *testing.T) {
 		{StatusError, "\x1b[31m"},
 		{LinkHover, "\x1b[4;94m"},
 		{InputOverLimit, "\x1b[38;2;217;38;38;48;2;42;9;9m"},
-		{SidebarAttention, "\x1b[1;38;2;255;209;102m"},
+		{SidebarPriority, "\x1b[1;38;2;255;209;102m"},
 		{Scrollback, ""},
 	} {
 		if got := b.SGR(c.role); got != c.want {
@@ -128,6 +128,7 @@ func TestLoadErrors(t *testing.T) {
 		{"[ui]\n\"status.clock\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "status.clock")},
 		{"[ui]\n\"log.header\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "log.header")},
 		{"[ui]\n\"log.bar.error\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "log.bar.error")},
+		{"[ui]\n\"sidebar.attention\" = { bold = true }\n", str.ThemeUnknownRole("themes/default.toml", "sidebar.attention")},
 	} {
 		dir := t.TempDir()
 		writeTheme(t, dir, "default", c.body)
@@ -186,7 +187,7 @@ func TestBuiltinLightLook(t *testing.T) {
 		{SidebarAdd, "\x1b[1;38;2;18;84;82;48;2;188;230;228m"},
 		{RuleInput, "\x1b[38;2;180;162;116m"},
 		{InputOverLimit, "\x1b[38;2;165;29;29;48;2;249;220;220m"},
-		{SidebarAttention, "\x1b[1;38;2;164;116;4m"},
+		{SidebarPriority, "\x1b[1;38;2;164;116;4m"},
 	} {
 		if got := b.SGR(c.role); got != c.want {
 			t.Errorf("light %s = %q, want %q", c.role, got, c.want)

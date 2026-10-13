@@ -191,7 +191,7 @@ export function Scrollback({ state }: { state: State }) {
         <div>{told.map(sb)}</div>
         <div role="log" aria-live="polite">
           {live.map(sb)}
-          {prompt?.length > 0 && <Line line={{ Seq: 0, Kind: "server", Day: "", Out: false, Plain: "", Spans: prompt, Attention: false, Quiet: false }} tags={tags} />}
+          {prompt?.length > 0 && <Line line={{ Seq: 0, Kind: "server", Day: "", Out: false, Plain: "", Spans: prompt, Priority: false, Quiet: false }} tags={tags} />}
         </div>
       </div>
       {pill !== undefined && (

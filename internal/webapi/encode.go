@@ -22,25 +22,25 @@ import (
 // Line is a line as the page gets it: its text as spans (see Span) and
 // as plain text, and the day and time as people read them.
 type Line struct {
-	Seq       int
-	Kind      string // server, echo, sys, day, history_end
-	Day       string
-	DayLabel  string // the day as people read it; "" for none
-	Time      time.Time
-	Clock     string // the time of day; "" for none
-	Out       bool   // something you sent
-	Plain     string // the text, unstyled: the spans' texts joined
-	Spans     []Span
-	Tags      []classify.Tag
-	Attention bool
-	Quiet     bool
+	Seq      int
+	Kind     string // server, echo, sys, day, history_end
+	Day      string
+	DayLabel string // the day as people read it; "" for none
+	Time     time.Time
+	Clock    string // the time of day; "" for none
+	Out      bool   // something you sent
+	Plain    string // the text, unstyled: the spans' texts joined
+	Spans    []Span
+	Tags     []classify.Tag
+	Priority bool
+	Quiet    bool
 }
 
 // lineOf is l for the page, its server line's tags drawn with hl (nil
 // for none).
 func lineOf(l app.Line, hl *rules.Highlighter) Line {
 	out := Line{Seq: l.Seq, Kind: kindName(l.Kind), Day: l.Day, Time: l.Entry.Time, Out: l.Entry.Dir == logstore.Out,
-		Tags: l.Tags, Attention: l.Attention, Quiet: l.Quiet}
+		Tags: l.Tags, Priority: l.Priority, Quiet: l.Quiet}
 	if l.Day != "" {
 		out.DayLabel = app.DayLabel(l.Day)
 	}

@@ -187,7 +187,7 @@ func worlds(a *app.App) Worlds {
 func char(a *app.App, c *app.Char) Char {
 	ch := Char{
 		Key: c.Key, World: c.Ch.World, ID: c.Ch.ID, Name: c.Ch.Name,
-		State: c.State, Unread: c.Unread, Attention: c.Attention,
+		State: c.State, Unread: c.Unread, Priority: c.Priority,
 		CertChanged: c.Pin != nil, Orphan: c.Orphan, ConnectedAt: c.ConnectedAt,
 		MaxLineBytes: c.Ch.MaxLineBytes, NewlineMode: c.Ch.NewlineMode, More: c.More, Loading: c.Loading,
 	}

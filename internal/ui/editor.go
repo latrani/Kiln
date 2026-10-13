@@ -133,7 +133,7 @@ func (m *Model) worldForm(add bool, s config.WorldSettings, inh config.Inherited
 		asExtra(inheritChoice(newlinesLabel, inh.NewlineMode, "batch", "flatten")),
 		asExtra(inheritChoice(autoconnLabel, onOff(inh.Autoconnect), "on", "off")),
 		asExtra(inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off")),
-		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none")),
+		asExtra(inheritChoice(notifyLabel, inh.Notify, "all", "first", "priority", "none")),
 		asExtra(inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off")),
 		primaryButton(saveLabel))
 	if !add {
@@ -209,7 +209,7 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 	f := newForm(str.EditorHint(), aliases,
 		inheritChoice(autoconnLabel, onOff(inh.Autoconnect), "on", "off"),
 		inheritChoice(reconnectLabel, onOff(inh.Reconnect), "on", "off"),
-		inheritChoice(notifyLabel, inh.Notify, "all", "first", "attention", "none"),
+		inheritChoice(notifyLabel, inh.Notify, "all", "first", "priority", "none"),
 		inheritChoice(echoLabel, onOff(inh.LocalEcho), "on", "off"),
 		primaryButton(saveLabel), buttonField(forgetPWLabel), buttonField(delCharLabel))
 	f.title = str.EditorEditing(name)

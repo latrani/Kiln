@@ -18,7 +18,7 @@ func testRules(t *testing.T) Rules {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Rules{Classifier: cls, Judge: rules.Judge{Attention: []string{"page"}}}
+	return Rules{Classifier: cls, Judge: rules.Judge{Priority: []string{"page"}}}
 }
 
 func TestServerLineIsClassified(t *testing.T) {
@@ -33,8 +33,8 @@ func TestServerLineIsClassified(t *testing.T) {
 	if l.Text() != "PAGE: \x1b[31mhi\x1b[0m" {
 		t.Errorf("Text = %q, want the server's SGR kept and the bell dropped", l.Text())
 	}
-	if !slices.Contains(l.TagNames(), "page") || !l.Attention {
-		t.Errorf("tags %v attention %v, want page and attention", l.TagNames(), l.Attention)
+	if !slices.Contains(l.TagNames(), "page") || !l.Priority {
+		t.Errorf("tags %v priority %v, want page and priority", l.TagNames(), l.Priority)
 	}
 }
 
@@ -47,7 +47,7 @@ func TestEchoAndSysAreNotClassified(t *testing.T) {
 		kind Kind
 	}{{logstore.Out, Echo}, {logstore.Sys, Sys}} {
 		l := r.Line(logstore.Entry{Dir: c.dir, Text: "PAGE: hi"})
-		if l.Kind != c.kind || l.Tags != nil || l.Attention || l.Quiet {
+		if l.Kind != c.kind || l.Tags != nil || l.Priority || l.Quiet {
 			t.Errorf("%c: %+v, want kind %v and no tags or verdict", c.dir, l, c.kind)
 		}
 	}
@@ -87,7 +87,7 @@ func TestRelineUsesNewRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := (Rules{Classifier: cls}).Reline(l); got.Attention || slices.Contains(got.TagNames(), "page") {
+	if got := (Rules{Classifier: cls}).Reline(l); got.Priority || slices.Contains(got.TagNames(), "page") {
 		t.Errorf("Reline kept the old rules' verdict: %+v", got)
 	}
 	l.Seq = 7

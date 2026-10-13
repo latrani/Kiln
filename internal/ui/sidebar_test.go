@@ -110,11 +110,11 @@ func TestSidebarBadgesAndActivity(t *testing.T) {
 	}
 	kit := h.m.chars["fm/kit"]
 	h.m.switchTo("fm/rook")
-	kit.Unread, kit.Attention = 3, true
+	kit.Unread, kit.Priority = 3, true
 	if got := sideRow(h, 1); !strings.HasPrefix(strings.TrimSpace(got), "Kit") || !strings.HasSuffix(got, " ● 3") {
-		t.Errorf("attention row = %q, want the ● with the count on the right", got)
+		t.Errorf("priority row = %q, want the ● with the count on the right", got)
 	}
-	kit.Attention = false
+	kit.Priority = false
 	if got := sideRow(h, 1); !strings.HasSuffix(got, " 3") || strings.Contains(got, "●") {
 		t.Errorf("unread row = %q", got)
 	}
@@ -129,7 +129,7 @@ func TestSidebarNamesTruncate(t *testing.T) {
 		t.Errorf("world row = %q, want cut with … at %d cells", got, sw)
 	}
 	cs := h.m.chars["fm-with-a-long-name/kit"]
-	cs.Unread, cs.Attention = 12, true
+	cs.Unread, cs.Priority = 12, true
 	got := sideRow(h, 1)
 	if xansi.StringWidth(got) != sw || !strings.HasSuffix(got, " ● 12") || !strings.Contains(got, "…") {
 		t.Errorf("char row = %q, want the name cut with … and the activity whole", got)

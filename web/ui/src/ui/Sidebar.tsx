@@ -10,7 +10,7 @@ const connecting = 1, connected = 2;
 // opens its overview; a character's row has its connection badge (… while
 // connecting; a × that closes it once disconnected; else a space), its
 // name, cut with … when too long, and its unread count, after ● when a
-// line wanted you. The active row is lit across. Later, in log mode, the
+// line was a priority. The active row is lit across. Later, in log mode, the
 // filter panel; with the picker open, the picker.
 export function Sidebar({ state }: { state: State }) {
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
@@ -32,7 +32,7 @@ export function Sidebar({ state }: { state: State }) {
           const lead = roleClass(c.State === connecting ? "sidebar.connecting" : closable ? "sidebar.disconnected" : "sidebar.char");
           const own = on ? undefined : lead; // the active row's parts draw plain inside it
           const unread: number = c.Unread ?? 0;
-          const priority = c.Attention && unread > 0;
+          const priority = c.Priority && unread > 0;
           return (
             <li key={r.key} class={on ? roleClass("sidebar.active") : undefined}>
               <span class={"lead " + (own ?? "")}>
@@ -46,7 +46,7 @@ export function Sidebar({ state }: { state: State }) {
               {unread > 0 && (
                 <span class="activity" aria-hidden="true">
                   {" "}
-                  {priority && <><span class={roleClass("sidebar.attention")}>{str.glyph.attention}</span>{" "}</>}
+                  {priority && <><span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>{" "}</>}
                   <span class={on ? undefined : roleClass("sidebar.unread")}>{unread}</span>
                 </span>
               )}

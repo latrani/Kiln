@@ -74,32 +74,32 @@ func TestMatchScopeWithoutSpans(t *testing.T) {
 }
 
 func TestListsMatchTagAndChildren(t *testing.T) {
-	j := Judge{Attention: []string{"page"}}
+	j := Judge{Priority: []string{"page"}}
 	for _, c := range []struct {
 		tag  string
 		want bool
 	}{{"page", true}, {"page/in", true}, {"page/in/x", true}, {"pages", false}, {"whisper", false}} {
-		if got := j.Of([]classify.Tag{tag(c.tag)}).Attention; got != c.want {
-			t.Errorf("attention for %q = %v, want %v", c.tag, got, c.want)
+		if got := j.Of([]classify.Tag{tag(c.tag)}).Priority; got != c.want {
+			t.Errorf("priority for %q = %v, want %v", c.tag, got, c.want)
 		}
 	}
 }
 
-func TestQuietWinsOverAttention(t *testing.T) {
-	j := Judge{Attention: []string{"self", "spam"}, Quiet: []string{"spam"}}
+func TestQuietWinsOverPriority(t *testing.T) {
+	j := Judge{Priority: []string{"self", "spam"}, Quiet: []string{"spam"}}
 	for _, tags := range [][]classify.Tag{{tag("spam")}, {tag("self"), tag("spam")}} {
 		v := j.Of(tags)
-		if !v.Quiet || v.Attention {
-			t.Errorf("%v: quiet %v attention %v, want quiet only", tags, v.Quiet, v.Attention)
+		if !v.Quiet || v.Priority {
+			t.Errorf("%v: quiet %v priority %v, want quiet only", tags, v.Quiet, v.Priority)
 		}
 	}
 }
 
 // The verdict doesn't depend on the theme: a tag with no style still
-// asks for attention.
+// is a priority.
 func TestJudgeIgnoresStyles(t *testing.T) {
-	if !(Judge{Attention: []string{"page"}}).Of([]classify.Tag{tag("page")}).Attention {
-		t.Error("an unstyled tag in the attention list didn't ask for attention")
+	if !(Judge{Priority: []string{"page"}}).Of([]classify.Tag{tag("page")}).Priority {
+		t.Error("an unstyled tag in the priority list wasn't a priority")
 	}
 }
 

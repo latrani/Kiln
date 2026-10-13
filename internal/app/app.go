@@ -46,7 +46,7 @@ type Char struct {
 	State       session.State
 	Rules       Rules
 	Unread      int
-	Attention   bool
+	Priority    bool
 	Pin         *conn.PinMismatchError
 	Orphan      bool            // removed from the config; closed when it disconnects
 	ConnectedAt time.Time       // when the current connection came up
@@ -79,7 +79,7 @@ func (c *Char) compile() error {
 	if err != nil {
 		return err
 	}
-	c.Rules = Rules{Classifier: cls, Judge: rules.Judge{Attention: c.Ch.Rules.Attention, Quiet: c.Ch.Rules.Quiet}}
+	c.Rules = Rules{Classifier: cls, Judge: rules.Judge{Priority: c.Ch.Rules.Priority, Quiet: c.Ch.Rules.Quiet}}
 	c.rulesGen++
 	return nil
 }
@@ -339,7 +339,7 @@ func (a *App) CanSwitch(k string) bool {
 
 // Switch makes k active: a character's key, or WorldSel(world) for its
 // overview. It reports false, changing nothing, if it can't (CanSwitch).
-// Switching to a character clears its unread and attention; the
+// Switching to a character clears its unread and priority; the
 // character switched away from goes first in line for UnreadTarget.
 func (a *App) Switch(k string) bool {
 	if !a.CanSwitch(k) {
@@ -352,7 +352,7 @@ func (a *App) Switch(k string) bool {
 	a.active, a.confirm = k, ""
 	if c := a.chars[k]; c != nil {
 		a.recent = slices.DeleteFunc(a.recent, func(r string) bool { return r == k })
-		c.Unread, c.Attention = 0, false
+		c.Unread, c.Priority = 0, false
 	}
 	return true
 }

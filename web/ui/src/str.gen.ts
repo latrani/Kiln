@@ -483,8 +483,8 @@ export function logstoreNoTab(line: unknown): string { return `logstore: no tab 
 /** logstore.reading: logstore: reading {file}: {err} */
 export function logstoreReading(file: unknown, err: unknown): string { return `logstore: reading ${file}: ${e(err)}`; }
 
-/** notify.bad_level: notify must be "all", "first", "attention" or "none" */
-export function notifyBadLevel(): string { return `notify must be "all", "first", "attention" or "none"`; }
+/** notify.bad_level: notify must be "all", "first", "priority" or "none" */
+export function notifyBadLevel(): string { return `notify must be "all", "first", "priority" or "none"`; }
 
 /** notify.bad_method: notify_method must be "osc", "bell" or "both" */
 export function notifyBadMethod(): string { return `notify_method must be "osc", "bell" or "both"`; }
@@ -963,7 +963,7 @@ export const glyph = {
   remove: "×",
   selected: "▌",
   excluded: "░",
-  attention: "●",
+  priority: "●",
   choicePrev: "◄",
   choiceNext: "►",
   add: "+",

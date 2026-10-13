@@ -5,7 +5,7 @@ import { Line, sameLine } from "./Line.tsx";
 import { roleClass } from "../theme.ts";
 import type { LineData } from "../store.ts";
 
-const L = (over: Partial<LineData>): LineData => ({ Seq: 1, Kind: "server", Day: "", Out: false, Plain: "", Spans: [], Attention: false, Quiet: false, ...over });
+const L = (over: Partial<LineData>): LineData => ({ Seq: 1, Kind: "server", Day: "", Out: false, Plain: "", Spans: [], Priority: false, Quiet: false, ...over });
 const text = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
 const tags = { dark: {}, light: {} };
 

@@ -39,7 +39,7 @@ bad_direction = "logstore: bad direction {dir:%q}"
 reading = "logstore: reading {file}: {err}"
 
 [notify]
-bad_level = 'notify must be "all", "first", "attention" or "none"'
+bad_level = 'notify must be "all", "first", "priority" or "none"'
 bad_method = 'notify_method must be "osc", "bell" or "both"'
 level_override = "{level} (overridden from {config})"
 level = "notify level: {level}"
@@ -382,7 +382,7 @@ reload = "Reload"
 characters = "Characters"
 # A character's name in the sidebar, for screen readers, when lines have
 # come you haven't read; and when one of them is a priority (the ● the
-# sidebar shows: a page, a whisper, whatever the attention tags flag).
+# sidebar shows: a page, a whisper, whatever the priority tags flag).
 char_unread = "{name}, {n} unread"
 char_priority = "{name}, {n} unread, including priority"
 # The × beside a disconnected character, for screen readers.
@@ -390,7 +390,7 @@ close_char = "Close {name}"
 # The browser tab's title; with unread lines, how many.
 title = "Kiln"
 title_unread = "({n}) Kiln"
-# A priority line (one the attention tags flag), from a character not
+# A priority line (one the priority tags flag), from a character not
 # showing, read aloud.
 announce = "{name}: {line}"
 

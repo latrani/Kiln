@@ -554,7 +554,7 @@ func LogstoreReading(file any, err error) string {
 	return get("logstore.reading", map[string]any{"file": file, "err": err})
 }
 
-// NotifyBadLevel is notify.bad_level: "notify must be \"all\", \"first\", \"attention\" or \"none\""
+// NotifyBadLevel is notify.bad_level: "notify must be \"all\", \"first\", \"priority\" or \"none\""
 func NotifyBadLevel() string { return get("notify.bad_level", nil) }
 
 // NotifyBadMethod is notify.bad_method: "notify_method must be \"osc\", \"bell\" or \"both\""

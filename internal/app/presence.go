@@ -10,7 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// ConnectGrace is how long after connecting only attention lines
+// ConnectGrace is how long after connecting only priority lines
 // notify, so the login banner doesn't.
 const ConnectGrace = 5 * time.Second
 
@@ -125,17 +125,17 @@ func (a *App) notifyFor(c *Char, l Line) []Effect {
 		return nil
 	}
 	now := a.d.Now()
-	if !l.Attention && (now.Sub(c.ConnectedAt) < ConnectGrace || now.Sub(c.lastSent) < BurstGap) {
+	if !l.Priority && (now.Sub(c.ConnectedAt) < ConnectGrace || now.Sub(c.lastSent) < BurstGap) {
 		return nil
 	}
 	switch a.NotifyLevel(c.Key) {
 	case notify.All:
 	case notify.First:
-		if !l.Attention && c.sentGen == a.hereGen {
+		if !l.Priority && c.sentGen == a.hereGen {
 			return nil
 		}
-	case notify.Attention:
-		if !l.Attention {
+	case notify.Priority:
+		if !l.Priority {
 			return nil
 		}
 	default:

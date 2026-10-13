@@ -65,7 +65,7 @@ func TestNotifyFirstOnlyOnce(t *testing.T) {
 	h.advance(time.Second)
 	h.line("Rook says, \"one\"")
 	h.line("Rook says, \"two\"")
-	h.line("Mira pages: you around?") // attention still gets through
+	h.line("Mira pages: you around?") // priority still gets through
 	want := []string{osc("Kit: Rook says, \"one\""), osc("Kit: Mira pages: you around?")}
 	if got := h.notified(); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
@@ -101,8 +101,8 @@ func TestNotifyFirstRearmsOnKey(t *testing.T) {
 	}
 }
 
-func TestNotifyAttentionOnly(t *testing.T) {
-	h := notifyHarness(t, "attention", nil)
+func TestNotifyPriorityOnly(t *testing.T) {
+	h := notifyHarness(t, "priority", nil)
 	h.m.Update(tea.BlurMsg{})
 	h.line("Rook says, \"hi\"")
 	h.line("Mira pages: you around?")
@@ -321,7 +321,7 @@ func TestBurstNotifiesOnce(t *testing.T) {
 	h.line("Rook's Den")
 	h.advance(10 * time.Millisecond)
 	h.line("A cozy room full of cushions.")
-	h.line("Mira pages: nice den") // attention gets through a burst
+	h.line("Mira pages: nice den") // priority gets through a burst
 	h.advance(app.BurstGap)
 	h.line("Rook says, \"hi\"")
 	want := []string{osc("Kit: Rook's Den"), osc("Kit: Mira pages: nice den"), osc("Kit: Rook says, \"hi\"")}

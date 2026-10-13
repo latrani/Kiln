@@ -2,10 +2,10 @@
 
 > **AI-generated.** Claude wrote this page from Kiln's code and earlier README. If something here is wrong, please [open an issue](https://github.com/latrani/Kiln/issues).
 
-Three things decide what happens to a line from the server: **classify rules** say what it is (they give it tags), the **theme** says how each tag looks, and the **`attention` and `quiet` lists** say how it behaves.
+Three things decide what happens to a line from the server: **classify rules** say what it is (they give it tags), the **theme** says how each tag looks, and the **`priority` and `quiet` lists** say how it behaves.
 
 ```toml
-attention = ["page/in", "whisper/in", "self"]   # light up the ● badge
+priority = ["page/in", "whisper/in", "self"]    # light up the ● badge
 quiet = ["wiki"]                                 # never unread, never notifies
 
 [[classify]]
@@ -17,11 +17,11 @@ tag = "wiki"
 pattern = '^\[Wiki\]'
 ```
 
-A classify rule can give several tags at once with `tags = ["page", "page/in"]` (instead of, or as well as, `tag`). By convention a `/` nests a tag under a broader one: the starter pack tags pages you receive `page` and `page/in`, and the server's echo of your own (`You page, …`, `You page-pose, …`) `page` and `page/out`, so a `page` filter shows the whole conversation while only `page/in` asks for attention. Whispers work the same way (`whisper/in`, and `whisper/out` for `You whisper, …`). Kiln itself tags lines that mention your character's name or aliases `self`.
+A classify rule can give several tags at once with `tags = ["page", "page/in"]` (instead of, or as well as, `tag`). By convention a `/` nests a tag under a broader one: the starter pack tags pages you receive `page` and `page/in`, and the server's echo of your own (`You page, …`, `You page-pose, …`) `page` and `page/out`, so a `page` filter shows the whole conversation while only `page/in` is a priority. Whispers work the same way (`whisper/in`, and `whisper/out` for `You whisper, …`). Kiln itself tags lines that mention your character's name or aliases `self`.
 
-`attention` and `quiet` add up along the chain (defaults, packs, world, character), and an entry covers the tags under it: `attention = ["page"]` covers `page/in` too (but not `pages`). Quiet lines are still shown, but don't count as unread, don't bump the `▼ new` count, never light the badge and never notify, even if another tag (like `self`) asks for attention.
+`priority` and `quiet` add up along the chain (defaults, packs, world, character), and an entry covers the tags under it: `priority = ["page"]` covers `page/in` too (but not `pages`). Quiet lines are still shown, but don't count as unread, don't bump the `▼ new` count, never light the badge and never notify, even if another tag (like `self`) is a priority.
 
-Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` right after its `[[characters]]` entry, and `attention` and `quiet` lists inside it.
+Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` right after its `[[characters]]` entry, and `priority` and `quiet` lists inside it.
 
 How tags look lives in the theme's `[tags]` (see [Themes](themes.md)). A world or character can add to it with its own `[palette]` (with `[palette.light]` and `[palette.dark]` too) and `[tags]`, over the theme it uses:
 

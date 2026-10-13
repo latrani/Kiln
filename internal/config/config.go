@@ -49,12 +49,12 @@ func (r ClassifyRule) AllTags() []string {
 }
 
 // Rules is what packs, worlds and characters say about lines: how to tag
-// them, and which tags ask for attention or are quiet. Along the chain
+// them, and which tags are priority or quiet. Along the chain
 // the classify rules append, and the tag lists add up.
 type Rules struct {
-	Classify  []ClassifyRule `toml:"classify"`
-	Attention []string       `toml:"attention"`
-	Quiet     []string       `toml:"quiet"`
+	Classify []ClassifyRule `toml:"classify"`
+	Priority []string       `toml:"priority"`
+	Quiet    []string       `toml:"quiet"`
 }
 
 // Character is a fully resolved character: everything a session needs.
@@ -170,8 +170,8 @@ type globalFile struct {
 // tag lists every world starts from.
 type defaultsFile struct {
 	settings
-	Attention []string `toml:"attention"`
-	Quiet     []string `toml:"quiet"`
+	Priority []string `toml:"priority"`
+	Quiet    []string `toml:"quiet"`
 }
 
 type charFile struct {
@@ -320,7 +320,7 @@ func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	}
 	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
 	base.overlay(g.Defaults.settings)
-	return g, base, Rules{Attention: g.Defaults.Attention, Quiet: g.Defaults.Quiet}, nil
+	return g, base, Rules{Priority: g.Defaults.Priority, Quiet: g.Defaults.Quiet}, nil
 }
 
 func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]Rules) (World, error) {
@@ -544,9 +544,9 @@ func ExpandHome(p string) (string, error) {
 
 func appendRules(a, b Rules) Rules {
 	return Rules{
-		Classify:  append(append([]ClassifyRule(nil), a.Classify...), b.Classify...),
-		Attention: union(a.Attention, b.Attention),
-		Quiet:     union(a.Quiet, b.Quiet),
+		Classify: append(append([]ClassifyRule(nil), a.Classify...), b.Classify...),
+		Priority: union(a.Priority, b.Priority),
+		Quiet:    union(a.Quiet, b.Quiet),
 	}
 }
 

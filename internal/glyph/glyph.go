@@ -14,7 +14,7 @@ const (
 	Remove     = "×" // removes or closes what it's on
 	Selected   = "▌" // a selected line in log mode
 	Excluded   = "░" // a line taken out of the selection
-	Attention  = "●" // something wants you
+	Priority   = "●" // a priority line
 	ChoicePrev = "◄" // a choice field's arrows, while it's focused
 	ChoiceNext = "►"
 	Add        = "+" // before an add row
@@ -29,6 +29,6 @@ const (
 var All = [][2]string{
 	{"Echo", Echo}, {"Sys", Sys}, {"Rule", Rule}, {"Open", Open}, {"Collapsed", Collapsed},
 	{"Filtered", Filtered}, {"Remove", Remove}, {"Selected", Selected}, {"Excluded", Excluded},
-	{"Attention", Attention}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu},
+	{"Priority", Priority}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu},
 	{"Connecting", Connecting},
 }

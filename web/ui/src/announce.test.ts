@@ -5,7 +5,7 @@ import { Store } from "./store.ts";
 import type { Event } from "./store.ts";
 import * as str from "./str.gen.ts";
 
-const line = (Seq: number, Plain: string, Attention = true) => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Attention, Quiet: false });
+const line = (Seq: number, Plain: string, Priority = true) => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Priority, Quiet: false });
 const lines = (Key: string, Op: string, ls: object[], Epoch = 1): Event => ({ type: "Lines", Key, Epoch, Op, Lines: ls });
 
 // after is the announcements batch makes, from a page with Kit showing
@@ -24,12 +24,12 @@ function after(batch: Event[]): string[] {
   return announcements(prev, s.state);
 }
 
-test("a line that wants you, from a character not showing, is read aloud", () => {
+test("a priority line, from a character not showing, is read aloud", () => {
   assert.deepEqual(after([lines("fm/rook", "append", [line(2, "Ash pages you")])]), [str.webAnnounce("Rook", "Ash pages you")]);
 });
 
-test("only new lines that want you, in the background, once", () => {
-  assert.deepEqual(after([lines("fm/rook", "append", [line(2, "chatter", false)])]), [], "no attention");
+test("only new priority lines, in the background, once", () => {
+  assert.deepEqual(after([lines("fm/rook", "append", [line(2, "chatter", false)])]), [], "no priority");
   assert.deepEqual(after([lines("fm/kit", "append", [line(2, "Ash pages you")])]), [], "the character showing");
   assert.deepEqual(after([lines("fm/rook", "replace", [line(1, "old rook")])]), [], "lines made again");
   assert.deepEqual(after([lines("fm/rook", "prepend", [line(0, "older")])]), [], "older history");

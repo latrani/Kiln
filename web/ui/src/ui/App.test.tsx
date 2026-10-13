@@ -87,8 +87,8 @@ const kitOpen = (more: Event[] = []): Event[] => [
   { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2 },
   { type: "Active", Key: "fm/kit" },
   { type: "Lines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [
-    { Seq: 1, Kind: "server", Day: "", Out: false, Plain: "first line", Spans: [{ Text: "first line" }], Attention: false, Quiet: false },
-    { Seq: 2, Kind: "server", Day: "", Out: false, Plain: "second line", Spans: [{ Text: "second line" }], Attention: false, Quiet: false },
+    { Seq: 1, Kind: "server", Day: "", Out: false, Plain: "first line", Spans: [{ Text: "first line" }], Priority: false, Quiet: false },
+    { Seq: 2, Kind: "server", Day: "", Out: false, Plain: "second line", Spans: [{ Text: "second line" }], Priority: false, Quiet: false },
   ] },
   ...more,
 ];
@@ -112,7 +112,7 @@ test("the server's prompt sits after the lines", () => {
 const three: Event[] = [
   { type: "Order", Keys: ["fm/kit", "fm/rook", "pf/ash"] },
   { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2 },
-  { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, Unread: 3, Attention: true },
+  { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, Unread: 3, Priority: true },
   { type: "Char", Key: "pf/ash", World: "pf", Name: "Ash", State: 1 },
   { type: "Active", Key: "fm/kit" },
 ];
@@ -131,12 +131,12 @@ test("the sidebar: worlds, characters, the active one", () => {
 test("the sidebar: unread, priority and closing", () => {
   const rook = row(page({ phase: "running" }, three), ">Rook<");
   assert.ok(rook.includes(`aria-label="${str.webCharPriority("Rook", 3)}"`), rook);
-  assert.ok(rook.includes(str.glyph.attention) && rook.includes(roleClass("sidebar.attention")), rook);
+  assert.ok(rook.includes(str.glyph.priority) && rook.includes(roleClass("sidebar.priority")), rook);
   assert.match(rook, new RegExp(`class="${roleClass("sidebar.unread")}"[^>]*>3<`));
   assert.match(rook, new RegExp(`<button[^>]*aria-label="${str.webCloseChar("Rook")}"[^>]*>${str.glyph.remove}</button>`));
   const quiet = page({ phase: "running" }, [...three, { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 0, Unread: 2 }]);
   assert.ok(row(quiet, ">Rook<").includes(`aria-label="${str.webCharUnread(2, "Rook")}"`));
-  assert.ok(!row(quiet, ">Rook<").includes(str.glyph.attention));
+  assert.ok(!row(quiet, ">Rook<").includes(str.glyph.priority));
 });
 
 test("the sidebar: a character connecting", () => {
@@ -150,7 +150,7 @@ test("the sidebar: a world's overview is active on its world", () => {
   assert.match(html, new RegExp(`<button[^>]*class="[^"]*${roleClass("sidebar.active")}[^"]*"[^>]*aria-current="true"[^>]*>fm<`));
 });
 
-const server = (Seq: number, Plain: string) => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Attention: false, Quiet: false });
+const server = (Seq: number, Plain: string) => ({ Seq, Kind: "server", Day: "", Out: false, Plain, Spans: [{ Text: Plain }], Priority: false, Quiet: false });
 
 test("a world's overview: each character, when it last heard, its last lines", () => {
   const html = page({ phase: "running" }, [
