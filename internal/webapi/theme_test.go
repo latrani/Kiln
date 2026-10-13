@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
@@ -231,4 +232,36 @@ func nilIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+// TestNewLooksRestyleLinesAlreadySent: when the styled tag names a line
+// gets change (new looks, a new theme), the page gets its lines again,
+// as the TUI repaints.
+func TestNewLooksRestyleLinesAlreadySent(t *testing.T) {
+	a, dir := newApp(t)
+	h := startThemed(t, a, dir)
+	h.next()
+	if tags := lastSpanTags(feedKit(t, h, "Mira pages: hi")); !slices.Equal(tags, []any{"page"}) {
+		t.Fatalf("before: span tags %v", tags)
+	}
+	l, _ := h.a.LogLayout(h.a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, day.AddDate(0, 0, -1), "Mira pages: earlier")
+	if b := h.act(`{"Do":"log","Key":"fm/kit"}`); event(b, "LogLines") == nil {
+		t.Fatalf("log mode has no lines: %v", types(b))
+	}
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(kitLooks, "%s", "#abcdef", 1))
+	b := h.reload("zz")
+	ls := event(b, "Lines")
+	if ls == nil || ls["Key"] != "fm/kit" || ls["Op"] != "replace" {
+		t.Fatalf("no restyled lines for Kit: %v", types(b))
+	}
+	if tags := lastSpanTags(ls); !slices.Equal(tags, []any{"page", "page/in"}) {
+		t.Errorf("after: span tags %v", tags)
+	}
+	if ll := event(b, "LogLines"); ll == nil || ll["Op"] != "replace" {
+		t.Errorf("log mode's lines weren't restyled: %v", types(b))
+	}
+	if b := h.reload("yy"); event(b, "Lines") != nil {
+		t.Error("a reload that changes no styled names resent lines")
+	}
 }

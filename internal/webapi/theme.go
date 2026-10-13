@@ -1,7 +1,10 @@
 package webapi
 
 import (
+	"maps"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
@@ -36,15 +39,18 @@ type looks struct {
 	base        *rules.Highlighter            // the theme's own tags
 	hl          map[string]*rules.Highlighter // characters with looks of their own, by key
 	lookErrs    map[string]error              // characters whose own looks didn't resolve
+	styled      map[string]string             // each character's styled tags and their scopes, as styledOf says them
 }
 
 // load reads the theme cfg names from dir, for both appearances, with
 // each character's own looks on top. A theme that won't load keeps the
 // one loaded before (at first, the built-in) and returns why. changed
-// says whether what goes to the page changed. Highlighters are built on
+// says whether what goes to the page changed; restyle are the characters
+// whose lines name different tags now (a tag gained or lost a style, or
+// changed scope), so lines already sent need sending again. Highlighters are built on
 // the dark theme: which tags have styles, and their scope, don't depend
 // on the appearance.
-func (lk *looks) load(dir string, cfg *config.Config, chars []config.Character) (changed bool, err error) {
+func (lk *looks) load(dir string, cfg *config.Config, chars []config.Character) (changed bool, restyle []string, err error) {
 	lk.cfg = cfg
 	name, appearance := "kiln", "auto" //str:ok: theme vocabulary
 	if cfg != nil {
@@ -62,18 +68,20 @@ func (lk *looks) load(dir string, cfg *config.Config, chars []config.Character) 
 	lk.base = rules.New(lk.dark)
 	lk.hl, lk.lookErrs = map[string]*rules.Highlighter{}, map[string]error{}
 	ev := Theme{Appearance: appearance, Dark: looksOf(lk.dark), Light: looksOf(lk.light)}
+	baseStyled, styled := styledOf(lk.dark), map[string]string{}
 	for _, ch := range chars {
+		k := app.Key(ch.World, ch.ID)
+		styled[k] = baseStyled
 		if len(ch.Looks) == 0 {
 			continue
 		}
-		k := app.Key(ch.World, ch.ID)
 		d, derr := lk.dark.With(ch.Looks...)
 		l, lerr := lk.light.With(ch.Looks...)
 		if derr != nil || lerr != nil {
 			lk.lookErrs[k] = firstErr(derr, lerr)
 			continue
 		}
-		lk.hl[k] = rules.New(d)
+		lk.hl[k], styled[k] = rules.New(d), styledOf(d)
 		for _, p := range []struct {
 			th *theme.Theme
 			to *Looks
@@ -84,9 +92,29 @@ func (lk *looks) load(dir string, cfg *config.Config, chars []config.Character) 
 			_, p.to.Chars[k] = p.th.Looks()
 		}
 	}
+	for k, was := range lk.styled {
+		if now, ok := styled[k]; ok && now != was {
+			restyle = append(restyle, k)
+		}
+	}
 	changed = !reflect.DeepEqual(ev, lk.ev)
-	lk.ev = ev
-	return changed, err
+	lk.ev, lk.styled = ev, styled
+	return changed, restyle, err
+}
+
+// styledOf is which tags t styles, and with what scope: all that decides
+// the tag names a line's spans carry (see rules.TagRuns).
+func styledOf(t *theme.Theme) string {
+	_, tags := t.Looks()
+	var b strings.Builder
+	for _, n := range slices.Sorted(maps.Keys(tags)) {
+		b.WriteString(n)
+		if tags[n].Match {
+			b.WriteString(" match")
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 func looksOf(t *theme.Theme) Looks {

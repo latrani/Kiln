@@ -74,6 +74,17 @@ func (f *Feed) Told(key string, ack int) {
 	f.small[idInput+key] = f.input(key)
 }
 
+// Restyle sends character key's scrollback and log-mode lines again on
+// the next turn, as a Replace: the front end's styling of them changed
+// (which tags have styles), though the lines didn't.
+func (f *Feed) Restyle(key string) {
+	for _, m := range []map[string]*sent{f.lines, f.logs} {
+		if s := m[key]; s != nil {
+			s.gen = -1 // no generation the core hands out
+		}
+	}
+}
+
 // Resend sends key's input on the next turn even if it hasn't changed:
 // the page is waiting to hear its action was taken.
 func (f *Feed) Resend(key string) { delete(f.small, idInput+key) }

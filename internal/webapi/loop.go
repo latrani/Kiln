@@ -188,7 +188,10 @@ func (l *Loop) restyle() bool {
 	if l.lk.loaded && l.a.Config() == l.lk.cfg {
 		return false
 	}
-	changed, err := l.lk.load(l.opts.ConfigDir, l.a.Config(), l.a.AllChars())
+	changed, restyle, err := l.lk.load(l.opts.ConfigDir, l.a.Config(), l.a.AllChars())
+	for _, k := range restyle {
+		l.f.Restyle(k)
+	}
 	for _, k := range l.a.Order() {
 		if err := l.lk.lookErrs[k]; err != nil {
 			l.a.SetStatus(true, str.StatusCharError(k, err))
