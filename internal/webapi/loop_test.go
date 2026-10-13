@@ -673,3 +673,17 @@ func TestStepAndNextUnreadSwitch(t *testing.T) {
 		t.Errorf("next unread, none unread: %v, want the last one active", got)
 	}
 }
+
+func TestInputForACharacterSwitchedAwayKeepsItsDraft(t *testing.T) {
+	h := start(t)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"open","Key":"fm/rook"}`)
+	h.act(`{"Do":"switch","Key":"fm/rook"}`)
+	h.act(`{"Do":"input","Key":"fm/kit","Text":"half a pose","N":7}`) // typed before the page heard of the switch
+	if got := h.a.Draft("fm/kit"); got != "half a pose" {
+		t.Errorf("Kit's draft %q", got)
+	}
+	if got := h.a.Text(); got != "" {
+		t.Errorf("Rook's input %q: Kit's typing went to Rook", got)
+	}
+}

@@ -51,7 +51,15 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 	case "input", "submit", "older", "newer": //str:ok
 		k := l.inputKey()
 		if act.Key != k {
-			break // the page hadn't heard the active input changed: drop it rather than send it somewhere else
+			// The page hadn't heard the active input changed. Typing for a
+			// character still open is its draft (unless its password
+			// prompt is up: that text is the password); anything else is
+			// dropped rather than sent somewhere else.
+			if c := a.Char(act.Key); act.Do == "input" && c != nil && !c.NeedPW { //str:ok
+				a.SetDraft(act.Key, act.Text)
+				l.f.Told(act.Key, act.N)
+			}
+			break
 		}
 		before, gen := a.Text(), a.Status().Gen
 		a.SetInput(act.Text)
