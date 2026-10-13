@@ -32,3 +32,9 @@ test("a character's own tags win over the theme's", () => {
   assert.equal(tagsFor(t, "fm/rook").dark.page.FG, "#1");
   assert.deepEqual(tagsFor(undefined, "x"), { dark: {}, light: {} });
 });
+
+test("a character's tag tables are the same objects until the theme changes", () => {
+  const t: ThemeEvent = { type: "Theme", Appearance: "auto", Dark: { Roles: {}, Tags: {} }, Light: { Roles: {}, Tags: {} } };
+  assert.equal(tagsFor(t, "fm/kit"), tagsFor(t, "fm/kit"));
+  assert.notEqual(tagsFor({ ...t }, "fm/kit"), tagsFor(t, "fm/kit"));
+});

@@ -38,10 +38,19 @@ export function spanStyle(s: Span, dark: Record<string, TagLook>, light: Record<
   return out.join(";");
 }
 
-// tagsFor is character key's tag tables: its own, else the theme's.
-export function tagsFor(t: ThemeEvent | undefined, key: string): { dark: Record<string, TagLook>; light: Record<string, TagLook> } {
-  return {
-    dark: t?.Dark.Chars?.[key] ?? t?.Dark.Tags ?? {},
-    light: t?.Light.Chars?.[key] ?? t?.Light.Tags ?? {},
-  };
+type TagTables = { dark: Record<string, TagLook>; light: Record<string, TagLook> };
+
+const none: TagTables = { dark: {}, light: {} };
+const made = new WeakMap<ThemeEvent, Map<string, TagTables>>();
+
+// tagsFor is character key's tag tables: its own, else the theme's. For
+// one theme it's the same object each time, so lines needn't draw again
+// until the theme changes.
+export function tagsFor(t: ThemeEvent | undefined, key: string): TagTables {
+  if (!t) return none;
+  let m = made.get(t);
+  if (!m) made.set(t, (m = new Map()));
+  let out = m.get(key);
+  if (!out) m.set(key, (out = { dark: t.Dark.Chars?.[key] ?? t.Dark.Tags ?? {}, light: t.Light.Chars?.[key] ?? t.Light.Tags ?? {} }));
+  return out;
 }

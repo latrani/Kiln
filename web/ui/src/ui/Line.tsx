@@ -1,3 +1,4 @@
+import { Component } from "preact";
 import { spanStyle } from "../look.ts";
 import type { LineData } from "../store.ts";
 import { roleClass } from "../theme.ts";
@@ -29,9 +30,34 @@ function SpanView({ s, tags }: { s: Span; tags: Tags }) {
   return style ? <span class="s" style={style}>{s.Text}</span> : <>{s.Text}</>;
 }
 
+// LineProps are a Line's: the line, its character's tag tables, and for a
+// scrollback line its class and number.
+interface LineProps {
+  line: LineData;
+  tags: Tags;
+  class?: string;
+  seq?: number;
+}
+
 // Line is one scrollback line, drawn from Go's spans: nothing between
 // them, so its text is exactly the line's (kiln.css keeps the spaces).
-export function Line({ line, tags, class: extra, seq }: { line: LineData; tags: Tags; class?: string; seq?: number }) {
+// It draws again only when the line is new or made again (the store keeps
+// a line's object until then) or its tags restyle: not for every event.
+export class Line extends Component<LineProps> {
+  shouldComponentUpdate(next: LineProps): boolean {
+    return !sameLine(this.props, next);
+  }
+  render() {
+    return LineView(this.props);
+  }
+}
+
+// sameLine reports whether a Line would draw the same.
+export function sameLine(a: Pick<LineProps, "line" | "tags"> & Partial<LineProps>, b: Pick<LineProps, "line" | "tags"> & Partial<LineProps>): boolean {
+  return a.line === b.line && a.tags === b.tags && a.class === b.class && a.seq === b.seq;
+}
+
+function LineView({ line, tags, class: extra, seq }: LineProps) {
   return (
     <div class={"line " + kindClass[line.Kind] + (extra ? " " + extra : "")} data-seq={seq}>
       {(line.Spans ?? []).map((s, i) => <SpanView key={i} s={s} tags={tags} />)}

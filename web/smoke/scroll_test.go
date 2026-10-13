@@ -119,6 +119,22 @@ func TestScrollbackMoves(t *testing.T) {
 	waitFor(t, ev, `sc().querySelectorAll(".sb").length > `+n, "older history coming")
 	waitFor(t, ev, `(() => { const r = sc().querySelector('.sb[data-seq="`+was.Seq+`"]'); return Math.abs(r.getBoundingClientRect().top - `+strconv.FormatFloat(was.Top, 'f', 2, 64)+`) < 2; })()`, "the line being read staying put")
 	waitFor(t, ev, `row("history 3-1") && row("history 3-1").closest('[role="log"]') === null`, "older history not read aloud")
+	// And again: paging goes on as long as there's more.
+	n = ev(`sc().querySelectorAll(".sb").length`)
+	ev(`sc().scrollTop = 0`)
+	waitFor(t, ev, `sc().querySelectorAll(".sb").length > `+n, "a second page of older history")
+
+	// In a world's overview, a link opens; it doesn't switch characters.
+	ev(`click("Tester")`)
+	say("https://example.test/x", 2013)
+	waitFor(t, ev, `sc().querySelector('a[href="https://example.test/x"]')`, "the link drawn")
+	ev(`kilnPage.act({Do: "switch", Key: "=fake"})`)
+	waitFor(t, ev, `document.querySelector('main a[href="https://example.test/x"]')`, "the link in the overview")
+	ev(`document.querySelector('main a[href="https://example.test/x"]').click()`)
+	time.Sleep(500 * time.Millisecond)
+	if got := ev(`kilnPage.events.filter(e => e.type === "Active").at(-1).Key`); got != `"=fake"` {
+		t.Errorf("after a link in the overview, showing %s, want the overview", got)
+	}
 }
 
 // seedHistory writes Historian's log for four days before today into the

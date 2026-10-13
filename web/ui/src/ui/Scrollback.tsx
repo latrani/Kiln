@@ -33,7 +33,7 @@ export function Scrollback({ state }: { state: State }) {
   const shown = useRef({ key: "", epoch: undefined as number | undefined });
   const ours = useRef<number | undefined>(undefined); // the scrollTop the page set
   const left = useRef<number | undefined>(undefined); // the scrollTop as the last draw or scroll left it
-  const asked = useRef(false);
+  const askedFor = useRef<object | undefined>(undefined); // the Char event older history was last asked for under
   const act = useRef(state.act);
   act.current = state.act;
   const scrolled = useRef(throttle(() => act.current?.({ Do: "scrolled" }), 1000));
@@ -71,10 +71,13 @@ export function Scrollback({ state }: { state: State }) {
     const r = v.anchor && e.querySelector<HTMLElement>(`.sb[data-seq="${v.anchor.seq}"]`);
     if (r) scrollTo(e, r.offsetTop - v.anchor!.off);
   };
-  // older asks for a page of older history when the view nears the top.
+  // older asks for a page of older history when the view nears the top:
+  // once until Go says anything new of the character (Loading, or a page
+  // that came), so scrolling doesn't ask over and over, and nothing Go
+  // sends can leave it waiting.
   const older = (e: HTMLElement) => {
-    if (key && ch?.More && !ch.Loading && !asked.current && e.scrollTop < e.clientHeight) {
-      asked.current = true;
+    if (key && ch?.More && !ch.Loading && askedFor.current !== ch && e.scrollTop < e.clientHeight) {
+      askedFor.current = ch;
       act.current?.({ Do: "page", Key: key });
     }
   };
@@ -100,7 +103,6 @@ export function Scrollback({ state }: { state: State }) {
     const e = el.current;
     const prev = shown.current;
     shown.current = { key, epoch: ls?.epoch };
-    if (ch?.Loading || prev.key !== key) asked.current = false;
     for (const k of views.current.keys()) if (!state.chars[k]) views.current.delete(k); // closed
     if (prev.key !== key) {
       // Switching away counts as seeing what was showing, if it was live.

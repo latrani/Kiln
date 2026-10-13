@@ -141,7 +141,7 @@ test("the sidebar: unread, attention and closing", () => {
 
 test("the sidebar: a character connecting", () => {
   const ash = row(page({ phase: "running" }, three), ">Ash<");
-  assert.match(ash, new RegExp(`class="[^"]*${roleClass("sidebar.connecting")}[^"]*"[^>]*>${str.glyph.connecting}<`), ash);
+  assert.match(ash, new RegExp(`<span class="lead ${roleClass("sidebar.connecting")}"> ${str.glyph.connecting} </span>`), ash);
   assert.ok(!ash.includes(str.webCloseChar("Ash")));
 });
 

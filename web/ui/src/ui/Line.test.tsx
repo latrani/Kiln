@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
-import { Line } from "./Line.tsx";
+import { Line, sameLine } from "./Line.tsx";
 import { roleClass } from "../theme.ts";
 import type { LineData } from "../store.ts";
 
@@ -38,4 +38,11 @@ test("a link that isn't http(s) isn't a link", () => {
 
 test("no spans: nothing breaks", () => {
   assert.equal(text(render(<Line line={L({ Spans: null })} tags={tags} />)), "");
+});
+
+test("a line draws again only when it or its tags change", () => {
+  const l = L({ Plain: "x", Spans: [{ Text: "x" }] });
+  assert.equal(sameLine({ line: l, tags }, { line: l, tags }), true);
+  assert.equal(sameLine({ line: l, tags }, { line: { ...l }, tags }), false, "made again");
+  assert.equal(sameLine({ line: l, tags }, { line: l, tags: { dark: {}, light: {} } }), false, "restyled");
 });

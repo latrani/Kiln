@@ -37,7 +37,7 @@ export function Sidebar({ state }: { state: State }) {
             <li key={r.key} class={on ? roleClass("sidebar.active") : undefined}>
               <span class={"lead " + (own ?? "")}>
                 {" "}
-                {c.State === connecting && <><span class={own}>{str.glyph.connecting}</span>{" "}</>}
+                {c.State === connecting && <>{str.glyph.connecting}{" "}</>}
                 {closable && <><button class={own} aria-label={str.webCloseChar(c.Name)} onClick={() => state.act?.({ Do: "close", Key: r.key })}>{str.glyph.remove}</button>{" "}</>}
               </span>
               <button class={"name " + (own ?? "")} aria-current={on ? "true" : undefined}
