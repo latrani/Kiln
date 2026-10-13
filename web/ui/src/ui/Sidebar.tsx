@@ -35,9 +35,11 @@ export function Sidebar({ state }: { state: State }) {
           const wants = c.Attention && unread > 0;
           return (
             <li key={r.key} class={on ? roleClass("sidebar.active") : undefined}>
-              {" "}
-              {c.State === connecting && <><span class={own}>{str.glyph.connecting}</span>{" "}</>}
-              {closable && <><button class={"badge " + (own ?? "")} aria-label={str.webCloseChar(c.Name)} onClick={() => state.act?.({ Do: "close", Key: r.key })}>{str.glyph.remove}</button>{" "}</>}
+              <span class={"lead " + (own ?? "")}>
+                {" "}
+                {c.State === connecting && <><span class={own}>{str.glyph.connecting}</span>{" "}</>}
+                {closable && <><button class={own} aria-label={str.webCloseChar(c.Name)} onClick={() => state.act?.({ Do: "close", Key: r.key })}>{str.glyph.remove}</button>{" "}</>}
+              </span>
               <button class={"name " + (own ?? "")} aria-current={on ? "true" : undefined}
                 aria-label={unread > 0 ? (wants ? str.webCharAttention(unread, c.Name) : str.webCharUnread(unread, c.Name)) : undefined}
                 onClick={() => go(r.key)}>{c.Name}</button>

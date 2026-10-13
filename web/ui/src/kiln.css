@@ -25,7 +25,7 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side li { display: flex; white-space: pre; }
 .side button { padding: 0; text-align: left; }
 .side .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
-.side .activity { flex: none; }
+.side .lead, .side .activity { flex: none; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
 .top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); display: flex; }
 .top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -198,3 +198,11 @@ test("the status line: the connection, unless there's news", () => {
 test("the background announcer is always there, politely", () => {
   assert.match(page({ phase: "running" }), /<div[^>]*role="status"[^>]*class="sr-only"/);
 });
+
+test("a character's name sits a space in under its world, as the TUI's", () => {
+  // A flex row drops bare spaces between its children, so the lead is a
+  // span of its own.
+  for (const name of [">Kit<", ">Rook<", ">Ash<"]) {
+    assert.match(row(page({ phase: "running" }, three), name), /^<li[^>]*><span[^>]*> /, name);
+  }
+});
