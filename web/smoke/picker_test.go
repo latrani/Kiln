@@ -27,8 +27,21 @@ func TestPicker(t *testing.T) {
 	waitFor(t, ev, `document.activeElement === `+filter, "Ctrl+O's filter focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "sec"})
 	waitFor(t, ev, `document.querySelectorAll('nav [role="option"]').length === 4`, "the world, Second, its add row and the add-world row left")
-	if got := ev(`kilnPage.sent.some(a => a.Do === "input")`); got != "false" {
-		t.Error("typing a filter went to the chat input")
+	// A character and its add row sit one space in from the world, as the
+	// TUI's: their text starts right of the row's edge.
+	inset := func(id string) string {
+		return ev(`(() => {
+			const li = document.getElementById(` + jsString(id) + `), r = document.createRange();
+			const name = [...li.childNodes].at(-1); // the name, or the add row's chip
+			if (name.nodeType === Node.TEXT_NODE) r.selectNodeContents(name);
+			else r.selectNode(name);
+			return String(Math.round(r.getBoundingClientRect().left - li.getBoundingClientRect().left));
+		})()`)
+	}
+	for _, id := range []string{"pick-fake/second", "pick-+fake"} {
+		if got := mustUnquote(t, inset(id)); got == "0" {
+			t.Errorf("%s isn't indented under its world", id)
+		}
 	}
 	// A click on something that can't take focus (the scrollback)
 	// leaves the keys with the picker, as the TUI's.
