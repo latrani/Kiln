@@ -90,11 +90,15 @@ export function pagePick(rows: PickRow[], sel: string, dir: number, page: number
 
 // choose acts on the picker's row sel, as Enter or a click does: a
 // character opens, connects and shows (pick), closing the picker; "+
-// Character" asks for the new character's name. Nothing for "".
+// Character" asks for the new character's name; a world's row opens its
+// editor, and + World a new world's. An editor open over the picker is
+// left first, its edits kept, as the TUI's. Nothing for "".
 export function choose(store: Store, sel: string): void {
-  if (sel.startsWith("+")) {
-    store.setPicker({ adding: sel.slice(1), name: "", error: undefined });
-  } else if (sel) {
+  store.leaveEditor();
+  if (sel === "+") store.openEditor({ kind: "new_world" }, false);
+  else if (sel.startsWith("=")) store.openEditor({ kind: "world", world: sel.slice(1) }, false);
+  else if (sel.startsWith("+")) store.setPicker({ adding: sel.slice(1), name: "", error: undefined });
+  else if (sel) {
     store.state.act?.({ Do: "pick", Key: sel });
     store.closePicker();
   }

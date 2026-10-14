@@ -1,5 +1,7 @@
 // The page's one store: Go's batches applied a batch at a time, plus the
 // page's own state (how far it's got starting Kiln, whether it's saving).
+import { edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
+import type { Editor, SettingsEvent, Target } from "./editor.ts";
 import { fixPick, pickerRows } from "./picker.ts";
 import { Typing } from "./typing.ts";
 import type { Span, ThemeEvent } from "./types.ts";
@@ -41,6 +43,7 @@ export interface Picker {
   adding?: string;
   name?: string;
   error?: string;
+  edit?: Editor; // an editor open over the picker (editor.ts)
 }
 
 // Answer is the latest Saved or Problems, numbered, so a form can tell
@@ -75,12 +78,15 @@ export interface State {
   saveQuestion?: any;
   picker?: Picker;
   answer?: Answer;
+  drafts: Record<string, Editor>; // hidden editors' edits, by targetKey, for the next time
+  parked: Record<string, Editor>; // editors opened from the main view, by the item they were left on
+  opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
 const fresh = ({ phase, progress, saving, onUseHere, act, typing }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing">): State => ({
   phase, progress, saving, onUseHere, act, typing,
-  worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {},
+  worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, drafts: {}, parked: {},
 });
 
 // merge is prev with a Lines or LogLines event applied. Only a reset
@@ -108,6 +114,68 @@ const without = <T>(m: Record<string, T>, k: string): Record<string, T> => {
   return out;
 };
 
+const pickerOf = (s: State): Picker => s.picker ?? { filter: "", sel: fixPick(pickerRows(s.worlds, s.chars, ""), "") };
+
+// stash keeps ed's edits for the next time its target's editor opens.
+const stash = (s: State, ed: Editor): State => ({ ...s, drafts: { ...s.drafts, [targetKey(ed.target)]: ed } });
+
+// show opens ed over the picker (opening it), the editor open there
+// before kept as a draft, as the TUI's setEditor.
+function show(s: State, ed: Editor): State {
+  const old = s.picker?.edit;
+  if (old && targetKey(old.target) !== targetKey(ed.target)) s = stash(s, old);
+  return { ...s, picker: { ...pickerOf(s), adding: undefined, edit: ed } };
+}
+
+// shut closes the open editor: back to the picker, or with closeAll out
+// of it, as the TUI's closeEditor.
+function shut(s: State): State {
+  if (!s.picker?.edit) return s;
+  return s.picker.edit.closeAll ? { ...s, picker: undefined } : { ...s, picker: { ...s.picker, edit: undefined } };
+}
+
+// exists reports whether k (a character's key or "=world") is still
+// something to show.
+const exists = (s: State, k: string): boolean =>
+  k.startsWith("=") ? Object.values(s.chars).some((c: any) => "=" + c.World === k) : !!s.chars[k];
+
+// settle is s after Go's answer to the editor's save or delete, as the
+// TUI's save and delete calls: refused, it shows why; saved, it closes (a
+// new world's to the picker, on its + Character), and a deleted world's
+// drafts go with it.
+function settle(s: State, a: Answer): State {
+  const ed = s.picker!.edit!;
+  if (a.Problems) return { ...s, picker: { ...s.picker!, edit: refuse(ed, a.Problems) } };
+  if (a.Op === "delete_world" && ed.target.kind === "world") {
+    const w = ed.target.world;
+    s = { ...s, drafts: Object.fromEntries(Object.entries(s.drafts).filter(([, d]) => d.target.kind === "new_world" || d.target.world !== w)) };
+  }
+  if (a.Op === "add_world") return { ...s, picker: { ...s.picker!, edit: undefined, filter: "", sel: "+" + String(ed.values.id) } };
+  return shut(s);
+}
+
+// follow moves editors with the active item, as the TUI's parkEditor
+// and unparkEditor: one opened from the main view stays on the item it
+// was opened on (parked) when you go elsewhere, or becomes a draft if
+// that item went; a parked one on an item that went becomes a draft;
+// and the one parked on the item now active comes back.
+function follow(s: State, prev: string): State {
+  const ed = s.picker?.edit;
+  if (s.active !== prev && ed?.closeAll) {
+    s = exists(s, prev) ? { ...s, parked: { ...s.parked, [prev]: ed } } : stash(s, ed);
+    s = { ...s, picker: undefined };
+  }
+  for (const [k, p] of Object.entries(s.parked)) {
+    if (!exists(s, k)) s = stash({ ...s, parked: without(s.parked, k) }, p);
+  }
+  const back = s.parked[s.active];
+  if (back && s.active !== prev) {
+    if (s.picker?.edit) s = stash(s, s.picker.edit);
+    s = show({ ...s, picker: undefined, parked: without(s.parked, s.active) }, back);
+  }
+  return s;
+}
+
 export class Store {
   state: State = fresh({ phase: "loading", saving: true, typing: new Typing() });
   private subs = new Set<() => void>();
@@ -118,6 +186,8 @@ export class Store {
   // It never throws: Go calls it from inside the wasm.
   apply(batch: Event[]): void {
     let s = this.state;
+    const prev = s.active;
+    const seen = s.answer?.n ?? 0;
     const effects: Event[] = [];
     for (const e of batch) {
       try {
@@ -126,6 +196,9 @@ export class Store {
         console.error("event not applied", e, err);
       }
     }
+    const ed = s.picker?.edit;
+    if (ed?.pending && s.answer && s.answer.n > seen && s.answer.Op === ed.pending) s = settle(s, s.answer);
+    s = follow(s, prev);
     if (s.picker) {
       // What's offered may have changed (worlds, a character opening or
       // closing): the highlight stays on a row there is, as the TUI's
@@ -179,6 +252,11 @@ export class Store {
       case "Saved":
       case "Problems":
         return { ...s, answer: { n: (s.answer?.n ?? 0) + 1, Op: e.Op, Key: e.Key, Problems: e.Problems } };
+      case "Settings": {
+        const o = s.opening;
+        if (!o || o.key !== targetKey(targetOf(e as unknown as SettingsEvent))) return s;
+        return show({ ...s, opening: undefined }, newEditor(e as unknown as SettingsEvent, o.closeAll));
+      }
       case "Effect": effects.push(e); return s;
     }
     return s;
@@ -193,7 +271,7 @@ export class Store {
 
   // closePicker goes back to the open characters.
   closePicker(): void {
-    this.set({ picker: undefined });
+    this.set({ picker: undefined, opening: undefined });
   }
 
   // setPicker changes the open picker, keeping its highlight on a row the
@@ -203,6 +281,77 @@ export class Store {
     const p = { ...this.state.picker, ...patch };
     p.sel = fixPick(pickerRows(this.state.worlds, this.state.chars, p.filter), p.sel);
     this.set({ picker: p });
+  }
+
+  // openEditor opens target's editor over the picker (opening the picker
+  // too, and with closeAll closing with it): its draft, or one left
+  // parked, as it was; otherwise Go's settings are asked for, and it
+  // opens when they come.
+  openEditor(t: Target, closeAll: boolean): void {
+    const k = targetKey(t);
+    let s = this.state;
+    let ed: Editor | undefined;
+    for (const [at, p] of Object.entries(s.parked)) {
+      if (targetKey(p.target) === k) {
+        s = { ...s, parked: without(s.parked, at) };
+        ed = p;
+      }
+    }
+    ed ??= s.drafts[k];
+    if (ed) {
+      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, pending: undefined, closeAll });
+      this.notify();
+      return;
+    }
+    this.set({ opening: { key: k, closeAll } });
+    const w = t.kind === "new_world" ? "" : t.world;
+    this.state.act?.({ Do: "settings", World: w, Char: t.kind === "char" ? t.char : "" });
+  }
+
+  // closeEditor drops the editor's edits (Esc).
+  closeEditor(): void {
+    this.state = shut(this.state);
+    this.notify();
+  }
+
+  // hideEditor closes the editor but keeps its edits for the next time
+  // (Ctrl+T, the key that opened it).
+  hideEditor(): void {
+    const ed = this.state.picker?.edit;
+    if (!ed) return;
+    this.state = shut(stash(this.state, ed));
+    this.notify();
+  }
+
+  // leaveEditor keeps the editor's edits as a draft and goes back to the
+  // picker, which stays open: a row of it was chosen.
+  leaveEditor(): void {
+    const ed = this.state.picker?.edit;
+    if (!ed) return;
+    this.state = { ...stash(this.state, ed), picker: { ...this.state.picker!, edit: undefined } };
+    this.notify();
+  }
+
+  // setEditor changes the open editor.
+  setEditor(patch: Partial<Editor>): void {
+    const p = this.state.picker;
+    if (p?.edit) this.set({ picker: { ...p, edit: { ...p.edit, ...patch } } });
+  }
+
+  // editField sets one of the editor's fields, with Go's check of what's
+  // typed.
+  editField(key: string, value: string | boolean): void {
+    const p = this.state.picker;
+    if (!p?.edit) return;
+    const check = (globalThis as any).kiln?.check as ((f: string, v: string) => string) | undefined;
+    this.set({ picker: { ...p, edit: edit(p.edit, key, value, check) } });
+  }
+
+  // sendEditor sends the editor's save or delete; its answer settles it
+  // (apply).
+  sendEditor(action: { Do: string; [k: string]: unknown }): void {
+    this.setEditor({ pending: action.Do });
+    this.state.act?.(action);
   }
 
   // set changes the page's own state.

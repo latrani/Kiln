@@ -106,3 +106,15 @@ test("an answer to something else leaves the picker be", () => {
   answered(s, { n: 1, Op: "save_world", Key: "" });
   assert.equal(s.state.picker?.adding, "fm");
 });
+
+test("choosing a world's row or + World opens its editor (Go is asked); leaving one keeps its edits", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  s.openPicker();
+  choose(s, "=fm");
+  assert.deepEqual(sent.at(-1), { Do: "settings", World: "fm", Char: "" });
+  choose(s, "+");
+  assert.deepEqual(sent.at(-1), { Do: "settings", World: "", Char: "" });
+});
