@@ -395,6 +395,10 @@ delete_again = "Press again to delete {what}"
 # Log mode's name for screen readers: the history you can select from.
 log = "Log"
 
+# The filter panel's name for screen readers: the list of tags and texts
+# log mode can hide or show only.
+filter = "Filter"
+
 # Log mode's keys (web): the mouse selects lines, as the spec has it, in
 # place of the TUI's m and space; the letters are the TUI's.
 log_hints = "click to select · shift-click extends · / find · n/N · g date · t tags · e export · c copy · esc back"

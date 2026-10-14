@@ -945,6 +945,9 @@ export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 /** web.delete_again: Press again to delete {what} */
 export function webDeleteAgain(what: unknown): string { return `Press again to delete ${what}`; }
 
+/** web.filter: Filter */
+export function webFilter(): string { return `Filter`; }
+
 /** web.form_hint: Enter to save · Tab moves between fields · {hint} */
 export function webFormHint(hint: unknown): string { return `Enter to save · Tab moves between fields · ${hint}`; }
 
