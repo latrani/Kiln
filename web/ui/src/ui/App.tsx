@@ -28,7 +28,7 @@ export function App({ store }: { store: Store }) {
         <TopBar state={s} store={store} />
         {logShows(s, s.active) ? <LogView state={s} store={store} /> : <Scrollback state={s} />}
         <BottomPane state={s} store={store} />
-        <StatusLine state={s} />
+        <StatusLine state={s} store={store} />
       </div>
       <Announcer store={store} />
     </>

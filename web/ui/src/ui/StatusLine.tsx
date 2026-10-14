@@ -1,7 +1,8 @@
 import { loadingText } from "../boot.ts";
 import type { LogState } from "../log.ts";
+import { ask, dismiss } from "../notify.ts";
 import { logShows } from "../store.ts";
-import type { State } from "../store.ts";
+import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
@@ -16,8 +17,9 @@ function stateName(s: number): string {
 // for news and an urgent one for errors (Kiln stopping, a status error).
 // A new status replaces the region's text node (keyed by Gen), so the
 // same words said again are read again. Download progress isn't live:
-// read chunk by chunk it would be a flood.
-export function StatusLine({ state }: { state: State }) {
+// read chunk by chunk it would be a flood. While the browser won't show
+// notifications, a button asks it to, with a × to stop offering.
+export function StatusLine({ state, store }: { state: State; store: Store }) {
   const err = roleClass("status.error");
   let polite = "", urgent = "", gen = 0;
   if (state.phase === "stopped") urgent = str.webStopped();
@@ -41,6 +43,12 @@ export function StatusLine({ state }: { state: State }) {
       {conn && <span>{conn}{polite && str.separator()}</span>}
       <span role="status" class={!state.saving && !state.status?.Text ? err : undefined}><span key={gen}>{polite}</span></span>
       <span role="alert" class={err}><span key={gen}>{urgent}</span></span>
+      {state.phase === "running" && state.notifyOffer && (
+        <span class="offer">
+          <button class={roleClass("form.button")} onClick={() => ask(store)}>{str.webNotifyAllow()}</button>
+          <button aria-label={str.webNotifyDismiss()} onClick={() => dismiss(store)}>{str.glyph.remove}</button>
+        </span>
+      )}
       {state.phase === "stopped" && <button class={roleClass("form.button")} onClick={() => location.reload()}>{str.webReload()}</button>}
     </div>
   );

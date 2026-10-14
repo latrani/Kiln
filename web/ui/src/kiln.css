@@ -112,6 +112,8 @@ a.s { text-decoration: underline; }
 .editor summary::-webkit-details-marker { display: none; }
 .editor .buttons .row { display: flex; white-space: pre; }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
+/* The offer to allow notifications (notify.ts), at the right. */
+.status .offer { float: right; }
 .lock { padding: 1lh 1ch; }
 /* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }

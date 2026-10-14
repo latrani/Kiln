@@ -975,6 +975,18 @@ export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }
 /** web.not_saving: this browser isn't saving Kiln's configuration */
 export function webNotSaving(): string { return `this browser isn't saving Kiln's configuration`; }
 
+/** web.notify_allow: Allow notifications */
+export function webNotifyAllow(): string { return `Allow notifications`; }
+
+/** web.notify_denied: this browser blocks Kiln's notifications: allow them in the site's settings */
+export function webNotifyDenied(): string { return `this browser blocks Kiln's notifications: allow them in the site's settings`; }
+
+/** web.notify_dismiss: Don't ask about notifications */
+export function webNotifyDismiss(): string { return `Don't ask about notifications`; }
+
+/** web.notify_unsupported: this browser can't show notifications (on an iPhone or iPad, add Kiln to the Home Screen first) */
+export function webNotifyUnsupported(): string { return `this browser can't show notifications (on an iPhone or iPad, add Kiln to the Home Screen first)`; }
+
 /** web.other_tab: Kiln's open in another tab. */
 export function webOtherTab(): string { return `Kiln's open in another tab.`; }
 

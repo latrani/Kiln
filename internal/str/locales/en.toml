@@ -413,6 +413,14 @@ close_char = "Close {name}"
 # with nothing open it's for commands.
 input = "Send to {name}"
 input_idle = "Command"
+# The status line's button (web) while the browser won't show Kiln's
+# notifications yet: a click is the only time a page may ask for them.
+notify_allow = "Allow notifications"
+# The × beside it, for screen readers: hides it for good in this browser.
+notify_dismiss = "Don't ask about notifications"
+# Said after the click when the browser won't show them.
+notify_denied = "this browser blocks Kiln's notifications: allow them in the site's settings"
+notify_unsupported = "this browser can't show notifications (on an iPhone or iPad, add Kiln to the Home Screen first)"
 # The browser tab's title; with unread lines, how many.
 title = "Kiln"
 title_unread = "({n}) Kiln"

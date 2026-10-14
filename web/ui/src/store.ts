@@ -101,11 +101,12 @@ export interface State {
   drafts: Record<string, Editor>; // hidden editors' edits, by targetKey, for the next time
   parked: Record<string, Editor>; // editors opened from the main view, by the item they were left on
   opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
+  notifyOffer?: boolean; // the status line offers to allow notifications (notify.ts)
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
-const fresh = ({ phase, progress, saving, onUseHere, act, typing }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing">): State => ({
-  phase, progress, saving, onUseHere, act, typing,
+const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer">): State => ({
+  phase, progress, saving, onUseHere, act, typing, notifyOffer,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, logView: {}, drafts: {}, parked: {},
 });
 
