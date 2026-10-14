@@ -102,3 +102,33 @@ test("the small things are kept", () => {
   assert.equal(s.state.saveQuestion?.Asking, true);
   assert.deepEqual(s.state.status, { Text: "hi", Err: true, Gen: 4 });
 });
+
+test("the picker: opened with its highlight on the first character; Start drops it", () => {
+  const s = new Store();
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  s.openPicker();
+  assert.deepEqual(s.state.picker, { filter: "", sel: "fm/kit" });
+  s.setPicker({ filter: "zzz" });
+  assert.equal(s.state.picker?.sel, "", "nothing matches");
+  s.apply([{ type: "Start" }]);
+  assert.equal(s.state.picker, undefined);
+});
+
+test("Saved and Problems are the latest answer, numbered", () => {
+  const s = new Store();
+  s.apply([{ type: "Saved", Op: "add_character", Key: "fm/Ash" }]);
+  assert.deepEqual({ ...s.state.answer }, { n: 1, Op: "add_character", Key: "fm/Ash", Problems: undefined });
+  s.apply([{ type: "Problems", Op: "add_character", Problems: [{ Field: "name", Msg: "no" }] }]);
+  assert.equal(s.state.answer?.n, 2);
+  assert.equal(s.state.answer?.Problems?.[0].Msg, "no");
+});
+
+test("the picker's highlight follows what Go sends: worlds coming, the highlighted character opening", () => {
+  const s = new Store();
+  s.openPicker(); // before the worlds came: nothing to highlight
+  assert.equal(s.state.picker?.sel, "");
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] }]);
+  assert.equal(s.state.picker?.sel, "fm/kit");
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", Name: "Kit" }]);
+  assert.equal(s.state.picker?.sel, "fm/rook", "Kit's open now: not offered");
+});

@@ -1,5 +1,8 @@
+import { useLayoutEffect } from "preact/hooks";
+import { choose, pickerRows, selKey } from "../picker.ts";
+import type { PickRow } from "../picker.ts";
 import { sidebarRows } from "../sidebar.ts";
-import type { State } from "../store.ts";
+import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
@@ -10,14 +13,24 @@ const connecting = 1, connected = 2;
 // opens its overview; a character's row has its connection badge (… while
 // connecting; a × that closes it once disconnected; else a space), its
 // name, cut with … when too long, and its unread count, after ● when a
-// line was a priority. The active row is lit across. Later, in log mode, the
-// filter panel; with the picker open, the picker.
-export function Sidebar({ state }: { state: State }) {
+// line was a priority. The active row is lit across. Last, after a gap,
+// "+ Connection" opens the picker. With the picker open, it's the
+// picker's list instead; later, in log mode, the filter panel.
+export function Sidebar({ state, store }: { state: State; store: Store }) {
+  if (state.picker) return <PickerList state={state} store={store} />;
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (
     <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>
       <ul>
         {sidebarRows(state.order, state.chars).map((r) => {
+          if (r.kind === "gap") return <li key="gap" aria-hidden="true"> </li>;
+          if (r.kind === "add") {
+            return (
+              <li key="add">
+                <button class={"chip " + roleClass("sidebar.add")} onClick={() => store.openPicker()}>{str.sidebarOpenConnection()}</button>
+              </li>
+            );
+          }
           if (r.kind === "world") {
             const on = state.active === "=" + r.world;
             return (
@@ -56,4 +69,54 @@ export function Sidebar({ state }: { state: State }) {
       </ul>
     </nav>
   );
+}
+
+// PickerList is the picker in the sidebar, as the TUI's: worlds, the
+// characters to open under them, and "+ Character" ending each; the
+// highlighted row lit. It's the list the picker's filter (PickerForm)
+// controls, so a screen reader hears the highlighted row as you move.
+// A click does what Enter does.
+function PickerList({ state, store }: { state: State; store: Store }) {
+  const p = state.picker!;
+  useLayoutEffect(() => {
+    document.getElementById("pick-" + p.sel)?.scrollIntoView?.({ block: "nearest" });
+  }, [p.sel]);
+  return (
+    <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
+      <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
+        {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
+          // Each world's options are a group named for it, so a screen
+          // reader says which world a character is in; its header row is
+          // the name drawn.
+          <li key={"=" + world} role="group" aria-label={world}>
+            <span aria-hidden="true" class={"pick " + roleClass("picker.world")}>{world}</span>
+            <ul role="none">
+              {rows.map((r) => {
+                // A character's row is lit across, one space in; "+
+                // Character" is a chip, one space in.
+                const k = selKey(r);
+                const on = k === p.sel;
+                const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
+                if (r.kind === "add_char") {
+                  return <li {...opts} class="pick"> <span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
+                }
+                return <li {...opts} class={"pick " + (on ? roleClass("picker.selected") : "")}> {r.kind === "char" ? r.name : ""}</li>;
+              })}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+// groups splits the picker's rows by world: each world header's rows
+// after it.
+function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
+  const out: { world: string; rows: PickRow[] }[] = [];
+  for (const r of rows) {
+    if (r.kind === "world") out.push({ world: r.world, rows: [] });
+    else out.at(-1)?.rows.push(r);
+  }
+  return out;
 }

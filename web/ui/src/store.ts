@@ -1,5 +1,6 @@
 // The page's one store: Go's batches applied a batch at a time, plus the
 // page's own state (how far it's got starting Kiln, whether it's saving).
+import { fixPick, pickerRows } from "./picker.ts";
 import { Typing } from "./typing.ts";
 import type { Span, ThemeEvent } from "./types.ts";
 
@@ -31,6 +32,26 @@ export interface Lines {
 // eslint-style any: the shapes are Go's (internal/feed, internal/webapi).
 export type Event = { type: string; [k: string]: any };
 
+// Picker is the open picker (picker.ts): its filter and highlighted row,
+// and while adding a character, the world, the name typed and why it
+// won't do.
+export interface Picker {
+  filter: string;
+  sel: string;
+  adding?: string;
+  name?: string;
+  error?: string;
+}
+
+// Answer is the latest Saved or Problems, numbered, so a form can tell
+// a new one from the one it's seen.
+export interface Answer {
+  n: number;
+  Op: string;
+  Key?: string;
+  Problems?: { Field: string; Msg: string }[];
+}
+
 export interface State {
   phase: Phase;
   progress?: { got: number; total?: number };
@@ -52,6 +73,8 @@ export interface State {
   presence?: number;
   confirm?: boolean;
   saveQuestion?: any;
+  picker?: Picker;
+  answer?: Answer;
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
@@ -103,6 +126,13 @@ export class Store {
         console.error("event not applied", e, err);
       }
     }
+    if (s.picker) {
+      // What's offered may have changed (worlds, a character opening or
+      // closing): the highlight stays on a row there is, as the TUI's
+      // fixPick after a reload.
+      const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter), s.picker.sel);
+      if (sel !== s.picker.sel) s = { ...s, picker: { ...s.picker, sel } };
+    }
     this.state = s;
     for (const e of effects) {
       try {
@@ -143,9 +173,33 @@ export class Store {
       case "Presence": return { ...s, presence: e.State };
       case "Confirm": return { ...s, confirm: e.On };
       case "SaveQuestion": return { ...s, saveQuestion: e };
+      case "Saved":
+      case "Problems":
+        return { ...s, answer: { n: (s.answer?.n ?? 0) + 1, Op: e.Op, Key: e.Key, Problems: e.Problems } };
       case "Effect": effects.push(e); return s;
     }
     return s;
+  }
+
+  // openPicker shows the picker, its filter empty and its highlight on
+  // the first character.
+  openPicker(): void {
+    this.state = { ...this.state, picker: { filter: "", sel: "" } };
+    this.setPicker({});
+  }
+
+  // closePicker goes back to the open characters.
+  closePicker(): void {
+    this.set({ picker: undefined });
+  }
+
+  // setPicker changes the open picker, keeping its highlight on a row the
+  // filter offers.
+  setPicker(patch: Partial<Picker>): void {
+    if (!this.state.picker) return;
+    const p = { ...this.state.picker, ...patch };
+    p.sel = fixPick(pickerRows(this.state.worlds, this.state.chars, p.filter), p.sel);
+    this.set({ picker: p });
   }
 
   // set changes the page's own state.

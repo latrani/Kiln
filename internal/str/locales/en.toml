@@ -383,6 +383,8 @@ stopped = "Kiln stopped."
 reload = "Reload"
 # The sidebar's name for screen readers.
 characters = "Characters"
+# The picker's list, for screen readers.
+picker = "Open a connection"
 # A character's name in the sidebar, for screen readers, when lines have
 # come you haven't read; and when one of them is a priority (the ● the
 # sidebar shows: a page, a whisper, whatever the priority tags flag).

@@ -19,8 +19,12 @@ type World struct {
 	Characters []Character
 }
 
-// Character is one character in a World.
-type Character struct{ ID, Name string }
+// Character is one character in a World: aliases are what the picker's
+// filter matches besides its name and world.
+type Character struct {
+	ID, Name string
+	Aliases  []string `json:",omitempty"`
+}
 
 // Order is the open characters' keys, in sidebar order.
 type Order struct{ Keys []string }

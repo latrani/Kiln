@@ -963,6 +963,9 @@ export function webNotSaving(): string { return `this browser isn't saving Kiln'
 /** web.other_tab: Kiln's open in another tab. */
 export function webOtherTab(): string { return `Kiln's open in another tab.`; }
 
+/** web.picker: Open a connection */
+export function webPicker(): string { return `Open a connection`; }
+
 /** web.reload: Reload */
 export function webReload(): string { return `Reload`; }
 

@@ -59,6 +59,7 @@ func AcceptAliases(s string) error {
 var liveChecks = map[string]func(string) error{
 	"id": AcceptWorldID, "port": AcceptPort, "host": AcceptHost,
 	"use": AcceptPacks, "max_line_bytes": AcceptByteCount, "aliases": AcceptAliases,
+	"name": config.NameChars,
 }
 
 // CheckField is what a front end says about field (a config key) as

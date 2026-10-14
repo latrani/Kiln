@@ -3,8 +3,10 @@
 Needs Go and node. Everything runs on your machine; the relay connects
 to real MUCKs over the internet.
 
-The page is being built (part 3 of #125): for now it draws the TUI's
-five areas, empty, with the theme, the font and the status line.
+The page is being built (part 3 of #125): it's Kiln's main screen, the
+picker and the password form so far; the editor forms and log mode are
+still to come. Open a connection with `+ Connection` in the sidebar,
+Ctrl+O, or Enter with nothing open.
 
 ```sh
 web/build.sh
@@ -58,8 +60,8 @@ Files are saved in the browser (IndexedDB) and come back on the next
 visit: config edits, worlds, TLS pins and logs. That's best effort:
 clearing site data, a private window, or a browser that evicts storage
 loses them. Safari clears a site's storage after 7 days of Safari use
-without visiting it. Back up and restore aren't on the page yet; they
-come back with the main screen (part 3 of #125).
+without visiting it. `/backup` downloads everything as a zip, and
+`/restore` puts one back.
 
 What you've typed but not sent is saved when you leave the tab (another
 tab or app, or the phone locking), so it's still there if the browser

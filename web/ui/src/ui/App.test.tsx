@@ -300,3 +300,84 @@ test("a hint has no ›, as the TUI's prompt: it isn't a line bound for the serv
   const typed = bottom(page({ phase: "running" }, [...three, { type: "Active", Key: "fm/rook" }, { type: "Input", Key: "fm/rook", Text: "hi", Ack: 0 }]));
   assert.ok(typed.includes(str.glyph.echo), "typed: the ›");
 });
+
+test("the sidebar ends with + Connection, after a gap, as the TUI's", () => {
+  const html = page({ phase: "running" }, three);
+  const add = `class="chip ${roleClass("sidebar.add")}">${str.sidebarOpenConnection()}</button>`;
+  assert.ok(html.includes(add), html);
+  assert.match(html, new RegExp(`<li aria-hidden="true"> </li><li><button class="chip ${roleClass("sidebar.add")}"`), "a gap before it");
+});
+
+test("with the picker open, the sidebar is the picker: worlds, characters to open, + Character", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "mira", Name: "Mira" }] }] }]);
+  s.openPicker();
+  const html = render(<App store={s} />);
+  const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+  assert.match(nav, /role="listbox"/);
+  assert.ok(nav.includes("Mira") && !nav.includes(" Kit<"), "Kit's open: not offered");
+  assert.ok(nav.includes(str.pickerAddCharacter()));
+  assert.match(nav, /aria-selected="true"[^>]*>[^<]*Mira/);
+  assert.ok(nav.includes(roleClass("picker")), "the picker's area role");
+});
+
+test("the picker's filter: the TUI's one row, a combobox for the list, in the form's area", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "mira", Name: "Mira" }] }] }]);
+  s.openPicker();
+  const html = bottom(render(<App store={s} />));
+  assert.ok(html.includes(roleClass("form")) && !html.includes("<textarea"), "the filter takes the input's place");
+  assert.match(html, new RegExp(`<label[^>]*>${str.pickerFilter()}: </label>`));
+  assert.match(html, /role="combobox"/);
+  assert.match(html, /aria-activedescendant="pick-fm\/mira"/);
+  assert.match(html, /aria-controls="kiln-picker"/);
+  assert.ok(html.includes(str.pickerHint()));
+});
+
+test("a world's overview has no input, but the picker's filter shows there", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([...three, { type: "Active", Key: "=fm" }]);
+  assert.doesNotMatch(bottom(render(<App store={s} />)), /<input|<textarea/);
+  s.openPicker();
+  assert.match(bottom(render(<App store={s} />)), /role="combobox"/);
+});
+
+test("adding a character: the TUI's one-row name form; a problem replaces the hint", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply(three);
+  s.openPicker();
+  s.setPicker({ adding: "fm", name: "A B", error: "no spaces" });
+  const html = bottom(render(<App store={s} />));
+  assert.match(html, new RegExp(`<label[^>]*>${str.pickerName()}: </label>`));
+  assert.match(html, /aria-invalid="true"/);
+  assert.ok(html.includes("no spaces") && html.includes(roleClass("form.error")) && !html.includes(str.pickerAddCharHint()));
+  s.setPicker({ error: undefined });
+  assert.ok(bottom(render(<App store={s} />)).includes(str.pickerAddCharHint()), "no problem: the hint");
+});
+
+test("behind the picker, the scrollback is dimmed in scrollback.inactive; the overview too", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply(three);
+  s.openPicker();
+  assert.match(render(<App store={s} />), new RegExp(`class="scroll dim ${roleClass("scrollback.inactive")}"`));
+  s.closePicker();
+  assert.doesNotMatch(render(<App store={s} />), /class="scroll dim/);
+});
+
+test("the picker's list groups each world's options under the world's name, for screen readers", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }, { ID: "pf", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  s.openPicker();
+  const html = render(<App store={s} />);
+  const list = html.slice(html.indexOf('role="listbox"'), html.indexOf("</nav>"));
+  const groups = [...list.matchAll(/<li role="group" aria-label="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(groups, ["fm", "pf"]);
+  assert.doesNotMatch(list, /role="presentation"/, "a listbox owns only options and groups");
+  assert.match(list, /<li role="group" aria-label="fm"><span aria-hidden="true"[^>]*>fm<\/span><ul role="none"><li[^>]*role="option"/);
+});

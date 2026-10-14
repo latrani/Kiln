@@ -210,6 +210,14 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")
 }
 
+// ctrlO presses Ctrl+O.
+func ctrlO(t *testing.T, ws *websocket.Conn) {
+	t.Helper()
+	for _, typ := range []string{"rawKeyDown", "keyUp"} {
+		devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": typ, "key": "o", "code": "KeyO", "windowsVirtualKeyCode": 79, "modifiers": 2})
+	}
+}
+
 // pressKey presses and lets go of a key in the tab, as a keyboard does.
 func pressKey(t *testing.T, ws *websocket.Conn, key string, code int) {
 	t.Helper()

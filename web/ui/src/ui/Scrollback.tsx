@@ -26,7 +26,8 @@ const rows = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".sb")];
 // the end), the pill then saying how many lines are below; scrolled up,
 // it keeps the line you're reading where it is, whatever comes above or
 // below or however the pane changes size. Near the top it asks for older
-// history. While another tab has Kiln, it says so here instead.
+// history. While another tab has Kiln, it says so here instead. Behind
+// the picker it's a backdrop, dimmed (kiln.css's .dim), as the TUI's.
 export function Scrollback({ state }: { state: State }) {
   const el = useRef<HTMLDivElement>(null);
   const views = useRef(new Map<string, View>());
@@ -180,7 +181,7 @@ export function Scrollback({ state }: { state: State }) {
   const sb = (l: LineData) => <Line key={`${ls!.epoch}:${l.Seq}`} line={l} tags={tags} class="sb" seq={l.Seq} />;
   return (
     <main class="body">
-      <div class="scroll" ref={el} onScroll={onScroll} onWheel={scrolled.current} onTouchMove={scrolled.current} key={mount}>
+      <div class={state.picker ? `scroll dim ${roleClass("scrollback.inactive")}` : "scroll"} ref={el} onScroll={onScroll} onWheel={scrolled.current} onTouchMove={scrolled.current} key={mount}>
         {state.phase === "locked" && (
           <div class="lock">
             <p>{str.webOtherTab()}</p>

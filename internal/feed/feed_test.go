@@ -534,3 +534,29 @@ func TestCharSaysWhenAsPeopleRead(t *testing.T) {
 		t.Errorf("Rook says %q, %q", rook.ConnectedSince, rook.LastSeen)
 	}
 }
+
+func TestWorldsAreInThePickersOrderWithAliases(t *testing.T) {
+	a, dir := newApp(t)
+	writeWorld(t, dir, fmWorld+"\n[[characters]]\nid = \"ash\"\nname = \"ash\"\naliases = [\"cinder\"]\n")
+	if err := os.WriteFile(filepath.Join(dir, "worlds", "Bay.toml"), []byte("host = \"b.test\"\nport = 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	w, _ := find[Worlds](New(a).Turn(nil))
+	var ids []string
+	for _, x := range w.Worlds {
+		ids = append(ids, x.ID)
+	}
+	if !reflect.DeepEqual(ids, []string{"Bay", "fm"}) {
+		t.Errorf("worlds %v, want Bay before fm (case-insensitive)", ids)
+	}
+	fm := w.Worlds[1].Characters
+	if len(fm) != 3 || fm[0].Name != "ash" || fm[1].Name != "Kit" || fm[2].Name != "Rook" {
+		t.Errorf("fm's characters %+v, want by name, case-insensitive", fm)
+	}
+	if !reflect.DeepEqual(fm[0].Aliases, []string{"cinder"}) {
+		t.Errorf("ash's aliases %v", fm[0].Aliases)
+	}
+}

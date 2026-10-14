@@ -144,3 +144,12 @@ func TestProblemsFlattens(t *testing.T) {
 		t.Error("nil should have no problems")
 	}
 }
+
+func TestCheckFieldName(t *testing.T) {
+	if CheckField("name", "Kit") != nil {
+		t.Error("Kit refused")
+	}
+	if err := CheckField("name", "Kit Two"); err == nil || err.Error() != str.ConfigNameHasSpaces() {
+		t.Errorf("a space: %v", err)
+	}
+}
