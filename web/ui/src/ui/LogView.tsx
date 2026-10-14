@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { logAct, logClick, logKey, logRows, placeOf, segments, topFor, wantsOlder } from "../log.ts";
+import { keepsPlace, logAct, logClick, logKey, logRows, placeOf, segments, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -31,7 +31,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const el = useRef<HTMLDivElement>(null);
   const act = state.act ?? (() => {});
 
-  const place = useRef<{ k: string; first?: number; at?: Place }>({ k });
+  const place = useRef<{ k: string; first?: number; hidden: string; at?: Place }>({ k, hidden: "" });
   const rowsOf = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".lrow")].map((r) => ({ seq: Number(r.dataset.seq), top: r.offsetTop, height: r.offsetHeight }));
 
   useEffect(() => el.current?.focus(), [k]);
@@ -39,14 +39,15 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   useLayoutEffect(() => {
     if (el.current) el.current.scrollTop = el.current.scrollHeight;
   }, [k]);
-  // Older history arriving above keeps your place, as the scrollback's.
+  // Older history arriving above, or the filter hiding lines, keeps your
+  // place, as the scrollback's.
   useLayoutEffect(() => {
-    const e = el.current, p = place.current, first = lines[0]?.Seq;
-    if (e && p.k === k && p.at && p.first !== undefined && first !== p.first) {
+    const e = el.current, p = place.current, now = { first: lines[0]?.Seq, hidden: (g.Hidden ?? []).join(",") };
+    if (e && p.k === k && p.at && keepsPlace(p, now)) {
       const top = topFor(p.at, rowsOf(e));
       if (top !== undefined) e.scrollTop = top;
     }
-    place.current = { k, first, at: p.k === k ? p.at : undefined };
+    place.current = { k, ...now, at: p.k === k ? p.at : undefined };
   });
   // Find and go-to-date bring their line into view, once per landing.
   useLayoutEffect(() => {

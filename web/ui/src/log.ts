@@ -193,8 +193,17 @@ export function placeOf(rows: { seq: number; top: number; height: number }[], sc
 
 // topFor is the scrollTop that puts place p back over rows, as the
 // scrollback keeps your place when older lines arrive above (the browser's
-// own anchoring isn't in Safari); undefined if its line is gone.
+// own anchoring isn't in Safari); undefined if its line is gone and
+// nothing follows it. A hidden line gives way to the next one shown.
 export function topFor(p: Place, rows: { seq: number; top: number }[]): number | undefined {
   const r = rows.find((r) => r.seq === p.seq);
-  return r && r.top - p.off;
+  if (r) return r.top - p.off;
+  return rows.find((r) => r.seq > p.seq)?.top; // hidden: the next line shown, at the top
+}
+
+// keepsPlace reports whether a draw changed what's above your place, so
+// it must be put back: older lines arrived, or the filter changed what's
+// hidden. Not on the first draw.
+export function keepsPlace(was: { first?: number; hidden: string }, now: { first?: number; hidden: string }): boolean {
+  return was.first !== undefined && (was.first !== now.first || was.hidden !== now.hidden);
 }
