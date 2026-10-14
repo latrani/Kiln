@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { panelAct, togglePanel } from "./filter.ts";
+import { glyphClick, panelAct, togglePanel } from "./filter.ts";
 import { logAct, logClick, toggleLog } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -507,4 +507,15 @@ test("not in log mode, the panel doesn't open", () => {
   s.setLogView("fm/kit", { hidden: true });
   togglePanel(s);
   assert.equal(s.state.logView["fm/kit"].panel, undefined);
+});
+
+test("a click on a glyph highlights its entry, focus following (a span takes none), and folds or removes it", () => {
+  const { s, sent } = filtered();
+  togglePanel(s);
+  glyphClick(s, "g:page");
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page", follow: true });
+  assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true });
+  glyphClick(s, "t:x");
+  assert.deepEqual(sent.at(-1), { Do: "remove_text", Key: "fm/kit", Term: "x" });
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "+", follow: true });
 });

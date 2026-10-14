@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { filterKey, fixSel, panelAct, panelRows } from "../filter.ts";
+import { filterKey, fixSel, glyphClick, panelAct, panelRows } from "../filter.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -31,6 +31,9 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   const onKeyDown = (e: KeyboardEvent) => {
     const does = filterKey(e);
     if (!does) return;
+    // Enter on Hide or Only presses it, as a button's Enter does; Enter
+    // is the panel's only on its highlighted row.
+    if (does === "add" && !(e.target as HTMLElement).classList.contains("fsel")) return;
     e.preventDefault();
     panelAct(store, does);
   };
@@ -38,33 +41,29 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   return (
     <nav ref={nav} class={`side filter-panel ${roleClass("filter")}`} aria-label={str.webFilter()} onKeyDown={onKeyDown}>
       <ul>
-        {rows.map((r, i) => {
+        {/* One flat keyed list, not an array per entry: Preact matches
+            arrays by position, so a row Go adds or drops above the
+            highlight would remount it and lose focus. */}
+        {rows.flatMap((r, i) => {
           const on = r.key === sel;
           const tab = on ? 0 : -1;
           if (r.kind === "add") {
-            return (
+            return [
               <li key="+" class="fentry">
                 {" "}
                 <button class={`fname ${on ? "fsel " : ""}${roleClass(on ? "filter.selected" : "filter.add")}`} tabindex={tab}
                   onClick={() => { pick("+"); store.setLogView(k, { prompt: { kind: "filter", value: "" } }); }}>{str.filterAddText()}</button>
-              </li>
-            );
+              </li>,
+            ];
           }
           const { e } = r;
           const pad = " ".repeat(1 + 2 * e.Depth);
           const id = `flt-${i}`;
-          // The glyph, as the TUI's panelClick: a group's folds it, a text
-          // row's removes it.
-          const onGlyph = () => {
-            pick(r.key);
-            if (e.Item.Text) panelAct(store, "remove");
-            else act({ Do: "fold", Key: k, Tag: e.Item.Name, Shut: !e.Folded });
-          };
           return [
             <li key={r.key} class="fentry" role="group" aria-labelledby={id}>
               <div class="frow">
                 {pad}
-                {r.glyph && <><span aria-hidden="true" class="fglyph" onClick={onGlyph}>{r.glyph}</span>{" "}</>}
+                {r.glyph && <><span aria-hidden="true" class="fglyph" onClick={() => glyphClick(store, r.key)}>{r.glyph}</span>{" "}</>}
                 <button id={id} class={`fname ${on ? "fsel " : ""}${roleClass(on ? "filter.selected" : "filter.item")}`} tabindex={tab}
                   aria-expanded={e.Parent ? !e.Folded : undefined} onClick={() => pick(r.key)}>{r.name}</button>
                 {r.after && <span aria-hidden="true">{" " + r.after}</span>}
@@ -78,7 +77,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                   onClick={() => { pick(r.key); act({ Do: "only", Key: k, Item: e.Item }); }}>{str.filterOnly()}</button>
               </div>
             </li>,
-            r.endsGroup && <li key={r.key + "\n"} aria-hidden="true"> </li>,
+            ...(r.endsGroup ? [<li key={r.key + "\n"} aria-hidden="true"> </li>] : []),
           ];
         })}
       </ul>

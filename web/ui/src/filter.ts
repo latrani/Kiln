@@ -122,3 +122,15 @@ export function panelAct(store: Store, does: PanelKey): void {
     case "close": closePanel(store); break;
   }
 }
+
+// glyphClick is a click on an entry's glyph, as the TUI's panelClick: a
+// group's folds it, a text row's removes it. The entry is highlighted
+// and focus follows, since the glyph (a span) takes none.
+export function glyphClick(store: Store, key: string): void {
+  const s = store.state, k = s.active;
+  const r = panelRows(s.filters[k]?.Entries ?? []).find((r) => r.key === key);
+  if (r?.kind !== "entry") return;
+  store.setLogView(k, { panel: { sel: key, follow: true } });
+  if (r.e.Item.Text) panelAct(store, "remove");
+  else s.act?.({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: !r.e.Folded });
+}

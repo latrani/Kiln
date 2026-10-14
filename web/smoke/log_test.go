@@ -164,6 +164,25 @@ func TestFilter(t *testing.T) {
 	waitFor(t, ev, `!kilnPage.events.filter(e => e.type === "Filter").at(-1).Entries.some(e => e.Item.Text) && `+sel+`.textContent === `+jsString(str.FilterAddText()), "removed, + Text highlighted")
 	waitFor(t, ev, `document.querySelectorAll(".lrow").length === 3`, "all three back, the Only gone with it")
 
+	// Go re-sending the panel with a row gone above the highlight keeps
+	// focus on it: texts aa and bb, bb focused, aa removed from outside.
+	act := func(do, term string) {
+		ev(`kilnPage.act({Do: ` + jsString(do) + `, Key: "fake/second", Term: ` + jsString(term) + `})`)
+	}
+	act("add_text", "aa")
+	act("add_text", "bb")
+	pressKey(t, ws, "ArrowUp", 38)
+	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterTextItem("bb")), "bb focused")
+	act("remove_text", "aa")
+	waitFor(t, ev, `!document.querySelector(".filter-panel").textContent.includes(`+jsString(str.FilterTextItem("aa"))+`)`, "aa gone")
+	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterTextItem("bb")), "bb still focused")
+
+	// Enter on a focused Hide presses it, as a button's Enter does.
+	pressKey(t, ws, "Tab", 9)
+	waitFor(t, ev, `document.activeElement.textContent === `+jsString(str.FilterHide()), "Hide focused")
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `kilnPage.sent.some(a => a.Do === "hide" && a.Item.Name === "bb")`, "Enter pressed Hide")
+
 	// Esc closes the panel, the log focused; the chip opens it again, lit.
 	pressKey(t, ws, "Escape", 27)
 	waitFor(t, ev, `!document.querySelector(".filter-panel") && document.activeElement === `+logEl, "closed, the log focused")
