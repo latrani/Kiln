@@ -595,9 +595,42 @@ test("log mode's place is kept per character until log mode closes", () => {
   s.logPlaces.set("fm/kit", { seq: 2, off: 0 });
   s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0 }]);
   assert.deepEqual(s.logPlaces.get("fm/kit"), { seq: 2, off: 0 }, "still open: kept");
+  s.logSeen.set("fm/kit", 3);
   s.apply([{ type: "Log", Key: "fm/kit", Open: false }]);
   assert.equal(s.logPlaces.get("fm/kit"), undefined, "Esc closed it: the newest line next time");
+  assert.equal(s.logSeen.get("fm/kit"), undefined, "and no landing from before shows");
   s.logPlaces.set("fm/kit", { seq: 2, off: 0 });
   s.apply([{ type: "Closed", Key: "fm/kit" }]);
   assert.equal(s.logPlaces.has("fm/kit"), false);
+});
+
+test("an editor hidden and reopened mid-save still gets Go's answer", () => {
+  const { s } = running();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.sendEditor({ Do: "save_world", World: "fm" });
+  s.hideEditor();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([{ type: "Problems", Op: "save_world", World: "fm", Char: "", Problems: [{ Field: "port", Msg: "no" }] }]);
+  assert.deepEqual(editor(s)?.problems, [{ Field: "port", Msg: "no" }]);
+});
+
+test("an answer for an editor Esc'd away changes nothing, but a world deleted still takes its drafts", () => {
+  const { s } = running();
+  s.openEditor({ kind: "char", world: "fm", char: "kit" }, false);
+  s.apply([kitSettings]);
+  s.editField("aliases", "x");
+  s.hideEditor();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.sendEditor({ Do: "save_world", World: "fm" });
+  s.closeEditor();
+  s.apply([{ type: "Saved", Op: "save_world", World: "fm", Char: "" }]);
+  assert.ok(s.state.drafts["fm/kit"], "nothing changed");
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.sendEditor({ Do: "delete_world", World: "fm" });
+  s.closeEditor();
+  s.apply([{ type: "Saved", Op: "delete_world", World: "fm", Char: "" }]);
+  assert.deepEqual(s.state.drafts, {});
 });

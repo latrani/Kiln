@@ -219,6 +219,10 @@ export class Store {
   // logPlaces is where each character's log view was (LogView), off the
   // state so scrolling doesn't draw; gone when its log mode closes.
   logPlaces = new Map<string, Place>();
+  // logSeen is how many landings (find, go to date) each character's log
+  // view last showed (LogView), so one made while it was away shows when
+  // it comes back; gone with its place.
+  logSeen = new Map<string, number>();
   private subs = new Set<() => void>();
 
   constructor(private onEffect?: (e: Event) => void) {}
@@ -275,6 +279,7 @@ export class Store {
     switch (e.type) {
       case "Start":
         this.logPlaces.clear();
+        this.logSeen.clear();
         return fresh(s);
       case "Theme": return { ...s, theme: e as ThemeEvent };
       case "Worlds": return { ...s, worlds: e.Worlds ?? [] };
@@ -285,7 +290,10 @@ export class Store {
         s.typing?.saw(e.Ack ?? 0);
         return { ...s, inputs: { ...s.inputs, [k]: e } };
       case "Log": {
-        if (!e.Open) this.logPlaces.delete(k);
+        if (!e.Open) {
+          this.logPlaces.delete(k);
+          this.logSeen.delete(k);
+        }
         const logs = { ...s.logs, [k]: e };
         const logView = e.Open ? { ...s.logView, [k]: s.logView[k] ?? { goN: 0 } } : without(s.logView, k);
         return { ...s, logs, logView };
@@ -301,6 +309,7 @@ export class Store {
       case "Filter": return { ...s, filters: { ...s.filters, [k]: e } };
       case "Closed":
         this.logPlaces.delete(k);
+        this.logSeen.delete(k);
         return { ...s, chars: without(s.chars, k), inputs: without(s.inputs, k), lines: without(s.lines, k),
           logs: without(s.logs, k), logLines: without(s.logLines, k), filters: without(s.filters, k), logView: without(s.logView, k) };
       case "Lines": {
@@ -363,7 +372,8 @@ export class Store {
   // openEditor opens target's editor over the picker (opening the picker
   // too, and with closeAll closing with it): its draft, or one left
   // parked, as it was; otherwise Go's settings are asked for, and it
-  // opens when they come.
+  // opens when they come. One still waiting on Go's answer to its save or
+  // delete keeps waiting: the answer settles it.
   openEditor(t: Target, closeAll: boolean): void {
     if (logShows(this.state, this.state.active)) {
       this.state.act?.({ Do: "say", Text: str.pickerBlockedByLog(), Err: true });
@@ -380,7 +390,7 @@ export class Store {
     }
     ed ??= s.drafts[k];
     if (ed) {
-      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, pending: undefined, closeAll });
+      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, closeAll });
       this.notify();
       return;
     }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportFormats, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, segments, topFor, wantsOlder } from "./log.ts";
+import { exportFormats, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, openAt, segments, topFor, wantsOlder } from "./log.ts";
 import type { LogState } from "./log.ts";
 import type { LineData } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -93,4 +93,12 @@ test("the place is put back when older lines arrive or the filter changes what's
   assert.equal(keepsPlace({ first: 1, hidden: "" }, { first: 1, hidden: "3,4" }), true);
   assert.equal(keepsPlace({ first: 1, hidden: "3" }, { first: 1, hidden: "3" }), false);
   assert.equal(keepsPlace({ first: undefined, hidden: "" }, { first: 1, hidden: "" }), false, "the first draw: nowhere to keep");
+});
+
+test("showing a character's log: a landing made while away, else where you were, else the newest line", () => {
+  const p = { seq: 3, off: 0 };
+  assert.deepEqual(openAt(p, 1, 2, 9), { to: "line", seq: 9 }, "g or a find landed while it wasn't showing");
+  assert.deepEqual(openAt(p, 2, 2, 9), { to: "place", place: p }, "nothing new: where you were");
+  assert.deepEqual(openAt(undefined, 2, 2, 9), { to: "newest" });
+  assert.deepEqual(openAt(undefined, undefined, 0, undefined), { to: "newest" }, "first shown");
 });
