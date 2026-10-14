@@ -780,8 +780,11 @@ func TestOverRanges(t *testing.T) {
 		{"1234567\n123456", 5, "batch", [][2]int{{5, 7}, {13, 14}}},
 		{"123\n456", 5, "flatten", [][2]int{{5, 7}}}, // "123 456": the 6th byte is "5"
 		{"1234567\n12", 5, "flatten", [][2]int{{5, 10}}},
-		{"éééé", 5, "batch", [][2]int{{2, 4}}}, // é is 2 bytes: the 3rd é ends at byte 6
-		{"ab😀", 3, "batch", [][2]int{{2, 4}}},  // the emoji is 4 bytes, 2 UTF-16 units
+		{"éééé", 5, "batch", [][2]int{{2, 4}}},      // é is 2 bytes: the 3rd é ends at byte 6
+		{"ab😀", 3, "batch", [][2]int{{2, 4}}},       // the emoji is 4 bytes, 2 UTF-16 units
+		{"ae\u0301", 2, "batch", [][2]int{{1, 3}}},  // the combining accent takes "é" over: all of it is marked
+		{"a👩\u200d💻", 6, "batch", [][2]int{{1, 6}}}, // a ZWJ sequence is one character
+		{"1234567\n\n12", 5, "flatten", [][2]int{{5, 11}}},
 		{"anything", 0, "batch", nil},
 	} {
 		if got := OverRanges(c.text, c.max, c.mode); !reflect.DeepEqual(got, c.want) {

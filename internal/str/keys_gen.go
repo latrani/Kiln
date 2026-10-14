@@ -843,9 +843,6 @@ func StatusKeychainFailed(err error) string {
 // StatusLinkCopied is status.link_copied: "copied link {url}"
 func StatusLinkCopied(url any) string { return get("status.link_copied", map[string]any{"url": url}) }
 
-// StatusLinkFailed is status.link_failed: "can't open link, copied it instead: {err}"
-func StatusLinkFailed(err error) string { return get("status.link_failed", map[string]any{"err": err}) }
-
 // StatusLinkOpened is status.link_opened: "opened {url}"
 func StatusLinkOpened(url any) string { return get("status.link_opened", map[string]any{"url": url}) }
 

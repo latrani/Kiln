@@ -1155,16 +1155,14 @@ func (m *Model) handleDrag(msg tea.Mouse) {
 // openLink opens u, if it's a link and links can be opened. Over ssh an
 // opener would run on the wrong machine, and where it fails, the link
 // goes to the clipboard instead, which reaches your screen either way.
+// Copying is a fine answer to a click, not an error, so it says only
+// that the link was copied.
 func (m *Model) openLink(u string) tea.Cmd {
 	if u == "" || m.d.OpenURL == nil {
 		return nil
 	}
-	if m.d.Remote {
+	if m.d.Remote || m.d.OpenURL(u) != nil {
 		m.setStatus(false, str.StatusLinkCopied(u))
-		return m.copyCmd(u)
-	}
-	if err := m.d.OpenURL(u); err != nil {
-		m.setStatus(true, str.StatusLinkFailed(err))
 		return m.copyCmd(u)
 	}
 	m.setStatus(false, str.StatusLinkOpened(u))
