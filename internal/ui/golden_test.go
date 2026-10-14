@@ -279,6 +279,6 @@ func TestGoldenLogFilter(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	h.keys("down", "down", "h", "down", "o") // past Untagged: hide page/in, then Only on self
+	h.keys("down", "down", "h", "down", "o") // past Untagged and page: hide self; o on + Text does nothing
 	assertGolden(t, "log-filter", h.drawn())
 }

@@ -103,7 +103,7 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 	t.Helper()
 	chrome := chromePath(t)
 	if pw == nil {
-		pw = kilntest.GoldenPasswords
+		pw = maps.Clone(kilntest.GoldenPasswords)
 	}
 	page := goldenPage(t)
 	dir := t.TempDir()
@@ -143,6 +143,8 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 
 	ctx, cancel := context.WithCancel(context.Background())
 	loops := make(chan *webapi.Loop, 1)
+	ran := make(chan struct{}) // closed when the loop's Run returns
+	var ranOnce sync.Once      // the page should open the bridge once; never close ran twice
 	mux := http.NewServeMux()
 	mux.Handle("/kiln/", http.StripPrefix("/kiln/", http.FileServer(http.Dir(page))))
 	// What the wasm's kiln answers at once (web/cmd/kiln-web), which the
@@ -166,8 +168,15 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 		}
 		c.SetReadLimit(64 << 20)
 		l := webapi.New(a, func(b []byte) { c.Write(ctx, websocket.MessageText, b) })
-		go l.Run(ctx, webapi.Options{Autoconnect: true, ConfigDir: dir})
-		loops <- l
+		go func() {
+			defer ranOnce.Do(func() { close(ran) })
+			l.Run(ctx, webapi.Options{Autoconnect: true, ConfigDir: dir})
+		}()
+		select {
+		case loops <- l:
+		case <-ctx.Done():
+			return
+		}
 		for {
 			_, b, err := c.Read(ctx)
 			if err != nil {
@@ -177,7 +186,16 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 		}
 	})
 	srv := httptest.NewServer(mux)
-	t.Cleanup(func() { cancel(); srv.Close() })
+	t.Cleanup(func() {
+		cancel()
+		srv.Close()
+		// Run hangs up every session as it ends: wait for it, so it's
+		// done before the test's directories go.
+		select {
+		case <-ran:
+		case <-time.After(5 * time.Second):
+		}
+	})
 	bridge := "ws" + strings.TrimPrefix(srv.URL, "http") + "/bridge"
 	s.ws, _ = openTab(t, chrome, srv.URL+"/kiln/?bridge="+url.QueryEscape(bridge))
 	devtools(t, s.ws, "Emulation.setDeviceMetricsOverride", map[string]any{"width": 960, "height": 600, "deviceScaleFactor": 1, "mobile": false})
@@ -308,7 +326,7 @@ func TestGoldenMain(t *testing.T) {
 	pressKey(t, s.ws, "Enter", 13)
 	waitFor(t, s.ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes(`+jsString(kilntest.MainTyped)+`))`, "the echo")
 	s.l.Call(func(a *app.App) { c := a.Char("fm/rook"); c.Unread, c.Priority = 3, true })
-	waitFor(t, s.ev, `document.querySelector(".side").textContent.includes("3")`, "Rook's unread")
+	waitFor(t, s.ev, `[...document.querySelectorAll(".side li")].find(l => l.textContent.includes("Rook"))?.textContent.trim().endsWith("3")`, "Rook's unread")
 	s.shoot("main")
 	s.done()
 }
@@ -390,8 +408,9 @@ func TestGoldenScrolled(t *testing.T) {
 	pressKey(t, s.ws, "PageUp", 33)
 	// Scrolled up, with nothing new below: the pager's ▼ more.
 	waitFor(t, s.ev, `document.querySelector("main").textContent.includes(`+jsString(str.ViewPillMore())+`)`, "scrolled up")
-	link := `[...document.querySelectorAll("main a")].find(a => a.textContent === "https://kiln.test/19")`
-	waitFor(t, s.ev, link+` && `+link+`.getBoundingClientRect().bottom <= document.querySelector("main .scroll").getBoundingClientRect().bottom`, "line 19 in view")
+	// The bottom row's link, hovered, as the TUI's.
+	link := `[...document.querySelectorAll("main a")].filter(a => (r => (r.top + r.bottom) / 2)(a.getBoundingClientRect()) < document.querySelector("main .scroll").getBoundingClientRect().bottom).at(-1)`
+	waitFor(t, s.ev, link, "the bottom row's link")
 	r := s.ev(`JSON.stringify((r => ({x: r.left + 2, y: r.top + r.height / 2}))(` + link + `.getBoundingClientRect()))`)
 	var p struct{ X, Y float64 }
 	if err := json.Unmarshal([]byte(mustUnquote(t, r)), &p); err != nil {

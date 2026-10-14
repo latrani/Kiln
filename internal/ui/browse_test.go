@@ -89,7 +89,7 @@ func (h *harness) keys(ss ...string) {
 
 func (h *harness) br() *browse { return h.m.chars["fm/kit"].browse }
 
-var scene1 = kilntest.LogScene
+var scene1 = slices.Clone(kilntest.LogScene)
 
 func TestBrowseOpensAndCloses(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
