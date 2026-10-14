@@ -28,11 +28,11 @@ render(<App store={store} />, document.getElementById("kiln")!);
 // browser or macOS's "open line" takes it, and Enter on an overview.
 addEventListener("keydown", (e) => {
   const t = e.target as Element | null;
-  const does = pickerKey({ key: e.key, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, shiftKey: e.shiftKey, onBody: !t || t === document.body }, store.state.active);
-  if (!does || store.state.phase !== "running") return;
+  const does = pickerKey({ key: e.key, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, shiftKey: e.shiftKey, onBody: !t || t === document.body }, store.state);
+  if (!does) return;
   e.preventDefault();
-  if (does === "toggle" && store.state.picker) store.closePicker();
-  else store.openPicker();
+  if (does === "close") store.closePicker();
+  else if (does === "open") store.openPicker();
 }, true);
 // Once Kiln runs, tell it what the page sees of you and the pane's size.
 const stop = store.subscribe(() => {

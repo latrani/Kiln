@@ -64,13 +64,24 @@ test("choosing a character picks it and closes the picker; + Character opens the
 const key = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean; shiftKey?: boolean } = {}, onBody = true) =>
   ({ key, ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, ...mods, onBody });
 
+const at = (active: string, more: { phase?: "loading" | "running" | "stopped"; picker?: { filter: string; sel: string; adding?: string } } = {}) =>
+  ({ active, phase: "running" as const, ...more });
+
 test("Ctrl+O shows or hides the picker anywhere; Enter on a world's overview shows it", () => {
-  assert.equal(pickerKey(key("o", { ctrlKey: true }), ""), "toggle");
-  assert.equal(pickerKey(key("O", { ctrlKey: true, shiftKey: true }), ""), undefined);
-  assert.equal(pickerKey(key("o", { ctrlKey: true, metaKey: true }), ""), undefined);
-  assert.equal(pickerKey(key("Enter"), "=fm"), "open");
-  assert.equal(pickerKey(key("Enter", {}, false), "=fm"), undefined, "Enter on a link or button is its own");
-  assert.equal(pickerKey(key("Enter"), "fm/kit"), undefined);
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("")), "open");
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { picker: { filter: "", sel: "" } })), "close");
+  assert.equal(pickerKey(key("O", { ctrlKey: true, shiftKey: true }), at("")), undefined);
+  assert.equal(pickerKey(key("o", { ctrlKey: true, metaKey: true }), at("")), undefined);
+  assert.equal(pickerKey(key("Enter"), at("=fm")), "open");
+  assert.equal(pickerKey(key("Enter", {}, false), at("=fm")), undefined, "Enter on a link or button is its own");
+  assert.equal(pickerKey(key("Enter"), at("fm/kit")), undefined);
+});
+
+test("Ctrl+O is kept from the browser where it does nothing: naming a character, or Kiln not running", () => {
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { picker: { filter: "", sel: "+fm", adding: "fm" } })), "eat", "the TUI's name form ignores Ctrl+O");
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { phase: "loading" })), "eat", "not the browser's Open File");
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { phase: "stopped" })), "eat");
+  assert.equal(pickerKey(key("Enter"), at("=fm", { phase: "stopped" })), undefined);
 });
 
 test("a saved character is picked; a refused name says why", () => {

@@ -23,9 +23,7 @@ func TestPicker(t *testing.T) {
 	waitFor(t, ev, `!`+filter+` && document.activeElement === `+input, "focus back in the input")
 
 	// Ctrl+O, a filter, Enter: Second opens, connects and shows.
-	for _, typ := range []string{"rawKeyDown", "keyUp"} {
-		devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": typ, "key": "o", "code": "KeyO", "windowsVirtualKeyCode": 79, "modifiers": 2})
-	}
+	ctrlO(t, ws)
 	waitFor(t, ev, `document.activeElement === `+filter, "Ctrl+O's filter focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "sec"})
 	waitFor(t, ev, `document.querySelectorAll('nav [role="option"]').length === 2`, "Second and adding a character left")
@@ -61,9 +59,14 @@ func TestPicker(t *testing.T) {
 	waitFor(t, ev, `document.activeElement === `+name, "the name field focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "New Comer"})
 	waitFor(t, ev, name+`.getAttribute("aria-invalid") === "true"`, "a space refused")
+	ctrlO(t, ws) // as the TUI's name form: nothing
+	if got := ev(name + `.value`); got != `"New Comer"` {
+		t.Errorf("after Ctrl+O the name field holds %s, want what was typed", got)
+	}
 	ev(name + `.select()`)
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "Newcomer"})
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Name === "Newcomer" && e.State === 2)`, "Newcomer added and connected")
 	waitFor(t, ev, `!document.querySelector(".scroll.dim") && document.querySelector("header").textContent.includes("Newcomer")`, "the picker closed, Newcomer showing")
+
 }

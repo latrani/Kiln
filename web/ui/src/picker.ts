@@ -4,7 +4,7 @@
 // this order (feed.worlds). A world's own row can be highlighted once its
 // editor comes (step 4b), and "+ World" comes with it.
 
-import type { Answer, Store } from "./store.ts";
+import type { Answer, State, Store } from "./store.ts";
 
 // WorldInfo is a world of the Worlds event.
 export interface WorldInfo {
@@ -104,11 +104,18 @@ interface PickerKeyish {
 }
 
 // pickerKey is what a key does to the picker from anywhere on the page:
-// Ctrl+O shows or hides it, as the TUI's; Enter on a world's overview
-// (active "=world", which has no input) shows it, as the TUI's.
-export function pickerKey(e: PickerKeyish, active: string): "toggle" | "open" | undefined {
-  if (e.key.toLowerCase() === "o" && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return "toggle";
-  if (e.key === "Enter" && e.onBody && active.startsWith("=") && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return "open";
+// Ctrl+O opens or closes it, as the TUI's; Enter on a world's overview
+// (active "=world", which has no input) opens it, as the TUI's. Ctrl+O
+// where it does nothing (naming a character, as the TUI's name form, or
+// Kiln not running) is still eaten, so the browser doesn't open a file
+// or a line.
+export function pickerKey(e: PickerKeyish, s: Pick<State, "active" | "phase" | "picker">): "open" | "close" | "eat" | undefined {
+  const plain = !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
+  if (e.key.toLowerCase() === "o" && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+    if (s.phase !== "running" || s.picker?.adding !== undefined) return "eat";
+    return s.picker ? "close" : "open";
+  }
+  if (e.key === "Enter" && plain && e.onBody && s.active.startsWith("=") && s.phase === "running") return "open";
   return undefined;
 }
 
