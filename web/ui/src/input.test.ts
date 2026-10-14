@@ -67,4 +67,5 @@ test("typed outside a control, these go to the input: letters, dead keys, Option
   assert.equal(k("ArrowDown", { altKey: true }), false);
   assert.equal(k("Enter"), false);
   assert.equal(k("Tab"), false);
+  assert.equal(k("d", { altKey: true }), false, "Alt+D on Windows or Linux: the browser's, not a letter");
 });

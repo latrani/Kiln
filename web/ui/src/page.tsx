@@ -48,6 +48,8 @@ export const effect = (store: Store) => (e: Event): void => {
 // mount draws the app from store, and adds the page's keys and watches.
 export function mount(store: Store): void {
   render(<App store={store} />, document.getElementById("kiln")!);
+  // Added here, before any component's effects, so it runs first: the
+  // input's own listener (Input.tsx) leaves alone what it took.
   // Ctrl+L for log mode, and the picker's and editor's keys from anywhere
   // (picker.ts): Ctrl+T and Alt+T, Ctrl+O, before the browser or macOS's
   // "open line" takes it, and Enter on an overview.

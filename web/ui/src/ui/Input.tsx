@@ -84,7 +84,9 @@ export function Input({ state, store }: { state: State; store: Store }) {
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
     // What's typed with focus outside any control goes to the input:
-    // letters, accents and IMEs too (strayKey), never a shortcut.
+    // letters, accents and IMEs too (strayKey), never a shortcut. That
+    // rests on page.tsx's capture listener being added first (in mount,
+    // before this effect runs), so its shortcuts are defaultPrevented here.
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as Element | null;
       if (!strayKey(e)) return;
