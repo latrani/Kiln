@@ -1139,6 +1139,9 @@ func WebCharacters() string { return get("web.characters", nil) }
 // WebCloseChar is web.close_char: "Close {name}"
 func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
 
+// WebCopyRefused is web.copy_refused: "the browser didn't allow the copy"
+func WebCopyRefused() string { return get("web.copy_refused", nil) }
+
 // WebDeleteAgain is web.delete_again: "Press again to delete {what}"
 func WebDeleteAgain(what any) string { return get("web.delete_again", map[string]any{"what": what}) }
 

@@ -50,7 +50,7 @@ test("unsaved shows in the title", () => {
 test("an error sits beside its field, tied to it; one about no field, at the top", () => {
   const html = open((s) => {
     s.sendEditor({ Do: "save_world" });
-    s.apply([{ type: "Problems", Op: "save_world", Problems: [{ Field: "port", Msg: "bad port" }, { Field: "", Msg: "disk full" }] }]);
+    s.apply([{ type: "Problems", Op: "save_world", World: "fm", Char: "", Problems: [{ Field: "port", Msg: "bad port" }, { Field: "", Msg: "disk full" }] }]);
   });
   assert.match(html, /<input[^>]*id="ed-port"[^>]*aria-invalid="true"[^>]*aria-describedby="ed-port-err"/);
   assert.match(html, new RegExp(`id="ed-port-err"[^>]*class="${roleClass("form.error")}"[^>]*>[^<]*bad port`));
@@ -69,7 +69,7 @@ test("for screen readers: the summary's glyph is hidden; a choice's id and error
   const html = open((s) => {
     s.editField("reconnect", "off");
     s.sendEditor({ Do: "save_world" });
-    s.apply([{ type: "Problems", Op: "save_world", Problems: [{ Field: "reconnect", Msg: "no" }] }]);
+    s.apply([{ type: "Problems", Op: "save_world", World: "fm", Char: "", Problems: [{ Field: "reconnect", Msg: "no" }] }]);
   });
   assert.match(html, /<details[^>]*\sopen[^>]*>\s*<summary[^>]*><span aria-hidden="true">▼<\/span>/, "opened for the refused choice inside it");
   assert.match(html, /<input type="radio" id="ed-reconnect"[^>]*value="off"[^>]*checked/, "focusing the field lands on what's chosen");

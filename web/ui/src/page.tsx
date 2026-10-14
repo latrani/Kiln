@@ -10,12 +10,14 @@ import { show } from "./notify.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
 import type { Event, Store } from "./store.ts";
+import * as str from "./str.gen.ts";
 import { App } from "./ui/App.tsx";
 
 // effect does what Go asks of the page: a file to download (an export,
 // a backup), for /restore a backup to pick, for /open the picker, for
-// /edit an editor, for /log log mode, Copy to the clipboard and Notify
-// as a desktop notification, best effort (spec).
+// /edit an editor, for /log log mode, Copy to the clipboard (saying so
+// when the browser refuses), and Notify as a desktop notification, best
+// effort (spec).
 export const effect = (store: Store) => (e: Event): void => {
   if (e.effect === "SaveFile") {
     download(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
@@ -31,7 +33,17 @@ export const effect = (store: Store) => (e: Event): void => {
   } else if (e.effect === "Do" && e.Cmd === "/log") {
     toggleLog(store);
   } else if (e.effect === "Copy") {
-    navigator.clipboard?.writeText(String(e.Text ?? "")).catch((err) => console.error("copy", err));
+    // The browser may refuse (no clipboard here, or no user gesture by
+    // the time Go answers): say so, in place of Go's "copied".
+    const refused = () => store.state.act?.({ Do: "say", Text: str.webCopyRefused(), Err: true });
+    const clip = navigator.clipboard;
+    if (!clip) refused();
+    else {
+      clip.writeText(String(e.Text ?? "")).catch((err) => {
+        console.error("copy", err);
+        refused();
+      });
+    }
   } else if (e.effect === "Notify") {
     show(store, e);
   }
@@ -40,6 +52,8 @@ export const effect = (store: Store) => (e: Event): void => {
 // mount draws the app from store, and adds the page's keys and watches.
 export function mount(store: Store): void {
   render(<App store={store} />, document.getElementById("kiln")!);
+  // Added here, before any component's effects, so it runs first: the
+  // input's own listener (Input.tsx) leaves alone what it took.
   // Ctrl+L for log mode, and the picker's and editor's keys from anywhere
   // (picker.ts): Ctrl+T and Alt+T, Ctrl+O, before the browser or macOS's
   // "open line" takes it, and Enter on an overview.

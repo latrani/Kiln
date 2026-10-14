@@ -17,8 +17,8 @@ type Settings struct {
 }
 
 // settings reads what the editor for world's char starts from. One that
-// can't be read is said on the status line, as the TUI's, and there's
-// nothing to send.
+// can't be read is said on the status line, as the TUI's, and answered
+// with Problems so the page stops waiting for it.
 func (l *Loop) settings(world, char string) []any {
 	a := l.a
 	out := Settings{World: world, Char: char}
@@ -42,7 +42,7 @@ func (l *Loop) settings(world, char string) []any {
 	}
 	if err != nil {
 		a.SetStatus(true, err.Error())
-		return nil
+		return []any{Problems{Op: "settings", World: world, Char: char}} //str:ok: an action's name; the page stops waiting
 	}
 	return []any{out}
 }

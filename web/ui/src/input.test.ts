@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { keyAction, takes } from "./input.ts";
+import { keyAction, strayKey, takes } from "./input.ts";
 
 test("the page takes Go's text only when Go has its newest action and nothing's typed since", () => {
   assert.equal(takes(undefined, 0), true, "nothing typed yet");
@@ -50,4 +50,22 @@ test("rows are screen rows when the page measured them: a wrapped line has sever
   assert.equal(keyAction(k("ArrowUp"), { ...at(long, 5), first: true, last: false }), "older");
   assert.equal(keyAction(k("ArrowDown"), { ...at(long, 5), first: true, last: false }), undefined);
   assert.equal(keyAction(k("ArrowDown"), { ...at(long, 300), first: false, last: true }), "newer");
+});
+
+test("typed outside a control, these go to the input: letters, dead keys, Option and AltGr letters, IME; never a shortcut", () => {
+  const k = (key: string, more: object = {}) => strayKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...more });
+  assert.equal(k("a"), true);
+  assert.equal(k("Dead"), true, "a dead key: the accent, then its letter");
+  assert.equal(k("Dead", { altKey: true }), true, "Option+E on a Mac");
+  assert.equal(k("å", { altKey: true }), true, "Option+A");
+  assert.equal(k("@", { ctrlKey: true, altKey: true }), true, "AltGr, as some browsers report it");
+  assert.equal(k("Process", { keyCode: 229 }), true, "an IME starting");
+  assert.equal(k("x", { isComposing: true }), true);
+  assert.equal(k("t", { ctrlKey: true }), false);
+  assert.equal(k("v", { metaKey: true }), false);
+  assert.equal(k("†", { altKey: true, defaultPrevented: true }), false, "Alt+T: the page took it");
+  assert.equal(k("ArrowDown", { altKey: true }), false);
+  assert.equal(k("Enter"), false);
+  assert.equal(k("Tab"), false);
+  assert.equal(k("d", { altKey: true }), false, "Alt+D on Windows or Linux: the browser's, not a letter");
 });

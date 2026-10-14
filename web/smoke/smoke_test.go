@@ -50,6 +50,40 @@ func launch(t *testing.T) (ws *websocket.Conn, another func() *websocket.Conn) {
 	return ws, func() *websocket.Conn { return tab(page) }
 }
 
+// TestTypingAnywhere types with focus outside any control: an IME's
+// text and a dead key's letter both land in the input.
+func TestTypingAnywhere(t *testing.T) {
+	ws, _ := launch(t)
+	ev := evaluator(t, ws)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
+	in := `document.querySelector(".bottom textarea")`
+	away := func() {
+		ev(`document.activeElement.blur()`)
+		waitFor(t, ev, `document.activeElement === document.body`, "focus on the page")
+	}
+
+	// An IME: its first key is 229 ("Process"), then it composes.
+	away()
+	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "rawKeyDown", "key": "Process", "code": "KeyN", "windowsVirtualKeyCode": 229})
+	devtools(t, ws, "Input.imeSetComposition", map[string]any{"text": "に", "selectionStart": 1, "selectionEnd": 1})
+	// The composition itself is in the input, not lost on the page: the
+	// commit alone (insertText) would find the input by other means.
+	waitFor(t, ev, `document.activeElement === `+in+` && `+in+`.value === "に"`, "the composition in the input")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "日本"})
+	waitFor(t, ev, in+`.value === "日本"`, "the IME's text in the input")
+
+	// A dead key (Option+E), then E: é.
+	ev(in + `.select()`)
+	pressKey(t, ws, "Backspace", 8)
+	waitFor(t, ev, in+`.value === ""`, "the input cleared")
+	away()
+	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "rawKeyDown", "key": "Dead", "code": "KeyE", "modifiers": 1})
+	devtools(t, ws, "Input.imeSetComposition", map[string]any{"text": "´", "selectionStart": 1, "selectionEnd": 1})
+	waitFor(t, ev, `document.activeElement === `+in+` && `+in+`.value === "´"`, "the accent in the input")
+	devtools(t, ws, "Input.insertText", map[string]any{"text": "é"})
+	waitFor(t, ev, in+`.value === "é"`, "the accented letter in the input")
+}
+
 // chromePath is Chrome's, skipping without KILN_SMOKE=1 or Chrome.
 func chromePath(t *testing.T) string {
 	t.Helper()

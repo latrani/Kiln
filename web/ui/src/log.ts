@@ -203,6 +203,15 @@ export function topFor(p: Place, rows: { seq: number; top: number }[]): number |
   return rows.find((r) => r.seq > p.seq)?.top; // hidden: the next line shown, at the top
 }
 
+// openAt is where a character's log opens when it shows (switched to,
+// or shown again by Ctrl+L): a find or go-to-date that landed while it
+// wasn't showing (goN past seen, the landings it showed), else where you
+// were, else the newest line.
+export function openAt(p: Place | undefined, seen: number | undefined, goN: number, at: number | undefined): { to: "line"; seq: number } | { to: "place"; place: Place } | { to: "newest" } {
+  if (seen !== undefined && goN > seen && at !== undefined) return { to: "line", seq: at };
+  return p ? { to: "place", place: p } : { to: "newest" };
+}
+
 // keepsPlace reports whether a draw changed what's above your place, so
 // it must be put back: older lines arrived, or the filter changed what's
 // hidden. Not on the first draw.

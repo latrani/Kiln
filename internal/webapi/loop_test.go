@@ -1039,3 +1039,23 @@ func TestCallRunsOnTheLoop(t *testing.T) {
 		t.Errorf("status %v", st)
 	}
 }
+
+func TestAnswersSayTheirTarget(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"save_world","World":"fm","WorldSettings":{"Host":"","Port":0}}`)
+	if p := event(b, "Problems"); p == nil || p["World"] != "fm" || p["Char"] != "" {
+		t.Errorf("Problems = %v", p)
+	}
+	b = h.act(`{"Do":"save_character","World":"fm","Char":"kit","CharSettings":{}}`)
+	if s := event(b, "Saved"); s == nil || s["World"] != "fm" || s["Char"] != "kit" {
+		t.Errorf("Saved = %v (%v)", s, types(b))
+	}
+}
+
+func TestSettingsThatCantBeReadSayProblems(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"settings","World":"nowhere","Char":""}`)
+	if p := event(b, "Problems"); p == nil || p["Op"] != "settings" || p["World"] != "nowhere" {
+		t.Errorf("batch = %v", types(b))
+	}
+}

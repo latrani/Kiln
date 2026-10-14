@@ -69,3 +69,21 @@ export function keyAction(e: Keyish, caret: Caret): KeyDo {
   }
   return undefined;
 }
+
+// strayKey reports whether a key pressed outside any control belongs in
+// the input: a printing key (with Option or AltGr too, which make
+// letters), a dead key, or an IME starting. Not one the page already
+// took (a shortcut: page.tsx's listener runs before the input's, so it
+// has called preventDefault), nor Ctrl, Cmd or a plain-ASCII Alt with a
+// key, which are the browser's.
+// The input is focused and the key isn't consumed, so the browser gives
+// it, and what it composes, to the input.
+export function strayKey(e: { key: string; keyCode?: number; isComposing?: boolean; ctrlKey: boolean; altKey: boolean; metaKey: boolean; defaultPrevented?: boolean }): boolean {
+  if (e.defaultPrevented || e.metaKey) return false;
+  if (e.isComposing || e.keyCode === 229 || e.key === "Process" || e.key === "Dead") return true;
+  if ([...e.key].length !== 1) return false;
+  if (e.ctrlKey) return e.altKey; // Ctrl+Alt is AltGr in some browsers
+  // Alt alone makes a letter on a Mac (Option+A is å); elsewhere Alt+D is
+  // the browser's, its key a plain d.
+  return !e.altKey || e.key.charCodeAt(0) > 0x7f;
+}

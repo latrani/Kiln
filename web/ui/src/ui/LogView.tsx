@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { keepsPlace, logAct, logClick, logKey, logRows, placeOf, segments, topFor, wantsOlder } from "../log.ts";
+import { keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, segments, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -35,10 +35,38 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const rowsOf = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".lrow")].map((r) => ({ seq: Number(r.dataset.seq), top: r.offsetTop, height: r.offsetHeight }));
 
   useEffect(() => el.current?.focus(), [k]);
-  // Opened at the newest line, as the TUI's cursor starts there.
+  // Showing a character's log (switched to, or shown again by Ctrl+L): a
+  // find or go-to-date that landed while it was away; else where you were,
+  // as the TUI keeps each browse; else the newest line, as the TUI's
+  // cursor starts there (openAt).
   useLayoutEffect(() => {
-    if (el.current) el.current.scrollTop = el.current.scrollHeight;
+    const e = el.current;
+    if (!e) return;
+    const to = openAt(store.logPlaces.get(k), store.logSeen.get(k), v.goN, v.at);
+    store.logSeen.set(k, v.goN);
+    let top: number | undefined;
+    if (to.to === "line") e.querySelector(`[data-seq="${to.seq}"]`)?.scrollIntoView({ block: "center" });
+    else {
+      top = to.to === "place" ? topFor(to.place, rowsOf(e)) : undefined;
+      e.scrollTop = top ?? e.scrollHeight;
+    }
+    place.current = { ...place.current, k, at: to.to === "place" && top !== undefined ? to.place : undefined };
   }, [k]);
+  // Hidden by Ctrl+L (or another view taking the pane): keep where it is
+  // now, even if the last scroll's event hasn't come yet. Not once log
+  // mode has closed (Esc): it opens at the newest line next time. (A
+  // switch keeps the place onScroll saved: by then the rows are the next
+  // character's.)
+  const shownK = useRef(k);
+  shownK.current = k;
+  useLayoutEffect(() => {
+    const e = el.current; // the ref is gone by the time the cleanup runs
+    return () => {
+      const k = shownK.current;
+      const at = e && placeOf(rowsOf(e), e.scrollTop);
+      if (at && store.state.logs[k]?.Open) store.logPlaces.set(k, at);
+    };
+  }, []);
   // Older history arriving above, or the filter hiding lines, keeps your
   // place, as the scrollback's.
   useLayoutEffect(() => {
@@ -49,10 +77,17 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     }
     place.current = { k, ...now, at: p.k === k ? p.at : undefined };
   });
-  // Find and go-to-date bring their line into view, once per landing.
+  // Find and go-to-date bring their line into view, once per landing,
+  // for the character showing (one made while it was away shows when it
+  // comes back, above).
+  const landed = useRef({ k, goN: v.goN });
   useLayoutEffect(() => {
-    if (v.at !== undefined) el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
-  }, [v.goN]);
+    const was = landed.current;
+    landed.current = { k, goN: v.goN };
+    store.logSeen.set(k, v.goN);
+    if (was.k !== k || was.goN === v.goN || v.at === undefined) return;
+    el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
+  });
 
   // older asks for older history near the top, or when what's loaded
   // doesn't fill the view (so there's nothing to scroll): once per Log
@@ -70,6 +105,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const onScroll = () => {
     const e = el.current!;
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
+    if (place.current.at) store.logPlaces.set(k, place.current.at);
     older(e);
   };
   const onClick = (e: MouseEvent) => {

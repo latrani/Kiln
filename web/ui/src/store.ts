@@ -2,6 +2,7 @@
 // page's own state (how far it's got starting Kiln, whether it's saving).
 import { edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
 import type { Editor, SettingsEvent, Target } from "./editor.ts";
+import type { Place } from "./log.ts";
 import { fixPick, pickerRows } from "./picker.ts";
 import * as str from "./str.gen.ts";
 import { Typing } from "./typing.ts";
@@ -52,6 +53,7 @@ export interface Picker {
 export interface Answer {
   n: number;
   Op: string;
+  target: string; // the editor it answers (targetKey of its World and Char)
   Key?: string;
   Problems?: { Field: string; Msg: string }[];
 }
@@ -167,12 +169,28 @@ const exists = (s: State, k: string): boolean =>
 function settle(s: State, a: Answer): State {
   const ed = s.picker!.edit!;
   if (a.Problems) return { ...s, picker: { ...s.picker!, edit: refuse(ed, a.Problems) } };
-  if (a.Op === "delete_world" && ed.target.kind === "world") {
-    const w = ed.target.world;
-    s = { ...s, drafts: Object.fromEntries(Object.entries(s.drafts).filter(([, d]) => d.target.kind === "new_world" || d.target.world !== w)) };
-  }
+  if (a.Op === "delete_world" && ed.target.kind === "world") s = dropWorld(s, ed.target.world);
   if (a.Op === "add_world") return { ...s, picker: { ...s.picker!, edit: undefined, filter: "", sel: "+" + String(ed.values.id) } };
   return shut(s);
+}
+
+// dropWorld is s without the drafts and parked editors of world w, which
+// is gone.
+function dropWorld(s: State, w: string): State {
+  const keep = (m: Record<string, Editor>) => Object.fromEntries(Object.entries(m).filter(([, d]) => d.target.kind === "new_world" || d.target.world !== w));
+  return { ...s, drafts: keep(s.drafts), parked: keep(s.parked) };
+}
+
+// settleAway settles an editor that isn't open (parked, or kept as a
+// draft) when Go answers what it sent: saved, it goes, and a deleted
+// world's other drafts and parked editors with it; refused, it keeps
+// Go's reasons for when it comes back.
+function settleAway(s: State, a: Answer): State {
+  const mine = (ed: Editor) => ed.pending === a.Op && targetKey(ed.target) === a.target;
+  const keep = (m: Record<string, Editor>) =>
+    Object.fromEntries(Object.entries(m).flatMap(([k, ed]) => (!mine(ed) ? [[k, ed]] : a.Problems ? [[k, refuse(ed, a.Problems)]] : [])));
+  s = { ...s, parked: keep(s.parked), drafts: keep(s.drafts) };
+  return a.Op === "delete_world" && !a.Problems ? dropWorld(s, a.target.slice(1)) : s;
 }
 
 // follow moves editors with the active item, as the TUI's parkEditor
@@ -199,6 +217,13 @@ function follow(s: State, prev: string): State {
 
 export class Store {
   state: State = fresh({ phase: "loading", saving: true, typing: new Typing() });
+  // logPlaces is where each character's log view was (LogView), off the
+  // state so scrolling doesn't draw; gone when its log mode closes.
+  logPlaces = new Map<string, Place>();
+  // logSeen is how many landings (find, go to date) each character's log
+  // view last showed (LogView), so one made while it was away shows when
+  // it comes back; gone with its place.
+  logSeen = new Map<string, number>();
   private subs = new Set<() => void>();
 
   constructor(private onEffect?: (e: Event) => void) {}
@@ -217,8 +242,16 @@ export class Store {
         console.error("event not applied", e, err);
       }
     }
-    const ed = s.picker?.edit;
-    if (ed?.pending && s.answer && s.answer.n > seen && s.answer.Op === ed.pending) s = settle(s, s.answer);
+    // Go's answer to a settings action settles the editor it's for, open
+    // or not; a settings read that failed stops the wait for it.
+    const a = s.answer;
+    if (a && a.n > seen) {
+      const ed = s.picker?.edit;
+      if (a.Op === "settings") {
+        if (s.opening?.key === a.target) s = { ...s, opening: undefined };
+      } else if (ed?.pending === a.Op && targetKey(ed.target) === a.target) s = settle(s, a);
+      else s = settleAway(s, a);
+    }
     s = follow(s, prev);
     if (s.picker) {
       // What's offered may have changed (worlds, a character opening or
@@ -245,7 +278,10 @@ export class Store {
   private step(s: State, e: Event, effects: Event[]): State {
     const k: string = e.Key;
     switch (e.type) {
-      case "Start": return fresh(s);
+      case "Start":
+        this.logPlaces.clear();
+        this.logSeen.clear();
+        return fresh(s);
       case "Theme": return { ...s, theme: e as ThemeEvent };
       case "Worlds": return { ...s, worlds: e.Worlds ?? [] };
       case "Order": return { ...s, order: e.Keys ?? [] };
@@ -255,6 +291,10 @@ export class Store {
         s.typing?.saw(e.Ack ?? 0);
         return { ...s, inputs: { ...s.inputs, [k]: e } };
       case "Log": {
+        if (!e.Open) {
+          this.logPlaces.delete(k);
+          this.logSeen.delete(k);
+        }
         const logs = { ...s.logs, [k]: e };
         const logView = e.Open ? { ...s.logView, [k]: s.logView[k] ?? { goN: 0 } } : without(s.logView, k);
         return { ...s, logs, logView };
@@ -269,6 +309,8 @@ export class Store {
       }
       case "Filter": return { ...s, filters: { ...s.filters, [k]: e } };
       case "Closed":
+        this.logPlaces.delete(k);
+        this.logSeen.delete(k);
         return { ...s, chars: without(s.chars, k), inputs: without(s.inputs, k), lines: without(s.lines, k),
           logs: without(s.logs, k), logLines: without(s.logLines, k), filters: without(s.filters, k), logView: without(s.logView, k) };
       case "Lines": {
@@ -285,7 +327,7 @@ export class Store {
       case "SaveQuestion": return { ...s, saveQuestion: e };
       case "Saved":
       case "Problems":
-        return { ...s, answer: { n: (s.answer?.n ?? 0) + 1, Op: e.Op, Key: e.Key, Problems: e.Problems } };
+        return { ...s, answer: { n: (s.answer?.n ?? 0) + 1, Op: e.Op, target: targetKey(targetOf({ World: e.World ?? "", Char: e.Char ?? "" })), Key: e.Key, Problems: e.Problems } };
       case "Settings": {
         const o = s.opening;
         if (!o || o.key !== targetKey(targetOf(e as unknown as SettingsEvent))) return s;
@@ -331,7 +373,8 @@ export class Store {
   // openEditor opens target's editor over the picker (opening the picker
   // too, and with closeAll closing with it): its draft, or one left
   // parked, as it was; otherwise Go's settings are asked for, and it
-  // opens when they come.
+  // opens when they come. One still waiting on Go's answer to its save or
+  // delete keeps waiting: the answer settles it.
   openEditor(t: Target, closeAll: boolean): void {
     if (logShows(this.state, this.state.active)) {
       this.state.act?.({ Do: "say", Text: str.pickerBlockedByLog(), Err: true });
@@ -348,7 +391,7 @@ export class Store {
     }
     ed ??= s.drafts[k];
     if (ed) {
-      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, pending: undefined, closeAll });
+      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, closeAll });
       this.notify();
       return;
     }
