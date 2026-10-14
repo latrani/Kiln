@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportFormats, findStatus, formatKey, logKey, logRows, placeOf, segments, topFor, wantsOlder } from "./log.ts";
+import { exportFormats, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, segments, topFor, wantsOlder } from "./log.ts";
 import type { LogState } from "./log.ts";
 import type { LineData } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -44,7 +44,7 @@ test("segments mark every case-insensitive, literal match", () => {
 
 test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => logKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
-  assert.deepEqual(["/", "n", "N", "g", "e", "c", "t", "Escape"].map((x) => k(x)), ["find", "older", "newer", "date", "export", "copy", "tags", "back"]);
+  assert.deepEqual(["/", "n", "N", "g", "f", "e", "c", "t", "Escape"].map((x) => k(x)), ["find", "older", "newer", "date", "filter", "export", "copy", "tags", "back"]);
   assert.equal(k("a", { ctrlKey: true }), undefined, "Ctrl+A stays the browser's");
   assert.equal(k("a", { metaKey: true }), undefined, "and Cmd+A");
   assert.equal(k("n", { ctrlKey: true }), undefined);
@@ -80,4 +80,17 @@ test("older history is asked for near the top, or when what's loaded doesn't fil
   assert.equal(wantsOlder(g, { scrollTop: 1500, scrollHeight: 2000, clientHeight: 500 }), false);
   assert.equal(wantsOlder({ ...g, Loading: true }, { scrollTop: 0, scrollHeight: 300, clientHeight: 500 }), false);
   assert.equal(wantsOlder({ ...g, HistDone: true }, { scrollTop: 0, scrollHeight: 300, clientHeight: 500 }), false);
+});
+
+test("place: a line hidden by the filter gives way to the next one shown", () => {
+  const rows = [{ seq: 5, top: 0, height: 20 }, { seq: 7, top: 20, height: 20 }];
+  assert.equal(topFor({ seq: 6, off: -10 }, rows), 20, "6 hidden: 7 at the top");
+  assert.equal(topFor({ seq: 9, off: 0 }, rows), undefined, "nothing after it: nothing to keep");
+});
+
+test("the place is put back when older lines arrive or the filter changes what's hidden; not otherwise", () => {
+  assert.equal(keepsPlace({ first: 1, hidden: "" }, { first: 0, hidden: "" }), true);
+  assert.equal(keepsPlace({ first: 1, hidden: "" }, { first: 1, hidden: "3,4" }), true);
+  assert.equal(keepsPlace({ first: 1, hidden: "3" }, { first: 1, hidden: "3" }), false);
+  assert.equal(keepsPlace({ first: undefined, hidden: "" }, { first: 1, hidden: "" }), false, "the first draw: nowhere to keep");
 });

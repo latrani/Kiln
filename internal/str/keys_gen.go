@@ -1142,6 +1142,9 @@ func WebCloseChar(name any) string { return get("web.close_char", map[string]any
 // WebDeleteAgain is web.delete_again: "Press again to delete {what}"
 func WebDeleteAgain(what any) string { return get("web.delete_again", map[string]any{"what": what}) }
 
+// WebFilter is web.filter: "Filter"
+func WebFilter() string { return get("web.filter", nil) }
+
 // WebFormHint is web.form_hint: "Enter to save · Tab moves between fields · {hint}"
 func WebFormHint(hint any) string { return get("web.form_hint", map[string]any{"hint": hint}) }
 
@@ -1162,7 +1165,7 @@ func WebLoadingSize(got, total any) string {
 // WebLog is web.log: "Log"
 func WebLog() string { return get("web.log", nil) }
 
-// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · n/N · g date · t tags · e export · c copy · esc back"
+// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · n/N · g date · f filter · t tags · e export · c copy · esc back"
 func WebLogHints() string { return get("web.log_hints", nil) }
 
 // WebNeedsJs is web.needs_js: "Kiln needs JavaScript."

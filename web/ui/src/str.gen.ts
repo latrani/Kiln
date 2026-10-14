@@ -945,6 +945,9 @@ export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 /** web.delete_again: Press again to delete {what} */
 export function webDeleteAgain(what: unknown): string { return `Press again to delete ${what}`; }
 
+/** web.filter: Filter */
+export function webFilter(): string { return `Filter`; }
+
 /** web.form_hint: Enter to save · Tab moves between fields · {hint} */
 export function webFormHint(hint: unknown): string { return `Enter to save · Tab moves between fields · ${hint}`; }
 
@@ -963,8 +966,8 @@ export function webLoadingSize(got: unknown, total: unknown): string { return `l
 /** web.log: Log */
 export function webLog(): string { return `Log`; }
 
-/** web.log_hints: click to select · shift-click extends · / find · n/N · g date · t tags · e export · c copy · esc back */
-export function webLogHints(): string { return `click to select · shift-click extends · / find · n/N · g date · t tags · e export · c copy · esc back`; }
+/** web.log_hints: click to select · shift-click extends · / find · n/N · g date · f filter · t tags · e export · c copy · esc back */
+export function webLogHints(): string { return `click to select · shift-click extends · / find · n/N · g date · f filter · t tags · e export · c copy · esc back`; }
 
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }

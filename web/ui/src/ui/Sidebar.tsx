@@ -2,10 +2,11 @@ import { useLayoutEffect } from "preact/hooks";
 import { choose, pickerRows, selKey } from "../picker.ts";
 import type { PickRow } from "../picker.ts";
 import { sidebarRows } from "../sidebar.ts";
-import { listing } from "../store.ts";
+import { listing, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
+import { FilterPanel } from "./FilterPanel.tsx";
 
 // Session states (session.State).
 const connecting = 1, connected = 2;
@@ -16,8 +17,10 @@ const connecting = 1, connected = 2;
 // name, cut with … when too long, and its unread count, after ● when a
 // line was a priority. The active row is lit across. Last, after a gap,
 // "+ Connection" opens the picker. With the picker open, it's the
-// picker's list instead; later, in log mode, the filter panel.
+// picker's list instead; in log mode with the filter panel open (f), the
+// panel.
 export function Sidebar({ state, store }: { state: State; store: Store }) {
+  if (logShows(state, state.active) && state.logView[state.active]?.panel) return <FilterPanel state={state} store={store} />;
   if (listing(state)) return <PickerList state={state} store={store} />;
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (

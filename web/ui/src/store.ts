@@ -57,19 +57,21 @@ export interface Answer {
 }
 
 // Prompt is log mode's prompt in the bottom pane, as the TUI's: find,
-// go to date, export's format (a key), export's file name.
-export type Prompt = { kind: "find" | "date" | "filename"; value: string; format?: string } | { kind: "format" };
+// go to date, export's format (a key), export's file name, a text to
+// filter by.
+export type Prompt = { kind: "find" | "date" | "filename" | "filter"; value: string; format?: string } | { kind: "format" };
 
 // LogView is the page's side of a character's log mode: hidden by Ctrl+L
 // (kept as it was), its prompt, the line find or go-to-date last landed
-// on (at; goN counts landings, so each moves the view once), and the
-// line last clicked.
+// on (at; goN counts landings, so each moves the view once), the line
+// last clicked, and the filter panel, open with its highlight.
 export interface LogView {
   hidden?: boolean;
   prompt?: Prompt;
   at?: number;
   goN: number;
   clicked?: number;
+  panel?: { sel: string; follow?: boolean }; // the filter panel, open, and its highlight (filter.ts)
 }
 
 export interface State {

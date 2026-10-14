@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
 import { logAct, logClick, toggleLog } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -430,4 +431,115 @@ test("a click while a prompt is open changes nothing, as the TUI's: the prompt k
   logClick(s, 3, {});
   assert.equal(sent.length, 0);
   assert.equal(s.state.logView["fm/kit"].clicked, undefined);
+});
+
+// filtered is logged with a Filter: Untagged, a tag page with a child
+// page/ooc, and a text row "x".
+const filtered = (log: object = {}) => {
+  const r = logged(log);
+  const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Untagged: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
+  r.s.apply([{ type: "Filter", Key: "fm/kit", Entries: [E("", { Item: { Name: "", Text: false, Untagged: true } }), E("page", { Parent: true }), E("page/ooc", { Depth: 1 }), E("x", { Item: { Name: "x", Text: true, Untagged: false } })] }]);
+  return r;
+};
+
+test("f opens the panel on its first entry, focus following; f again closes it", () => {
+  const { s } = filtered();
+  logAct(s, "filter");
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "u", follow: true });
+  logAct(s, "filter");
+  assert.equal(s.state.logView["fm/kit"].panel, undefined);
+});
+
+test("the panel's keys act on the highlighted entry, as the TUI's", () => {
+  const { s, sent } = filtered();
+  togglePanel(s);
+  panelAct(s, "down");
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page", follow: true });
+  panelAct(s, "hide");
+  assert.deepEqual(sent.at(-1), { Do: "hide", Key: "fm/kit", Item: { Name: "page", Text: false, Untagged: false } });
+  panelAct(s, "only");
+  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page", Text: false, Untagged: false } });
+  panelAct(s, "shut");
+  assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true });
+  panelAct(s, "open");
+  assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: false });
+  const n = sent.length;
+  panelAct(s, "remove");
+  panelAct(s, "add");
+  assert.equal(sent.length, n, "a tag isn't removed; Enter only adds on + Text");
+  assert.equal(s.state.logView["fm/kit"].prompt, undefined);
+});
+
+test("x on a text row removes it, the highlight moving down first; Enter on + Text asks for a text", () => {
+  const { s, sent } = filtered();
+  s.setLogView("fm/kit", { panel: { sel: "t:x" } });
+  panelAct(s, "remove");
+  assert.deepEqual(sent.at(-1), { Do: "remove_text", Key: "fm/kit", Term: "x" });
+  assert.equal(s.state.logView["fm/kit"].panel?.sel, "+");
+  panelAct(s, "hide");
+  assert.equal(sent.at(-1).Do, "remove_text", "+ Text has no Hide");
+  panelAct(s, "add");
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
+});
+
+test("Esc in the log closes the panel first, then log mode", () => {
+  const { s, sent } = filtered();
+  togglePanel(s);
+  logAct(s, "back");
+  assert.equal(s.state.logView["fm/kit"].panel, undefined);
+  assert.equal(sent.filter((a) => a.Do === "log_close").length, 0);
+  logAct(s, "back");
+  assert.deepEqual(sent.at(-1), { Do: "log_close", Key: "fm/kit" });
+});
+
+test("each character's panel is its own; Ctrl+L keeps it as it was", () => {
+  const { s } = filtered();
+  s.apply([{ type: "Char", Key: "fm/rook", World: "fm", ID: "rook", Name: "Rook", State: 2 }, { type: "Log", Key: "fm/rook", Open: true, Find: "", Selected: 0 }]);
+  s.setLogView("fm/kit", { panel: { sel: "g:page" } });
+  assert.equal(s.state.logView["fm/rook"]?.panel, undefined);
+  toggleLog(s);
+  toggleLog(s);
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" }, "hidden and shown again: as it was, focus left with the log");
+});
+
+test("not in log mode, the panel doesn't open", () => {
+  const { s } = filtered();
+  s.setLogView("fm/kit", { hidden: true });
+  togglePanel(s);
+  assert.equal(s.state.logView["fm/kit"].panel, undefined);
+});
+
+test("a click on a glyph highlights its entry, focus following (a span takes none), and folds or removes it", () => {
+  const { s, sent } = filtered();
+  togglePanel(s);
+  glyphClick(s, "g:page");
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page", follow: true });
+  assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true });
+  glyphClick(s, "t:x");
+  assert.deepEqual(sent.at(-1), { Do: "remove_text", Key: "fm/kit", Term: "x" });
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "+", follow: true });
+});
+
+test("with a prompt open, clicks in the panel and the Filter chip do nothing, as the TUI's", () => {
+  const { s, sent } = filtered();
+  s.setLogView("fm/kit", { panel: { sel: "u" }, prompt: { kind: "filter", value: "" } });
+  const n = sent.length;
+  panelClick(s, "g:page", "hide");
+  panelClick(s, "g:page");
+  glyphClick(s, "g:page");
+  togglePanel(s);
+  assert.equal(sent.length, n);
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "u" });
+});
+
+test("clicks: a name highlights its entry; Hide and Only press too; + Text asks for a text", () => {
+  const { s, sent } = filtered();
+  togglePanel(s);
+  panelClick(s, "g:page");
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" });
+  panelClick(s, "g:page/ooc", "only");
+  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page/ooc", Text: false, Untagged: false } });
+  assert.equal(s.state.logView["fm/kit"].panel?.sel, "g:page/ooc");
+  panelClick(s, "+", "add");
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
 });

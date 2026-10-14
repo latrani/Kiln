@@ -35,6 +35,11 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side .pick { display: block; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .side li[role="group"] { display: block; }
 .side li[role="group"] > span { display: block; cursor: default; }
+/* The filter panel, as the TUI's: rows of text, each a block (a flex row
+   would drop the indent, a run of spaces alone), cut with … when long. */
+.side li.fentry, .filter-panel li { display: block; }
+.side .frow { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.side .fglyph { cursor: pointer; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
 .top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); display: flex; }
 .top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

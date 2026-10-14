@@ -2,6 +2,7 @@
 // shows, find's status and marks, and its keys. Lines are addressed by
 // their number (Seq); one Go names that the page doesn't hold (not yet
 // loaded) is nothing.
+import { closePanel, togglePanel } from "./filter.ts";
 import type { LineData, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
@@ -71,9 +72,9 @@ export function segments(text: string, term: string): { text: string; match: boo
 }
 
 // LogKey is what a key does in log mode.
-export type LogKey = "find" | "older" | "newer" | "date" | "export" | "copy" | "tags" | "back";
+export type LogKey = "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "tags" | "back";
 
-const letters: Record<string, LogKey> = { "/": "find", n: "older", N: "newer", g: "date", e: "export", c: "copy", t: "tags", Escape: "back" };
+const letters: Record<string, LogKey> = { "/": "find", n: "older", N: "newer", g: "date", f: "filter", e: "export", c: "copy", t: "tags", Escape: "back" };
 
 // logKey is a key in log mode, as the TUI's browseKeys less its cursor
 // keys (spec). Ctrl+A and Cmd+A stay the browser's select-all.
@@ -104,8 +105,8 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
 // logAct does what a log-mode key asks, as the TUI's browse.key: a
 // prompt for find, a date or export's format; n and N step find from
 // where it last landed (else the line last clicked, else the newest); c
-// copies; t says the tags of that same line; Esc stops a search, else
-// closes log mode.
+// copies; t says the tags of that same line; f opens or closes the
+// filter panel; Esc stops a search, else closes the panel, else log mode.
 export function logAct(store: Store, does: LogKey): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
   const lines = s.logLines[k]?.lines ?? [];
@@ -123,11 +124,26 @@ export function logAct(store: Store, does: LogKey): void {
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
     case "tags": if (here >= 0) act({ Do: "tags", Key: k, Seq: here }); break;
+    case "filter": togglePanel(store); break;
     case "back":
       if (g.Searching) act({ Do: "stop_search", Key: k });
+      else if (v.panel) closePanel(store); // the panel first, as Esc backs out of one thing at a time
       else act({ Do: "log_close", Key: k });
       break;
   }
+}
+
+// filterPromptEnter is Enter in the filter text prompt, as the TUI's:
+// the text is added, a new row becoming the highlight, and focus goes
+// back to the panel.
+export function filterPromptEnter(store: Store): void {
+  const s = store.state, k = s.active, v = s.logView[k];
+  if (v?.prompt?.kind !== "filter") return;
+  const term = v.prompt.value.trim();
+  // act first: Go answers inside it, so the new row is listed before the
+  // panel draws, and its highlight isn't lost to fixSel's fallback.
+  s.act?.({ Do: "add_text", Key: k, Term: term });
+  store.setLogView(k, { prompt: undefined, panel: { sel: term ? "t:" + term : v.panel?.sel ?? "+", follow: true } });
 }
 
 // toggleLog is Ctrl+L, as the TUI's: log mode showing is hidden, kept
@@ -179,8 +195,17 @@ export function placeOf(rows: { seq: number; top: number; height: number }[], sc
 
 // topFor is the scrollTop that puts place p back over rows, as the
 // scrollback keeps your place when older lines arrive above (the browser's
-// own anchoring isn't in Safari); undefined if its line is gone.
+// own anchoring isn't in Safari); undefined if its line is gone and
+// nothing follows it. A hidden line gives way to the next one shown.
 export function topFor(p: Place, rows: { seq: number; top: number }[]): number | undefined {
   const r = rows.find((r) => r.seq === p.seq);
-  return r && r.top - p.off;
+  if (r) return r.top - p.off;
+  return rows.find((r) => r.seq > p.seq)?.top; // hidden: the next line shown, at the top
+}
+
+// keepsPlace reports whether a draw changed what's above your place, so
+// it must be put back: older lines arrived, or the filter changed what's
+// hidden. Not on the first draw.
+export function keepsPlace(was: { first?: number; hidden: string }, now: { first?: number; hidden: string }): boolean {
+  return was.first !== undefined && (was.first !== now.first || was.hidden !== now.hidden);
 }
