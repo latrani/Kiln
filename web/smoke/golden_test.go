@@ -287,6 +287,21 @@ func TestGoldenStable(t *testing.T) {
 // same data, reached as a person would on the page, and waited for
 // before the shot.
 
+// goHas waits until ok holds of Go's state, read on the loop.
+func (s *scene) goHas(ok func(a *app.App) bool, what string) {
+	s.t.Helper()
+	for deadline := time.Now().Add(20 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		got := make(chan bool, 1)
+		s.l.Call(func(a *app.App) { got <- ok(a) })
+		if <-got {
+			return
+		}
+		if time.Now().After(deadline) {
+			s.t.Fatalf("waiting for %s in Go: gave up", what)
+		}
+	}
+}
+
 // show has the server send Kit line, and waits for it on the page.
 func (s *scene) show(line string) {
 	s.t.Helper()
@@ -387,6 +402,8 @@ func TestGoldenInput(t *testing.T) {
 	// in input.over_limit (theme.ts's roleClass).
 	waitFor(t, s.ev, `document.querySelector(".bottom .r-input-over-limit")`, "the overflow marked")
 	s.ev(input + `.setSelectionRange(0, 4)`) // the first four, as the TUI's drag
+	// Typing dismisses a status, so Go has what's typed first.
+	s.goHas(func(a *app.App) bool { return a.Text() == kilntest.InputText }, "the typing")
 	notSent := str.StatusNotSent(errors.New("x"))
 	s.l.Call(func(a *app.App) { a.SetStatus(true, notSent) })
 	waitFor(t, s.ev, `document.body.textContent.includes(`+jsString(notSent)+`)`, "the status")
