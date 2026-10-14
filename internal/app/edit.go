@@ -2,6 +2,8 @@ package app
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -104,6 +106,29 @@ func DeleteWarning(world, char string) string {
 		return str.EditorDeleteWorldWarning(world)
 	}
 	return str.EditorDeleteCharacterWarning(world + "/" + char)
+}
+
+// NewWorldSettings is what the editor for a new world starts from: the
+// fuzzball pack when there is one, as AddWorld uses, and what a world
+// inherits.
+func (a *App) NewWorldSettings() (config.WorldSettings, config.Inherited, error) {
+	var s config.WorldSettings
+	if _, err := os.Stat(filepath.Join(a.d.ConfigDir, "packs", "fuzzball.toml")); err == nil { //str:ok
+		s.Use = []string{"fuzzball"} //str:ok
+	}
+	inh, err := config.Defaults(a.d.ConfigDir)
+	return s, inh, err
+}
+
+// WorldSettings is what world's file sets, and what it inherits.
+func (a *App) WorldSettings(world string) (config.WorldSettings, config.Inherited, error) {
+	return config.ReadWorld(a.d.ConfigDir, world)
+}
+
+// CharacterSettings is what world's character char sets, and what it
+// inherits.
+func (a *App) CharacterSettings(world, char string) (config.CharacterSettings, config.Inherited, error) {
+	return config.ReadCharacter(a.d.ConfigDir, world, char)
 }
 
 // AddWorld writes a new world with settings s. Every problem with s and

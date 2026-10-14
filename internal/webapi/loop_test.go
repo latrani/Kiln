@@ -876,3 +876,37 @@ func TestPickSomeoneUnknownDoesNothing(t *testing.T) {
 		t.Error("picked a character that isn't configured")
 	}
 }
+
+func TestSettingsAreWhatTheEditorStartsFrom(t *testing.T) {
+	h := start(t)
+	w := event(h.act(`{"Do":"settings","World":"fm"}`), "Settings")
+	if w == nil || w["World"] != "fm" || w["CharSettings"] != nil {
+		t.Fatalf("fm: %v", w)
+	}
+	ws := w["WorldSettings"].(map[string]any)
+	if ws["Host"] != "muck.test" || ws["Port"] != 8888.0 || ws["Login"] != nil {
+		t.Errorf("fm's settings: %v (an unset setting is null)", ws)
+	}
+	if w["Inherited"].(map[string]any)["NewlineMode"] == "" {
+		t.Errorf("fm inherits: %v", w["Inherited"])
+	}
+	c := event(h.act(`{"Do":"settings","World":"fm","Char":"kit"}`), "Settings")
+	if c == nil || c["Char"] != "kit" || c["Name"] != "Kit" || c["CharSettings"] == nil || c["WorldSettings"] != nil {
+		t.Errorf("fm/kit: %v", c)
+	}
+	n := event(h.act(`{"Do":"settings"}`), "Settings")
+	if n == nil || n["World"] != "" || fmt.Sprint(n["WorldSettings"].(map[string]any)["Use"]) != "[fuzzball]" {
+		t.Errorf("a new world: %v", n)
+	}
+}
+
+func TestSettingsThatCantBeReadSayWhy(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"settings","World":"nope"}`)
+	if s := event(b, "Settings"); s != nil {
+		t.Errorf("settings for a world that isn't there: %v", s)
+	}
+	if st := event(b, "Status"); st == nil || st["Err"] != true {
+		t.Errorf("status: %v", st)
+	}
+}

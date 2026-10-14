@@ -288,9 +288,13 @@ func lineAt(g *app.Log, seq int) *app.LogLine {
 }
 
 // doSettings carries out a settings action: Saved (after reloading the
-// config, as the TUI does after an edit) or Problems. ok is false for an
+// config, as the TUI does after an edit) or Problems; or for settings,
+// what an editor starts from. ok is false for an
 // action that isn't one.
 func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
+	if act.Do == "settings" { //str:ok
+		return l.settings(act.World, act.Char), true
+	}
 	a := l.a
 	var err error
 	key, saved := "", "" // the new character's key; the status to show once reloaded
