@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/latrani/Kiln/internal/ansi"
+	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -176,7 +177,7 @@ func TestGoldenCellsSeeThroughBytes(t *testing.T) {
 }
 
 // goldenWorld has local echo on, so sent lines show in the scrollback.
-var goldenWorld = strings.Replace(fmWorld, "max_line_bytes = 20", "max_line_bytes = 20\nlocal_echo = true", 1)
+var goldenWorld = kilntest.GoldenWorld
 
 // show feeds Kit a line and waits until it's in the scrollback.
 func (h *harness) show(line string) {
@@ -203,9 +204,9 @@ func goldenHarness(t *testing.T) *harness {
 func TestGoldenMain(t *testing.T) {
 	h := goldenHarness(t)
 	h.open("fm/rook")
-	h.show("Rook says, \"Evening, Kit.\"")
-	h.show("See https://kiln.test/map for the way")
-	h.typeText(":waves.")
+	h.show(kilntest.MainLines[0])
+	h.show(kilntest.MainLines[1])
+	h.typeText(kilntest.MainTyped)
 	h.enter()
 	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Priority = 3, true
 	assertGolden(t, "main", h.drawn())
@@ -213,7 +214,7 @@ func TestGoldenMain(t *testing.T) {
 
 func TestGoldenPicker(t *testing.T) {
 	h := goldenHarness(t)
-	h.show("Rook says, \"Evening, Kit.\"") // bold (self), so the backdrop shows
+	h.show(kilntest.MainLines[0]) // bold (self), so the backdrop shows
 	h.press('o', tea.ModCtrl)
 	assertGolden(t, "picker", h.drawn())
 }
@@ -235,14 +236,14 @@ func TestGoldenLog(t *testing.T) {
 	h.keys("m", "up", "m")                                            // a range
 	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().Items()) // the Filter chip on
 	h.key("/")
-	h.typeText("Mira") // the page the chip shows
-	h.key("enter")     // find
+	h.typeText(kilntest.FindTerm) // the page the chip shows
+	h.key("enter")                // find
 	assertGolden(t, "log", h.drawn())
 }
 
 func TestGoldenInput(t *testing.T) {
 	h := goldenHarness(t)
-	h.typeText("this line runs past twenty bytes")
+	h.typeText(kilntest.InputText)
 	in := h.m.input()
 	in.StartSelect(0, 0) // select the first four cells, as a mouse drag would
 	in.DragTo(4, 0)
@@ -254,7 +255,7 @@ func TestGoldenScrolled(t *testing.T) {
 	h := goldenHarness(t)
 	for i := 0; i < 40; i++ {
 		h.advance(2 * time.Second)
-		h.show(fmt.Sprintf("line %d https://kiln.test/%d", i, i))
+		h.show(kilntest.ScrolledLine(i))
 		h.m.cur().sb.MarkSeen() // read as it comes, so the pager holds nothing
 	}
 	h.press(tea.KeyPgUp, 0)
@@ -269,7 +270,7 @@ func TestGoldenPassword(t *testing.T) {
 	delete(h.pw, "fm/kit")
 	h.init()
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
-	h.typeText("s3cret")
+	h.typeText(kilntest.PasswordTyped)
 	assertGolden(t, "password", h.drawn())
 }
 
@@ -278,6 +279,6 @@ func TestGoldenLogFilter(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	h.keys("down", "down", "h", "down", "o") // past Untagged: hide page/in, then Only on self
+	h.keys("down", "down", "h", "down", "o") // past Untagged and page: hide self; o on + Text does nothing
 	assertGolden(t, "log-filter", h.drawn())
 }

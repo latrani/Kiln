@@ -11,3 +11,4 @@
 /web/static/app.css*
 /web/static/fonts/
 /web/static/index.html
+/web/smoke/testdata/golden/failed/

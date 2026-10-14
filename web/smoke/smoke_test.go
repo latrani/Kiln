@@ -40,6 +40,19 @@ import (
 // another tab.
 func launch(t *testing.T) (ws *websocket.Conn, another func() *websocket.Conn) {
 	t.Helper()
+	chrome := chromePath(t)
+	root, _ := filepath.Abs("../..")
+	static := buildPage(t, root)
+	muckPort := fakeMuck(t)
+	preset, allow := config(t, muckPort)
+	page := startRelay(t, root, static, preset, allow)
+	ws, tab := openTab(t, chrome, page+"?record")
+	return ws, func() *websocket.Conn { return tab(page) }
+}
+
+// chromePath is Chrome's, skipping without KILN_SMOKE=1 or Chrome.
+func chromePath(t *testing.T) string {
+	t.Helper()
 	if os.Getenv("KILN_SMOKE") != "1" {
 		t.Skip("set KILN_SMOKE=1 to run the browser smoke test")
 	}
@@ -50,13 +63,7 @@ func launch(t *testing.T) (ws *websocket.Conn, another func() *websocket.Conn) {
 	if _, err := os.Stat(chrome); err != nil {
 		t.Skipf("no Chrome at %s (set KILN_CHROME)", chrome)
 	}
-	root, _ := filepath.Abs("../..")
-	static := buildPage(t, root)
-	muckPort := fakeMuck(t)
-	preset, allow := config(t, muckPort)
-	page := startRelay(t, root, static, preset, allow)
-	ws, tab := openTab(t, chrome, page+"?record")
-	return ws, func() *websocket.Conn { return tab(page) }
+	return chrome
 }
 
 func TestPageConnectsAndEchoes(t *testing.T) {

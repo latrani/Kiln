@@ -76,8 +76,8 @@ func newHarness(t *testing.T, worlds map[string]string) *harness {
 		t.Fatal(err)
 	}
 	h := &harness{t: t, dir: dir, conns: map[string]*kilntest.Conn{}, dialErr: map[string]error{},
-		saved: map[string]string{}, pw: map[string]string{"fm/kit": "hunter2", "fm/rook": "pw"}}
-	h.now = time.Date(2026, 9, 24, 21, 14, 0, 0, time.Local)
+		saved: map[string]string{}, pw: maps.Clone(kilntest.GoldenPasswords)}
+	h.now = kilntest.GoldenStart
 	d := Deps{
 		ConfigDir:  dir,
 		LogRoot:    filepath.Join(dir, "logs"),
