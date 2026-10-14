@@ -18,9 +18,14 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
   const root = useRef<HTMLFormElement>(null);
   const [focus, setFocus] = useState("");
   useEffect(() => root.current?.querySelector<HTMLElement>("input, button")?.focus(), []);
+  // After a refusal, focus goes to the first field with an error; one
+  // already focused is focused anew, so a screen reader reads it and its
+  // error again rather than nothing.
   useEffect(() => {
     const k = firstError(ed);
-    if (ed.refused && k) document.getElementById("ed-" + k)?.focus();
+    const el = ed.refused && k ? document.getElementById("ed-" + k) : null;
+    if (el === document.activeElement) el?.blur();
+    el?.focus();
   }, [ed.refused]);
   const off = state.phase === "stopped";
   const save = () => {
@@ -34,11 +39,12 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
     if (e.key === "Escape") {
       e.preventDefault();
       store.closeEditor();
-    } else if (e.key === "Enter" && t.tagName === "INPUT" && !composing(e) && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+    } else if (e.key === "Enter" && (t.tagName === "INPUT" || t === document.body) && !composing(e) && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       save();
     }
   };
+  useBodyKeys(root, onKeyDown);
   const main = ed.fields.filter((f) => !f.extra);
   const extra = ed.fields.filter((f) => f.extra);
   const top = formError(ed);
@@ -85,6 +91,25 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
   );
 }
 
+// useBodyKeys keeps the keys with the editor, as the TUI's editor always
+// has them: a key landing on no control (after a click on the
+// scrollback or the title) goes to the form's own keys (Enter saves, Esc
+// cancels), and anything else to its first field.
+function useBodyKeys(root: { current: HTMLFormElement | null }, onKeyDown: (e: KeyboardEvent) => void): void {
+  const handle = useRef(onKeyDown);
+  handle.current = onKeyDown;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as Element | null;
+      if (!root.current || (t && t !== document.body && t.closest("a, button, input, textarea, select, summary, [contenteditable]"))) return;
+      if (e.key === "Enter" || e.key === "Escape") handle.current(e);
+      else root.current.querySelector<HTMLElement>("input:not([disabled])")?.focus();
+    };
+    addEventListener("keydown", onKey, true);
+    return () => removeEventListener("keydown", onKey, true);
+  }, []);
+}
+
 // Row is one field: its label, its control, and what's wrong with it.
 function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store; focus: string; off: boolean }) {
   const id = "ed-" + f.key;
@@ -100,15 +125,16 @@ function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store;
         onInput={(e) => store.editField(f.key, (e.currentTarget as HTMLInputElement).value)} />
     );
   } else if (f.kind === "toggle") {
-    // The TUI's [x]: the checkbox is read aloud, the box drawn.
+    // The TUI's [x]: the checkbox is read aloud, the box drawn; a click on
+    // the box toggles it (it's in the checkbox's label).
     const box = v === true ? "[x]" : "[ ]"; // str:ok a drawn box, as form.go's
     control = (
-      <span class="box">
+      <label class="box">
         <input type="checkbox" id={id} data-f={f.key} class="sr-only" checked={v === true} disabled={off}
           aria-invalid={err ? "true" : undefined} aria-describedby={desc}
           onChange={(e) => store.editField(f.key, (e.currentTarget as HTMLInputElement).checked)} />
         <span aria-hidden="true" class={lit || undefined}>{box}</span>
-      </span>
+      </label>
     );
   } else {
     // The TUI's ◄ v ►: a radio group showing only the chosen option (the
@@ -119,7 +145,14 @@ function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store;
           <label key={o.value}>
             <input id={i === 0 ? id : undefined} data-f={f.key} type="radio" class="sr-only" name={id} value={o.value}
               checked={v === o.value} disabled={off} onChange={() => store.editField(f.key, o.value)} />
-            <span>{o.shown}</span>
+            <span onClick={(e) => {
+              // Only the chosen option shows: a click on it takes the next,
+              // as Space does in the TUI, and the group keeps the focus.
+              e.preventDefault();
+              const next = f.options[(i + 1) % f.options.length].value;
+              store.editField(f.key, next);
+              (e.currentTarget as HTMLElement).closest("[role=radiogroup]")?.querySelector<HTMLInputElement>(`input[value="${next}"]`)?.focus();
+            }}>{o.shown}</span>
           </label>
         ))}
       </span>

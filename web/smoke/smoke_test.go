@@ -210,6 +210,19 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")
 }
 
+// click clicks the middle of the element el (a JavaScript expression)
+// with the mouse.
+func click(t *testing.T, ws *websocket.Conn, ev func(string) string, el string) {
+	t.Helper()
+	var at struct{ X, Y float64 }
+	if err := json.Unmarshal([]byte(mustUnquote(t, ev(`(() => { const r = (`+el+`).getBoundingClientRect(); return JSON.stringify({ X: r.x + r.width / 2, Y: r.y + r.height / 2 }); })()`))), &at); err != nil {
+		t.Fatal(err)
+	}
+	for _, typ := range []string{"mousePressed", "mouseReleased"} {
+		devtools(t, ws, "Input.dispatchMouseEvent", map[string]any{"type": typ, "x": at.X, "y": at.Y, "button": "left", "clickCount": 1})
+	}
+}
+
 // ctrlO presses Ctrl+O.
 func ctrlO(t *testing.T, ws *websocket.Conn) {
 	t.Helper()

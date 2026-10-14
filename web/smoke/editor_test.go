@@ -46,16 +46,33 @@ func TestEditor(t *testing.T) {
 	if got := ev(`kilnPage.sent.some(a => a.Do === "input")`); got != "false" {
 		t.Error("typing in the editor went to the chat input")
 	}
+	// Refused again with focus already on Port: it's focused anew, so a
+	// screen reader reads the field and its error again.
+	ev(`window.portFocus = 0; ` + field("port") + `.addEventListener("focus", () => window.portFocus++)`)
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Problems" && e.Op === "save_world").length === 2 && window.portFocus > 0 && document.activeElement === `+field("port"), "refused again, Port focused anew")
 
 	// A choice: ↓ on the chosen radio picks the next (the browser's radio
 	// keys). Then the port put back, Enter: saved, back at the filter.
 	ev(`document.querySelector("details").open = true`)
 	waitFor(t, ev, `document.querySelector("details[open]")`, "the extras shown")
+	// With the mouse: a click on the shown value takes the next, and a
+	// click on the drawn box toggles it (twice, so TLS stays on).
+	click(t, ws, ev, `document.querySelector('[name="ed-reconnect"]:checked + span')`)
+	waitFor(t, ev, `document.querySelector('[name="ed-reconnect"]:checked').value === "on"`, "a click chose on")
+	click(t, ws, ev, `document.querySelector("#ed-tls + [aria-hidden]")`)
+	waitFor(t, ev, `!`+field("tls")+`.checked`, "a click on the box turned TLS off")
+	click(t, ws, ev, `document.querySelector("#ed-tls + [aria-hidden]")`)
+	waitFor(t, ev, field("tls")+`.checked`, "and on again")
 	ev(`document.querySelector('[name="ed-reconnect"]:checked').focus()`)
 	pressKey(t, ws, "ArrowDown", 40)
-	waitFor(t, ev, `document.querySelector('[name="ed-reconnect"]:checked').value === "on"`, "↓ chose on")
+	waitFor(t, ev, `document.querySelector('[name="ed-reconnect"]:checked').value === "off"`, "↓ chose off")
 	ev(field("port") + `.select()`)
 	devtools(t, ws, "Input.insertText", map[string]any{"text": port})
+	// A click on the scrollback leaves the keys with the editor: Enter
+	// still saves.
+	click(t, ws, ev, `document.querySelector(".scroll")`)
+	waitFor(t, ev, `document.activeElement === document.body`, "focus on nothing")
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Saved" && e.Op === "save_world") && !`+field("port")+` && document.activeElement === `+filter, "saved, back at the filter")
 	waitFor(t, ev, `document.querySelector('[role="status"]').textContent.includes(`+jsString(str.EditorSaved("fake"))+`)`, "the status says saved")
