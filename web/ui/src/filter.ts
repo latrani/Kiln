@@ -1,6 +1,8 @@
 // The filter panel's rules, as the TUI's (internal/ui/filter.go): what it
 // lists, how each entry reads, and its keys. Go holds the filter and the
 // folds (the Filter event); the page holds which entry is highlighted.
+import { logShows } from "./store.ts";
+import type { Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
 // FilterItem is a thing the filter can hide or show only: a tag, a text,
@@ -63,4 +65,60 @@ const panelKeys: Record<string, PanelKey> = {
 export function filterKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }): PanelKey | undefined {
   if (e.ctrlKey || e.altKey || e.metaKey) return undefined;
   return panelKeys[e.key];
+}
+
+// togglePanel is f, or the Filter chip, as the TUI's togglePanel: the
+// panel opens on its first entry, focus going to it, or closes. Only in
+// log mode.
+export function togglePanel(store: Store): void {
+  const s = store.state, k = s.active;
+  if (!logShows(s, k)) return;
+  if (s.logView[k]?.panel) {
+    closePanel(store);
+    return;
+  }
+  store.setLogView(k, { panel: { sel: panelRows(s.filters[k]?.Entries ?? [])[0].key, follow: true } });
+}
+
+// closePanel closes the panel, focus going back to the log.
+export function closePanel(store: Store): void {
+  store.setLogView(store.state.active, { panel: undefined });
+  globalThis.document?.querySelector<HTMLElement>(".log")?.focus();
+}
+
+// panelAct does what a panel key asks, as the TUI's panelKey: ↑/↓ move
+// the highlight (focus following); h and o hide or show only its entry;
+// ←/→ fold a tag shut or open; Enter on + Text asks for a text; x
+// removes a text row, the highlight moving down first so one stays; Esc
+// and f close the panel.
+export function panelAct(store: Store, does: PanelKey): void {
+  const s = store.state, k = s.active, p = s.logView[k]?.panel;
+  if (!p) return;
+  const rows = panelRows(s.filters[k]?.Entries ?? []);
+  const sel = fixSel(rows, p.sel);
+  const r = rows.find((r) => r.key === sel)!;
+  const act = s.act ?? (() => {});
+  const move = (to: string) => store.setLogView(k, { panel: { sel: to, follow: true } });
+  switch (does) {
+    case "up": move(moveSel(rows, sel, -1)); break;
+    case "down": move(moveSel(rows, sel, 1)); break;
+    case "hide":
+    case "only":
+      if (r.kind === "entry") act({ Do: does, Key: k, Item: r.e.Item });
+      break;
+    case "shut":
+    case "open":
+      if (r.kind === "entry" && !r.e.Item.Text) act({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: does === "shut" });
+      break;
+    case "add":
+      if (r.kind === "add") store.setLogView(k, { prompt: { kind: "filter", value: "" } });
+      break;
+    case "remove":
+      if (r.kind === "entry" && r.e.Item.Text) {
+        move(moveSel(rows, sel, 1));
+        act({ Do: "remove_text", Key: k, Term: r.e.Item.Name });
+      }
+      break;
+    case "close": closePanel(store); break;
+  }
 }

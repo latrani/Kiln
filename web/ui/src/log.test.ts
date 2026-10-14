@@ -44,7 +44,7 @@ test("segments mark every case-insensitive, literal match", () => {
 
 test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => logKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
-  assert.deepEqual(["/", "n", "N", "g", "e", "c", "t", "Escape"].map((x) => k(x)), ["find", "older", "newer", "date", "export", "copy", "tags", "back"]);
+  assert.deepEqual(["/", "n", "N", "g", "f", "e", "c", "t", "Escape"].map((x) => k(x)), ["find", "older", "newer", "date", "filter", "export", "copy", "tags", "back"]);
   assert.equal(k("a", { ctrlKey: true }), undefined, "Ctrl+A stays the browser's");
   assert.equal(k("a", { metaKey: true }), undefined, "and Cmd+A");
   assert.equal(k("n", { ctrlKey: true }), undefined);
