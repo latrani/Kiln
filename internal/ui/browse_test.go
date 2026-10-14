@@ -26,7 +26,7 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-var day24 = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
+var day24 = kilntest.LogDay
 
 // writeLog puts entries in fm/kit's log, one minute apart from start.
 func (h *harness) writeLog(start time.Time, lines ...string) {
@@ -89,15 +89,7 @@ func (h *harness) keys(ss ...string) {
 
 func (h *harness) br() *browse { return h.m.chars["fm/kit"].browse }
 
-var scene1 = []string{
-	"Rook says, \"Evening!\"",
-	"Sable waves a paw.",
-	"Mira pages: you around?",
-	"> :grins.",
-	"Kit grins.",
-	"Rook says, \"The lighthouse is dark.\"",
-	"Rook yawns.",
-}
+var scene1 = kilntest.LogScene
 
 func TestBrowseOpensAndCloses(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
