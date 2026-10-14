@@ -225,6 +225,9 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		if g == nil {
 			return nil, nil, true
 		}
+		if act.Do != "log_older" { //str:ok
+			l.clearLogStatus() // you've acted again (scrolling to older history isn't acting)
+		}
 	default:
 		return nil, nil, false
 	}

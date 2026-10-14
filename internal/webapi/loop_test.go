@@ -951,8 +951,8 @@ func TestFindAndStepsSayWhereTheyLand(t *testing.T) {
 	if at := event(b, "LogAt"); at != nil {
 		t.Errorf("N past the newest: %v", at)
 	}
-	if lg := event(b, "Log"); lg == nil || lg["Status"] != str.BrowseNoNewerMatches("apple") {
-		t.Errorf("N past the newest says so: %v", lg)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseNoNewerMatches("apple") {
+		t.Errorf("N past the newest says so: %v", st)
 	}
 }
 
@@ -985,11 +985,11 @@ func TestGotoDateLands(t *testing.T) {
 func TestTagsExportNameAndSay(t *testing.T) {
 	h, seqs := logWith(t, "one", "two")
 	b := h.act(fmt.Sprintf(`{"Do":"tags","Key":"fm/kit","Seq":%d}`, seqs[0]))
-	if lg := event(b, "Log"); lg == nil || lg["Status"] != str.BrowseNoLineTags() {
-		t.Errorf("tags: %v", lg)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseNoLineTags() {
+		t.Errorf("tags: %v", st)
 	}
 	b = h.act(`{"Do":"export_name","Key":"fm/kit","Format":"plain"}`)
-	if lg := event(b, "Log"); lg == nil || lg["Status"] != str.BrowseMarkRange() || event(b, "ExportName") != nil {
+	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseMarkRange() || event(b, "ExportName") != nil {
 		t.Errorf("nothing marked: %v", types(b))
 	}
 	h.act(fmt.Sprintf(`{"Do":"range","Key":"fm/kit","Start":%d,"End":%d}`, seqs[0], seqs[1]))
@@ -1000,5 +1000,23 @@ func TestTagsExportNameAndSay(t *testing.T) {
 	b = h.act(`{"Do":"say","Text":"hello","Err":true}`)
 	if st := event(b, "Status"); st == nil || st["Text"] != "hello" || st["Err"] != true {
 		t.Errorf("say: %v", st)
+	}
+}
+
+// Log mode's message goes to the status line, timed as any status, and
+// acting in log mode again drops it, as the TUI's takeLogStatus and
+// clearLogStatus: it never lingers over how many lines are selected.
+func TestLogStatusIsTheStatusLinesUntilYouActAgain(t *testing.T) {
+	h, seqs := logWith(t, "one", "two")
+	b := h.act(fmt.Sprintf(`{"Do":"tags","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseNoLineTags() {
+		t.Fatalf("tags on the status line: %v", types(b))
+	}
+	if lg := event(b, "Log"); lg != nil && lg["Status"] != "" {
+		t.Errorf("still log mode's own: %v", lg["Status"])
+	}
+	b = h.act(fmt.Sprintf(`{"Do":"extend","Key":"fm/kit","Seq":%d}`, seqs[0])) // nothing marked: does nothing, says nothing
+	if st := event(b, "Status"); st == nil || st["Text"] != "" {
+		t.Errorf("acting again leaves it: %v", st)
 	}
 }

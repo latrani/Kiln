@@ -43,6 +43,7 @@ type Loop struct {
 	onDisk        map[string]string // the drafts last written
 	lk            looks             // the theme as last sent
 	landed        []any             // LogAt events waiting for the turn's batch; see land
+	logStatus     int               // the status Gen log mode's message became; see takeLogStatus
 }
 
 // Options are how Run starts.
@@ -161,6 +162,7 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 		}
 		extra, effs, all := l.step(msg)
 		quit := l.perform(effs)
+		l.takeLogStatus()
 		l.send(append(append(l.events(effs, all), extra...), l.takeLanded()...))
 		if quit {
 			return

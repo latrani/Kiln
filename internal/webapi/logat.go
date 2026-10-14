@@ -26,3 +26,25 @@ func (l *Loop) takeLanded() []any {
 	l.landed = nil
 	return out
 }
+
+// takeLogStatus moves a message the showing character's log mode just
+// set to the status line, timed as any status, as the TUI's.
+func (l *Loop) takeLogStatus() {
+	c := l.a.Char(l.a.Active())
+	if c == nil || c.Log == nil || c.Log.Status == "" {
+		return
+	}
+	l.a.SetStatus(c.Log.StatusErr, c.Log.Status)
+	l.logStatus = l.a.Status().Gen
+	c.Log.ClearStatus()
+}
+
+// clearLogStatus drops log mode's message when you act in log mode
+// again, as the TUI's. A newer message (log mode's or anyone's) stays:
+// it's news.
+func (l *Loop) clearLogStatus() {
+	if l.logStatus != 0 && l.a.Status().Gen == l.logStatus {
+		l.a.ClearStatus()
+	}
+	l.logStatus = 0
+}
