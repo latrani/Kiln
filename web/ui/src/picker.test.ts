@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { answered, choose, editorKey, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { answered, choose, editorKey, fixPick, logToggleKey, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
 import { Store } from "./store.ts";
 
 const worlds = [
@@ -159,3 +159,9 @@ test("Alt+T goes by the letter where there is one, by the key's place where the 
   assert.notEqual(editorKey(alt("†", "KeyT"), on("fm/kit")), undefined, "a Mac's Option+T");
 });
 const key_ = (k: string) => key(k);
+
+test("Ctrl+L, and only Ctrl+L, toggles log mode", () => {
+  assert.equal(logToggleKey(key("l", { ctrlKey: true })), true);
+  assert.equal(logToggleKey(key("l", { metaKey: true })), false, "Cmd+L is the address bar");
+  assert.equal(logToggleKey(key("l", { ctrlKey: true, shiftKey: true })), false);
+});

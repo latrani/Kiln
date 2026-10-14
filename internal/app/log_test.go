@@ -306,3 +306,22 @@ func TestNewRangeOrdersItsEnds(t *testing.T) {
 		t.Errorf("start %v end %v", g.Start, g.End)
 	}
 }
+
+func TestLineTagsSaysWhoseStyleEachTakes(t *testing.T) {
+	styled := func(tag string) (string, bool) {
+		switch tag {
+		case "page":
+			return "page", true
+		case "page/ooc":
+			return "page", true
+		}
+		return "", false
+	}
+	if got := LineTags(nil, styled); got != str.BrowseNoLineTags() {
+		t.Errorf("no tags: %q", got)
+	}
+	want := str.BrowseLineTags(strings.Join([]string{"page", str.BrowseTagAs("page/ooc", "page"), str.BrowseTagUnstyled("x")}, str.Separator()))
+	if got := LineTags([]string{"page", "page/ooc", "x"}, styled); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

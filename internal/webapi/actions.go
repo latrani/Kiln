@@ -21,6 +21,7 @@ type Action struct {
 	Seq, Start, End, Epoch, Cols, Rows                 int
 	N                                                  int // numbers input, submit, older and newer (see feed.Input.Ack); step's distance; next_unread's direction
 	In, Shut, Save                                     bool
+	Err                                                bool // say's
 	Item                                               *scene.Item
 	WorldSettings                                      *config.WorldSettings
 	CharSettings                                       *config.CharacterSettings
@@ -139,6 +140,8 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	case "quit": //str:ok
 		effs = a.Quit()
+	case "say": //str:ok
+		a.SetStatus(act.Err, act.Text)
 	default:
 		var ok bool
 		if extra, effs, ok = l.doLog(act); !ok {
@@ -205,7 +208,10 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	}
 	switch act.Do {
 	case "log": //str:ok
+		// Opened, or shown again: what the status said was about before,
+		// as the TUI's openBrowse.
 		a.OpenLog(act.Key)
+		a.ClearStatus()
 		return nil, nil, true
 	case "log_close": //str:ok
 		a.CloseLog(act.Key)
@@ -217,10 +223,13 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	}
 	at := func(seq int) *app.LogLine { return lineAt(g, seq) }
 	switch act.Do {
-	case "log_older", "mark", "range", "extend", "exclude", "find", "find_older", "stop_search", //str:ok
-		"goto_date", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
+	case "log_older", "mark", "range", "extend", "exclude", "find", "find_older", "find_newer", "stop_search", //str:ok
+		"goto_date", "tags", "export_name", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
 		if g == nil {
 			return nil, nil, true
+		}
+		if act.Do != "log_older" { //str:ok
+			l.clearLogStatus() // you've acted again (scrolling to older history isn't acting)
 		}
 	default:
 		return nil, nil, false
@@ -242,13 +251,31 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	case "exclude": //str:ok
 		g.ToggleExclude(at(act.Seq))
 	case "find": //str:ok
-		effs = g.SetFind(act.Term, at(act.Seq), nil)
+		effs = g.SetFind(act.Term, at(act.Seq), l.land(act.Key))
 	case "find_older": //str:ok
-		effs = g.FindOlder(at(act.Seq), false, nil)
+		effs = g.FindOlder(at(act.Seq), false, l.land(act.Key))
+	case "find_newer": //str:ok
+		if ln := g.FindNewer(at(act.Seq)); ln != nil {
+			l.land(act.Key)(ln)
+		}
 	case "stop_search": //str:ok
 		g.StopSearch()
 	case "goto_date": //str:ok
-		effs = g.GotoDate(act.Day, nil)
+		effs = g.GotoDate(act.Day, l.land(act.Key))
+	case "tags": //str:ok
+		if ln := at(act.Seq); ln != nil {
+			styled := func(string) (string, bool) { return "", false }
+			if hl := l.lk.highlighter(act.Key); hl != nil {
+				styled = hl.Styled
+			}
+			g.SetStatus(false, app.LineTags(ln.Tags, styled))
+		}
+	case "export_name": //str:ok
+		if g.ExportReady() {
+			if name, ok := g.ExportFileName(act.Format, ""); ok {
+				extra = append(extra, ExportName{Key: act.Key, Format: act.Format, Name: name})
+			}
+		}
 	case "copy": //str:ok
 		effs = g.Copy()
 	case "export": //str:ok
@@ -271,7 +298,7 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		g.RemoveText(act.Term)
 		g.Refilter()
 	}
-	return nil, effs, true
+	return extra, effs, true
 }
 
 // lineAt is g's loaded line numbered seq; nil if there's none (or no g).

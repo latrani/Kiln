@@ -1,4 +1,6 @@
 import { loadingText } from "../boot.ts";
+import type { LogState } from "../log.ts";
+import { logShows } from "../store.ts";
 import type { State } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -25,9 +27,14 @@ export function StatusLine({ state }: { state: State }) {
     else polite = state.status.Text;
   } else if (!state.saving) polite = str.webNotSaving();
   const loading = state.phase === "loading" && state.progress;
-  // With no news, the character showing's connection, as the TUI's.
+  // With no news, the character showing's connection, as the TUI's; in
+  // log mode how many lines are selected. (Log mode's messages come as
+  // the status: Go moves them there, as the TUI's takeLogStatus.)
   const c = state.chars[state.active];
-  const conn = state.phase === "running" && !state.status?.Text && c ? (c.State === 2 ? c.ConnectedSince : stateName(c.State)) : "";
+  const g = c && logShows(state, state.active) ? (state.logs[state.active] as LogState) : undefined;
+  const conn = state.phase === "running" && !state.status?.Text && c
+    ? (g ? str.viewSelected(g.Selected) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
+    : "";
   return (
     <div class={`status ${roleClass("status")}`}>
       {loading && <span>{loadingText(state.progress!.got, state.progress!.total)}</span>}

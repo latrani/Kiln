@@ -147,21 +147,7 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 // lineTags says which tags l has, and for each one without a style of
 // its own, whose style it takes.
 func (b *browse) lineTags(l *app.LogLine) string {
-	if len(l.Tags) == 0 {
-		return str.BrowseNoLineTags()
-	}
-	parts := make([]string, len(l.Tags))
-	for i, tag := range l.Tags {
-		switch styled, ok := b.cs.hl.Styled(tag); {
-		case !ok:
-			parts[i] = str.BrowseTagUnstyled(tag)
-		case styled != tag:
-			parts[i] = str.BrowseTagAs(tag, styled)
-		default:
-			parts[i] = tag
-		}
-	}
-	return str.BrowseLineTags(strings.Join(parts, str.Separator()))
+	return app.LineTags(l.Tags, b.cs.hl.Styled)
 }
 
 func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {

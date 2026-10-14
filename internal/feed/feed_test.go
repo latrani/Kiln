@@ -560,3 +560,24 @@ func TestWorldsAreInThePickersOrderWithAliases(t *testing.T) {
 		t.Errorf("ash's aliases %v", fm[0].Aliases)
 	}
 }
+
+func TestLogCarriesTheExportFormat(t *testing.T) {
+	a, dir := newApp(t)
+	p := filepath.Join(dir, "config.toml")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, append([]byte("export_format = \"html\"\n"), b...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	open(t, a, "fm/kit")
+	f := New(a)
+	a.OpenLog("fm/kit")
+	if l, _ := find[Log](f.Turn(nil)); l.ExportFormat != "html" {
+		t.Errorf("ExportFormat %q, want html", l.ExportFormat)
+	}
+}

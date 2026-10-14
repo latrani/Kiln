@@ -189,3 +189,9 @@ export function answered(store: Store, a: Answer): void {
     store.closePicker();
   }
 }
+
+// logToggleKey reports whether a keydown is Ctrl+L, which shows and hides
+// log mode, as the TUI's. Cmd+L stays the browser's (the address bar).
+export function logToggleKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean; shiftKey: boolean }): boolean {
+  return e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "l";
+}

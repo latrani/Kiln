@@ -1159,6 +1159,12 @@ func WebLoadingSize(got, total any) string {
 	return get("web.loading_size", map[string]any{"got": got, "total": total})
 }
 
+// WebLog is web.log: "Log"
+func WebLog() string { return get("web.log", nil) }
+
+// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · n/N · g date · t tags · e export · c copy · esc back"
+func WebLogHints() string { return get("web.log_hints", nil) }
+
 // WebNeedsJs is web.needs_js: "Kiln needs JavaScript."
 func WebNeedsJs() string { return get("web.needs_js", nil) }
 

@@ -309,7 +309,11 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 		return nil
 	}
 	items := g.Items() // sync the filter first, as the TUI does
-	put(idLog+c.Key, logState(c.Key, g))
+	format := ""
+	if cfg := f.a.Config(); cfg != nil {
+		format = cfg.ExportFormat
+	}
+	put(idLog+c.Key, logState(c.Key, g, format))
 	var evs []Event
 	if op, ls, ok := f.diff(f.logs, c.Key, g, 0, len(g.Lines), func(i int) *app.Line { return &g.Lines[i].Line }); ok {
 		evs = append(evs, LogLines{Key: c.Key, Epoch: f.logs[c.Key].epoch, Op: op, Lines: ls})
@@ -330,9 +334,10 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 	return evs
 }
 
-func logState(k string, g *app.Log) Log {
+func logState(k string, g *app.Log, format string) Log {
 	l := Log{Key: k, Open: true, Find: g.Find, Status: g.Status, StatusErr: g.StatusErr,
-		Searching: g.Searching, Loading: g.Loading, HistDone: g.HistDone, Selected: len(g.Selection())}
+		Searching: g.Searching, Loading: g.Loading, HistDone: g.HistDone, Selected: len(g.Selection()),
+		ExportFormat: format}
 	if g.Start != nil {
 		s := g.Start.Seq
 		l.Start = &s
