@@ -118,7 +118,8 @@ interface PickerKeyish {
 
 // pickerKey is what a key does to the picker from anywhere on the page:
 // Ctrl+O opens or closes it, as the TUI's; Enter on a world's overview
-// (active "=world", which has no input) opens it, as the TUI's. Ctrl+O
+// (active "=world", which has no input) opens it, as the TUI's, unless
+// the picker or an editor is up, which has the keys. Ctrl+O
 // where it does nothing (naming a character or in an editor, as the
 // TUI's forms, or Kiln not running) is still eaten, so the browser doesn't open a file
 // or a line.
@@ -128,7 +129,7 @@ export function pickerKey(e: PickerKeyish, s: Pick<State, "active" | "phase" | "
     if (s.phase !== "running" || s.picker?.adding !== undefined || s.picker?.edit) return "eat";
     return s.picker ? "close" : "open";
   }
-  if (e.key === "Enter" && plain && e.onBody && s.active.startsWith("=") && s.phase === "running") return "open";
+  if (e.key === "Enter" && plain && e.onBody && s.active.startsWith("=") && s.phase === "running" && !s.picker) return "open";
   return undefined;
 }
 

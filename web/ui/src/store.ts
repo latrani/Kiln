@@ -204,8 +204,9 @@ export class Store {
       // closing): the highlight stays on a row there is, as the TUI's
       // fixPick after a reload. Opened before any worlds came, it was on
       // + World for want of anything else: it starts on the first
-      // character once there are some.
-      const was = this.state.worlds.length ? s.picker.sel : "";
+      // character once there are some (unless this batch moved it, as a
+      // first world saved does to its + Character).
+      const was = this.state.worlds.length || s.picker.sel !== "+" ? s.picker.sel : "";
       const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter), was);
       if (sel !== s.picker.sel) s = { ...s, picker: { ...s.picker, sel } };
     }
@@ -265,9 +266,16 @@ export class Store {
   // openPicker shows the picker, its filter empty and its highlight on
   // the first character.
   openPicker(): void {
-    this.state = { ...this.state, picker: { filter: "", sel: "" } };
+    // An editor up from the main view stays with what it was opened on,
+    // as the TUI's + Connection parks it; one in the picker is kept as a
+    // draft.
+    let st = this.state;
+    const ed = st.picker?.edit;
+    if (ed) st = ed.closeAll && exists(st, st.active) ? { ...st, parked: { ...st.parked, [st.active]: ed } } : stash(st, ed);
+    this.state = { ...st, picker: { filter: "", sel: "" } };
     this.setPicker({});
   }
+
 
   // closePicker goes back to the open characters.
   closePicker(): void {
@@ -375,3 +383,8 @@ export class Store {
     }
   }
 }
+
+// listing reports whether the sidebar lists the picker, as the TUI's:
+// not under an editor opened from the main view (Ctrl+T, /edit), which
+// leaves the characters showing so you can switch away from it.
+export const listing = (s: State): boolean => !!s.picker && !s.picker.edit?.closeAll;

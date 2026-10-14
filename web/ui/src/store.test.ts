@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Store } from "./store.ts";
+import { listing, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import type { LineData } from "./store.ts";
 
@@ -276,4 +276,37 @@ test("an editor opened in the picker stays open when the active character change
   s.apply([fmSettings]);
   s.apply([{ type: "Active", Key: "fm/rook" }]);
   assert.ok(editor(s));
+});
+
+test("a first world saved lands on its + Character, though the worlds came in the same batch", () => {
+  const s = new Store();
+  s.set({ phase: "running", act: () => {} });
+  s.openPicker();
+  s.openEditor({ kind: "new_world" }, false);
+  s.apply([{ ...fmSettings, World: "" }]);
+  s.editField("id", "fm");
+  s.sendEditor({ Do: "add_world" });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }] }, { type: "Saved", Op: "add_world" }]);
+  assert.equal(s.state.picker?.sel, "+fm");
+});
+
+test("+ Connection with a main-view editor up parks it on its character, as the TUI's", () => {
+  const { s } = running();
+  s.openEditor({ kind: "char", world: "fm", char: "kit" }, true);
+  s.apply([kitSettings]);
+  s.editField("aliases", "x");
+  s.openPicker();
+  assert.equal(editor(s), undefined, "the picker, fresh");
+  assert.equal(s.state.parked["fm/kit"]?.values.aliases, "x", "the edits kept with Kit");
+});
+
+test("the sidebar lists the picker only when no main-view editor is up, as the TUI's listing", () => {
+  const { s } = running();
+  assert.equal(listing(s.state), false);
+  s.openPicker();
+  assert.equal(listing(s.state), true);
+  s.closePicker();
+  s.openEditor({ kind: "char", world: "fm", char: "kit" }, true);
+  s.apply([kitSettings]);
+  assert.equal(listing(s.state), false, "Ctrl+T's editor keeps the characters showing");
 });

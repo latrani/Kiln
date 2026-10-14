@@ -2,6 +2,7 @@ import { useLayoutEffect } from "preact/hooks";
 import { choose, pickerRows, selKey } from "../picker.ts";
 import type { PickRow } from "../picker.ts";
 import { sidebarRows } from "../sidebar.ts";
+import { listing } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -17,7 +18,7 @@ const connecting = 1, connected = 2;
 // "+ Connection" opens the picker. With the picker open, it's the
 // picker's list instead; later, in log mode, the filter panel.
 export function Sidebar({ state, store }: { state: State; store: Store }) {
-  if (state.picker) return <PickerList state={state} store={store} />;
+  if (listing(state)) return <PickerList state={state} store={store} />;
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (
     <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>

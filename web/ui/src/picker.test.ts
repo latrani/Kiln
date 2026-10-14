@@ -147,3 +147,7 @@ test("not Ctrl+T: Shift, Meta, or Kiln not running", () => {
 test("Ctrl+O while an editor is open does nothing, as the TUI's", () => {
   assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { picker: { filter: "", sel: "", edit: {} } as any })), "eat");
 });
+
+test("Enter on an overview with the picker or an editor up isn't the overview's", () => {
+  assert.equal(pickerKey(key("Enter"), at("=fm", { picker: { filter: "", sel: "=fm" } })), undefined);
+});
