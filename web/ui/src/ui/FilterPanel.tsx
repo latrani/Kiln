@@ -7,8 +7,10 @@ import { roleClass } from "../theme.ts";
 // FilterPanel is log mode's filter panel in the sidebar, as the TUI's:
 // each entry its name (indented by depth; ▼ ► on a group, × on a text
 // row) and its Hide and Only, a blank row after each top-level group, +
-// Text last. Hide and Only are toggle buttons; each entry is a group
-// named by its entry, so they're read with it. The highlight is the
+// Text last. Hide and Only are toggle buttons; each entry holds a group
+// named by its entry, so they're read with it. A group's ▼ ► is its fold
+// button, named by the entry too, as it's the TUI's fold control. The
+// highlight is the
 // roving focus: ↑/↓ move it, and only its entry's controls are in the
 // tab order. Its keys work while it has focus (filter.ts).
 export function FilterPanel({ state, store }: { state: State; store: Store }) {
@@ -60,12 +62,18 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
           // The glyph and • light with the name, as the TUI's.
           const look = roleClass(on ? "filter.selected" : "filter.item");
           return [
-            <li key={r.key} class="fentry" role="group" aria-labelledby={id}>
+            // The group sits inside the list item, so the list keeps its
+            // items.
+            <li key={r.key} class="fentry"><div role="group" aria-labelledby={id}>
               <div class="frow">
                 {pad}
-                {r.glyph && <span aria-hidden="true" class={`fglyph ${look}`} onClick={() => glyphClick(store, r.key)}>{r.glyph + " "}</span>}
+                {/* A click focuses the button, as not every browser does. */}
+                {e.Parent
+                  ? <button class={`fglyph ${look}`} tabindex={tab} aria-expanded={!e.Folded} aria-labelledby={id}
+                      onClick={(ev) => { ev.currentTarget.focus(); glyphClick(store, r.key); }}>{r.glyph + " "}</button>
+                  : r.glyph && <span aria-hidden="true" class={`fglyph ${look}`} onClick={() => glyphClick(store, r.key)}>{r.glyph + " "}</span>}
                 <button id={id} class={`fname ${on ? "fsel " : ""}${look}`} tabindex={tab}
-                  aria-expanded={e.Parent ? !e.Folded : undefined} onClick={() => panelClick(store, r.key)}>{r.name}</button>
+                  onClick={() => panelClick(store, r.key)}>{r.name}</button>
                 {r.after && <span aria-hidden="true" class={look}>{" " + r.after}</span>}
               </div>
               <div class="frow">
@@ -76,7 +84,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                 <button class={roleClass(e.Only ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Only}
                   onClick={() => panelClick(store, r.key, "only")}>{str.filterOnly()}</button>
               </div>
-            </li>,
+            </div></li>,
             ...(r.endsGroup ? [<li key={r.key + "\n"} aria-hidden="true"> </li>] : []),
           ];
         })}

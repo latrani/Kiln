@@ -23,19 +23,19 @@ test("the panel takes the sidebar's place, named Filter, in the filter role", ()
   assert.match(nav, new RegExp(`<nav class="side filter-panel ${roleClass("filter")}" aria-label="${str.webFilter()}"`));
 });
 
-test("each entry: a group named by its name, Hide and Only as toggle buttons; indented by depth", () => {
+test("each entry: a list item holding a group named by its name, Hide and Only as toggle buttons; indented by depth", () => {
   const nav = page(entries, "g:page");
-  assert.match(nav, /<li class="fentry" role="group" aria-labelledby="flt-1">/);
-  assert.match(nav, new RegExp(`<button id="flt-1" class="fname fsel ${roleClass("filter.selected")}" tabindex="0" aria-expanded="true">page</button>`));
+  assert.match(nav, /<li class="fentry"><div role="group" aria-labelledby="flt-1">/);
+  assert.match(nav, new RegExp(`<button id="flt-1" class="fname fsel ${roleClass("filter.selected")}" tabindex="0">page</button>`), "the name doesn't fold, so it says nothing of folding");
   assert.match(nav, new RegExp(`<button class="${roleClass("filter.button.on")}" tabindex="0" aria-pressed="true">${str.filterHide()}</button>`), "page is hidden: Hide lit, pressed");
   assert.match(nav, new RegExp(`<button id="flt-2" class="fname ${roleClass("filter.item")}" tabindex="-1">ooc</button>`), "not highlighted: out of the tab order");
   assert.ok(nav.includes(`<div class="frow">   <button id="flt-2"`), "page/ooc: 1 + 2 spaces in");
   assert.match(nav, new RegExp(`tabindex="-1" aria-pressed="true">${str.filterOnly()}</button>`), "ooc is Only");
 });
 
-test("glyphs and + Text: ▼ on an open parent, × on a text row; + Text last, in filter.add", () => {
+test("glyphs and + Text: ▼ on an open parent, a fold button named by it; × on a text row; + Text last, in filter.add", () => {
   const nav = page(entries);
-  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.item")}">${str.glyph.open} </span>`));
+  assert.ok(nav.includes(`<button class="fglyph ${roleClass("filter.item")}" tabindex="-1" aria-expanded="true" aria-labelledby="flt-1">${str.glyph.open} </button>`));
   assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.item")}">${str.glyph.remove} </span><button id="flt-3"`));
   assert.ok(nav.includes(str.filterTextItem("x").replaceAll(`"`, "&quot;")), "the text row's name, its quotes escaped in HTML");
   assert.match(nav, new RegExp(`<button class="fname ${roleClass("filter.add")}" tabindex="-1">${str.filterAddText().replace("+", "\\+")}</button></li></ul>$`));
@@ -48,6 +48,6 @@ test("a highlight Go no longer lists falls back to the first entry", () => {
 
 test("the highlight lights the glyph and • with the name, as the TUI's", () => {
   const nav = page([E("page", { Parent: true, Folded: true, FilteredUnder: true })], "g:page");
-  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.selected")}">${str.glyph.collapsed} </span><button id="flt-0"`));
+  assert.ok(nav.includes(`<button class="fglyph ${roleClass("filter.selected")}" tabindex="0" aria-expanded="false" aria-labelledby="flt-0">${str.glyph.collapsed} </button><button id="flt-0"`), "folded: ►, not expanded, in the tab order with its entry");
   assert.ok(nav.includes(`</button><span aria-hidden="true" class="${roleClass("filter.selected")}"> ${str.glyph.filtered}</span></div>`));
 });
