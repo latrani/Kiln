@@ -110,8 +110,15 @@ export function logAct(store: Store, does: LogKey): void {
   }
 }
 
-// toggleLog is Ctrl+L, as the TUI's. (For now it only opens log mode;
-// hiding and showing it again come with Ctrl+L itself.)
+// toggleLog is Ctrl+L, as the TUI's: log mode showing is hidden, kept
+// as it was; hidden, it shows again; not open, it opens for the active
+// character. Nothing with no character showing.
 export function toggleLog(store: Store): void {
-  store.state.act?.({ Do: "log", Key: store.state.active });
+  const s = store.state, k = s.active;
+  if (!s.chars[k]) return;
+  if (s.logs[k]?.Open) {
+    store.setLogView(k, { hidden: !s.logView[k]?.hidden });
+    return;
+  }
+  s.act?.({ Do: "log", Key: k });
 }

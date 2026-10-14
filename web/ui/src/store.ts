@@ -3,6 +3,7 @@
 import { edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
 import type { Editor, SettingsEvent, Target } from "./editor.ts";
 import { fixPick, pickerRows } from "./picker.ts";
+import * as str from "./str.gen.ts";
 import { Typing } from "./typing.ts";
 import type { Span, ThemeEvent } from "./types.ts";
 
@@ -295,6 +296,10 @@ export class Store {
   // openPicker shows the picker, its filter empty and its highlight on
   // the first character.
   openPicker(): void {
+    if (logShows(this.state, this.state.active)) {
+      this.state.act?.({ Do: "say", Text: str.pickerBlockedByLog(), Err: true });
+      return;
+    }
     // An editor up from the main view stays with what it was opened on,
     // as the TUI's + Connection parks it; one in the picker is kept as a
     // draft.
@@ -325,6 +330,10 @@ export class Store {
   // parked, as it was; otherwise Go's settings are asked for, and it
   // opens when they come.
   openEditor(t: Target, closeAll: boolean): void {
+    if (logShows(this.state, this.state.active)) {
+      this.state.act?.({ Do: "say", Text: str.pickerBlockedByLog(), Err: true });
+      return;
+    }
     const k = targetKey(t);
     let s = this.state;
     let ed: Editor | undefined;

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { toggleLog } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import type { LineData } from "./store.ts";
@@ -336,4 +337,36 @@ test("log view: hidden by Ctrl+L isn't shown; closing drops it; each character's
   assert.equal(s.state.logView["fm/kit"], undefined);
   s.apply([{ type: "Closed", Key: "fm/rook" }]);
   assert.equal(s.state.logView["fm/rook"], undefined);
+});
+
+test("in log mode the picker and the editor are refused, as the TUI's picker is", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" }, { type: "Log", Key: "fm/kit", Open: true }]);
+  s.openPicker();
+  assert.equal(s.state.picker, undefined);
+  assert.deepEqual(sent.at(-1), { Do: "say", Text: str.pickerBlockedByLog(), Err: true });
+  s.openEditor({ kind: "char", world: "fm", char: "kit" }, true);
+  assert.equal(sent.filter((a) => a.Do === "settings").length, 0);
+  s.setLogView("fm/kit", { hidden: true });
+  s.openPicker();
+  assert.ok(s.state.picker, "hidden by Ctrl+L: the picker opens");
+});
+
+test("toggleLog: open, hide, show again; nothing open, nothing", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  toggleLog(s);
+  assert.equal(sent.length, 0);
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" }]);
+  toggleLog(s);
+  assert.deepEqual(sent.at(-1), { Do: "log", Key: "fm/kit" });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true }]);
+  toggleLog(s);
+  assert.equal(logShows(s.state, "fm/kit"), false);
+  toggleLog(s);
+  assert.equal(logShows(s.state, "fm/kit"), true);
+  assert.equal(sent.filter((a) => a.Do === "log").length, 1, "shown again without asking Go");
 });
