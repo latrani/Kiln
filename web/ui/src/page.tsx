@@ -9,12 +9,13 @@ import { toggleLog } from "./log.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
 import type { Event, Store } from "./store.ts";
+import * as str from "./str.gen.ts";
 import { App } from "./ui/App.tsx";
 
 // effect does what Go asks of the page: a file to download (an export,
 // a backup), for /restore a backup to pick, for /open the picker, for
-// /edit an editor, for /log log mode, and Copy to the clipboard, best
-// effort (spec).
+// /edit an editor, for /log log mode, and Copy to the clipboard, saying
+// so when the browser refuses (spec).
 export const effect = (store: Store) => (e: Event): void => {
   if (e.effect === "SaveFile") {
     download(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
@@ -30,7 +31,17 @@ export const effect = (store: Store) => (e: Event): void => {
   } else if (e.effect === "Do" && e.Cmd === "/log") {
     toggleLog(store);
   } else if (e.effect === "Copy") {
-    navigator.clipboard?.writeText(String(e.Text ?? "")).catch((err) => console.error("copy", err));
+    // The browser may refuse (no clipboard here, or no user gesture by
+    // the time Go answers): say so, in place of Go's "copied".
+    const refused = () => store.state.act?.({ Do: "say", Text: str.webCopyRefused(), Err: true });
+    const clip = navigator.clipboard;
+    if (!clip) refused();
+    else {
+      clip.writeText(String(e.Text ?? "")).catch((err) => {
+        console.error("copy", err);
+        refused();
+      });
+    }
   }
 };
 

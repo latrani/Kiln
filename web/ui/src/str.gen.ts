@@ -942,6 +942,9 @@ export function webCharacters(): string { return `Characters`; }
 /** web.close_char: Close {name} */
 export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 
+/** web.copy_refused: the browser didn't allow the copy */
+export function webCopyRefused(): string { return `the browser didn't allow the copy`; }
+
 /** web.delete_again: Press again to delete {what} */
 export function webDeleteAgain(what: unknown): string { return `Press again to delete ${what}`; }
 

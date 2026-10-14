@@ -395,6 +395,10 @@ delete_again = "Press again to delete {what}"
 # Log mode's name for screen readers: the history you can select from.
 log = "Log"
 
+# The status line when log mode's c copied lines but the browser didn't
+# let the page put them on the clipboard.
+copy_refused = "the browser didn't allow the copy"
+
 # The filter panel's name for screen readers: the list of tags and texts
 # log mode can hide or show only.
 filter = "Filter"
