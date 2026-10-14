@@ -140,13 +140,6 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 	if setup != nil {
 		setup(s)
 	}
-	// A scenario with shots that have no golden yet skips, once it has
-	// taken them all (shoot).
-	t.Cleanup(func() {
-		if len(s.missing) > 0 && !t.Failed() {
-			t.Skipf("no golden yet for %s: run with -update to make them", strings.Join(s.missing, ", "))
-		}
-	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	loops := make(chan *webapi.Loop, 1)
@@ -218,6 +211,16 @@ func (s *scene) shot(scheme string) []byte {
 		s.t.Fatal(err)
 	}
 	return b
+}
+
+// done ends a scenario: skipped, once it has taken all its shots, if
+// any had no golden yet. (Not a Cleanup: a skip there can turn into a
+// bare FAIL.)
+func (s *scene) done() {
+	s.t.Helper()
+	if len(s.missing) > 0 {
+		s.t.Skipf("no golden yet for %s: run with -update to make them", strings.Join(s.missing, ", "))
+	}
 }
 
 // shoot checks the page, light and dark, against
@@ -298,6 +301,7 @@ func TestGoldenMain(t *testing.T) {
 	s.l.Call(func(a *app.App) { c := a.Char("fm/rook"); c.Unread, c.Priority = 3, true })
 	waitFor(t, s.ev, `document.querySelector(".side").textContent.includes("3")`, "Rook's unread")
 	s.shoot("main")
+	s.done()
 }
 
 func TestGoldenPicker(t *testing.T) {
@@ -306,6 +310,7 @@ func TestGoldenPicker(t *testing.T) {
 	ctrlO(t, s.ws)
 	waitFor(t, s.ev, `document.activeElement === document.querySelector('.bottom input[role="combobox"]')`, "the picker")
 	s.shoot("picker")
+	s.done()
 }
 
 func TestGoldenEditor(t *testing.T) {
@@ -321,6 +326,7 @@ func TestGoldenEditor(t *testing.T) {
 	s.typeIn("x")
 	waitFor(t, s.ev, `document.getElementById(`+port+`.id + "-err")`, "the port's error")
 	s.shoot("editor-error")
+	s.done()
 }
 
 func TestGoldenLog(t *testing.T) {
@@ -343,6 +349,7 @@ func TestGoldenLog(t *testing.T) {
 	pressKey(t, s.ws, "Enter", 13)
 	waitFor(t, s.ev, `document.querySelector("mark")`, "found")
 	s.shoot("log")
+	s.done()
 }
 
 func TestGoldenInput(t *testing.T) {
@@ -354,6 +361,7 @@ func TestGoldenInput(t *testing.T) {
 	s.l.Call(func(a *app.App) { a.SetStatus(true, notSent) })
 	waitFor(t, s.ev, `document.body.textContent.includes(`+jsString(notSent)+`)`, "the status")
 	s.shoot("input")
+	s.done()
 }
 
 func TestGoldenScrolled(t *testing.T) {
@@ -377,6 +385,7 @@ func TestGoldenScrolled(t *testing.T) {
 	}
 	devtools(t, s.ws, "Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": p.X, "y": p.Y})
 	s.shoot("scrolled")
+	s.done()
 }
 
 func TestGoldenPassword(t *testing.T) {
@@ -387,6 +396,7 @@ func TestGoldenPassword(t *testing.T) {
 	waitFor(t, s.ev, `document.activeElement === `+field, "the password field")
 	s.typeIn(kilntest.PasswordTyped)
 	s.shoot("password")
+	s.done()
 }
 
 func TestGoldenLogFilter(t *testing.T) {
@@ -406,4 +416,5 @@ func TestGoldenLogFilter(t *testing.T) {
 	s.letter("o")
 	waitFor(t, s.ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterAddText()), "+ Text")
 	s.shoot("log-filter")
+	s.done()
 }
