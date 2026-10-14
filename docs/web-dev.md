@@ -48,8 +48,10 @@ The page lives in `web/ui` (Preact, TypeScript, esbuild; Node 22.18 or
 later, which runs TypeScript directly): `npm ci` there once; `npm test` runs its tests (esbuild bundles each, Node runs them),
 `npm run check` type-checks.
 
-- `src/main.tsx`: the entry; `src/boot.ts` starts Kiln (tab lock, memfs,
-  IndexedDB, preset, the wasm) and `src/store.ts` holds what Go sends.
+- `src/main.tsx`: the entry; `src/page.tsx` is the page around Kiln
+  (the app, its keys, what Go asks of it), `src/boot.ts` starts Kiln
+  (tab lock, memfs, IndexedDB, preset, the wasm) and `src/store.ts`
+  holds what Go sends.
 - `src/theme.ts`: the `Theme` event as a stylesheet, the terminal's
   colors (Catppuccin), and the fold that draws a span.
 - `src/ui/`: one component per TUI part.
@@ -66,6 +68,36 @@ sends a line, waits for the echo, and checks every glyph Kiln draws is
 one cell wide in the bundled font. It needs Google Chrome
 (`$KILN_CHROME` names another binary) and is skipped without
 `KILN_SMOKE=1`.
+
+### Screenshot goldens
+
+`web/smoke`'s `TestGolden…` tests draw the TUI's golden scenarios (main,
+picker, editor, editor error, log, input, scrolled, password, log
+filter) on the page, light and dark, and compare each with
+`web/smoke/testdata/golden/<scenario>-<light|dark>.png`. They run with
+the smoke tests:
+
+```sh
+(cd web && KILN_SMOKE=1 go test ./smoke -run TestGolden -v)
+```
+
+A shot that differs leaves what the page drew and a diff (the golden,
+dimmed, with each differing pixel in magenta) in
+`web/smoke/testdata/golden/failed/`. After a change to the look you
+meant, rewrite the goldens, and look through them before committing:
+
+```sh
+(cd web && KILN_SMOKE=1 go test ./smoke -run TestGolden -args -update)
+```
+
+A scenario with no golden yet takes its shots, says so, and is skipped.
+`TestGoldenStable` checks that the same screen shot twice is the same.
+Go runs natively in these tests, over the same data as the TUI's
+goldens (`internal/kilntest/golden.go`). The page is a test-only build
+(`node build.mjs <dir> golden`, from `src/golden.tsx`) that talks to it
+over a WebSocket instead of running the wasm. A Chrome update can change
+how text is drawn and fail every golden: look at the diffs, then
+`-update`.
 
 Files are saved in the browser (IndexedDB) and come back on the next
 visit: config edits, worlds, TLS pins and logs. That's best effort:

@@ -8,12 +8,14 @@ import (
 	"errors"
 	"flag"
 	"image/png"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -22,9 +24,12 @@ import (
 	"github.com/coder/websocket"
 	"github.com/latrani/Kiln/internal/app"
 	kconfig "github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
+	kscene "github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/session"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/webapi"
 )
 
@@ -59,8 +64,9 @@ type scene struct {
 	logs  string // the log root
 	clock *goldenClock
 
-	mu    sync.Mutex
-	conns map[string]*kilntest.Conn
+	mu      sync.Mutex
+	conns   map[string]*kilntest.Conn
+	missing []string // shots with no golden yet; see shoot
 }
 
 // conn is the fake connection Dial gave k.
@@ -134,11 +140,23 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 	if setup != nil {
 		setup(s)
 	}
+	// A scenario with shots that have no golden yet skips, once it has
+	// taken them all (shoot).
+	t.Cleanup(func() {
+		if len(s.missing) > 0 && !t.Failed() {
+			t.Skipf("no golden yet for %s: run with -update to make them", strings.Join(s.missing, ", "))
+		}
+	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	loops := make(chan *webapi.Loop, 1)
 	mux := http.NewServeMux()
 	mux.Handle("/kiln/", http.StripPrefix("/kiln/", http.FileServer(http.Dir(page))))
+	// Go's field check, which the golden page asks for synchronously
+	// (golden.tsx), as the wasm answers kiln.check.
+	mux.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(webapi.CheckField(r.FormValue("field"), r.FormValue("value"))))
+	})
 	mux.HandleFunc("/bridge", func(w http.ResponseWriter, r *http.Request) {
 		c, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -177,7 +195,7 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 			time.Sleep(50 * time.Millisecond)
 		}
 	} else {
-		waitFor(t, s.ev, `document.querySelector('.bottom input[type="password"]')`, "the password form")
+		waitFor(t, s.ev, `document.querySelector('.bottom input[type="password"]')`, "the password field")
 	}
 	s.clock.Advance(time.Minute)
 	s.ev(`kilnPage.act({Do: "here"})`)
@@ -203,11 +221,14 @@ func (s *scene) shot(scheme string) []byte {
 }
 
 // shoot checks the page, light and dark, against
-// testdata/golden/<name>-<scheme>.png.
+// testdata/golden/<name>-<scheme>.png. A shot with no golden yet is
+// noted, and the scenario goes on.
 func (s *scene) shoot(name string) {
 	s.t.Helper()
 	for _, scheme := range []string{"light", "dark"} {
-		checkShot(s.t, filepath.Join("testdata", "golden", name+"-"+scheme+".png"), s.shot(scheme), *update)
+		if !checkShot(s.t, filepath.Join("testdata", "golden", name+"-"+scheme+".png"), s.shot(scheme), *update) {
+			s.missing = append(s.missing, name+"-"+scheme)
+		}
 	}
 }
 
@@ -230,4 +251,159 @@ func TestGoldenStable(t *testing.T) {
 			t.Errorf("%s: %d pixels differ between two shots of the same screen", scheme, n)
 		}
 	}
+}
+
+// The nine scenarios, each the TUI's (internal/ui/golden_test.go): the
+// same data, reached as a person would on the page, and waited for
+// before the shot.
+
+// show has the server send Kit line, and waits for it on the page.
+func (s *scene) show(line string) {
+	s.t.Helper()
+	s.conn("fm/kit").Feed(line)
+	waitFor(s.t, s.ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes(`+jsString(line)+`))`, line)
+}
+
+// typeIn types text into the focused field.
+func (s *scene) typeIn(text string) {
+	s.t.Helper()
+	devtools(s.t, s.ws, "Input.insertText", map[string]any{"text": text})
+}
+
+// letter presses a letter key, as log mode's and the panel's keys take it.
+func (s *scene) letter(k string) {
+	s.t.Helper()
+	devtools(s.t, s.ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": k, "text": k})
+	devtools(s.t, s.ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": k})
+}
+
+// writeLog puts the log scene in Kit's log.
+func (s *scene) writeLog() {
+	kilntest.WriteLog(s.t, logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}, kilntest.LogDay, kilntest.LogScene...)
+}
+
+const input = `document.querySelector(".bottom textarea")`
+
+func TestGoldenMain(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	// Rook opened but not connected, Kit still showing, as the TUI's open.
+	s.ev(`kilnPage.act({Do: "open", Key: "fm/rook"})`)
+	waitFor(t, s.ev, `document.querySelector(".side").textContent.includes("Rook")`, "Rook in the sidebar")
+	s.show(kilntest.MainLines[0])
+	s.show(kilntest.MainLines[1])
+	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
+	s.typeIn(kilntest.MainTyped)
+	pressKey(t, s.ws, "Enter", 13)
+	waitFor(t, s.ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes(`+jsString(kilntest.MainTyped)+`))`, "the echo")
+	s.l.Call(func(a *app.App) { c := a.Char("fm/rook"); c.Unread, c.Priority = 3, true })
+	waitFor(t, s.ev, `document.querySelector(".side").textContent.includes("3")`, "Rook's unread")
+	s.shoot("main")
+}
+
+func TestGoldenPicker(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	s.show(kilntest.MainLines[0])
+	ctrlO(t, s.ws)
+	waitFor(t, s.ev, `document.activeElement === document.querySelector('.bottom input[role="combobox"]')`, "the picker")
+	s.shoot("picker")
+}
+
+func TestGoldenEditor(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
+	s.typeIn("/edit world")
+	pressKey(t, s.ws, "Enter", 13)
+	port := `document.getElementById([...document.querySelectorAll(".bottom label")].find(l => l.textContent.startsWith(` + jsString(str.EditorPort()) + `)).htmlFor)`
+	waitFor(t, s.ev, port, "the world's editor")
+	s.shoot("editor")
+	// As the TUI's focusOn(portLabel) and x: an x after the port.
+	s.ev(`(f => { f.focus(); f.setSelectionRange(f.value.length, f.value.length); })(` + port + `)`)
+	s.typeIn("x")
+	waitFor(t, s.ev, `document.getElementById(`+port+`.id + "-err")`, "the port's error")
+	s.shoot("editor-error")
+}
+
+func TestGoldenLog(t *testing.T) {
+	s := goldenScene(t, nil, func(s *scene) { s.writeLog() })
+	ctrlL(t, s.ws)
+	rows := `[...document.querySelectorAll(".lrow")]`
+	waitFor(t, s.ev, rows+`.length === `+strconv.Itoa(len(kilntest.LogScene)), "log mode, the scene")
+	// The TUI's m, ↑, m: the last two lines.
+	click(t, s.ws, s.ev, rows+`.at(-1)`)
+	waitFor(t, s.ev, rows+`.at(-1).querySelector(".gutter").textContent === `+jsString(glyph.Selected), "the last line")
+	shiftClick(t, s.ws, s.ev, rows+`.at(-2)`)
+	waitFor(t, s.ev, `[...document.querySelectorAll(".lrow .gutter")].filter(g => g.textContent === `+jsString(glyph.Selected)+`).length === 2`, "the range")
+	// The Filter chip on, as the TUI's: Only on page, set directly.
+	s.l.Call(func(a *app.App) { a.Char("fm/kit").Log.PressOnly(kscene.Item{Name: "page"}) })
+	waitFor(t, s.ev, rows+`.length < `+strconv.Itoa(len(kilntest.LogScene)), "Only on page")
+	s.ev(`document.querySelector(".log").focus()`)
+	s.letter("/")
+	waitFor(t, s.ev, `document.activeElement === document.querySelector("#kiln-logprompt")`, "find")
+	s.typeIn(kilntest.FindTerm)
+	pressKey(t, s.ws, "Enter", 13)
+	waitFor(t, s.ev, `document.querySelector("mark")`, "found")
+	s.shoot("log")
+}
+
+func TestGoldenInput(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
+	s.typeIn(kilntest.InputText)
+	s.ev(input + `.setSelectionRange(0, 4)`) // the first four, as the TUI's drag
+	notSent := str.StatusNotSent(errors.New("x"))
+	s.l.Call(func(a *app.App) { a.SetStatus(true, notSent) })
+	waitFor(t, s.ev, `document.body.textContent.includes(`+jsString(notSent)+`)`, "the status")
+	s.shoot("input")
+}
+
+func TestGoldenScrolled(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	for i := 0; i < 40; i++ {
+		s.clock.Advance(2 * time.Second)
+		s.show(kilntest.ScrolledLine(i))
+		// Read as it comes, as the TUI's MarkSeen: scrolled to the end, so
+		// the pager holds nothing. (Not a wheel: in headless Chrome a wheel
+		// past the end moves the whole viewport.)
+		s.ev(`(e => { e.scrollTop = e.scrollHeight; })(document.querySelector("main .scroll"))`)
+		waitFor(t, s.ev, `(e => e.scrollTop + e.clientHeight >= e.scrollHeight - 1)(document.querySelector("main .scroll"))`, "at the end")
+	}
+	pressKey(t, s.ws, "PageUp", 33)
+	link := `[...document.querySelectorAll("main a")].find(a => a.textContent === "https://kiln.test/19")`
+	waitFor(t, s.ev, link+` && `+link+`.getBoundingClientRect().bottom <= document.querySelector("main .scroll").getBoundingClientRect().bottom`, "line 19 in view")
+	r := s.ev(`JSON.stringify((r => ({x: r.left + 2, y: r.top + r.height / 2}))(` + link + `.getBoundingClientRect()))`)
+	var p struct{ X, Y float64 }
+	if err := json.Unmarshal([]byte(mustUnquote(t, r)), &p); err != nil {
+		t.Fatal(err)
+	}
+	devtools(t, s.ws, "Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": p.X, "y": p.Y})
+	s.shoot("scrolled")
+}
+
+func TestGoldenPassword(t *testing.T) {
+	pw := maps.Clone(kilntest.GoldenPasswords)
+	delete(pw, "fm/kit")
+	s := goldenScene(t, pw, nil)
+	field := `document.querySelector('.bottom input[type="password"]')`
+	waitFor(t, s.ev, `document.activeElement === `+field, "the password field")
+	s.typeIn(kilntest.PasswordTyped)
+	s.shoot("password")
+}
+
+func TestGoldenLogFilter(t *testing.T) {
+	s := goldenScene(t, nil, func(s *scene) { s.writeLog() })
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, `document.activeElement === document.querySelector(".log") && document.querySelector(".lrow")`, "log mode")
+	s.letter("f")
+	sel := `document.querySelector(".filter-panel .fsel")`
+	waitFor(t, s.ev, `document.activeElement === `+sel, "the panel")
+	// The TUI's keys: past Untagged and page (folded) to self, h hides
+	// it, then ↓ to + Text, where o does nothing.
+	pressKey(t, s.ws, "ArrowDown", 40)
+	pressKey(t, s.ws, "ArrowDown", 40)
+	s.letter("h")
+	waitFor(t, s.ev, `document.querySelectorAll('.filter-panel [aria-pressed="true"]').length === 1`, "self hidden")
+	pressKey(t, s.ws, "ArrowDown", 40)
+	s.letter("o")
+	waitFor(t, s.ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterAddText()), "+ Text")
+	s.shoot("log-filter")
 }
