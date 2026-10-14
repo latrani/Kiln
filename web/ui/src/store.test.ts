@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { glyphClick, panelAct, togglePanel } from "./filter.ts";
+import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
 import { logAct, logClick, toggleLog } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -518,4 +518,28 @@ test("a click on a glyph highlights its entry, focus following (a span takes non
   glyphClick(s, "t:x");
   assert.deepEqual(sent.at(-1), { Do: "remove_text", Key: "fm/kit", Term: "x" });
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "+", follow: true });
+});
+
+test("with a prompt open, clicks in the panel and the Filter chip do nothing, as the TUI's", () => {
+  const { s, sent } = filtered();
+  s.setLogView("fm/kit", { panel: { sel: "u" }, prompt: { kind: "filter", value: "" } });
+  const n = sent.length;
+  panelClick(s, "g:page", "hide");
+  panelClick(s, "g:page");
+  glyphClick(s, "g:page");
+  togglePanel(s);
+  assert.equal(sent.length, n);
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "u" });
+});
+
+test("clicks: a name highlights its entry; Hide and Only press too; + Text asks for a text", () => {
+  const { s, sent } = filtered();
+  togglePanel(s);
+  panelClick(s, "g:page");
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" });
+  panelClick(s, "g:page/ooc", "only");
+  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page/ooc", Text: false, Untagged: false } });
+  assert.equal(s.state.logView["fm/kit"].panel?.sel, "g:page/ooc");
+  panelClick(s, "+", "add");
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
 });

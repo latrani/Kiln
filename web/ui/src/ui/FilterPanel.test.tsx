@@ -35,8 +35,8 @@ test("each entry: a group named by its name, Hide and Only as toggle buttons; in
 
 test("glyphs and + Text: ▼ on an open parent, × on a text row; + Text last, in filter.add", () => {
   const nav = page(entries);
-  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph">${str.glyph.open}</span>`));
-  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph">${str.glyph.remove}</span> <button id="flt-3"`));
+  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.item")}">${str.glyph.open} </span>`));
+  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.item")}">${str.glyph.remove} </span><button id="flt-3"`));
   assert.ok(nav.includes(str.filterTextItem("x").replaceAll(`"`, "&quot;")), "the text row's name, its quotes escaped in HTML");
   assert.match(nav, new RegExp(`<button class="fname ${roleClass("filter.add")}" tabindex="-1">${str.filterAddText().replace("+", "\\+")}</button></li></ul>$`));
 });
@@ -44,4 +44,10 @@ test("glyphs and + Text: ▼ on an open parent, × on a text row; + Text last, i
 test("a highlight Go no longer lists falls back to the first entry", () => {
   const nav = page(entries, "t:gone");
   assert.match(nav, /<button id="flt-0" class="fname fsel/);
+});
+
+test("the highlight lights the glyph and • with the name, as the TUI's", () => {
+  const nav = page([E("page", { Parent: true, Folded: true, FilteredUnder: true })], "g:page");
+  assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.selected")}">${str.glyph.collapsed} </span><button id="flt-0"`));
+  assert.ok(nav.includes(`</button><span aria-hidden="true" class="${roleClass("filter.selected")}"> ${str.glyph.filtered}</span></div>`));
 });

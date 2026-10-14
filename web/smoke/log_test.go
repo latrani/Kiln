@@ -161,7 +161,7 @@ func TestFilter(t *testing.T) {
 	// x removes the text row, its Only with it, the highlight moving to +
 	// Text.
 	letter("x")
-	waitFor(t, ev, `!kilnPage.events.filter(e => e.type === "Filter").at(-1).Entries.some(e => e.Item.Text) && `+sel+`.textContent === `+jsString(str.FilterAddText()), "removed, + Text highlighted")
+	waitFor(t, ev, `!kilnPage.events.filter(e => e.type === "Filter").at(-1).Entries.some(e => e.Item.Text) && document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterAddText()), "removed, + Text focused")
 	waitFor(t, ev, `document.querySelectorAll(".lrow").length === 3`, "all three back, the Only gone with it")
 
 	// Go re-sending the panel with a row gone above the highlight keeps

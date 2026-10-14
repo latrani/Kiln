@@ -69,10 +69,10 @@ export function filterKey(e: { key: string; ctrlKey: boolean; altKey: boolean; m
 
 // togglePanel is f, or the Filter chip, as the TUI's togglePanel: the
 // panel opens on its first entry, focus going to it, or closes. Only in
-// log mode.
+// log mode, with no prompt open.
 export function togglePanel(store: Store): void {
   const s = store.state, k = s.active;
-  if (!logShows(s, k)) return;
+  if (!logShows(s, k) || s.logView[k]?.prompt) return; // a prompt open keeps the clicks, as the TUI's topClick
   if (s.logView[k]?.panel) {
     closePanel(store);
     return;
@@ -125,12 +125,27 @@ export function panelAct(store: Store, does: PanelKey): void {
 
 // glyphClick is a click on an entry's glyph, as the TUI's panelClick: a
 // group's folds it, a text row's removes it. The entry is highlighted
-// and focus follows, since the glyph (a span) takes none.
+// and focus follows, since the glyph (a span) takes none. With a prompt
+// open it does nothing, as the TUI's.
 export function glyphClick(store: Store, key: string): void {
   const s = store.state, k = s.active;
   const r = panelRows(s.filters[k]?.Entries ?? []).find((r) => r.key === key);
-  if (r?.kind !== "entry") return;
+  if (r?.kind !== "entry" || s.logView[k]?.prompt) return;
   store.setLogView(k, { panel: { sel: key, follow: true } });
   if (r.e.Item.Text) panelAct(store, "remove");
   else s.act?.({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: !r.e.Folded });
+}
+
+// panelClick is a click on an entry's name (does undefined), its Hide or
+// Only, or + Text, as the TUI's panelClick: the entry is highlighted,
+// and the button pressed. With a prompt open it does nothing, as the
+// TUI's.
+export function panelClick(store: Store, key: string, does?: "hide" | "only" | "add"): void {
+  const s = store.state, k = s.active;
+  if (s.logView[k]?.prompt) return;
+  const r = panelRows(s.filters[k]?.Entries ?? []).find((r) => r.key === key);
+  if (!r) return;
+  store.setLogView(k, { panel: { sel: key } });
+  if (does === "add") store.setLogView(k, { prompt: { kind: "filter", value: "" } });
+  else if (does && r.kind === "entry") s.act?.({ Do: does, Key: k, Item: r.e.Item });
 }

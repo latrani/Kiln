@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { filterKey, fixSel, glyphClick, panelAct, panelRows } from "../filter.ts";
+import { filterKey, fixSel, glyphClick, panelAct, panelClick, panelRows } from "../filter.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -17,7 +17,6 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   const rows = panelRows(state.filters[k]?.Entries ?? []);
   const sel = fixSel(rows, p.sel);
   const nav = useRef<HTMLElement>(null);
-  const act = state.act ?? (() => {});
 
   // Focus goes to the highlight when asked (opening, a key's move), as
   // the TUI's follow scrolls to it; never on a draw Go caused.
@@ -27,7 +26,6 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
     store.setLogView(k, { panel: { sel, follow: false } });
   });
 
-  const pick = (key: string) => store.setLogView(k, { panel: { sel: key } });
   const onKeyDown = (e: KeyboardEvent) => {
     const does = filterKey(e);
     if (!does) return;
@@ -52,29 +50,31 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
               <li key="+" class="fentry">
                 {" "}
                 <button class={`fname ${on ? "fsel " : ""}${roleClass(on ? "filter.selected" : "filter.add")}`} tabindex={tab}
-                  onClick={() => { pick("+"); store.setLogView(k, { prompt: { kind: "filter", value: "" } }); }}>{str.filterAddText()}</button>
+                  onClick={() => panelClick(store, "+", "add")}>{str.filterAddText()}</button>
               </li>,
             ];
           }
           const { e } = r;
           const pad = " ".repeat(1 + 2 * e.Depth);
           const id = `flt-${i}`;
+          // The glyph and • light with the name, as the TUI's.
+          const look = roleClass(on ? "filter.selected" : "filter.item");
           return [
             <li key={r.key} class="fentry" role="group" aria-labelledby={id}>
               <div class="frow">
                 {pad}
-                {r.glyph && <><span aria-hidden="true" class="fglyph" onClick={() => glyphClick(store, r.key)}>{r.glyph}</span>{" "}</>}
-                <button id={id} class={`fname ${on ? "fsel " : ""}${roleClass(on ? "filter.selected" : "filter.item")}`} tabindex={tab}
-                  aria-expanded={e.Parent ? !e.Folded : undefined} onClick={() => pick(r.key)}>{r.name}</button>
-                {r.after && <span aria-hidden="true">{" " + r.after}</span>}
+                {r.glyph && <span aria-hidden="true" class={`fglyph ${look}`} onClick={() => glyphClick(store, r.key)}>{r.glyph + " "}</span>}
+                <button id={id} class={`fname ${on ? "fsel " : ""}${look}`} tabindex={tab}
+                  aria-expanded={e.Parent ? !e.Folded : undefined} onClick={() => panelClick(store, r.key)}>{r.name}</button>
+                {r.after && <span aria-hidden="true" class={look}>{" " + r.after}</span>}
               </div>
               <div class="frow">
                 {pad + " "}
                 <button class={roleClass(e.Hidden ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Hidden}
-                  onClick={() => { pick(r.key); act({ Do: "hide", Key: k, Item: e.Item }); }}>{str.filterHide()}</button>
+                  onClick={() => panelClick(store, r.key, "hide")}>{str.filterHide()}</button>
                 {" "}
                 <button class={roleClass(e.Only ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Only}
-                  onClick={() => { pick(r.key); act({ Do: "only", Key: k, Item: e.Item }); }}>{str.filterOnly()}</button>
+                  onClick={() => panelClick(store, r.key, "only")}>{str.filterOnly()}</button>
               </div>
             </li>,
             ...(r.endsGroup ? [<li key={r.key + "\n"} aria-hidden="true"> </li>] : []),

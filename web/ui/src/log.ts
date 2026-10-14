@@ -140,6 +140,8 @@ export function filterPromptEnter(store: Store): void {
   const s = store.state, k = s.active, v = s.logView[k];
   if (v?.prompt?.kind !== "filter") return;
   const term = v.prompt.value.trim();
+  // act first: Go answers inside it, so the new row is listed before the
+  // panel draws, and its highlight isn't lost to fixSel's fallback.
   s.act?.({ Do: "add_text", Key: k, Term: term });
   store.setLogView(k, { prompt: undefined, panel: { sel: term ? "t:" + term : v.panel?.sel ?? "+", follow: true } });
 }
