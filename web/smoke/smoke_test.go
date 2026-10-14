@@ -214,23 +214,29 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 // with the mouse.
 func click(t *testing.T, ws *websocket.Conn, ev func(string) string, el string) {
 	t.Helper()
-	clickN(t, ws, ev, el, 1)
+	clickN(t, ws, ev, el, 1, 0)
 }
 
 // click2 is the second click of a double-click on el, right after click.
 func click2(t *testing.T, ws *websocket.Conn, ev func(string) string, el string) {
 	t.Helper()
-	clickN(t, ws, ev, el, 2)
+	clickN(t, ws, ev, el, 2, 0)
 }
 
-func clickN(t *testing.T, ws *websocket.Conn, ev func(string) string, el string, n int) {
+// shiftClick is a click on el with Shift held.
+func shiftClick(t *testing.T, ws *websocket.Conn, ev func(string) string, el string) {
+	t.Helper()
+	clickN(t, ws, ev, el, 1, 8) // Shift, in DevTools' modifier bits
+}
+
+func clickN(t *testing.T, ws *websocket.Conn, ev func(string) string, el string, n, modifiers int) {
 	t.Helper()
 	var at struct{ X, Y float64 }
 	if err := json.Unmarshal([]byte(mustUnquote(t, ev(`(() => { const r = (`+el+`).getBoundingClientRect(); return JSON.stringify({ X: r.x + r.width / 2, Y: r.y + r.height / 2 }); })()`))), &at); err != nil {
 		t.Fatal(err)
 	}
 	for _, typ := range []string{"mousePressed", "mouseReleased"} {
-		devtools(t, ws, "Input.dispatchMouseEvent", map[string]any{"type": typ, "x": at.X, "y": at.Y, "button": "left", "clickCount": n})
+		devtools(t, ws, "Input.dispatchMouseEvent", map[string]any{"type": typ, "x": at.X, "y": at.Y, "button": "left", "clickCount": n, "modifiers": modifiers})
 	}
 }
 
