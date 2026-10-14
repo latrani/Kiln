@@ -49,8 +49,8 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
    every line in scrollback.inactive alone (on the scroller), its server
    colors and tags dropped. Faint is opacity: the scroller fades as a
    whole, and a line that's faint itself doesn't fade twice. Links stay
-   links. */
-.dim .line, .dim .line * { color: inherit !important; background: none !important; font-weight: inherit !important; font-style: inherit !important; text-decoration: inherit !important; opacity: 1 !important; }
+   links. An overview's rules go with its lines. */
+.dim .line, .dim .line *, .dim .ov-rule { color: inherit !important; background: none !important; font-weight: inherit !important; font-style: inherit !important; text-decoration: inherit !important; opacity: 1 !important; }
 
 /* A line wraps in the browser, each wrapped row a character in from the
    first (the TUI's hanging indent), keeping the server's spaces. */

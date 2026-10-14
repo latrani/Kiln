@@ -69,4 +69,13 @@ func TestPicker(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Name === "Newcomer" && e.State === 2)`, "Newcomer added and connected")
 	waitFor(t, ev, `!document.querySelector(".scroll.dim") && document.querySelector("header").textContent.includes("Newcomer")`, "the picker closed, Newcomer showing")
 
+	// On the world's overview, the rule between Second and Newcomer dims
+	// with the lines.
+	ev(`kilnPage.act({Do: "switch", Key: "=fake"})`)
+	waitFor(t, ev, `document.querySelector(".scroll .ov-rule")`, "the overview's rule")
+	ctrlO(t, ws)
+	waitFor(t, ev, `document.querySelector(".scroll.dim .ov-rule")`, "the overview dimmed")
+	if got := ev(`(() => { const s = getComputedStyle(document.querySelector(".scroll")); return getComputedStyle(document.querySelector(".scroll .ov-rule")).borderTopColor === s.color; })()`); got != "true" {
+		t.Error("a dimmed overview's rule isn't in scrollback.inactive's look")
+	}
 }
