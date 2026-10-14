@@ -1,14 +1,16 @@
+import { targetKey } from "../editor.ts";
 import type { State, Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
+import { EditorForm } from "./EditorForm.tsx";
 import { Input } from "./Input.tsx";
 import { PasswordForm } from "./PasswordForm.tsx";
 import { PickerForm } from "./PickerForm.tsx";
 
 // BottomPane is under the scrollback: the input, or the password form,
-// or with the picker open its filter (in the form's area, even on a
-// world's overview); later an editor form or log mode's hints (steps 4b
-// and 5). A world's overview otherwise has none, as in the TUI: the
-// overview has the pane.
+// or with the picker open its filter or an editor over it (in the form's
+// area, even on a world's overview); later log mode's hints (step 5). A
+// world's overview otherwise has none, as in the TUI: the overview has
+// the pane.
 // Each character gets a password form of its own, so what's typed in one
 // never goes to another's server.
 export function BottomPane({ state, store }: { state: State; store: Store }) {
@@ -17,7 +19,7 @@ export function BottomPane({ state, store }: { state: State; store: Store }) {
   if (state.picker) {
     return (
       <div class={`bottom form ${roleClass("form")}`}>
-        <PickerForm state={state} store={store} />
+        {state.picker.edit ? <EditorForm key={targetKey(state.picker.edit.target)} state={state} store={store} /> : <PickerForm state={state} store={store} />}
       </div>
     );
   }

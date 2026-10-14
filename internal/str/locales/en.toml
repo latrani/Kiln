@@ -385,6 +385,12 @@ reload = "Reload"
 characters = "Characters"
 # The picker's list, for screen readers.
 picker = "Open a connection"
+# An editor's keys (web): Enter saves wherever you are, as forms do in a
+# browser; {hint} is the editor's own (Esc to cancel).
+form_hint = "Enter to save · Tab moves between fields · {hint}"
+# Delete, pressed once (web): you can click as well as press Enter, and
+# the web never stores a password, so nothing else is deleted.
+delete_again = "Press again to delete {what}"
 # A character's name in the sidebar, for screen readers, when lines have
 # come you haven't read; and when one of them is a priority (the ● the
 # sidebar shows: a page, a whisper, whatever the priority tags flag).
