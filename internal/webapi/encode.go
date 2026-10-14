@@ -175,13 +175,16 @@ func Encode(evs []any, hl func(key string) *rules.Highlighter) ([]byte, error) {
 
 // Saved says a settings action worked; Op is the action's do, and Key the
 // character an add_character made ("world/id"), for the page to open.
-type Saved struct{ Op, Key string }
+// World and Char are the action's: the editor it answers.
+type Saved struct{ Op, Key, World, Char string }
 
 // Problems is what was wrong with a settings action: every problem, each
-// naming its field ("" for one about no field).
+// naming its field ("" for one about no field). World and Char are the
+// action's: the editor it answers. A settings read that failed (Op
+// "settings") has none; the status line says why.
 type Problems struct {
-	Op       string
-	Problems []Problem
+	Op, World, Char string
+	Problems        []Problem
 }
 
 // Problem is one of Problems.

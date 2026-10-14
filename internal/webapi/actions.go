@@ -326,6 +326,14 @@ func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 	var err error
 	key, saved := "", "" // the new character's key; the status to show once reloaded
 	reload := true
+	// answer is the action's answer, for the editor that sent it: Saved
+	// with no problems, else Problems.
+	answer := func(p []Problem) []any {
+		if p == nil {
+			return []any{Saved{Op: act.Do, Key: key, World: act.World, Char: act.Char}}
+		}
+		return []any{Problems{Op: act.Do, World: act.World, Char: act.Char, Problems: p}}
+	}
 	switch act.Do {
 	case "add_world": //str:ok
 		if act.WorldSettings == nil {
@@ -363,7 +371,7 @@ func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 		}
 	case "forget_password": //str:ok
 		if !a.CanForgetPasswords() {
-			return []any{Problems{Op: act.Do}}, true // nothing to forget here; the page shouldn't offer it
+			return answer([]Problem{}), true // nothing to forget here; the page shouldn't offer it
 		}
 		if err = a.ForgetPassword(act.World, act.Char); err == nil {
 			a.SetStatus(false, str.EditorForgotPassword(act.World, act.Char))
@@ -373,21 +381,21 @@ func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 		return nil, false
 	}
 	if err != nil {
-		p := Problems{Op: act.Do}
+		p := []Problem{}
 		for _, e := range app.Problems(err) {
 			pr := Problem{Msg: e.Error()}
 			var fe *app.FieldError
 			if errors.As(e, &fe) {
 				pr.Field = fe.Field
 			}
-			p.Problems = append(p.Problems, pr)
+			p = append(p, pr)
 		}
-		return []any{p}, true
+		return answer(p), true
 	}
 	if reload {
 		res, ok := a.Reload()
 		if !ok { // Reload said why on the status line
-			return []any{Problems{Op: act.Do, Problems: []Problem{{Msg: a.Status().Text}}}}, true
+			return answer([]Problem{{Msg: a.Status().Text}}), true
 		}
 		for _, k := range a.Order() { // in order, so which error shows is settled
 			if c := a.Char(k); c != nil && !c.Orphan && res.Errs[k] != nil {
@@ -399,5 +407,5 @@ func (l *Loop) doSettings(act Action) (extra []any, ok bool) {
 			a.SetStatus(false, saved)
 		}
 	}
-	return []any{Saved{Op: act.Do, Key: key}}, true
+	return answer(nil), true
 }
