@@ -589,3 +589,15 @@ test("a settings read that fails stops the wait, so the editor never opens later
   s.apply([fmSettings]);
   assert.equal(editor(s), undefined);
 });
+
+test("log mode's place is kept per character until log mode closes", () => {
+  const { s } = logged();
+  s.logPlaces.set("fm/kit", { seq: 2, off: 0 });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0 }]);
+  assert.deepEqual(s.logPlaces.get("fm/kit"), { seq: 2, off: 0 }, "still open: kept");
+  s.apply([{ type: "Log", Key: "fm/kit", Open: false }]);
+  assert.equal(s.logPlaces.get("fm/kit"), undefined, "Esc closed it: the newest line next time");
+  s.logPlaces.set("fm/kit", { seq: 2, off: 0 });
+  s.apply([{ type: "Closed", Key: "fm/kit" }]);
+  assert.equal(s.logPlaces.has("fm/kit"), false);
+});

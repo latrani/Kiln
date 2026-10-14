@@ -35,9 +35,16 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const rowsOf = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".lrow")].map((r) => ({ seq: Number(r.dataset.seq), top: r.offsetTop, height: r.offsetHeight }));
 
   useEffect(() => el.current?.focus(), [k]);
-  // Opened at the newest line, as the TUI's cursor starts there.
+  // Showing a character's log (switched to, or shown again by Ctrl+L):
+  // where you were, as the TUI keeps each browse; else the newest line,
+  // as the TUI's cursor starts there.
   useLayoutEffect(() => {
-    if (el.current) el.current.scrollTop = el.current.scrollHeight;
+    const e = el.current;
+    if (!e) return;
+    const p = store.logPlaces.get(k);
+    const top = p && topFor(p, rowsOf(e));
+    e.scrollTop = top ?? e.scrollHeight;
+    place.current = { ...place.current, k, at: top !== undefined ? p : undefined };
   }, [k]);
   // Older history arriving above, or the filter hiding lines, keeps your
   // place, as the scrollback's.
@@ -49,10 +56,16 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     }
     place.current = { k, ...now, at: p.k === k ? p.at : undefined };
   });
-  // Find and go-to-date bring their line into view, once per landing.
+  // Find and go-to-date bring their line into view, once per landing:
+  // a new one for the character showing, not one from before it showed
+  // (its place, above, wins then).
+  const landed = useRef({ k, goN: v.goN });
   useLayoutEffect(() => {
-    if (v.at !== undefined) el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
-  }, [v.goN]);
+    const was = landed.current;
+    landed.current = { k, goN: v.goN };
+    if (was.k !== k || was.goN === v.goN || v.at === undefined) return;
+    el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
+  });
 
   // older asks for older history near the top, or when what's loaded
   // doesn't fill the view (so there's nothing to scroll): once per Log
@@ -70,6 +83,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const onScroll = () => {
     const e = el.current!;
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
+    if (place.current.at) store.logPlaces.set(k, place.current.at);
     older(e);
   };
   const onClick = (e: MouseEvent) => {

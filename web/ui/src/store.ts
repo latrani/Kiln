@@ -2,6 +2,7 @@
 // page's own state (how far it's got starting Kiln, whether it's saving).
 import { edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
 import type { Editor, SettingsEvent, Target } from "./editor.ts";
+import type { Place } from "./log.ts";
 import { fixPick, pickerRows } from "./picker.ts";
 import * as str from "./str.gen.ts";
 import { Typing } from "./typing.ts";
@@ -215,6 +216,9 @@ function follow(s: State, prev: string): State {
 
 export class Store {
   state: State = fresh({ phase: "loading", saving: true, typing: new Typing() });
+  // logPlaces is where each character's log view was (LogView), off the
+  // state so scrolling doesn't draw; gone when its log mode closes.
+  logPlaces = new Map<string, Place>();
   private subs = new Set<() => void>();
 
   constructor(private onEffect?: (e: Event) => void) {}
@@ -269,7 +273,9 @@ export class Store {
   private step(s: State, e: Event, effects: Event[]): State {
     const k: string = e.Key;
     switch (e.type) {
-      case "Start": return fresh(s);
+      case "Start":
+        this.logPlaces.clear();
+        return fresh(s);
       case "Theme": return { ...s, theme: e as ThemeEvent };
       case "Worlds": return { ...s, worlds: e.Worlds ?? [] };
       case "Order": return { ...s, order: e.Keys ?? [] };
@@ -279,6 +285,7 @@ export class Store {
         s.typing?.saw(e.Ack ?? 0);
         return { ...s, inputs: { ...s.inputs, [k]: e } };
       case "Log": {
+        if (!e.Open) this.logPlaces.delete(k);
         const logs = { ...s.logs, [k]: e };
         const logView = e.Open ? { ...s.logView, [k]: s.logView[k] ?? { goN: 0 } } : without(s.logView, k);
         return { ...s, logs, logView };
@@ -293,6 +300,7 @@ export class Store {
       }
       case "Filter": return { ...s, filters: { ...s.filters, [k]: e } };
       case "Closed":
+        this.logPlaces.delete(k);
         return { ...s, chars: without(s.chars, k), inputs: without(s.inputs, k), lines: without(s.lines, k),
           logs: without(s.logs, k), logLines: without(s.logLines, k), filters: without(s.filters, k), logView: without(s.logView, k) };
       case "Lines": {

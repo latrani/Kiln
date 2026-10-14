@@ -1,10 +1,13 @@
 package smoke
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/coder/websocket"
 	"github.com/latrani/Kiln/internal/glyph"
+	"github.com/latrani/Kiln/internal/kilntest"
+	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -199,4 +202,48 @@ func TestFilter(t *testing.T) {
 	ev(logEl + `.focus()`)
 	pressKey(t, ws, "Escape", 27)
 	waitFor(t, ev, `!document.querySelector(".filter-panel") && document.querySelector(".log")`, "the panel closed, log mode stays")
+}
+
+// TestLogPlace: log mode keeps each character's place across a switch
+// and Ctrl+L; Esc and reopening starts at the newest line.
+func TestLogPlace(t *testing.T) {
+	many := make([]string, 80)
+	for i := range many {
+		many[i] = fmt.Sprintf("line %d", i)
+	}
+	s := goldenScene(t, nil, func(s *scene) {
+		kilntest.WriteLog(t, logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}, kilntest.LogDay, many...)
+		kilntest.WriteLog(t, logstore.Layout{Root: s.logs, World: "fm", Char: "rook", CharName: "Rook"}, kilntest.LogDay, many...)
+	})
+	logEl := `document.querySelector(".log")`
+	rows := `document.querySelectorAll(".lrow").length === 80`
+	atTop := `(e => e && e.scrollTop < 5)(` + logEl + `)`
+	atEnd := `(e => e && e.scrollTop + e.clientHeight >= e.scrollHeight - 5)(` + logEl + `)`
+	where := `document.querySelector("header .where").textContent`
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, rows+` && `+atEnd, "Kit's log, at the newest")
+	s.ev(logEl + `.scrollTop = 0`)
+	waitFor(t, s.ev, atTop, "Kit's log, scrolled to the top")
+
+	// Ctrl+L away and back: still at the top.
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, `!`+logEl, "hidden")
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, rows+` && `+atTop, "back where it was")
+
+	// Rook's log mode, then back to Kit: still at the top.
+	s.ev(`kilnPage.act({Do: "open", Key: "fm/rook"})`)
+	s.ev(`kilnPage.act({Do: "switch", Key: "fm/rook"})`)
+	waitFor(t, s.ev, where+`.endsWith("Rook")`, "Rook")
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, rows+` && `+atEnd, "Rook's log, at the newest")
+	s.ev(`kilnPage.act({Do: "switch", Key: "fm/kit"})`)
+	waitFor(t, s.ev, where+`.endsWith("Kit") && `+atTop, "Kit's place kept")
+
+	// Esc closes log mode; Ctrl+L opens it again at the newest line.
+	s.ev(logEl + `.focus()`)
+	pressKey(t, s.ws, "Escape", 27)
+	waitFor(t, s.ev, `!`+logEl, "closed")
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, rows+` && `+atEnd, "reopened at the newest")
 }
