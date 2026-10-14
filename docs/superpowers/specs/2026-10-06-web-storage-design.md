@@ -230,4 +230,5 @@ notifications, the PFMuck preset, the landing page and deploy (5).
   the last fraction of a second on a hard close is accepted.
 - **#114:** pins now survive visits, so a pin is trust-on-first-use once
   per browser, not per visit. That fixes #114's per-visit problem;
-  seeded pins or `ca` trust for the PFMuck preset is still sub-project 5.
+  the preset can now seed pins (`known_hosts`, merged where nothing is
+  pinned), and worlds with real certificates can use `ca` trust.

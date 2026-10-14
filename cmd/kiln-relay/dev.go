@@ -8,8 +8,9 @@ import (
 	"sort"
 )
 
-// devRoutes serves the page and a preset config dir from one origin, the
-// way production's nginx will, so the whole thing runs on a laptop.
+// devRoutes serves the page and a preset from one origin, the way
+// production's nginx will, so the whole thing runs on a laptop. A preset
+// is laid out like a backup: config/… and known_hosts.
 func devRoutes(mux *http.ServeMux, web, preset string) {
 	mux.Handle("/kiln/", http.StripPrefix("/kiln/", http.FileServer(http.Dir(web))))            //str:ok
 	mux.HandleFunc("/kiln/preset/manifest.json", func(w http.ResponseWriter, r *http.Request) { //str:ok
@@ -25,7 +26,7 @@ func devRoutes(mux *http.ServeMux, web, preset string) {
 }
 
 // manifest lists the files under dir as sorted slash paths relative to
-// it: what the page copies into its in-memory config dir.
+// it: what the page copies into its in-memory files.
 func manifest(dir string) ([]string, error) {
 	out := []string{}
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {

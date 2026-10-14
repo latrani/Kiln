@@ -51,7 +51,7 @@ web/                     its own Go module: github.com/latrani/Kiln/web
   bridge/                syscall/js glue: input pipe, output writer, resize
   wsdial/                net.Conn over a browser WebSocket to the relay
   static/                index.html, kiln.js, memfs.js, vendored xterm.js
-  preset.example/        a dev preset (config dir), example world only
+  preset.example/        a dev preset (config/…, known_hosts), example world only
 ```
 
 **Why `web/` is its own module:** the Bubble Tea fix needs a `replace`
@@ -153,8 +153,14 @@ for js uses: `open`, `close`, `read`, `write`, `fstat`, `stat`, `lstat`,
 
 - On load, `kiln.js` fetches `preset/manifest.json` (a list of paths) and
   writes those files into memfs under the config dir.
-- known_hosts (`/home/kiln/.local/share/kiln/known_hosts`) works too, but
-  pins only last for the visit. Saving them is sub-project 3.
+- known_hosts (`/home/kiln/.local/share/kiln/known_hosts`) works too.
+  Sub-project 3 saves it, so a pin is trust-on-first-use once per
+  browser, not per visit. That first use, and a private window or
+  cleared site data, still trusts whatever certificate the relay path
+  shows, which would let the relay operator read `pin` worlds'
+  plaintext. So the preset can carry `known_hosts` (seeded into the
+  data dir), and worlds with real certificates should use
+  `tls_trust = "ca"` (#114).
 - **Why this matters beyond this spec:** if memfs holds up, sub-project 3
   shrinks from "put a storage interface behind config, logstore and
   known_hosts" to "save memfs to IndexedDB". Config edits from the

@@ -40,11 +40,22 @@ import (
 // another tab.
 func launch(t *testing.T) (ws *websocket.Conn, another func() *websocket.Conn) {
 	t.Helper()
+	return launchWith(t, nil)
+}
+
+// launchWith is launch, with pins(port) as the preset's known_hosts.
+func launchWith(t *testing.T, pins func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn) {
+	t.Helper()
 	chrome := chromePath(t)
 	root, _ := filepath.Abs("../..")
 	static := buildPage(t, root)
 	muckPort := fakeMuck(t)
 	preset, allow := config(t, muckPort)
+	if pins != nil {
+		if err := os.WriteFile(filepath.Join(preset, "known_hosts"), []byte(pins(muckPort)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	page := startRelay(t, root, static, preset, allow)
 	ws, tab := openTab(t, chrome, page+"?record")
 	return ws, func() *websocket.Conn { return tab(page) }
@@ -82,6 +93,24 @@ func TestTypingAnywhere(t *testing.T) {
 	waitFor(t, ev, `document.activeElement === `+in+` && `+in+`.value === "´"`, "the accent in the input")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "é"})
 	waitFor(t, ev, in+`.value === "é"`, "the accented letter in the input")
+}
+
+// TestPresetPinRefusesOtherCert seeds a pin from the preset that the
+// fake MUCK's certificate doesn't match: the first visit refuses it
+// instead of trusting whatever it's shown.
+func TestPresetPinRefusesOtherCert(t *testing.T) {
+	ws, _ := launchWith(t, func(port int) string {
+		return fmt.Sprintf("127.0.0.1:%d sha256:%s\n", port, strings.Repeat("0", 64))
+	})
+	ev := evaluator(t, ws)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
+	ev(`kilnPage.act({Do: "open", Key: "fake/tester"})`)
+	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "", N: 1000})`)
+	changed, _ := json.Marshal(str.StatusCertChanged("Tester"))
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && e.Text === `+string(changed)+`)`, "the changed certificate refused")
+	if got := ev(`kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes("Welcome")))`); got != "false" {
+		t.Error("connected despite the preset's pin")
+	}
 }
 
 // chromePath is Chrome's, skipping without KILN_SMOKE=1 or Chrome.
@@ -408,11 +437,11 @@ func config(t *testing.T, port int) (preset, allow string) {
 	t.Helper()
 	dir := t.TempDir()
 	preset = filepath.Join(dir, "preset")
-	if err := os.MkdirAll(filepath.Join(preset, "worlds"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(preset, "config", "worlds"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	world := fmt.Sprintf("host = \"127.0.0.1\"\nport = %d\ntls = true\ntls_trust = \"pin\"\n\n[[characters]]\nid = \"tester\"\nname = \"Tester\"\n\n[[characters]]\nid = \"second\"\nname = \"Second\"\n\n[[characters]]\nid = \"historian\"\nname = \"Historian\"\n", port)
-	if err := os.WriteFile(filepath.Join(preset, "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(preset, "config", "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	allow = filepath.Join(dir, "allow.toml")

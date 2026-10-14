@@ -25,18 +25,24 @@ const (
 	CodeNeedsTLS    websocket.StatusCode = 4426 // TLS-only world, client didn't start TLS
 	CodeTooMany     websocket.StatusCode = 4429 // too many connections from this IP
 	CodeUnreachable websocket.StatusCode = 4502 // the dial failed; the reason says why
+	CodeBusy        websocket.StatusCode = 4503 // the relay is at max_conns
 )
 
 // Server is the relay's HTTP handler. Set an allowlist before serving.
 type Server struct {
 	Dial              func(ctx context.Context, network, addr string) (net.Conn, error) // nil: TCP
 	Log               func(line string)                                                 // nil: silent
-	MaxPerIP          int                                                               // 0: 8
 	FirstFrameTimeout time.Duration                                                     // 0: 15s
+
+	// pingEvery is how often an open connection is pinged; one that
+	// doesn't answer within pingTimeout is closed, so a browser that
+	// went away without a word (a sleeping laptop) frees its slot.
+	pingEvery, pingTimeout time.Duration // 0: 30s, 20s
 
 	allow atomic.Pointer[Allowlist]
 	mu    sync.Mutex
-	open  map[netip.Addr]int
+	open  map[netip.Prefix]int
+	total int
 }
 
 // SetAllowlist replaces the allowlist; connections already open stay open.
@@ -50,6 +56,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
+	ip, ok := s.clientIP(r, a)
+	if !ok {
+		// Every such client would share one bucket, so none is let in.
+		s.logf(str.RelayRefusedBadPeer(r.RemoteAddr))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: a.Origins})
 	if err != nil {
 		return // Accept has answered (403 for a foreign Origin)
@@ -57,7 +70,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer c.CloseNow()
 	c.SetReadLimit(1 << 20)
 
-	ip := s.clientIP(r, a)
 	host := r.URL.Query().Get("host")
 	port, _ := strconv.Atoi(r.URL.Query().Get("port"))
 	// addr is only for the log, which quotes it; host comes from the
@@ -70,9 +82,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		c.Close(CodeNotListed, "")
 		return
 	}
-	if !s.acquire(ip) {
+	switch s.acquire(ip, a) {
+	case CodeTooMany:
 		s.logf(str.RelayRefusedTooMany(ip, addr))
 		c.Close(CodeTooMany, "")
+		return
+	case CodeBusy:
+		s.logf(str.RelayRefusedBusy(ip, addr))
+		c.Close(CodeBusy, "")
 		return
 	}
 	defer s.release(ip)
@@ -121,6 +138,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	go s.keepAlive(ctx, c)
 	start := time.Now()
 	s.logf(str.RelayOpened(ip, addr))
 	up, down := pipe(websocket.NetConn(ctx, c, websocket.MessageBinary), tc)
@@ -135,46 +153,86 @@ func (s *Server) dial(ctx context.Context, addr string) (net.Conn, error) {
 	return d.DialContext(ctx, "tcp", addr)
 }
 
+// keepAlive pings c until ctx ends, closing it when a ping goes
+// unanswered. Pongs are read by the pipe's reads.
+func (s *Server) keepAlive(ctx context.Context, c *websocket.Conn) {
+	t := time.NewTicker(or(s.pingEvery, 30*time.Second))
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		pctx, cancel := context.WithTimeout(ctx, or(s.pingTimeout, 20*time.Second))
+		err := c.Ping(pctx)
+		cancel()
+		if err != nil {
+			c.CloseNow()
+			return
+		}
+	}
+}
+
 // clientIP is who's connecting: the peer, or, when the peer is a trusted
 // proxy, the last address in X-Forwarded-For (the one the proxy saw).
-func (s *Server) clientIP(r *http.Request, a *Allowlist) netip.Addr {
+// ok is false when the peer's address can't be read.
+func (s *Server) clientIP(r *http.Request, a *Allowlist) (ip netip.Addr, ok bool) {
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
 	if err != nil {
-		return netip.Addr{}
+		return netip.Addr{}, false
 	}
-	ip := ap.Addr().Unmap()
+	ip = ap.Addr().Unmap()
 	if !a.Trusted(ip) {
-		return ip
+		return ip, true
 	}
 	xff := r.Header.Values("X-Forwarded-For") //str:ok
 	if len(xff) == 0 {
-		return ip
+		return ip, true
 	}
 	parts := strings.Split(xff[len(xff)-1], ",")
 	if fwd, err := netip.ParseAddr(strings.TrimSpace(parts[len(parts)-1])); err == nil {
-		return fwd.Unmap()
+		return fwd.Unmap(), true
 	}
-	return ip
+	return ip, true
 }
 
-func (s *Server) acquire(ip netip.Addr) bool {
+// bucket is what the per-IP cap counts against: an IPv4 address, or an
+// IPv6 /64, the smallest block a client is usually given.
+func bucket(ip netip.Addr) netip.Prefix {
+	if ip.Is4() {
+		return netip.PrefixFrom(ip, 32)
+	}
+	p, _ := ip.Prefix(64)
+	return p
+}
+
+// acquire takes a slot for ip, or returns the code to refuse with.
+func (s *Server) acquire(ip netip.Addr, a *Allowlist) websocket.StatusCode {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.open == nil {
-		s.open = map[netip.Addr]int{}
+		s.open = map[netip.Prefix]int{}
 	}
-	if s.open[ip] >= or(s.MaxPerIP, 8) {
-		return false
+	if s.total >= or(a.MaxConns, 256) {
+		return CodeBusy
 	}
-	s.open[ip]++
-	return true
+	b := bucket(ip)
+	if s.open[b] >= or(a.MaxPerIP, 8) {
+		return CodeTooMany
+	}
+	s.open[b]++
+	s.total++
+	return 0
 }
 
 func (s *Server) release(ip netip.Addr) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.open[ip]--; s.open[ip] <= 0 {
-		delete(s.open, ip)
+	s.total--
+	b := bucket(ip)
+	if s.open[b]--; s.open[b] <= 0 {
+		delete(s.open, b)
 	}
 }
 
