@@ -67,15 +67,16 @@ type tb interface {
 	Helper()
 	Errorf(format string, args ...any)
 	Fatalf(format string, args ...any)
-	Skipf(format string, args ...any)
+	Logf(format string, args ...any)
 }
 
 // checkShot compares shot, a PNG, with the golden at path. With update
-// it writes the golden instead. With no golden it skips, saying how to
-// make one. When they differ it fails, leaving in failed/ next to the
+// it writes the golden instead. With no golden it says how to make one
+// and reports false, so the caller can take its other shots and skip
+// after. When they differ it fails, leaving in failed/ next to the
 // golden what the page drew (<name>.png) and the diff (<name>.diff.png);
 // when they match it clears those from an earlier run.
-func checkShot(t tb, path string, shot []byte, update bool) {
+func checkShot(t tb, path string, shot []byte, update bool) bool {
 	t.Helper()
 	if update {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -84,26 +85,26 @@ func checkShot(t tb, path string, shot []byte, update bool) {
 		if err := os.WriteFile(path, shot, 0o644); err != nil {
 			t.Fatalf("%v", err)
 		}
-		return
+		return true
 	}
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		t.Skipf("no golden %s yet: run with -update to make it", path)
-		return
+		t.Logf("no golden %s yet: run with -update to make it", path)
+		return false
 	}
 	if err != nil {
 		t.Fatalf("%v", err)
-		return
+		return true
 	}
 	want, err := png.Decode(bytes.NewReader(b))
 	if err != nil {
 		t.Fatalf("%s: %v", path, err)
-		return
+		return true
 	}
 	got, err := png.Decode(bytes.NewReader(shot))
 	if err != nil {
 		t.Fatalf("the screenshot: %v", err)
-		return
+		return true
 	}
 	failed := filepath.Join(filepath.Dir(path), "failed")
 	base := strings.TrimSuffix(filepath.Base(path), ".png")
@@ -112,18 +113,19 @@ func checkShot(t tb, path string, shot []byte, update bool) {
 		for _, f := range []string{base + ".png", base + ".diff.png"} {
 			os.Remove(filepath.Join(failed, f))
 		}
-		return
+		return true
 	}
 	var diff bytes.Buffer
 	if err := png.Encode(&diff, diffImage(got, want)); err != nil {
 		t.Fatalf("%v", err)
-		return
+		return true
 	}
 	if err := os.MkdirAll(failed, 0o755); err != nil {
 		t.Fatalf("%v", err)
-		return
+		return true
 	}
 	os.WriteFile(filepath.Join(failed, base+".png"), shot, 0o644)
 	os.WriteFile(filepath.Join(failed, base+".diff.png"), diff.Bytes(), 0o644)
 	t.Errorf("%s: %d pixels differ; see %s", path, n, failed)
+	return true
 }

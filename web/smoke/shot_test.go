@@ -55,12 +55,12 @@ func encode(t *testing.T, m image.Image) []byte {
 }
 
 // rec is a T that records instead of failing.
-type rec struct{ failed, skipped bool }
+type rec struct{ failed, logged bool }
 
 func (r *rec) Helper()               {}
 func (r *rec) Errorf(string, ...any) { r.failed = true }
 func (r *rec) Fatalf(string, ...any) { r.failed = true }
-func (r *rec) Skipf(string, ...any)  { r.skipped = true }
+func (r *rec) Logf(string, ...any)   { r.logged = true }
 
 func TestCheckShotUpdatesThenPassesThenFails(t *testing.T) {
 	dir := t.TempDir()
@@ -68,10 +68,11 @@ func TestCheckShotUpdatesThenPassesThenFails(t *testing.T) {
 	shot := encode(t, solid(3, 3, color.Black))
 	failed := filepath.Join(dir, "golden", "failed")
 
+	// No golden: it says so and goes on, so the scenario's later shots
+	// are still taken; the scenario skips at its end (goldenScene).
 	r := &rec{}
-	checkShot(r, path, shot, false)
-	if !r.skipped || r.failed {
-		t.Errorf("no golden: %+v, want skipped", *r)
+	if checkShot(r, path, shot, false) || !r.logged || r.failed {
+		t.Errorf("no golden: %+v, want logged and false", *r)
 	}
 	checkShot(r, path, shot, true)
 	if _, err := os.Stat(path); err != nil {
@@ -93,7 +94,7 @@ func TestCheckShotUpdatesThenPassesThenFails(t *testing.T) {
 	// The same shot passes, and clears the last run's failure.
 	r = &rec{}
 	checkShot(r, path, shot, false)
-	if r.failed || r.skipped {
+	if r.failed {
 		t.Errorf("the same shot: %+v, want a pass", *r)
 	}
 	if m, _ := filepath.Glob(filepath.Join(failed, "main-dark*")); len(m) > 0 {

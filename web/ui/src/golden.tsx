@@ -11,4 +11,16 @@ import { Store } from "./store.ts";
 document.head.append(Object.assign(document.createElement("style"), { textContent: "* { caret-color: transparent !important; }" }));
 const store: Store = new Store((e) => effect(store)(e));
 mount(store);
-bridge(store, new WebSocket(new URLSearchParams(location.search).get("bridge")!));
+const ws = new URL(new URLSearchParams(location.search).get("bridge")!);
+// Go's field check, from the test's server: synchronous, as the wasm's
+// is (a synchronous request is fine in a test page).
+const check = (field: string, value: string): string => {
+  const u = new URL("check", ws);
+  u.protocol = ws.protocol === "wss:" ? "https:" : "http:";
+  u.search = new URLSearchParams({ field, value }).toString();
+  const x = new XMLHttpRequest();
+  x.open("GET", u, false);
+  x.send();
+  return x.responseText;
+};
+bridge(store, new WebSocket(ws), check);
