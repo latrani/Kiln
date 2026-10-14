@@ -2,6 +2,7 @@ package relay
 
 import (
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 
@@ -63,11 +64,29 @@ func TestParseErrors(t *testing.T) {
 		{"no ports", "[[world]]\nhost = \"a.example\"\n", str.RelayAllowNoPorts("allow.toml", "a.example")},
 		{"bad port", "[[world]]\nhost = \"a.example\"\nports = [70000]\n", str.RelayAllowBadPort("allow.toml", "a.example", 70000)},
 		{"bad proxy", "trusted_proxies = [\"nope\"]\n", str.RelayAllowBadProxy("allow.toml", "nope")},
+		{"origin URL", "origins = [\"https://a.example\"]\n", str.RelayAllowBadOrigin("allow.toml", "https://a.example")},
+		{"origin path", "origins = [\"a.example/kiln\"]\n", str.RelayAllowBadOrigin("allow.toml", "a.example/kiln")},
+		{"origin glob", "origins = [\"[a.example\"]\n", str.RelayAllowBadOrigin("allow.toml", "[a.example")},
+		{"origin empty", "origins = [\"\"]\n", str.RelayAllowBadOrigin("allow.toml", "")},
+		{"duplicate", "[[world]]\nhost = \"a.example\"\nports = [1, 2]\n[[world]]\nhost = \"A.example.\"\nports = [2]\nplaintext = true\n",
+			str.RelayAllowDuplicate("allow.toml", "a.example:2")},
+		{"zero per ip", "max_per_ip = 0\n", str.RelayAllowBadLimit("allow.toml", "max_per_ip")},
+		{"negative conns", "max_conns = -1\n", str.RelayAllowBadLimit("allow.toml", "max_conns")},
 	} {
 		_, err := ParseAllowlist("allow.toml", []byte(c.toml))
 		if err == nil || err.Error() != c.want {
 			t.Errorf("%s: err = %v, want %q", c.name, err, c.want)
 		}
+	}
+}
+
+func TestOriginsNormalized(t *testing.T) {
+	a, err := ParseAllowlist("allow.toml", []byte(`origins = ["Muck.Example.org.", "*.example.net", "localhost:8080"]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"muck.example.org", "*.example.net", "localhost:8080"}; !slices.Equal(a.Origins, want) {
+		t.Errorf("Origins = %q, want %q", a.Origins, want)
 	}
 }
 

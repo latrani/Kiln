@@ -23,6 +23,7 @@ const (
 	codeNeedsTLS    websocket.StatusCode = 4426
 	codeTooMany     websocket.StatusCode = 4429
 	codeUnreachable websocket.StatusCode = 4502
+	codeBusy        websocket.StatusCode = 4503
 )
 
 // target is the relay URL that asks for addr (host:port).
@@ -58,6 +59,8 @@ func explain(err error) error {
 		return str.Wrap(str.ConnRelayTooMany(), err)
 	case codeUnreachable:
 		return str.Wrap(str.ConnRelayUnreachable(ce.Reason), err)
+	case codeBusy:
+		return str.Wrap(str.ConnRelayBusy(), err)
 	case websocket.StatusNormalClosure, websocket.StatusGoingAway:
 		return err
 	}

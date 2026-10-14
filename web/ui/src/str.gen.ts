@@ -306,6 +306,9 @@ export function connNoCertificate(): string { return `server sent no certificate
 /** conn.reading_known_hosts: reading known_hosts: {err} */
 export function connReadingKnownHosts(err: unknown): string { return `reading known_hosts: ${e(err)}`; }
 
+/** conn.relay_busy: the web relay is full · try again in a bit */
+export function connRelayBusy(): string { return `the web relay is full · try again in a bit`; }
+
 /** conn.relay_down: couldn't reach the web relay */
 export function connRelayDown(): string { return `couldn't reach the web relay`; }
 
@@ -537,11 +540,20 @@ export function pickerHint(): string { return `Enter to connect · Esc to close`
 /** picker.name: Name */
 export function pickerName(): string { return `Name`; }
 
+/** relay.allow_bad_limit: allowlist {path}: {key} must be 1 or more */
+export function relayAllowBadLimit(path: unknown, key: unknown): string { return `allowlist ${path}: ${key} must be 1 or more`; }
+
+/** relay.allow_bad_origin: allowlist {path}: origins has bad pattern {pattern:%q} · use a host, like "muck.example.org" or "*.example.org" */
+export function relayAllowBadOrigin(path: unknown, pattern: unknown): string { return `allowlist ${path}: origins has bad pattern ${q(pattern)} · use a host, like "muck.example.org" or "*.example.org"`; }
+
 /** relay.allow_bad_port: allowlist {path}: {host} has bad port {port} */
 export function relayAllowBadPort(path: unknown, host: unknown, port: unknown): string { return `allowlist ${path}: ${host} has bad port ${port}`; }
 
 /** relay.allow_bad_proxy: allowlist {path}: trusted_proxies has bad address {addr:%q} */
 export function relayAllowBadProxy(path: unknown, addr: unknown): string { return `allowlist ${path}: trusted_proxies has bad address ${q(addr)}`; }
+
+/** relay.allow_duplicate: allowlist {path}: {world:%q} is listed twice */
+export function relayAllowDuplicate(path: unknown, world: unknown): string { return `allowlist ${path}: ${q(world)} is listed twice`; }
 
 /** relay.allow_loaded: one: allowlist {path}: 1 world · other: allowlist {path}: {n} worlds */
 export function relayAllowLoaded(n: number, path: unknown): string {
@@ -578,14 +590,14 @@ export function relayDevServing(url: unknown): string { return `dev: open ${url}
 /** relay.flag_allow: allowlist file (TOML) */
 export function relayFlagAllow(): string { return `allowlist file (TOML)`; }
 
-/** relay.flag_dev: also serve the web page and a preset config dir, for local testing */
-export function relayFlagDev(): string { return `also serve the web page and a preset config dir, for local testing`; }
+/** relay.flag_dev: also serve the web page and a preset, for local testing */
+export function relayFlagDev(): string { return `also serve the web page and a preset, for local testing`; }
 
 /** relay.flag_listen: address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev) */
 export function relayFlagListen(): string { return `address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev)`; }
 
-/** relay.flag_preset: with -dev: the config dir to preload in the browser */
-export function relayFlagPreset(): string { return `with -dev: the config dir to preload in the browser`; }
+/** relay.flag_preset: with -dev: the files to preload in the browser (config/… and known_hosts) */
+export function relayFlagPreset(): string { return `with -dev: the files to preload in the browser (config/… and known_hosts)`; }
 
 /** relay.flag_web: with -dev: the built page (web/static) */
 export function relayFlagWeb(): string { return `with -dev: the built page (web/static)`; }
@@ -599,6 +611,12 @@ export function relayNeedAllow(): string { return `kiln-relay needs -allow PATH 
 /** relay.opened: open {ip} → {world:%q} */
 export function relayOpened(ip: unknown, world: unknown): string { return `open ${ip} → ${q(world)}`; }
 
+/** relay.refused_bad_peer: refused {peer:%q}: unreadable client address */
+export function relayRefusedBadPeer(peer: unknown): string { return `refused ${q(peer)}: unreadable client address`; }
+
+/** relay.refused_busy: refused {ip} → {world:%q}: relay full (max_conns) */
+export function relayRefusedBusy(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: relay full (max_conns)`; }
+
 /** relay.refused_not_listed: refused {ip} → {world:%q}: not on the allowlist */
 export function relayRefusedNotListed(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: not on the allowlist`; }
 
@@ -610,6 +628,9 @@ export function relayRefusedTooMany(ip: unknown, world: unknown): string { retur
 
 /** relay.refused_unreachable: refused {ip} → {world:%q}: {err} */
 export function relayRefusedUnreachable(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: ${e(err)}`; }
+
+/** relay.watch_failed: watching the allowlist: {err} */
+export function relayWatchFailed(err: unknown): string { return `watching the allowlist: ${e(err)}`; }
 
 /** scrollback.history_ends: ─── history ends {when} ─── */
 export function scrollbackHistoryEnds(when: unknown): string { return `─── history ends ${when} ───`; }

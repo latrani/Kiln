@@ -359,6 +359,9 @@ func ConnReadingKnownHosts(err error) string {
 	return get("conn.reading_known_hosts", map[string]any{"err": err})
 }
 
+// ConnRelayBusy is conn.relay_busy: "the web relay is full · try again in a bit"
+func ConnRelayBusy() string { return get("conn.relay_busy", nil) }
+
 // ConnRelayDown is conn.relay_down: "couldn't reach the web relay"
 func ConnRelayDown() string { return get("conn.relay_down", nil) }
 
@@ -616,6 +619,16 @@ func PickerHint() string { return get("picker.hint", nil) }
 // PickerName is picker.name: "Name"
 func PickerName() string { return get("picker.name", nil) }
 
+// RelayAllowBadLimit is relay.allow_bad_limit: "allowlist {path}: {key} must be 1 or more"
+func RelayAllowBadLimit(path, key any) string {
+	return get("relay.allow_bad_limit", map[string]any{"path": path, "key": key})
+}
+
+// RelayAllowBadOrigin is relay.allow_bad_origin: "allowlist {path}: origins has bad pattern {pattern:%q} · use a host, like \"muck.example.org\" or \"*.example.org\""
+func RelayAllowBadOrigin(path, pattern any) string {
+	return get("relay.allow_bad_origin", map[string]any{"path": path, "pattern": pattern})
+}
+
 // RelayAllowBadPort is relay.allow_bad_port: "allowlist {path}: {host} has bad port {port}"
 func RelayAllowBadPort(path, host, port any) string {
 	return get("relay.allow_bad_port", map[string]any{"path": path, "host": host, "port": port})
@@ -624,6 +637,11 @@ func RelayAllowBadPort(path, host, port any) string {
 // RelayAllowBadProxy is relay.allow_bad_proxy: "allowlist {path}: trusted_proxies has bad address {addr:%q}"
 func RelayAllowBadProxy(path, addr any) string {
 	return get("relay.allow_bad_proxy", map[string]any{"path": path, "addr": addr})
+}
+
+// RelayAllowDuplicate is relay.allow_duplicate: "allowlist {path}: {world:%q} is listed twice"
+func RelayAllowDuplicate(path, world any) string {
+	return get("relay.allow_duplicate", map[string]any{"path": path, "world": world})
 }
 
 // RelayAllowLoaded is relay.allow_loaded, by count:
@@ -672,13 +690,13 @@ func RelayDevServing(url any) string { return get("relay.dev_serving", map[strin
 // RelayFlagAllow is relay.flag_allow: "allowlist file (TOML)"
 func RelayFlagAllow() string { return get("relay.flag_allow", nil) }
 
-// RelayFlagDev is relay.flag_dev: "also serve the web page and a preset config dir, for local testing"
+// RelayFlagDev is relay.flag_dev: "also serve the web page and a preset, for local testing"
 func RelayFlagDev() string { return get("relay.flag_dev", nil) }
 
 // RelayFlagListen is relay.flag_listen: "address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev)"
 func RelayFlagListen() string { return get("relay.flag_listen", nil) }
 
-// RelayFlagPreset is relay.flag_preset: "with -dev: the config dir to preload in the browser"
+// RelayFlagPreset is relay.flag_preset: "with -dev: the files to preload in the browser (config/… and known_hosts)"
 func RelayFlagPreset() string { return get("relay.flag_preset", nil) }
 
 // RelayFlagWeb is relay.flag_web: "with -dev: the built page (web/static)"
@@ -693,6 +711,16 @@ func RelayNeedAllow() string { return get("relay.need_allow", nil) }
 // RelayOpened is relay.opened: "open {ip} → {world:%q}"
 func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayRefusedBadPeer is relay.refused_bad_peer: "refused {peer:%q}: unreadable client address"
+func RelayRefusedBadPeer(peer any) string {
+	return get("relay.refused_bad_peer", map[string]any{"peer": peer})
+}
+
+// RelayRefusedBusy is relay.refused_busy: "refused {ip} → {world:%q}: relay full (max_conns)"
+func RelayRefusedBusy(ip, world any) string {
+	return get("relay.refused_busy", map[string]any{"ip": ip, "world": world})
 }
 
 // RelayRefusedNotListed is relay.refused_not_listed: "refused {ip} → {world:%q}: not on the allowlist"
@@ -714,6 +742,9 @@ func RelayRefusedTooMany(ip, world any) string {
 func RelayRefusedUnreachable(ip, world any, err error) string {
 	return get("relay.refused_unreachable", map[string]any{"ip": ip, "world": world, "err": err})
 }
+
+// RelayWatchFailed is relay.watch_failed: "watching the allowlist: {err}"
+func RelayWatchFailed(err error) string { return get("relay.watch_failed", map[string]any{"err": err}) }
 
 // ScrollbackHistoryEnds is scrollback.history_ends: "─── history ends {when} ───"
 func ScrollbackHistoryEnds(when any) string {

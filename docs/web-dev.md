@@ -21,7 +21,7 @@ it. Esc closes log mode.
 
 ```sh
 web/build.sh
-cp -R web/preset.example web/preset.local      # edit worlds/*.toml
+cp -R web/preset.example web/preset.local      # edit config/worlds/*.toml
 cp web/dev-allow.example.toml web/dev-allow.toml  # list the same worlds
 go run ./cmd/kiln-relay -dev -allow web/dev-allow.toml \
   -web web/static -preset web/preset.local
@@ -114,6 +114,9 @@ One tab runs Kiln at a time. A second tab offers **Use here**, which
 moves Kiln over; the first tab saves, disconnects, and shows the same
 offer.
 
-Preset files are written only where nothing is saved, so your edits to a
+A preset is laid out like a `/backup` zip: `config/…` is the config
+dir, and `known_hosts` holds TLS pins. Preset files are written only
+where nothing is saved, so your edits to a
 preset world win over the server's copy. A preset world you delete comes
-back on the next visit.
+back on the next visit. Preset pins are added to the saved ones for
+any host:port that has no pin yet.

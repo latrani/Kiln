@@ -5,9 +5,12 @@ package relay
 
 import (
 	"errors"
+	"net"
 	"net/netip"
 	"os"
+	"path"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -34,6 +37,11 @@ type Allowlist struct {
 	// TrustedProxies (addresses or CIDRs) may say who the client is in
 	// X-Forwarded-For.
 	TrustedProxies []string `toml:"trusted_proxies"`
+	// MaxPerIP caps connections from one client: an IPv4 address, or an
+	// IPv6 /64. 0: 8.
+	MaxPerIP int `toml:"max_per_ip"`
+	// MaxConns caps connections in all. 0: 256.
+	MaxConns int `toml:"max_conns"`
 
 	proxies []netip.Prefix
 }
@@ -59,6 +67,7 @@ func ParseAllowlist(path string, b []byte) (*Allowlist, error) {
 	if und := md.Undecoded(); len(und) > 0 {
 		return nil, errors.New(str.RelayAllowUnknownKey(path, und[0].String()))
 	}
+	seen := map[string]bool{}
 	for i, w := range a.Worlds {
 		h := normHost(w.Host)
 		if h == "" {
@@ -71,8 +80,30 @@ func ParseAllowlist(path string, b []byte) (*Allowlist, error) {
 			if p < 1 || p > 65535 {
 				return nil, errors.New(str.RelayAllowBadPort(path, h, p))
 			}
+			// Lookup takes the first match, so a second entry would be
+			// silently ignored.
+			hp := net.JoinHostPort(h, strconv.Itoa(p))
+			if seen[hp] {
+				return nil, errors.New(str.RelayAllowDuplicate(path, hp))
+			}
+			seen[hp] = true
 		}
 		a.Worlds[i].Host = h
+	}
+	for i, o := range a.Origins {
+		n := normHost(o)
+		if !validOrigin(n) {
+			return nil, errors.New(str.RelayAllowBadOrigin(path, o))
+		}
+		a.Origins[i] = n
+	}
+	for _, l := range []struct {
+		key string
+		v   int
+	}{{"max_per_ip", a.MaxPerIP}, {"max_conns", a.MaxConns}} { //str:ok
+		if md.IsDefined(l.key) && l.v < 1 {
+			return nil, errors.New(str.RelayAllowBadLimit(path, l.key))
+		}
 	}
 	for _, s := range a.TrustedProxies {
 		p, err := parsePrefix(s)
@@ -105,6 +136,17 @@ func (a *Allowlist) Trusted(ip netip.Addr) bool {
 		}
 	}
 	return false
+}
+
+// validOrigin reports whether o is a host pattern, with an optional port,
+// as websocket.AcceptOptions.OriginPatterns matches it. A URL (scheme or
+// path) means the operator expected something else, so it's refused.
+func validOrigin(o string) bool {
+	if o == "" || strings.ContainsAny(o, "/\\") {
+		return false
+	}
+	_, err := path.Match(o, "")
+	return err == nil
 }
 
 func normHost(h string) string {

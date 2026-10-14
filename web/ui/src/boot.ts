@@ -11,6 +11,7 @@ import * as str from "./str.gen.ts";
 
 const HOME = "/home/kiln";
 const CONFIG = `${HOME}/.config/kiln`;
+const KNOWN_HOSTS = `${HOME}/.local/share/kiln/known_hosts`;
 
 // readWithProgress reads res's body, saying after each chunk how much has
 // come and, when the server said, how much there is.
@@ -58,15 +59,40 @@ function loadScript(src: string): Promise<void> {
 
 // seedPreset writes the preset's files where nothing is saved yet: a
 // saved copy (the user's edits) wins. Seeded files aren't saved, so an
-// untouched preset world follows the server.
+// untouched preset world follows the server. The preset is laid out like
+// a backup: config/… is the config dir, and known_hosts holds TLS pins,
+// merged into the saved ones so the first visit doesn't trust whatever
+// certificate it's shown.
 async function seedPreset(fs: any): Promise<void> {
   const files: string[] = await (await fetch("preset/manifest.json")).json();
-  for (const f of files) {
-    if (fs.exists(`${CONFIG}/${f}`)) continue;
+  const get = async (f: string) => {
     const res = await fetch(`preset/${f}`);
     if (!res.ok) throw new Error(`preset/${f}: ${res.status}`);
-    fs.writeFileAll(`${CONFIG}/${f}`, new Uint8Array(await res.arrayBuffer()));
+    return new Uint8Array(await res.arrayBuffer());
+  };
+  for (const f of files) {
+    if (f === "known_hosts") {
+      const saved = fs.entry(KNOWN_HOSTS);
+      const dec = new TextDecoder();
+      const merged = mergeKnownHosts(saved ? dec.decode(saved.bytes) : "", dec.decode(await get(f)));
+      fs.writeFileAll(KNOWN_HOSTS, new TextEncoder().encode(merged));
+      continue;
+    }
+    const rel = f.startsWith("config/") ? f.slice("config/".length) : "";
+    if (!rel || fs.exists(`${CONFIG}/${rel}`)) continue;
+    fs.writeFileAll(`${CONFIG}/${rel}`, await get(f));
   }
+}
+
+// mergeKnownHosts adds preset's "host:port fingerprint" lines to saved
+// for each host:port saved doesn't pin yet. A saved pin wins, as a saved
+// config file does.
+export function mergeKnownHosts(saved: string, preset: string): string {
+  const host = (l: string) => { const t = l.trim(); const i = t.indexOf(" "); return i > 0 ? t.slice(0, i) : ""; };
+  const pinned = new Set(saved.split("\n").map(host).filter(Boolean));
+  const add = preset.split("\n").filter((l) => { const h = host(l); return h && !pinned.has(h); }).map((l) => l.trim());
+  if (add.length === 0) return saved;
+  return (saved && !saved.endsWith("\n") ? saved + "\n" : saved) + add.join("\n") + "\n";
 }
 
 // toBase64 is bytes as base64, a chunk at a time: one call with every

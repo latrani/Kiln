@@ -30,7 +30,8 @@ import (
 
 func TestCodesMatchRelay(t *testing.T) {
 	if codeNotListed != relay.CodeNotListed || codeNeedsTLS != relay.CodeNeedsTLS ||
-		codeTooMany != relay.CodeTooMany || codeUnreachable != relay.CodeUnreachable {
+		codeTooMany != relay.CodeTooMany || codeUnreachable != relay.CodeUnreachable ||
+		codeBusy != relay.CodeBusy {
 		t.Error("wsdial's close codes drifted from internal/relay's")
 	}
 }
@@ -149,6 +150,7 @@ func TestExplain(t *testing.T) {
 		want string // "" leaves the error as it was
 	}{
 		{codeTooMany, str.ConnRelayTooMany()},
+		{codeBusy, str.ConnRelayBusy()},
 		{websocket.StatusAbnormalClosure, str.ConnRelayDropped()},
 		{websocket.StatusInternalError, str.ConnRelayDropped()},
 		{websocket.StatusNormalClosure, ""},

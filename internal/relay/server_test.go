@@ -18,6 +18,7 @@ import (
 	"net/netip"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -88,6 +89,20 @@ type logLines struct {
 }
 
 func (l *logLines) add(s string) { l.mu.Lock(); l.lines = append(l.lines, s); l.mu.Unlock() }
+
+// all is every line logged so far.
+func (l *logLines) all() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.lines)
+}
+
+// inUse is how many slots s holds.
+func (s *Server) inUse() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.total
+}
 
 // first is the first line logged, or "" (copied under the lock: -race).
 func (l *logLines) first() string {
@@ -267,14 +282,15 @@ func TestWrongOriginRefused(t *testing.T) {
 
 func TestPerIPCapAndRelease(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, true))
-	s.MaxPerIP = 2
+	_, base, _ := relay(t, "max_per_ip = 2\n"+world(port, true))
 	// Refusals must not use up slots.
 	for range 3 {
 		closeCode(t, open(t, base, "127.0.0.1", port+1))
 	}
+	// Each holds its slot once the MUCK's hello comes through.
 	a := open(t, base, "127.0.0.1", port)
-	open(t, base, "127.0.0.1", port)
+	readLine(t, a)
+	readLine(t, open(t, base, "127.0.0.1", port))
 	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeTooMany {
 		t.Errorf("third: code %d, want %d", code, CodeTooMany)
 	}
@@ -316,10 +332,122 @@ func TestClientIPTrustsXFFOnlyFromProxies(t *testing.T) {
 		{"192.0.2.7:5000", "203.0.113.9", "192.0.2.7"},                 // not a proxy: ignore XFF
 		{"127.0.0.1:5000", "", "127.0.0.1"},
 	} {
-		if got := s.clientIP(req(c.remote, c.xff), a); got != netip.MustParseAddr(c.want) {
+		if got, ok := s.clientIP(req(c.remote, c.xff), a); !ok || got != netip.MustParseAddr(c.want) {
 			t.Errorf("%s via %q = %s, want %s", c.remote, c.xff, got, c.want)
 		}
 	}
+}
+
+func TestUnreadablePeerRefused(t *testing.T) {
+	logs := &logLines{}
+	s := &Server{Log: logs.add}
+	a, _ := ParseAllowlist("allow.toml", []byte(world(1, true)))
+	s.SetAllowlist(a)
+	r := httptest.NewRequest("GET", "/?host=127.0.0.1&port=1", nil)
+	r.RemoteAddr = "@"
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if got, want := logs.first(), str.RelayRefusedBadPeer("@"); got != want {
+		t.Errorf("log %q, want %q", got, want)
+	}
+}
+
+func TestPerIPCapBucketsIPv6By64(t *testing.T) {
+	a, _ := ParseAllowlist("allow.toml", []byte("max_per_ip = 1\n"))
+	s := &Server{}
+	take := func(ip string) websocket.StatusCode { return s.acquire(netip.MustParseAddr(ip), a) }
+	if take("2001:db8:1:2::1") != 0 {
+		t.Fatal("first IPv6 client refused")
+	}
+	if code := take("2001:db8:1:2:ffff::9"); code != CodeTooMany {
+		t.Errorf("same /64: code %d, want %d", code, CodeTooMany)
+	}
+	if take("2001:db8:1:3::1") != 0 {
+		t.Error("another /64 shared the cap")
+	}
+	if take("192.0.2.1") != 0 || take("192.0.2.2") != 0 {
+		t.Error("IPv4 addresses shared a cap")
+	}
+	s.release(netip.MustParseAddr("2001:db8:1:2::1"))
+	if take("2001:db8:1:2::5") != 0 {
+		t.Error("the /64's slot never came back")
+	}
+}
+
+func TestGlobalCap(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	s, base, logs := relay(t, "max_conns = 1\n"+world(port, true))
+	a := open(t, base, "127.0.0.1", port)
+	readLine(t, a)
+	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeBusy {
+		t.Errorf("second: code %d, want %d", code, CodeBusy)
+	}
+	want := str.RelayRefusedBusy(netip.MustParseAddr("127.0.0.1"), net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	if !slices.Contains(logs.all(), want) {
+		t.Errorf("no busy refusal logged: %q", logs.all())
+	}
+	a.Close(websocket.StatusNormalClosure, "")
+	eventually(t, "slot never released", func() bool { return s.inUse() == 0 })
+}
+
+func TestTLSRefusalsReleaseSlots(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	s, base, _ := relay(t, world(port, false))
+	c := open(t, base, "127.0.0.1", port)
+	c.Write(context.Background(), websocket.MessageBinary, []byte("connect kit\r\n"))
+	if code := closeCode(t, c); code != CodeNeedsTLS {
+		t.Fatalf("plain: code %d, want %d", code, CodeNeedsTLS)
+	}
+	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeNeedsTLS {
+		t.Fatalf("silent: code %d, want %d", code, CodeNeedsTLS)
+	}
+	eventually(t, "a refused connection kept its slot", func() bool { return s.inUse() == 0 })
+}
+
+func TestPingsKeepLiveClients(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	s, base, _ := relay(t, world(port, true))
+	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
+	c := open(t, base, "127.0.0.1", port)
+	nc := websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+	br := bufio.NewReader(nc)
+	br.ReadString('\n') // hello; reading also answers pings
+	lines := make(chan string, 1)
+	go func() { l, _ := br.ReadString('\n'); lines <- l }()
+	time.Sleep(300 * time.Millisecond)
+	nc.Write([]byte("hi\r\n"))
+	select {
+	case l := <-lines:
+		if l != "you said hi\r\n" {
+			t.Errorf("got %q after pings", l)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("a live client was dropped")
+	}
+}
+
+func TestPingsReapSilentClients(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	s, base, _ := relay(t, world(port, true))
+	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
+	open(t, base, "127.0.0.1", port) // never reads, so never answers a ping
+	eventually(t, "connection opened", func() bool { return s.inUse() == 1 })
+	eventually(t, "silent client never reaped", func() bool { return s.inUse() == 0 })
+}
+
+// readLine reads one line relayed to c.
+func readLine(t *testing.T, c *websocket.Conn) string {
+	t.Helper()
+	nc := websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+	nc.SetReadDeadline(time.Now().Add(2 * time.Second))
+	l, err := bufio.NewReader(nc).ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
 }
 
 func selfSignedListener(t *testing.T) (net.Listener, *x509.Certificate) {
