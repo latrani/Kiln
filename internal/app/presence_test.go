@@ -78,7 +78,7 @@ func TestNotifyFirstReArmsOnHere(t *testing.T) {
 		_, _, effs := a.Handle(lineMsg("fm/kit", s, text))
 		return notes(effs)
 	}
-	if got := line("one"); !slices.Equal(got, []Notify{{Title: "Kit", Body: "one"}}) {
+	if got := line("one"); !slices.Equal(got, []Notify{{Title: "Kit", Body: "one", Key: "fm/kit"}}) {
 		t.Errorf("first line: %v", got)
 	}
 	if got := line("two"); got != nil {

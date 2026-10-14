@@ -6,6 +6,7 @@ import { render } from "preact";
 import { download, pickFile, toBase64 } from "./boot.ts";
 import { paneSize } from "./layout.ts";
 import { toggleLog } from "./log.ts";
+import { show } from "./notify.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
 import type { Event, Store } from "./store.ts";
@@ -13,8 +14,8 @@ import { App } from "./ui/App.tsx";
 
 // effect does what Go asks of the page: a file to download (an export,
 // a backup), for /restore a backup to pick, for /open the picker, for
-// /edit an editor, for /log log mode, and Copy to the clipboard, best
-// effort (spec).
+// /edit an editor, for /log log mode, Copy to the clipboard and Notify
+// as a desktop notification, best effort (spec).
 export const effect = (store: Store) => (e: Event): void => {
   if (e.effect === "SaveFile") {
     download(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
@@ -31,6 +32,8 @@ export const effect = (store: Store) => (e: Event): void => {
     toggleLog(store);
   } else if (e.effect === "Copy") {
     navigator.clipboard?.writeText(String(e.Text ?? "")).catch((err) => console.error("copy", err));
+  } else if (e.effect === "Notify") {
+    show(store, e);
   }
 };
 

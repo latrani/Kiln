@@ -22,8 +22,9 @@ type Do struct {
 
 // Notify is a notification to show. Title is the character's name (with
 // @world when needed); Body is the line's text as it arrived, server
-// colors and all, for the front end to clean up for its medium.
-type Notify struct{ Title, Body string }
+// colors and all, for the front end to clean up for its medium. Key is
+// the character's, for a front end that can switch to it on a click.
+type Notify struct{ Title, Body, Key string }
 
 // Copy puts Text on the clipboard.
 type Copy struct{ Text string }
