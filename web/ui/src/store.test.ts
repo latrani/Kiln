@@ -509,11 +509,11 @@ test("not in log mode, the panel doesn't open", () => {
   assert.equal(s.state.logView["fm/kit"].panel, undefined);
 });
 
-test("a click on a glyph highlights its entry, focus following (a span takes none), and folds or removes it", () => {
+test("a click on a glyph highlights its entry and folds or removes it; focus follows only a text row's (a span takes none)", () => {
   const { s, sent } = filtered();
   togglePanel(s);
   glyphClick(s, "g:page");
-  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page", follow: true });
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" }, "a group's glyph is a button and keeps focus");
   assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true });
   glyphClick(s, "t:x");
   assert.deepEqual(sent.at(-1), { Do: "remove_text", Key: "fm/kit", Term: "x" });
