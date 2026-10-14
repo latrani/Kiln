@@ -1031,3 +1031,11 @@ func TestOpeningLogModeClearsTheStatus(t *testing.T) {
 		t.Errorf("the old status stays: %v", st)
 	}
 }
+
+func TestCallRunsOnTheLoop(t *testing.T) {
+	h := start(t)
+	h.l.Call(func(a *app.App) { a.SetStatus(true, "x") }) //str:ok: a test status
+	if st := event(h.next(), "Status"); st == nil || st["Text"] != "x" {
+		t.Errorf("status %v", st)
+	}
+}

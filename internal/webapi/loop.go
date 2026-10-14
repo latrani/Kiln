@@ -60,6 +60,9 @@ type Options struct {
 	Restore func(data []byte) (int, error)
 }
 
+// call is a function for the loop to run; see Call.
+type call func(a *app.App)
+
 // say is a status for the loop to put up; see Say.
 type say struct {
 	err  bool
@@ -84,6 +87,10 @@ func (l *Loop) Act(js []byte) { l.post(js) }
 // Say puts text on the status line from outside the loop (the page's
 // storage failing, say). Like Act, it never touches the core itself.
 func (l *Loop) Say(isErr bool, text string) { l.post(say{isErr, text}) }
+
+// Call runs f on the loop, between turns, as a turn of its own: the page
+// gets what it changed. Tests use it to set up what no action reaches.
+func (l *Loop) Call(f func(a *app.App)) { l.post(call(f)) }
 
 // post puts msg on the loop, or drops it if the loop has ended. It never
 // blocks: the queue has no limit, so a JS callback calling Act (even
@@ -275,6 +282,8 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 		l.a.HandleOlder(m)
 	case app.LogOlderMsg:
 		return nil, l.a.HandleLogOlder(m), false
+	case call:
+		m(l.a)
 	case say:
 		l.a.SetStatus(m.err, m.text)
 	case expire:
