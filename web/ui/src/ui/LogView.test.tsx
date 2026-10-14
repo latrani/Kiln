@@ -81,6 +81,8 @@ test("a prompt: find's label and field; the format prompt names the default", ()
   assert.match(bottom(pageWith({}, { prompt: { kind: "find", value: "x" } })), new RegExp(`<label[^>]*>${str.browseFindPrompt()}</label><input[^>]*value="x"`));
   assert.ok(bottom(pageWith({ ExportFormat: "html" }, { prompt: { kind: "format" } })).includes(str.browseFormatPromptDefault("html")));
   assert.ok(bottom(pageWith({}, { prompt: { kind: "format" } })).includes(str.browseFormatPrompt()));
+  const fmt = bottom(pageWith({}, { prompt: { kind: "format" } }));
+  assert.ok(fmt.includes('role="group" aria-labelledby="kiln-format"') && fmt.includes(`<span id="kiln-format">${str.browseFormatPrompt()}</span>`), "named for a screen reader as it takes focus");
 });
 
 test("top bar: the find status and the Log chip, lit; status line: the log's status, else how many selected", () => {

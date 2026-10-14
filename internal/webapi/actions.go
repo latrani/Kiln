@@ -208,7 +208,10 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	}
 	switch act.Do {
 	case "log": //str:ok
+		// Opened, or shown again: what the status said was about before,
+		// as the TUI's openBrowse.
 		a.OpenLog(act.Key)
+		a.ClearStatus()
 		return nil, nil, true
 	case "log_close": //str:ok
 		a.CloseLog(act.Key)

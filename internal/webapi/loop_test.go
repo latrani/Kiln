@@ -1020,3 +1020,14 @@ func TestLogStatusIsTheStatusLinesUntilYouActAgain(t *testing.T) {
 		t.Errorf("acting again leaves it: %v", st)
 	}
 }
+
+// Opening log mode, or showing it again, takes down what the status line
+// said, as the TUI's openBrowse: it's about what you were doing before.
+func TestOpeningLogModeClearsTheStatus(t *testing.T) {
+	h, _ := logWith(t, "one")
+	h.act(`{"Do":"say","Text":"old news","Err":false}`)
+	b := h.act(`{"Do":"log","Key":"fm/kit"}`) // open already: shown again
+	if st := event(b, "Status"); st == nil || st["Text"] != "" {
+		t.Errorf("the old status stays: %v", st)
+	}
+}

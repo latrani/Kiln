@@ -85,6 +85,22 @@ export function logKey(e: { key: string; ctrlKey: boolean; altKey: boolean; meta
 // exportFormats are export's format keys, as the TUI's exportFormatKeys.
 export const exportFormats: Record<string, string> = { p: "plain", a: "ansi", h: "html" }; //str:ok config values
 
+// formatKey is a key in export's format prompt: the format it picks (Enter
+// takes the default, if there is one), or "back" for Esc. A key with a
+// modifier is never a pick.
+export function formatKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }, def: string): string | undefined {
+  if (e.ctrlKey || e.altKey || e.metaKey) return undefined;
+  if (e.key === "Escape") return "back";
+  return e.key === "Enter" ? def || undefined : exportFormats[e.key];
+}
+
+// wantsOlder reports whether log mode should ask for older history: the
+// view near its top, or what's loaded too short to scroll at all, and
+// none already coming or none left.
+export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scrollTop: number; scrollHeight: number; clientHeight: number }): boolean {
+  return !g.Loading && !g.HistDone && (v.scrollTop < v.clientHeight || v.scrollHeight <= v.clientHeight);
+}
+
 // logAct does what a log-mode key asks, as the TUI's browse.key: a
 // prompt for find, a date or export's format; n and N step find from
 // where it last landed (else the line last clicked, else the newest); c
@@ -116,7 +132,8 @@ export function logAct(store: Store, does: LogKey): void {
 
 // toggleLog is Ctrl+L, as the TUI's: log mode showing is hidden, kept
 // as it was (a search reading older days stops); hidden, it shows again;
-// not open, it opens for the active character. Nothing with no character
+// not open, it opens for the active character. Shown again or opened,
+// Go's told: it takes down the status, as the TUI's openBrowse. Nothing with no character
 // showing, or with the picker or an editor up.
 export function toggleLog(store: Store): void {
   const s = store.state, k = s.active;
@@ -125,7 +142,7 @@ export function toggleLog(store: Store): void {
     const hide = !s.logView[k]?.hidden;
     if (hide && s.logs[k].Searching) s.act?.({ Do: "stop_search", Key: k }); // as the TUI's hideBrowse
     store.setLogView(k, { hidden: hide });
-    return;
+    if (hide) return;
   }
   s.act?.({ Do: "log", Key: k });
 }
@@ -133,13 +150,15 @@ export function toggleLog(store: Store): void {
 // logClick is a click on line seq, as the TUI's click: it stops a search
 // reading older days; a click takes the line; Shift+click inside the
 // range takes it out (or back in), elsewhere extends the range; a click
-// on the gutter of a line in the range takes it out. The line clicked is
+// on the gutter of a line in the range takes it out. With a prompt open
+// it changes nothing, as the TUI's. The line clicked is
 // where you are now: find's steps and t go from it, not from where find
 // last landed.
 export function logClick(store: Store, seq: number, how: { shift?: boolean; gutter?: boolean; inRange?: boolean }): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState;
   const act = s.act ?? (() => {});
   if (g.Searching) act({ Do: "stop_search", Key: k });
+  if (s.logView[k]?.prompt) return; // the selection can't change under a prompt
   if (how.shift && g.Start != null && g.End != null && how.inRange) act({ Do: "exclude", Key: k, Seq: seq });
   else if (how.shift && g.Start != null) act({ Do: "extend", Key: k, Seq: seq });
   else if (how.gutter && how.inRange && g.End != null) act({ Do: "exclude", Key: k, Seq: seq });

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { logAct, logClick, logKey, logRows, placeOf, segments, topFor } from "../log.ts";
+import { logAct, logClick, logKey, logRows, placeOf, segments, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -53,10 +53,23 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     if (v.at !== undefined) el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
   }, [v.goN]);
 
+  // older asks for older history near the top, or when what's loaded
+  // doesn't fill the view (so there's nothing to scroll): once per Log
+  // from Go, so it doesn't ask again before Go says it's loading.
+  const askedFor = useRef<LogState | undefined>(undefined);
+  const older = (e: HTMLElement) => {
+    if (askedFor.current !== g && wantsOlder(g, e)) {
+      askedFor.current = g;
+      act({ Do: "log_older", Key: k });
+    }
+  };
+  useLayoutEffect(() => {
+    if (el.current) older(el.current);
+  });
   const onScroll = () => {
     const e = el.current!;
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
-    if (e.scrollTop < e.clientHeight && !g.Loading && !g.HistDone) act({ Do: "log_older", Key: k });
+    older(e);
   };
   const onClick = (e: MouseEvent) => {
     if (window.getSelection()?.isCollapsed === false) return; // a drag: onMouseUp took it

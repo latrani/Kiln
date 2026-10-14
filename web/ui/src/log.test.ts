@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportFormats, findStatus, logKey, logRows, placeOf, segments, topFor } from "./log.ts";
+import { exportFormats, findStatus, formatKey, logKey, logRows, placeOf, segments, topFor, wantsOlder } from "./log.ts";
 import type { LogState } from "./log.ts";
 import type { LineData } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -59,4 +59,25 @@ test("place: the first row showing and how far above the view's top it starts; p
   const after = [{ seq: 1, top: 0, height: 100 }, ...rows.map((r) => ({ ...r, top: r.top + 100 }))];
   assert.equal(topFor({ seq: 6, off: -10 }, after), 130, "the same line, the same distance from the top");
   assert.equal(topFor({ seq: 99, off: 0 }, after), undefined, "gone: nothing to keep");
+});
+
+test("export's format prompt: p a h, Enter for a default, Esc back; never with a modifier", () => {
+  const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => ({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
+  assert.equal(formatKey(k("p"), ""), "plain");
+  assert.equal(formatKey(k("h"), ""), "html");
+  assert.equal(formatKey(k("Enter"), "ansi"), "ansi");
+  assert.equal(formatKey(k("Enter"), ""), undefined);
+  assert.equal(formatKey(k("Escape"), ""), "back");
+  assert.equal(formatKey(k("p", { ctrlKey: true }), ""), undefined, "Ctrl+P is the browser's");
+  assert.equal(formatKey(k("a", { metaKey: true }), ""), undefined);
+  assert.equal(formatKey(k("h", { altKey: true }), ""), undefined);
+});
+
+test("older history is asked for near the top, or when what's loaded doesn't fill the view; not while it loads or once it's all there", () => {
+  const g = { Loading: false, HistDone: false };
+  assert.equal(wantsOlder(g, { scrollTop: 0, scrollHeight: 300, clientHeight: 500 }), true, "too short to scroll");
+  assert.equal(wantsOlder(g, { scrollTop: 100, scrollHeight: 2000, clientHeight: 500 }), true, "near the top");
+  assert.equal(wantsOlder(g, { scrollTop: 1500, scrollHeight: 2000, clientHeight: 500 }), false);
+  assert.equal(wantsOlder({ ...g, Loading: true }, { scrollTop: 0, scrollHeight: 300, clientHeight: 500 }), false);
+  assert.equal(wantsOlder({ ...g, HistDone: true }, { scrollTop: 0, scrollHeight: 300, clientHeight: 500 }), false);
 });

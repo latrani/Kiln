@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
 import { composing } from "../input.ts";
-import { exportFormats } from "../log.ts";
+import { formatKey } from "../log.ts";
 import type { LogState } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -30,8 +30,8 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
   }
   if (p.kind === "format") {
     const onKeyDown = (e: KeyboardEvent) => {
-      const f = e.key === "Enter" && g.ExportFormat ? g.ExportFormat : exportFormats[e.key];
-      if (e.key === "Escape") {
+      const f = formatKey(e, g.ExportFormat);
+      if (f === "back") {
         e.preventDefault();
         back();
       } else if (f) {
@@ -41,8 +41,8 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
       }
     };
     return (
-      <div ref={formatRef} class={`logbar ${roleClass("log.bar")}`} tabindex={0} onKeyDown={onKeyDown}>
-        {g.ExportFormat ? str.browseFormatPromptDefault(g.ExportFormat) : str.browseFormatPrompt()}
+      <div ref={formatRef} class={`logbar ${roleClass("log.bar")}`} tabindex={0} role="group" aria-labelledby="kiln-format" onKeyDown={onKeyDown}>
+        <span id="kiln-format">{g.ExportFormat ? str.browseFormatPromptDefault(g.ExportFormat) : str.browseFormatPrompt()}</span>
       </div>
     );
   }

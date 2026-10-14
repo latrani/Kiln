@@ -368,7 +368,7 @@ test("toggleLog: open, hide, show again; nothing open, nothing", () => {
   assert.equal(logShows(s.state, "fm/kit"), false);
   toggleLog(s);
   assert.equal(logShows(s.state, "fm/kit"), true);
-  assert.equal(sent.filter((a) => a.Do === "log").length, 1, "shown again without asking Go");
+  assert.equal(sent.filter((a) => a.Do === "log").length, 2, "shown again, Go told (it clears the status, as the TUI's)");
 });
 
 // logged is a store with Kit's log mode open over lines 1-3, and what it
@@ -422,4 +422,12 @@ test("e with nothing selected asks Go, which says to mark a range; no format pro
   const b = logged({ Start: 1, End: 2, Selected: 2 });
   logAct(b.s, "export");
   assert.deepEqual(b.s.state.logView["fm/kit"].prompt, { kind: "format" });
+});
+
+test("a click while a prompt is open changes nothing, as the TUI's: the prompt keeps it", () => {
+  const { s, sent } = logged({ Start: 1, End: 1, Selected: 1 });
+  s.setLogView("fm/kit", { prompt: { kind: "find", value: "x" } });
+  logClick(s, 3, {});
+  assert.equal(sent.length, 0);
+  assert.equal(s.state.logView["fm/kit"].clicked, undefined);
 });
