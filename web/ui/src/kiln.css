@@ -9,12 +9,12 @@ html, body { margin: 0; height: 100%; }
 body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none; }
 
 /* The TUI's five areas: the sidebar the full height on the left, a
-   one-pixel divider, then the top bar, scrollback, bottom pane and
+   divider a character wide, then the top bar, scrollback, bottom pane and
    status line stacked on the right. */
 .kiln {
   display: grid;
   height: 100dvh;
-  grid-template-columns: var(--side) 1px 1fr; /* layout.ts's sidebarCSS */
+  grid-template-columns: var(--side) 1ch 1fr; /* layout.ts's sidebarCSS */
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
 }
@@ -39,8 +39,12 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side li.fentry, .filter-panel li { display: block; }
 .side .frow { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .side .fglyph { cursor: pointer; }
-.divider { grid-area: div; background: var(--role-divider-fg); }
-.top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); display: flex; }
+/* The rules take a character's room, as the TUI's glyphs do: the
+   divider a column 1ch wide with its line down the middle, and each
+   rule across a line's height with its line through the middle (half a
+   line above it, half below, less half the line). */
+.divider { grid-area: div; background: linear-gradient(var(--role-divider-fg), var(--role-divider-fg)) center / 1px 100% no-repeat; }
+.top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); padding-bottom: calc(.5lh - .5px); margin-bottom: calc(.5lh - .5px); display: flex; }
 .top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .top button { flex: none; }
 .body { grid-area: body; min-height: 0; position: relative; display: flex; flex-direction: column; }
@@ -86,7 +90,7 @@ a.s { text-decoration: underline; }
    export's format question, one row as the TUI's. */
 .logbar { white-space: pre; display: flex; outline: none; }
 .logbar input { flex: 1; min-width: 1ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
-.bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
+.bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
 .bottom.form { border-top-color: var(--role-rule-form-fg); }
 /* A one-field form, as the TUI's: the label, the field as wide as what's
    typed, then the hint. */
@@ -110,7 +114,7 @@ a.s { text-decoration: underline; }
 .editor summary { list-style: none; cursor: pointer; white-space: pre; }
 .editor summary::-webkit-details-marker { display: none; }
 .editor .buttons .row { display: flex; white-space: pre; }
-.status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); }
+.status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
 /* The offer to allow notifications (notify.ts), at the right. */
 .status .offer { float: right; }
 .lock { padding: 1lh 1ch; }
