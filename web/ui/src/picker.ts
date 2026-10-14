@@ -1,8 +1,8 @@
 // The picker's rows and highlight, as the TUI's (internal/ui/picker.go):
 // every configured character that isn't open, under its world, each
-// world ending with a row to add a character. Go sends the worlds in
-// this order (feed.worlds). A world's own row can be highlighted once its
-// editor comes (step 4b), and "+ World" comes with it.
+// world ending with a row to add a character, then a row to add a world.
+// Go sends the worlds in this order (feed.worlds). A world's own row
+// opens its editor.
 
 import type { Answer, State, Store } from "./store.ts";
 
@@ -16,7 +16,8 @@ export interface WorldInfo {
 export type PickRow =
   | { kind: "world"; world: string }
   | { kind: "char"; world: string; key: string; name: string }
-  | { kind: "add_char"; world: string };
+  | { kind: "add_char"; world: string }
+  | { kind: "add_world" };
 
 // matches reports whether a character fits the lowercased filter f: its
 // name, an alias or its world contains it.
@@ -25,7 +26,8 @@ function matches(world: string, c: { Name: string; Aliases?: string[] }, f: stri
 }
 
 // pickerRows lists the characters the picker offers, those not in open,
-// under their worlds, each world ending with "+ Character". A world is
+// under their worlds, each world ending with "+ Character", then "+
+// World". A world is
 // listed when the filter matches it or one of its characters, even with
 // no characters to offer.
 export function pickerRows(worlds: WorldInfo[], open: Record<string, unknown>, filter: string): PickRow[] {
@@ -37,14 +39,20 @@ export function pickerRows(worlds: WorldInfo[], open: Record<string, unknown>, f
       .map((c) => ({ kind: "char", world: w.ID, key: `${w.ID}/${c.ID}`, name: c.Name }));
     if (chars.length || w.ID.toLowerCase().includes(f)) rows.push({ kind: "world", world: w.ID }, ...chars, { kind: "add_char", world: w.ID });
   }
+  rows.push({ kind: "add_world" });
   return rows;
 }
 
 // selKey is what the highlight holds when r is highlighted: a
-// character's key, or "+world" for adding a character to world; "" for a
-// row that can't be.
+// character's key, "=world" for a world's own row (its editor), "+world"
+// for adding a character to world, "+" for adding a world.
 export function selKey(r: PickRow): string {
-  return r.kind === "char" ? r.key : r.kind === "add_char" ? "+" + r.world : "";
+  switch (r.kind) {
+    case "char": return r.key;
+    case "world": return "=" + r.world;
+    case "add_char": return "+" + r.world;
+    case "add_world": return "+";
+  }
 }
 
 // pickable is the selection keys of the rows that can be highlighted, in
@@ -52,8 +60,8 @@ export function selKey(r: PickRow): string {
 export const pickable = (rows: PickRow[]): string[] => rows.map(selKey).filter((k) => k);
 
 // fixPick keeps the highlight on its row if it's still offered, and
-// otherwise moves it to the first character, or the first row there is;
-// "" when there's none.
+// otherwise moves it to the first character, or the first row there is
+// (+ World, at least).
 export function fixPick(rows: PickRow[], sel: string): string {
   const keys = pickable(rows);
   if (keys.includes(sel)) return sel;

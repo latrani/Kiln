@@ -129,8 +129,11 @@ export class Store {
     if (s.picker) {
       // What's offered may have changed (worlds, a character opening or
       // closing): the highlight stays on a row there is, as the TUI's
-      // fixPick after a reload.
-      const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter), s.picker.sel);
+      // fixPick after a reload. Opened before any worlds came, it was on
+      // + World for want of anything else: it starts on the first
+      // character once there are some.
+      const was = this.state.worlds.length ? s.picker.sel : "";
+      const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter), was);
       if (sel !== s.picker.sel) s = { ...s, picker: { ...s.picker, sel } };
     }
     this.state = s;

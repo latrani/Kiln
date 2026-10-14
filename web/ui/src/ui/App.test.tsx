@@ -379,5 +379,6 @@ test("the picker's list groups each world's options under the world's name, for 
   const groups = [...list.matchAll(/<li role="group" aria-label="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(groups, ["fm", "pf"]);
   assert.doesNotMatch(list, /role="presentation"/, "a listbox owns only options and groups");
-  assert.match(list, /<li role="group" aria-label="fm"><span aria-hidden="true"[^>]*>fm<\/span><ul role="none"><li[^>]*role="option"/);
+  assert.match(list, /<li role="group" aria-label="fm"><ul role="none"><li id="pick-=fm" role="option"[^>]*>fm<\/li>/, "the world's own row is its first option");
+  assert.match(list, new RegExp(`<\\/li><li id="pick-\\+" role="option"[^>]*><span[^>]*> ${str.pickerAddWorld().replace("+", "\\+")} </span></li></ul>$`), "+ World last, in no group");
 });

@@ -86,17 +86,20 @@ function PickerList({ state, store }: { state: State; store: Store }) {
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen
-          // reader says which world a character is in; its header row is
-          // the name drawn.
+          // reader says which world a character is in; the first is the
+          // world's own row, its editor.
           <li key={"=" + world} role="group" aria-label={world}>
-            <span aria-hidden="true" class={"pick " + roleClass("picker.world")}>{world}</span>
             <ul role="none">
               {rows.map((r) => {
-                // A character's row is lit across, one space in; "+
+                // A world's row is its name, lit in its own role; a
+                // character's row is lit across, one space in; "+
                 // Character" is a chip, one space in.
                 const k = selKey(r);
                 const on = k === p.sel;
                 const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
+                if (r.kind === "world") {
+                  return <li {...opts} class={"pick " + roleClass(on ? "picker.world.selected" : "picker.world")}>{r.world}</li>;
+                }
                 if (r.kind === "add_char") {
                   return <li {...opts} class="pick"> <span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
                 }
@@ -105,18 +108,22 @@ function PickerList({ state, store }: { state: State; store: Store }) {
             </ul>
           </li>
         ))}
+        {/* + World, in no world: a chip at the left edge, as the TUI's. */}
+        <li key="+" id="pick-+" role="option" aria-selected={p.sel === "+"} class="pick" onClick={() => choose(store, "+")}>
+          <span class={roleClass(p.sel === "+" ? "picker.selected" : "picker.add")}> {str.pickerAddWorld()} </span>
+        </li>
       </ul>
     </nav>
   );
 }
 
-// groups splits the picker's rows by world: each world header's rows
-// after it.
+// groups splits the picker's rows by world (each world's row, then its
+// rows), leaving + World, which is in no world, for after them.
 function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
   const out: { world: string; rows: PickRow[] }[] = [];
   for (const r of rows) {
-    if (r.kind === "world") out.push({ world: r.world, rows: [] });
-    else out.at(-1)?.rows.push(r);
+    if (r.kind === "world") out.push({ world: r.world, rows: [r] });
+    else if (r.kind !== "add_world") out.at(-1)?.rows.push(r);
   }
   return out;
 }

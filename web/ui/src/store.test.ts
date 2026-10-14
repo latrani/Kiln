@@ -109,7 +109,7 @@ test("the picker: opened with its highlight on the first character; Start drops 
   s.openPicker();
   assert.deepEqual(s.state.picker, { filter: "", sel: "fm/kit" });
   s.setPicker({ filter: "zzz" });
-  assert.equal(s.state.picker?.sel, "", "nothing matches");
+  assert.equal(s.state.picker?.sel, "+", "nothing matches: + World");
   s.apply([{ type: "Start" }]);
   assert.equal(s.state.picker, undefined);
 });
@@ -126,7 +126,7 @@ test("Saved and Problems are the latest answer, numbered", () => {
 test("the picker's highlight follows what Go sends: worlds coming, the highlighted character opening", () => {
   const s = new Store();
   s.openPicker(); // before the worlds came: nothing to highlight
-  assert.equal(s.state.picker?.sel, "");
+  assert.equal(s.state.picker?.sel, "+", "no worlds yet: + World");
   s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] }]);
   assert.equal(s.state.picker?.sel, "fm/kit");
   s.apply([{ type: "Char", Key: "fm/kit", World: "fm", Name: "Kit" }]);
