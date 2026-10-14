@@ -960,6 +960,9 @@ export function webLoading(got: unknown): string { return `loading Kiln… ${got
 /** web.loading_size: loading Kiln… {got}/{total} MB */
 export function webLoadingSize(got: unknown, total: unknown): string { return `loading Kiln… ${got}/${total} MB`; }
 
+/** web.log: Log */
+export function webLog(): string { return `Log`; }
+
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }
 

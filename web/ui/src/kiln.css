@@ -65,6 +65,16 @@ a.s { text-decoration: underline; }
 .ov .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .ov button { padding: 0; }
 .ov-rule { border: 0; border-top: 1px solid currentColor; margin: calc(.5lh - .5px) 0; }
+/* Log mode, as the TUI's: each line its time, gutter and text, wrapped
+   rows hanging under the text. Every row stays in the DOM (no virtual
+   scrolling), and older history arriving above keeps your place. */
+.log { flex: 1; overflow-y: auto; overflow-anchor: auto; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lrow { display: grid; grid-template-columns: 5ch 1ch 1ch 1ch 1fr; cursor: default; }
+.lrow > :nth-child(1) { grid-column: 1; }
+.lrow .gutter { grid-column: 3; cursor: pointer; }
+.lrow .ltext { grid-column: 5; min-width: 0; }
+.lrow .ltext .line { padding-left: 0; text-indent: 0; }
+.lrow mark { color: inherit; background: none; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
 .bottom.form { border-top-color: var(--role-rule-form-fg); }
 /* A one-field form, as the TUI's: the label, the field as wide as what's

@@ -2,7 +2,7 @@
 // shows, find's status and marks, and its keys. Lines are addressed by
 // their number (Seq); one Go names that the page doesn't hold (not yet
 // loaded) is nothing.
-import type { LineData } from "./store.ts";
+import type { LineData, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
 // LogState is Go's Log event (feed.Log).
@@ -84,3 +84,28 @@ export function logKey(e: { key: string; ctrlKey: boolean; altKey: boolean; meta
 
 // exportFormats are export's format keys, as the TUI's exportFormatKeys.
 export const exportFormats: Record<string, string> = { p: "plain", a: "ansi", h: "html" }; //str:ok config values
+
+// logAct does what a log-mode key asks, as the TUI's browse.key: a
+// prompt for find, a date or export's format; n and N step find from
+// where it last landed (else the line last clicked, else the newest); c
+// copies; t says the tags of that same line; Esc stops a search, else
+// closes log mode.
+export function logAct(store: Store, does: LogKey): void {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
+  const lines = s.logLines[k]?.lines ?? [];
+  const here = v.at ?? v.clicked ?? lines.at(-1)?.Seq ?? -1;
+  const act = s.act ?? (() => {});
+  switch (does) {
+    case "find": store.setLogView(k, { prompt: { kind: "find", value: g.Find } }); break;
+    case "date": store.setLogView(k, { prompt: { kind: "date", value: "" } }); break;
+    case "export": store.setLogView(k, { prompt: { kind: "format" } }); break;
+    case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
+    case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
+    case "copy": act({ Do: "copy", Key: k }); break;
+    case "tags": if (here >= 0) act({ Do: "tags", Key: k, Seq: here }); break;
+    case "back":
+      if (g.Searching) act({ Do: "stop_search", Key: k });
+      else act({ Do: "log_close", Key: k });
+      break;
+  }
+}
