@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/latrani/Kiln/internal/str"
@@ -65,6 +66,10 @@ func TestEditor(t *testing.T) {
 	click(t, ws, ev, `document.querySelector("#ed-tls + [aria-hidden]")`)
 	waitFor(t, ev, field("tls")+`.checked`, "and on again")
 	ev(`document.querySelector('[name="ed-reconnect"]:checked').focus()`)
+	// A focused choice's ◄ ► are drawn, not read: their alt text is empty.
+	if got := ev(`getComputedStyle(document.querySelector('[name="ed-reconnect"]:checked + span'), "::before").content`); !strings.Contains(got, `/ \"\"`) {
+		t.Errorf("the focused choice's ◄ has no empty alt text: %s", got)
+	}
 	pressKey(t, ws, "ArrowDown", 40)
 	waitFor(t, ev, `document.querySelector('[name="ed-reconnect"]:checked').value === "off"`, "↓ chose off")
 	ev(field("port") + `.select()`)
@@ -112,6 +117,19 @@ func TestEditor(t *testing.T) {
 	altT()
 	unsaved := jsString(str.EditorEditing("fake/Second") + str.Separator() + str.EditorUnsaved())
 	waitFor(t, ev, field("aliases")+`.value === "twoey" && document.querySelector("#ed-title").textContent === `+unsaved+` && document.activeElement === `+field("aliases"), "back, unsaved, Aliases focused")
+
+	// A double-click on Delete is one press, not two; leaving it asks
+	// again from the start.
+	del := `[...document.querySelectorAll(".editor button")].at(-1)`
+	note := `document.querySelector(".editor [aria-live]").textContent`
+	click(t, ws, ev, del)
+	waitFor(t, ev, note+` === `+jsString(str.WebDeleteAgain("fake/second")), "the first click asks")
+	click2(t, ws, ev, del)
+	if got := ev(`kilnPage.sent.some(a => a.Do === "delete_character")`); got != "false" {
+		t.Fatal("a double-click on Delete deleted")
+	}
+	ev(field("aliases") + `.focus()`)
+	waitFor(t, ev, note+` === `+jsString(str.WebFormHint(str.EditorHint())), "moving off Delete stops asking")
 
 	// Delete, pressed twice: Second's gone, and so is the editor.
 	ev(`[...document.querySelectorAll(".editor button")].at(-1).focus()`)

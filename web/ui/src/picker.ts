@@ -134,7 +134,7 @@ export function pickerKey(e: PickerKeyish, s: Pick<State, "active" | "phase" | "
 }
 
 // EditorKeyish is a keydown as editorKey reads it: code too, since Alt+T
-// on a Mac types a character, not "t".
+// on a Mac types a symbol, not "t".
 interface EditorKeyish extends PickerKeyish {
   code: string;
 }
@@ -153,7 +153,9 @@ export const splitKey = (k: string): [string, string] => {
 // Linux browsers keep Ctrl+T anyway; Alt+T works everywhere).
 export function editorKey(e: EditorKeyish, s: Pick<State, "active" | "phase" | "picker" | "chars">): { open: Target; closeAll: boolean } | "hide" | "eat" | undefined {
   const ctrlT = e.ctrlKey && !e.altKey && e.key.toLowerCase() === "t";
-  const altT = e.altKey && !e.ctrlKey && e.code === "KeyT";
+  // By the letter where Alt+T types one (any layout); a Mac's Option
+  // types a symbol, so there by the key's place.
+  const altT = e.altKey && !e.ctrlKey && (/^[a-z]$/i.test(e.key) ? e.key.toLowerCase() === "t" : e.code === "KeyT");
   if (!(ctrlT || altT) || e.metaKey || e.shiftKey) return undefined;
   if (s.phase !== "running" || s.picker?.adding !== undefined) return "eat";
   if (s.picker?.edit) return "hide";

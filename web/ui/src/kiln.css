@@ -74,18 +74,18 @@ a.s { text-decoration: underline; }
 /* An editor, as the TUI's: the title, then a row per field with the
    labels lined up, More settings, the buttons a row each, the keys after
    the last. Text fields are bare; a toggle is the TUI's [x] and a choice
-   shows only what's chosen, ◄ ► while focused (the controls themselves
-   are the browser's, out of sight). */
+   shows only what's chosen, ◄ ► while focused, drawn but not read (the
+   controls themselves are the browser's, out of sight). */
 .editor .fields { display: grid; grid-template-columns: max-content 1fr; white-space: pre; }
 .editor .control { display: flex; min-width: 0; }
 .editor input[type="text"] { flex: 1; min-width: 1ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
 .editor input::placeholder { color: var(--role-form-hint-fg); opacity: 1; }
-.editor input:-webkit-autofill { -webkit-text-fill-color: var(--term-fg); box-shadow: inset 0 0 0 100vmax var(--term-bg); }
+.editor input:-webkit-autofill { -webkit-text-fill-color: var(--term-fg); box-shadow: inset 0 0 0 100vmax var(--role-form-bg); }
 .editor .box, .editor .choice { position: relative; cursor: pointer; }
 .editor .choice input:not(:checked) + span { display: none; }
-.editor .choice span::before { content: "  "; }
-.editor .choice:focus-within span::before { content: var(--g-prev) " "; }
-.editor .choice:focus-within span::after { content: " " var(--g-next); }
+.editor .choice span::before { content: "  " / ""; }
+.editor .choice:focus-within span::before { content: var(--g-prev) " " / ""; }
+.editor .choice:focus-within span::after { content: " " var(--g-next) / ""; }
 .editor summary { list-style: none; cursor: pointer; white-space: pre; }
 .editor summary::-webkit-details-marker { display: none; }
 .editor .buttons .row { display: flex; white-space: pre; }

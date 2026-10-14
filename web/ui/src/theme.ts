@@ -67,6 +67,8 @@ const glyphs = `--g-echo:${JSON.stringify(str.glyph.echo)};--g-sys:${JSON.string
 function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
   const vars = [`color-scheme:${scheme}`, `--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`), glyphs];
   for (const r of lineRoles) vars.push(`--role-${r.replace(".", "-")}-fg:${color(l.Roles[r]?.FG, p) ?? p.fg}`);
+  // A form's fill, for kiln.css to cover the browser's autofill with.
+  vars.push(`--role-form-bg:${color(l.Roles["form"]?.BG, p) ?? p.bg}`);
   // A span's colors for this appearance (look.ts); unset, they're the
   // terminal's own.
   const a = scheme === "light" ? "l" : "d";

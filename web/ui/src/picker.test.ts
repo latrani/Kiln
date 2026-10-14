@@ -151,3 +151,11 @@ test("Ctrl+O while an editor is open does nothing, as the TUI's", () => {
 test("Enter on an overview with the picker or an editor up isn't the overview's", () => {
   assert.equal(pickerKey(key("Enter"), at("=fm", { picker: { filter: "", sel: "=fm" } })), undefined);
 });
+
+test("Alt+T goes by the letter where there is one, by the key's place where the Mac types a symbol", () => {
+  const alt = (key: string, code: string) => ({ ...key_(key), code, altKey: true });
+  assert.deepEqual(editorKey(alt("t", "KeyK"), on("fm/kit")), { open: { kind: "char", world: "fm", char: "kit" }, closeAll: true }, "Dvorak's T");
+  assert.equal(editorKey(alt("y", "KeyT"), on("fm/kit")), undefined, "Dvorak's Y, where QWERTY has T");
+  assert.notEqual(editorKey(alt("†", "KeyT"), on("fm/kit")), undefined, "a Mac's Option+T");
+});
+const key_ = (k: string) => key(k);

@@ -66,7 +66,7 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
       {extra.length > 0 && (
         <details open={ed.more} onToggle={(e) => store.setEditor({ more: (e.currentTarget as HTMLDetailsElement).open })}>
           <summary data-f="more" class={focus === "more" ? roleClass("form.focus") : undefined}>
-            {(ed.more ? str.glyph.open : str.glyph.collapsed) + " " + str.editorExtra()}
+            <span aria-hidden="true">{ed.more ? str.glyph.open : str.glyph.collapsed}</span>{" " + str.editorExtra()}
           </summary>
           <div class="fields">{extra.map((f) => <Row key={f.key} f={f} ed={ed} store={store} focus={focus} off={off} />)}</div>
         </details>
@@ -80,7 +80,13 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
         {del && (
           <span class="row">
             <button type="button" data-f="delete" class={roleClass(focus === "delete" ? "form.focus" : "form.button.secondary")} disabled={off}
-              onClick={() => (ed.armed ? store.sendEditor(del) : store.setEditor({ armed: true }))}>
+              // Pressed once it asks; again, it deletes. A double-click's
+              // second click is the same press, and moving off stops asking.
+              onClick={(e) => {
+                if (!ed.armed) store.setEditor({ armed: true });
+                else if (e.detail < 2) store.sendEditor(del);
+              }}
+              onBlur={() => ed.armed && store.setEditor({ armed: false })}>
               {ed.target.kind === "char" ? str.editorDeleteCharacter() : str.editorDeleteWorld()}
             </button>
             {hint}
@@ -143,7 +149,8 @@ function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store;
       <span role="radiogroup" class={lit ? "choice " + lit : "choice"} aria-labelledby={id + "-label"} aria-invalid={err ? "true" : undefined} aria-describedby={desc}>
         {f.options.map((o, i) => (
           <label key={o.value}>
-            <input id={i === 0 ? id : undefined} data-f={f.key} type="radio" class="sr-only" name={id} value={o.value}
+            <input type="radio" id={v === o.value ? id : undefined} data-f={f.key} class="sr-only" name={id} value={o.value}
+              aria-invalid={err ? "true" : undefined} aria-describedby={desc}
               checked={v === o.value} disabled={off} onChange={() => store.editField(f.key, o.value)} />
             <span onClick={(e) => {
               // Only the chosen option shows: a click on it takes the next,
