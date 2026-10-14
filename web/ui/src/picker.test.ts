@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { answered, choose, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { answered, choose, editorKey, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
 import { Store } from "./store.ts";
 
 const worlds = [
@@ -9,43 +9,45 @@ const worlds = [
 ];
 const kinds = (rows: { kind: string }[]) => rows.map((r) => r.kind).join(" ");
 
-test("characters not open, under their worlds, each world ending with + Character", () => {
+test("characters not open, under their worlds, each world ending with + Character, then + World", () => {
   const rows = pickerRows(worlds, { "fm/kit": {} }, "");
-  assert.equal(kinds(rows), "world char add_char world char add_char");
-  assert.deepEqual(pickable(rows), ["Bay/ash", "+Bay", "fm/rook", "+fm"]);
+  assert.equal(kinds(rows), "world char add_char world char add_char add_world");
+  assert.deepEqual(pickable(rows), ["=Bay", "Bay/ash", "+Bay", "=fm", "fm/rook", "+fm", "+"]);
 });
 
 test("the filter matches a name, an alias or the world, ignoring case and spaces around it", () => {
-  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ")), ["Bay/ash", "+Bay"]);
-  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm")), ["fm/kit", "fm/rook", "+fm"]);
+  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ")), ["=Bay", "Bay/ash", "+Bay", "+"]);
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm")), ["=fm", "fm/kit", "fm/rook", "+fm", "+"]);
 });
 
 test("a world whose name matches is listed with nothing to offer; one that doesn't, isn't", () => {
   const rows = pickerRows(worlds, { "fm/kit": {}, "fm/rook": {} }, "f");
-  assert.equal(kinds(rows), "world add_char");
+  assert.equal(kinds(rows), "world add_char add_world");
 });
 
 test("the highlight stays on its row, else goes to the first character, else the first row", () => {
   const rows = pickerRows(worlds, {}, "");
   assert.equal(fixPick(rows, "fm/kit"), "fm/kit");
+  assert.equal(fixPick(rows, "=fm"), "=fm", "a world's row can be highlighted");
   assert.equal(fixPick(rows, "gone/x"), "Bay/ash");
-  assert.equal(fixPick(pickerRows(worlds, { "Bay/ash": {}, "fm/kit": {}, "fm/rook": {} }, ""), ""), "+Bay");
+  assert.equal(fixPick(pickerRows(worlds, { "Bay/ash": {}, "fm/kit": {}, "fm/rook": {} }, ""), ""), "=Bay");
 });
 
-test("nothing matches: nothing to highlight", () => {
+test("nothing matches: only + World", () => {
   const rows = pickerRows(worlds, {}, "zzz");
-  assert.deepEqual(rows, []);
-  assert.equal(fixPick(rows, "fm/kit"), "");
-  assert.equal(movePick(rows, "", 1), "");
+  assert.equal(kinds(rows), "add_world");
+  assert.equal(fixPick(rows, "fm/kit"), "+");
+  assert.equal(movePick(rows, "+", 1), "+");
 });
 
 test("↑/↓ move a row, stopping at the ends; PgUp/PgDn a page of rows", () => {
   const rows = pickerRows(worlds, {}, "");
-  assert.equal(movePick(rows, "Bay/ash", -1), "Bay/ash");
-  assert.equal(movePick(rows, "Bay/ash", 1), "+Bay");
-  assert.equal(movePick(rows, "+fm", 1), "+fm");
-  assert.equal(pagePick(rows, "Bay/ash", 1, 3), "fm/kit", "three rows on: the world row, then Kit");
-  assert.equal(pagePick(rows, "+fm", -1, 100), "Bay/ash");
+  assert.equal(movePick(rows, "Bay/ash", -1), "=Bay");
+  assert.equal(movePick(rows, "=Bay", -1), "=Bay");
+  assert.equal(movePick(rows, "+fm", 1), "+");
+  assert.equal(movePick(rows, "+", 1), "+");
+  assert.equal(pagePick(rows, "Bay/ash", 1, 3), "fm/kit", "three rows on: + Character, fm, then Kit");
+  assert.equal(pagePick(rows, "+", -1, 100), "=Bay");
 });
 
 test("choosing a character picks it and closes the picker; + Character opens the name form", () => {
@@ -104,3 +106,56 @@ test("an answer to something else leaves the picker be", () => {
   answered(s, { n: 1, Op: "save_world", Key: "" });
   assert.equal(s.state.picker?.adding, "fm");
 });
+
+test("choosing a world's row or + World opens its editor (Go is asked); leaving one keeps its edits", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  s.openPicker();
+  choose(s, "=fm");
+  assert.deepEqual(sent.at(-1), { Do: "settings", World: "fm", Char: "" });
+  choose(s, "+");
+  assert.deepEqual(sent.at(-1), { Do: "settings", World: "", Char: "" });
+});
+
+const keyT = (mods: { ctrlKey?: boolean; altKey?: boolean }) => ({ ...key("t", mods), code: "KeyT" });
+const altT = () => ({ ...key("†", { altKey: true }), code: "KeyT" });
+const chars = { "fm/kit": { World: "fm", ID: "kit" } };
+const on = (active: string, picker?: any) => ({ active, phase: "running" as const, picker, chars });
+
+test("Ctrl+T or Alt+T: the active character's editor, or its world's from the overview, as the TUI's", () => {
+  assert.deepEqual(editorKey(keyT({ ctrlKey: true }), on("fm/kit")), { open: { kind: "char", world: "fm", char: "kit" }, closeAll: true });
+  assert.deepEqual(editorKey(altT(), on("=fm")), { open: { kind: "world", world: "fm" }, closeAll: true });
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("")), "eat", "nothing open: nothing, and not the browser's");
+});
+
+test("in the picker: the highlighted world or character's editor; in an editor, Ctrl+T hides it", () => {
+  assert.deepEqual(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "=fm" })), { open: { kind: "world", world: "fm" }, closeAll: false });
+  assert.deepEqual(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "fm/rook" })), { open: { kind: "char", world: "fm", char: "rook" }, closeAll: false });
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "+fm" })), "eat");
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "", edit: {} })), "hide");
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "+fm", adding: "fm" })), "eat");
+});
+
+test("not Ctrl+T: Shift, Meta, or Kiln not running", () => {
+  assert.equal(editorKey(keyT({}), on("fm/kit")), undefined);
+  assert.equal(editorKey({ ...keyT({ ctrlKey: true }), shiftKey: true }, on("fm/kit")), undefined);
+  assert.equal(editorKey(keyT({ ctrlKey: true }), { ...on("fm/kit"), phase: "stopped" as const }), "eat");
+});
+
+test("Ctrl+O while an editor is open does nothing, as the TUI's", () => {
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { picker: { filter: "", sel: "", edit: {} } as any })), "eat");
+});
+
+test("Enter on an overview with the picker or an editor up isn't the overview's", () => {
+  assert.equal(pickerKey(key("Enter"), at("=fm", { picker: { filter: "", sel: "=fm" } })), undefined);
+});
+
+test("Alt+T goes by the letter where there is one, by the key's place where the Mac types a symbol", () => {
+  const alt = (key: string, code: string) => ({ ...key_(key), code, altKey: true });
+  assert.deepEqual(editorKey(alt("t", "KeyK"), on("fm/kit")), { open: { kind: "char", world: "fm", char: "kit" }, closeAll: true }, "Dvorak's T");
+  assert.equal(editorKey(alt("y", "KeyT"), on("fm/kit")), undefined, "Dvorak's Y, where QWERTY has T");
+  assert.notEqual(editorKey(alt("†", "KeyT"), on("fm/kit")), undefined, "a Mac's Option+T");
+});
+const key_ = (k: string) => key(k);

@@ -153,3 +153,21 @@ func TestCheckFieldName(t *testing.T) {
 		t.Errorf("a space: %v", err)
 	}
 }
+
+func TestSettingsReadsForTheEditors(t *testing.T) {
+	a, _ := reloadApp(t)
+	s, inh, err := a.NewWorldSettings()
+	if err != nil || !slices.Equal(s.Use, []string{"fuzzball"}) || inh.NewlineMode == "" {
+		t.Errorf("new world: %+v %+v %v", s, inh, err)
+	}
+	w, _, err := a.WorldSettings("fm")
+	if err != nil || w.Host == "" {
+		t.Errorf("fm: %+v %v", w, err)
+	}
+	if _, _, err := a.CharacterSettings("fm", "kit"); err != nil {
+		t.Errorf("fm/kit: %v", err)
+	}
+	if _, _, err := a.WorldSettings("nope"); err == nil {
+		t.Error("a world that isn't there read fine")
+	}
+}

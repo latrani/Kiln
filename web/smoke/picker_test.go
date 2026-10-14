@@ -26,19 +26,19 @@ func TestPicker(t *testing.T) {
 	ctrlO(t, ws)
 	waitFor(t, ev, `document.activeElement === `+filter, "Ctrl+O's filter focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "sec"})
-	waitFor(t, ev, `document.querySelectorAll('nav [role="option"]').length === 2`, "Second and adding a character left")
+	waitFor(t, ev, `document.querySelectorAll('nav [role="option"]').length === 4`, "the world, Second, its add row and the add-world row left")
 	if got := ev(`kilnPage.sent.some(a => a.Do === "input")`); got != "false" {
 		t.Error("typing a filter went to the chat input")
 	}
-	// A click on something that can't take focus (a world's header)
+	// A click on something that can't take focus (the scrollback)
 	// leaves the keys with the picker, as the TUI's.
 	var at struct{ X, Y float64 }
-	json.Unmarshal([]byte(mustUnquote(t, ev(`(() => { const r = document.querySelector('nav [role="group"] > span').getBoundingClientRect(); return JSON.stringify({ X: r.x + 2, Y: r.y + r.height / 2 }); })()`))), &at)
+	json.Unmarshal([]byte(mustUnquote(t, ev(`(() => { const r = document.querySelector(".scroll").getBoundingClientRect(); return JSON.stringify({ X: r.x + 2, Y: r.y + r.height / 2 }); })()`))), &at)
 	for _, typ := range []string{"mousePressed", "mouseReleased"} {
 		devtools(t, ws, "Input.dispatchMouseEvent", map[string]any{"type": typ, "x": at.X, "y": at.Y, "button": "left", "clickCount": 1})
 	}
 	pressKey(t, ws, "ArrowDown", 40)
-	waitFor(t, ev, `document.querySelector('nav [aria-selected="true"]').id === "pick-+fake" && document.activeElement === `+filter, "↓ after a click on the world's name")
+	waitFor(t, ev, `document.querySelector('nav [aria-selected="true"]').id === "pick-+fake" && document.activeElement === `+filter, "↓ after a click on the scrollback")
 	pressKey(t, ws, "ArrowUp", 38)
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Char" && e.Key === "fake/second" && e.State === 2)`, "Second connected")

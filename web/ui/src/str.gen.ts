@@ -942,6 +942,12 @@ export function webCharacters(): string { return `Characters`; }
 /** web.close_char: Close {name} */
 export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 
+/** web.delete_again: Press again to delete {what} */
+export function webDeleteAgain(what: unknown): string { return `Press again to delete ${what}`; }
+
+/** web.form_hint: Enter to save · Tab moves between fields · {hint} */
+export function webFormHint(hint: unknown): string { return `Enter to save · Tab moves between fields · ${hint}`; }
+
 /** web.input: Send to {name} */
 export function webInput(name: unknown): string { return `Send to ${name}`; }
 

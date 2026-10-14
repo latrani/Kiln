@@ -4,9 +4,12 @@ Needs Go and node. Everything runs on your machine; the relay connects
 to real MUCKs over the internet.
 
 The page is being built (part 3 of #125): it's Kiln's main screen, the
-picker and the password form so far; the editor forms and log mode are
-still to come. Open a connection with `+ Connection` in the sidebar,
-Ctrl+O, or Enter with nothing open.
+picker, the password form and the editor so far; log mode is still to
+come. Open a connection with `+ Connection` in the sidebar, Ctrl+O, or
+Enter with nothing open. Edit a world or character from the picker
+(Enter on a world, `+ World`), with Ctrl+T (Mac) or Alt+T, or with
+`/edit` and `/edit world`. In the editor Enter saves, Esc cancels, and
+Ctrl+T or Alt+T hides it, keeping the edits.
 
 ```sh
 web/build.sh

@@ -1,9 +1,10 @@
 // The picker's rows and highlight, as the TUI's (internal/ui/picker.go):
 // every configured character that isn't open, under its world, each
-// world ending with a row to add a character. Go sends the worlds in
-// this order (feed.worlds). A world's own row can be highlighted once its
-// editor comes (step 4b), and "+ World" comes with it.
+// world ending with a row to add a character, then a row to add a world.
+// Go sends the worlds in this order (feed.worlds). A world's own row
+// opens its editor.
 
+import type { Target } from "./editor.ts";
 import type { Answer, State, Store } from "./store.ts";
 
 // WorldInfo is a world of the Worlds event.
@@ -16,7 +17,8 @@ export interface WorldInfo {
 export type PickRow =
   | { kind: "world"; world: string }
   | { kind: "char"; world: string; key: string; name: string }
-  | { kind: "add_char"; world: string };
+  | { kind: "add_char"; world: string }
+  | { kind: "add_world" };
 
 // matches reports whether a character fits the lowercased filter f: its
 // name, an alias or its world contains it.
@@ -25,7 +27,8 @@ function matches(world: string, c: { Name: string; Aliases?: string[] }, f: stri
 }
 
 // pickerRows lists the characters the picker offers, those not in open,
-// under their worlds, each world ending with "+ Character". A world is
+// under their worlds, each world ending with "+ Character", then "+
+// World". A world is
 // listed when the filter matches it or one of its characters, even with
 // no characters to offer.
 export function pickerRows(worlds: WorldInfo[], open: Record<string, unknown>, filter: string): PickRow[] {
@@ -37,14 +40,20 @@ export function pickerRows(worlds: WorldInfo[], open: Record<string, unknown>, f
       .map((c) => ({ kind: "char", world: w.ID, key: `${w.ID}/${c.ID}`, name: c.Name }));
     if (chars.length || w.ID.toLowerCase().includes(f)) rows.push({ kind: "world", world: w.ID }, ...chars, { kind: "add_char", world: w.ID });
   }
+  rows.push({ kind: "add_world" });
   return rows;
 }
 
 // selKey is what the highlight holds when r is highlighted: a
-// character's key, or "+world" for adding a character to world; "" for a
-// row that can't be.
+// character's key, "=world" for a world's own row (its editor), "+world"
+// for adding a character to world, "+" for adding a world.
 export function selKey(r: PickRow): string {
-  return r.kind === "char" ? r.key : r.kind === "add_char" ? "+" + r.world : "";
+  switch (r.kind) {
+    case "char": return r.key;
+    case "world": return "=" + r.world;
+    case "add_char": return "+" + r.world;
+    case "add_world": return "+";
+  }
 }
 
 // pickable is the selection keys of the rows that can be highlighted, in
@@ -52,8 +61,8 @@ export function selKey(r: PickRow): string {
 export const pickable = (rows: PickRow[]): string[] => rows.map(selKey).filter((k) => k);
 
 // fixPick keeps the highlight on its row if it's still offered, and
-// otherwise moves it to the first character, or the first row there is;
-// "" when there's none.
+// otherwise moves it to the first character, or the first row there is
+// (+ World, at least).
 export function fixPick(rows: PickRow[], sel: string): string {
   const keys = pickable(rows);
   if (keys.includes(sel)) return sel;
@@ -82,11 +91,15 @@ export function pagePick(rows: PickRow[], sel: string, dir: number, page: number
 
 // choose acts on the picker's row sel, as Enter or a click does: a
 // character opens, connects and shows (pick), closing the picker; "+
-// Character" asks for the new character's name. Nothing for "".
+// Character" asks for the new character's name; a world's row opens its
+// editor, and + World a new world's. An editor open over the picker is
+// left first, its edits kept, as the TUI's. Nothing for "".
 export function choose(store: Store, sel: string): void {
-  if (sel.startsWith("+")) {
-    store.setPicker({ adding: sel.slice(1), name: "", error: undefined });
-  } else if (sel) {
+  store.leaveEditor();
+  if (sel === "+") store.openEditor({ kind: "new_world" }, false);
+  else if (sel.startsWith("=")) store.openEditor({ kind: "world", world: sel.slice(1) }, false);
+  else if (sel.startsWith("+")) store.setPicker({ adding: sel.slice(1), name: "", error: undefined });
+  else if (sel) {
     store.state.act?.({ Do: "pick", Key: sel });
     store.closePicker();
   }
@@ -105,18 +118,62 @@ interface PickerKeyish {
 
 // pickerKey is what a key does to the picker from anywhere on the page:
 // Ctrl+O opens or closes it, as the TUI's; Enter on a world's overview
-// (active "=world", which has no input) opens it, as the TUI's. Ctrl+O
-// where it does nothing (naming a character, as the TUI's name form, or
-// Kiln not running) is still eaten, so the browser doesn't open a file
+// (active "=world", which has no input) opens it, as the TUI's, unless
+// the picker or an editor is up, which has the keys. Ctrl+O
+// where it does nothing (naming a character or in an editor, as the
+// TUI's forms, or Kiln not running) is still eaten, so the browser doesn't open a file
 // or a line.
 export function pickerKey(e: PickerKeyish, s: Pick<State, "active" | "phase" | "picker">): "open" | "close" | "eat" | undefined {
   const plain = !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
   if (e.key.toLowerCase() === "o" && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-    if (s.phase !== "running" || s.picker?.adding !== undefined) return "eat";
+    if (s.phase !== "running" || s.picker?.adding !== undefined || s.picker?.edit) return "eat";
     return s.picker ? "close" : "open";
   }
-  if (e.key === "Enter" && plain && e.onBody && s.active.startsWith("=") && s.phase === "running") return "open";
+  if (e.key === "Enter" && plain && e.onBody && s.active.startsWith("=") && s.phase === "running" && !s.picker) return "open";
   return undefined;
+}
+
+// EditorKeyish is a keydown as editorKey reads it: code too, since Alt+T
+// on a Mac types a symbol, not "t".
+interface EditorKeyish extends PickerKeyish {
+  code: string;
+}
+
+// splitKey is a character's key as its world and id.
+export const splitKey = (k: string): [string, string] => {
+  const i = k.indexOf("/");
+  return [k.slice(0, i), k.slice(i + 1)];
+};
+
+// editorKey is what Ctrl+T or Alt+T does, as the TUI's Ctrl+T: in an
+// editor, hide it (its edits kept); in the picker, open the highlighted
+// world's or character's editor; elsewhere the active character's, or
+// on an overview its world's, closing with the picker. Where it does
+// nothing it's still eaten, so the browser doesn't take it (Windows and
+// Linux browsers keep Ctrl+T anyway; Alt+T works everywhere).
+export function editorKey(e: EditorKeyish, s: Pick<State, "active" | "phase" | "picker" | "chars">): { open: Target; closeAll: boolean } | "hide" | "eat" | undefined {
+  const ctrlT = e.ctrlKey && !e.altKey && e.key.toLowerCase() === "t";
+  // By the letter where Alt+T types one (any layout); a Mac's Option
+  // types a symbol, so there by the key's place.
+  const altT = e.altKey && !e.ctrlKey && (/^[a-z]$/i.test(e.key) ? e.key.toLowerCase() === "t" : e.code === "KeyT");
+  if (!(ctrlT || altT) || e.metaKey || e.shiftKey) return undefined;
+  if (s.phase !== "running" || s.picker?.adding !== undefined) return "eat";
+  if (s.picker?.edit) return "hide";
+  if (s.picker) {
+    const sel = s.picker.sel;
+    if (sel.startsWith("=")) return { open: { kind: "world", world: sel.slice(1) }, closeAll: false };
+    if (sel.includes("/")) {
+      const [world, char] = splitKey(sel);
+      return { open: { kind: "char", world, char }, closeAll: false };
+    }
+    return "eat";
+  }
+  if (s.active.startsWith("=")) return { open: { kind: "world", world: s.active.slice(1) }, closeAll: true };
+  if (s.chars[s.active]) {
+    const [world, char] = splitKey(s.active);
+    return { open: { kind: "char", world, char }, closeAll: true };
+  }
+  return "eat";
 }
 
 // answered takes Go's answer to adding a character, while the picker

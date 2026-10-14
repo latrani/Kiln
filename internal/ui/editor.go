@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -227,11 +225,7 @@ func (m *Model) charForm(name string, s config.CharacterSettings, inh config.Inh
 // is "".
 func (m *Model) openWorldEditor(world string) {
 	if world == "" {
-		var s config.WorldSettings
-		if _, err := os.Stat(filepath.Join(m.d.ConfigDir, "packs", "fuzzball.toml")); err == nil {
-			s.Use = []string{"fuzzball"} // as AddWorld does
-		}
-		inh, err := config.Defaults(m.d.ConfigDir)
+		s, inh, err := m.a.NewWorldSettings()
 		if err != nil {
 			m.setStatus(true, err.Error())
 			return

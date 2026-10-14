@@ -93,3 +93,7 @@ test("a link under the pointer takes link.hover", () => {
   t.Dark.Roles["link.hover"] = { FG: "#abcdef", Underline: true };
   assert.ok(themeCSS(t).includes(`a.${roleClass("link")}:hover{${lookCSS({ FG: "#abcdef", Underline: true }, macchiato)}}`));
 });
+
+test("a form's fill is a variable, for covering the browser's autofill", () => {
+  assert.ok(themeCSS(ev("dark")).includes(`--role-form-bg:${macchiato.bg}`), "unset, the terminal's");
+});
