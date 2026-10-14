@@ -52,6 +52,7 @@ export interface Picker {
 export interface Answer {
   n: number;
   Op: string;
+  target: string; // the editor it answers (targetKey of its World and Char)
   Key?: string;
   Problems?: { Field: string; Msg: string }[];
 }
@@ -166,12 +167,28 @@ const exists = (s: State, k: string): boolean =>
 function settle(s: State, a: Answer): State {
   const ed = s.picker!.edit!;
   if (a.Problems) return { ...s, picker: { ...s.picker!, edit: refuse(ed, a.Problems) } };
-  if (a.Op === "delete_world" && ed.target.kind === "world") {
-    const w = ed.target.world;
-    s = { ...s, drafts: Object.fromEntries(Object.entries(s.drafts).filter(([, d]) => d.target.kind === "new_world" || d.target.world !== w)) };
-  }
+  if (a.Op === "delete_world" && ed.target.kind === "world") s = dropWorld(s, ed.target.world);
   if (a.Op === "add_world") return { ...s, picker: { ...s.picker!, edit: undefined, filter: "", sel: "+" + String(ed.values.id) } };
   return shut(s);
+}
+
+// dropWorld is s without the drafts and parked editors of world w, which
+// is gone.
+function dropWorld(s: State, w: string): State {
+  const keep = (m: Record<string, Editor>) => Object.fromEntries(Object.entries(m).filter(([, d]) => d.target.kind === "new_world" || d.target.world !== w));
+  return { ...s, drafts: keep(s.drafts), parked: keep(s.parked) };
+}
+
+// settleAway settles an editor that isn't open (parked, or kept as a
+// draft) when Go answers what it sent: saved, it goes, and a deleted
+// world's other drafts and parked editors with it; refused, it keeps
+// Go's reasons for when it comes back.
+function settleAway(s: State, a: Answer): State {
+  const mine = (ed: Editor) => ed.pending === a.Op && targetKey(ed.target) === a.target;
+  const keep = (m: Record<string, Editor>) =>
+    Object.fromEntries(Object.entries(m).flatMap(([k, ed]) => (!mine(ed) ? [[k, ed]] : a.Problems ? [[k, refuse(ed, a.Problems)]] : [])));
+  s = { ...s, parked: keep(s.parked), drafts: keep(s.drafts) };
+  return a.Op === "delete_world" && !a.Problems ? dropWorld(s, a.target.slice(1)) : s;
 }
 
 // follow moves editors with the active item, as the TUI's parkEditor
@@ -216,8 +233,16 @@ export class Store {
         console.error("event not applied", e, err);
       }
     }
-    const ed = s.picker?.edit;
-    if (ed?.pending && s.answer && s.answer.n > seen && s.answer.Op === ed.pending) s = settle(s, s.answer);
+    // Go's answer to a settings action settles the editor it's for, open
+    // or not; a settings read that failed stops the wait for it.
+    const a = s.answer;
+    if (a && a.n > seen) {
+      const ed = s.picker?.edit;
+      if (a.Op === "settings") {
+        if (s.opening?.key === a.target) s = { ...s, opening: undefined };
+      } else if (ed?.pending === a.Op && targetKey(ed.target) === a.target) s = settle(s, a);
+      else s = settleAway(s, a);
+    }
     s = follow(s, prev);
     if (s.picker) {
       // What's offered may have changed (worlds, a character opening or
@@ -284,7 +309,7 @@ export class Store {
       case "SaveQuestion": return { ...s, saveQuestion: e };
       case "Saved":
       case "Problems":
-        return { ...s, answer: { n: (s.answer?.n ?? 0) + 1, Op: e.Op, Key: e.Key, Problems: e.Problems } };
+        return { ...s, answer: { n: (s.answer?.n ?? 0) + 1, Op: e.Op, target: targetKey(targetOf({ World: e.World ?? "", Char: e.Char ?? "" })), Key: e.Key, Problems: e.Problems } };
       case "Settings": {
         const o = s.opening;
         if (!o || o.key !== targetKey(targetOf(e as unknown as SettingsEvent))) return s;

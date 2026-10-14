@@ -119,9 +119,9 @@ test("the picker: opened with its highlight on the first character; Start drops 
 
 test("Saved and Problems are the latest answer, numbered", () => {
   const s = new Store();
-  s.apply([{ type: "Saved", Op: "add_character", Key: "fm/Ash" }]);
-  assert.deepEqual({ ...s.state.answer }, { n: 1, Op: "add_character", Key: "fm/Ash", Problems: undefined });
-  s.apply([{ type: "Problems", Op: "add_character", Problems: [{ Field: "name", Msg: "no" }] }]);
+  s.apply([{ type: "Saved", Op: "add_character", World: "fm", Char: "", Key: "fm/Ash" }]);
+  assert.deepEqual({ ...s.state.answer }, { n: 1, Op: "add_character", target: "=fm", Key: "fm/Ash", Problems: undefined });
+  s.apply([{ type: "Problems", Op: "add_character", World: "fm", Char: "", Problems: [{ Field: "name", Msg: "no" }] }]);
   assert.equal(s.state.answer?.n, 2);
   assert.equal(s.state.answer?.Problems?.[0].Msg, "no");
 });
@@ -189,11 +189,11 @@ test("a save sends the form and waits; Go's refusal shows; Saved closes it", () 
   s.sendEditor({ Do: "save_world", World: "fm" });
   assert.equal(editor(s)?.pending, "save_world");
   assert.deepEqual(sent.at(-1), { Do: "save_world", World: "fm" });
-  s.apply([{ type: "Problems", Op: "save_world", Problems: [{ Field: "port", Msg: "no" }] }]);
+  s.apply([{ type: "Problems", Op: "save_world", World: "fm", Char: "", Problems: [{ Field: "port", Msg: "no" }] }]);
   assert.deepEqual(editor(s)?.problems, [{ Field: "port", Msg: "no" }]);
   assert.equal(editor(s)?.pending, undefined);
   s.sendEditor({ Do: "save_world", World: "fm" });
-  s.apply([{ type: "Saved", Op: "save_world" }]);
+  s.apply([{ type: "Saved", Op: "save_world", World: "fm", Char: "" }]);
   assert.equal(s.state.picker, undefined);
 });
 
@@ -201,10 +201,10 @@ test("an answer to something else leaves the editor be", () => {
   const { s } = running();
   s.openEditor({ kind: "world", world: "fm" }, false);
   s.apply([fmSettings]);
-  s.apply([{ type: "Saved", Op: "save_world" }]);
+  s.apply([{ type: "Saved", Op: "save_world", World: "fm", Char: "" }]);
   assert.ok(editor(s), "nothing was sent: not its answer");
   s.sendEditor({ Do: "save_world", World: "fm" });
-  s.apply([{ type: "Saved", Op: "add_character", Key: "fm/x" }]);
+  s.apply([{ type: "Saved", Op: "add_character", World: "fm", Char: "", Key: "fm/x" }]);
   assert.equal(editor(s)?.pending, "save_world");
 });
 
@@ -215,7 +215,7 @@ test("a new world saved: back to the picker, on its + Character", () => {
   s.apply([{ ...fmSettings, World: "" }]);
   s.editField("id", "zz");
   s.sendEditor({ Do: "add_world" });
-  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }, { ID: "zz", Characters: [] }] }, { type: "Saved", Op: "add_world" }]);
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }, { ID: "zz", Characters: [] }] }, { type: "Saved", Op: "add_world", World: "", Char: "" }]);
   assert.equal(editor(s), undefined);
   assert.equal(s.state.picker?.sel, "+zz");
 });
@@ -225,7 +225,7 @@ test("deleting the edited character closes the editor; nothing's parked or draft
   s.openEditor({ kind: "char", world: "fm", char: "kit" }, true);
   s.apply([kitSettings]);
   s.sendEditor({ Do: "delete_character", World: "fm", Char: "kit" });
-  s.apply([{ type: "Closed", Key: "fm/kit" }, { type: "Active", Key: "" }, { type: "Saved", Op: "delete_character" }]);
+  s.apply([{ type: "Closed", Key: "fm/kit" }, { type: "Active", Key: "" }, { type: "Saved", Op: "delete_character", World: "fm", Char: "kit" }]);
   assert.equal(s.state.picker, undefined);
   assert.deepEqual(s.state.parked, {});
   assert.deepEqual(s.state.drafts, {});
@@ -240,7 +240,7 @@ test("a deleted world's drafts go, so a new world of its name starts fresh", () 
   s.openEditor({ kind: "world", world: "fm" }, false);
   s.apply([fmSettings]);
   s.sendEditor({ Do: "delete_world", World: "fm" });
-  s.apply([{ type: "Saved", Op: "delete_world" }]);
+  s.apply([{ type: "Saved", Op: "delete_world", World: "fm", Char: "" }]);
   assert.deepEqual(s.state.drafts, {});
 });
 
@@ -288,7 +288,7 @@ test("a first world saved lands on its + Character, though the worlds came in th
   s.apply([{ ...fmSettings, World: "" }]);
   s.editField("id", "fm");
   s.sendEditor({ Do: "add_world" });
-  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }] }, { type: "Saved", Op: "add_world" }]);
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }] }, { type: "Saved", Op: "add_world", World: "", Char: "" }]);
   assert.equal(s.state.picker?.sel, "+fm");
 });
 
@@ -542,4 +542,50 @@ test("clicks: a name highlights its entry; Hide and Only press too; + Text asks 
   assert.equal(s.state.logView["fm/kit"].panel?.sel, "g:page/ooc");
   panelClick(s, "+", "add");
   assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
+});
+
+test("a save answered while its editor's parked settles it there: saved, it's gone; refused, it comes back with why", () => {
+  const { s } = running();
+  s.apply([{ type: "Char", Key: "fm/rook", World: "fm", ID: "rook", Name: "Rook", State: 2 }, { type: "Order", Keys: ["fm/kit", "fm/rook"] }]);
+  s.openEditor({ kind: "world", world: "fm" }, true);
+  s.apply([fmSettings]);
+  s.sendEditor({ Do: "save_world", World: "fm" });
+  s.apply([{ type: "Active", Key: "fm/rook" }]);
+  assert.ok(s.state.parked["fm/kit"], "parked mid-save");
+  s.apply([{ type: "Problems", Op: "save_world", World: "fm", Char: "", Problems: [{ Field: "port", Msg: "no" }] }]);
+  s.apply([{ type: "Active", Key: "fm/kit" }]);
+  assert.deepEqual(editor(s)?.problems, [{ Field: "port", Msg: "no" }]);
+  assert.equal(editor(s)?.pending, undefined, "Save works again");
+  s.sendEditor({ Do: "save_world", World: "fm" });
+  s.apply([{ type: "Active", Key: "fm/rook" }]);
+  s.apply([{ type: "Saved", Op: "save_world", World: "fm", Char: "" }]);
+  assert.equal(s.state.parked["fm/kit"], undefined, "saved: nothing left to come back");
+});
+
+test("a world deleted while its editor's hidden takes its drafts with it", () => {
+  const { s } = running();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.sendEditor({ Do: "delete_world", World: "fm" });
+  s.hideEditor();
+  s.apply([{ type: "Saved", Op: "delete_world", World: "fm", Char: "" }]);
+  assert.deepEqual(s.state.drafts, {});
+});
+
+test("an answer for no editor changes nothing; one for another target leaves the open editor be", () => {
+  const { s } = running();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.sendEditor({ Do: "save_world", World: "fm" });
+  s.apply([{ type: "Saved", Op: "save_world", World: "zz", Char: "" }]);
+  assert.equal(editor(s)?.pending, "save_world", "zz's answer isn't fm's");
+});
+
+test("a settings read that fails stops the wait, so the editor never opens later", () => {
+  const { s } = running();
+  s.openEditor({ kind: "world", world: "fm" }, true);
+  s.apply([{ type: "Problems", Op: "settings", World: "fm", Char: "" }]);
+  assert.equal(s.state.opening, undefined);
+  s.apply([fmSettings]);
+  assert.equal(editor(s), undefined);
 });

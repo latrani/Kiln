@@ -92,9 +92,9 @@ test("a saved character is picked; a refused name says why", () => {
   s.set({ act: (o) => sent.push(o) });
   s.openPicker();
   s.setPicker({ adding: "fm", name: "Ash" });
-  answered(s, { n: 1, Op: "add_character", Problems: [{ Field: "name", Msg: "taken" }] });
+  answered(s, { n: 1, Op: "add_character", target: "=fm", Problems: [{ Field: "name", Msg: "taken" }] });
   assert.equal(s.state.picker?.error, "taken");
-  answered(s, { n: 2, Op: "add_character", Key: "fm/Ash" });
+  answered(s, { n: 2, Op: "add_character", target: "=fm", Key: "fm/Ash" });
   assert.deepEqual(sent, [{ Do: "pick", Key: "fm/Ash" }]);
   assert.equal(s.state.picker, undefined);
 });
@@ -103,7 +103,7 @@ test("an answer to something else leaves the picker be", () => {
   const s = new Store();
   s.openPicker();
   s.setPicker({ adding: "fm" });
-  answered(s, { n: 1, Op: "save_world", Key: "" });
+  answered(s, { n: 1, Op: "save_world", target: "=fm", Key: "" });
   assert.equal(s.state.picker?.adding, "fm");
 });
 
