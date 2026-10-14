@@ -6,15 +6,16 @@ import (
 	"encoding/json"
 	"maps"
 	"os"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf16"
-	"unicode/utf8"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/feed"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/rivo/uniseg"
 )
 
 // statusTimeout is how long a status message stays, as in the TUI.
@@ -304,37 +305,47 @@ func OverLimit(text string, maxLineBytes int, newlineMode string) bool {
 // OverRanges is where text runs past a Char event's MaxLineBytes, for
 // the page to mark as the TUI's input does: [start, end) in UTF-16 code
 // units (the browser's string offsets), from the character that takes a
-// line past the limit to the line's end. With newline_mode "flatten" the
-// lines count as one joined by spaces, so once past, the rest is over.
-// nil when nothing is.
+// line past the limit to the line's end. A character is a grapheme
+// cluster, so an emoji sequence or a letter with combining marks is
+// marked whole or not at all. With newline_mode "flatten" the lines
+// count as one joined by spaces, so once past, the rest is over. nil
+// when nothing is.
 func OverRanges(text string, maxLineBytes int, newlineMode string) [][2]int {
 	if maxLineBytes <= 0 {
 		return nil
 	}
 	joined := newlineMode == "flatten" //str:ok
 	var out [][2]int
-	bytes, at, start := 0, 0, -1 // start: where the open range began
-	for _, r := range text {
-		if r == '\n' {
+	bytes, at := 0, 0
+	for i, line := range strings.Split(text, "\n") {
+		if i > 0 {
+			at++ // the newline
 			if joined {
 				bytes++ // the joining space
 			} else {
-				if start >= 0 {
-					out = append(out, [2]int{start, at})
-				}
-				bytes, start = 0, -1
+				bytes = 0
 			}
-			at++
-			continue
 		}
-		bytes += utf8.RuneLen(r)
-		if start < 0 && bytes > maxLineBytes {
+		start := -1 // where this line's range begins
+		if bytes > maxLineBytes {
 			start = at
 		}
-		at += utf16.RuneLen(r)
+		for g := uniseg.NewGraphemes(line); g.Next(); {
+			c := g.Str()
+			bytes += len(c)
+			if start < 0 && bytes > maxLineBytes {
+				start = at
+			}
+			for _, r := range c {
+				at += utf16.RuneLen(r)
+			}
+		}
+		if start >= 0 && start < at {
+			out = append(out, [2]int{start, at})
+		}
 	}
-	if start >= 0 {
-		out = append(out, [2]int{start, at})
+	if joined && len(out) > 1 { // one range across the joined lines
+		out = [][2]int{{out[0][0], out[len(out)-1][1]}}
 	}
 	return out
 }

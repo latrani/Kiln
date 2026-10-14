@@ -126,7 +126,10 @@ button:disabled { cursor: default; opacity: .6; }
    wrapping as the textarea does, each line's block also hangs its ›
    in the gutter beside the row the line starts on. The bottom pane caps
    it and scrolls. Over the line limit, an overlay draws the text
-   (Input.tsx) and the textarea's own goes transparent. */
+   (Input.tsx) under the textarea, whose own text goes transparent but
+   for what's selected, so a selection shows over the marking. In
+   forced colors the textarea draws all its text and the overlay only a
+   wavy underline under what's over. */
 .input-row { display: flex; }
 .field { flex: 1; position: relative; min-width: 0; display: grid; }
 .field.echo { margin-left: 1ch; }
@@ -134,10 +137,16 @@ button:disabled { cursor: default; opacity: .6; }
 .mirror > div { position: relative; min-height: 1lh; }
 .mirror > [data-mark]::before { content: attr(data-mark); position: absolute; right: 100%; visibility: visible; }
 .field textarea, .mirror, .overflow { grid-area: 1 / 1; font: inherit; letter-spacing: inherit; margin: 0; padding: 0; border: 0; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 8; }
-.field textarea { resize: none; outline: none; background: transparent; color: inherit; overflow: hidden; min-height: 1lh; }
+.field textarea { position: relative; resize: none; outline: none; background: transparent; color: inherit; overflow: hidden; min-height: 1lh; }
 .field textarea::placeholder { color: var(--role-input-hint-fg); opacity: 1; }
 .overflow { position: absolute; inset: 0; pointer-events: none; }
-.marked textarea { color: transparent; caret-color: var(--term-fg); }
+.marked textarea { -webkit-text-fill-color: transparent; }
+.marked textarea::selection { -webkit-text-fill-color: currentColor; }
+@media (forced-colors: active) {
+  .marked textarea { -webkit-text-fill-color: currentColor; }
+  .overflow { forced-color-adjust: none; color: transparent; }
+  .overflow span { background: none; text-decoration: wavy underline Highlight; }
+}
 /* The password form, one row as the TUI's prompt: the label, the
    password (drawn as the browser's bullets), the keys. */
 .password { display: flex; white-space: pre; }
