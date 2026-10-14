@@ -29,8 +29,10 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 /* A chip has a space either side, as the TUI's: + Connection. */
 .side button.chip { padding: 0 1ch; }
 /* The picker's rows: one line each; a character's lit across when
-   highlighted; a click picks. */
-.side .pick { overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+   highlighted; a click picks. Blocks, not flex: a flex row drops the
+   lone space that sets a character and its add row one in, as the
+   TUI's. */
+.side .pick { display: block; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .side li[role="group"] { display: block; }
 .side li[role="group"] > span { display: block; cursor: default; }
 .divider { grid-area: div; background: var(--role-divider-fg); }
