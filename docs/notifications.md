@@ -13,6 +13,8 @@ Then run `tmux source-file ~/.tmux.conf` and detach and reattach: tmux asks your
 
 The top bar shows what Kiln thinks about you: `● here`, `○ away`, or `? focus`. `? focus` means it has never heard a focus change from your terminal, which is either because you haven't switched windows yet (terminals only report when focus changes) or because your terminal doesn't report it at all (Blink on iOS, mosh, tmux without `focus-events on`). Switch windows once to find out: if it then says `○ away` and back to `● here`, focus works. If it doesn't, click the chip to set Away yourself, as `/away` does, and notifications go out until your next key or click. Idle time still counts as away either way. Clicking the chip while away ends it.
 
+In the browser, Kiln uses the browser's own notifications. A browser only lets a page ask after a click, so the status line shows an **Allow notifications** button until notifications are on; click it and answer the browser's prompt, or click the × to stop it asking. If the browser blocks them, the status line says so: allow them in the site's settings. Safari on iPhone and iPad shows them only once Kiln is added to the Home Screen. Clicking a notification brings Kiln's tab forward and switches to that character.
+
 Mosh drops notifications, but it passes on the bell: set `notify_method = "both"` and turn on Blink's "Notification on background shell" to get an alert (without the line).
 
 ## Over ssh

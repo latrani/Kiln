@@ -142,7 +142,7 @@ func (a *App) notifyFor(c *Char, l Line) []Effect {
 		return nil
 	}
 	c.sentGen, c.lastSent = a.hereGen, now
-	return []Effect{Notify{Title: a.notifyName(c), Body: e.Text}}
+	return []Effect{Notify{Title: a.notifyName(c), Body: e.Text, Key: c.Key}}
 }
 
 // notifyCommand is /notify: show the level, set an override until Kiln

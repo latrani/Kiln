@@ -1177,6 +1177,18 @@ func WebNeedsJs() string { return get("web.needs_js", nil) }
 // WebNotSaving is web.not_saving: "this browser isn't saving Kiln's configuration"
 func WebNotSaving() string { return get("web.not_saving", nil) }
 
+// WebNotifyAllow is web.notify_allow: "Allow notifications"
+func WebNotifyAllow() string { return get("web.notify_allow", nil) }
+
+// WebNotifyDenied is web.notify_denied: "this browser blocks Kiln's notifications: allow them in the site's settings"
+func WebNotifyDenied() string { return get("web.notify_denied", nil) }
+
+// WebNotifyDismiss is web.notify_dismiss: "Don't ask about notifications"
+func WebNotifyDismiss() string { return get("web.notify_dismiss", nil) }
+
+// WebNotifyUnsupported is web.notify_unsupported: "this browser can't show notifications (on an iPhone or iPad, add Kiln to the Home Screen first)"
+func WebNotifyUnsupported() string { return get("web.notify_unsupported", nil) }
+
 // WebOtherTab is web.other_tab: "Kiln's open in another tab."
 func WebOtherTab() string { return get("web.other_tab", nil) }
 
