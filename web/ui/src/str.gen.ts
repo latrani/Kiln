@@ -707,9 +707,6 @@ export function statusKeychainFailed(err: unknown): string { return `keychain: $
 /** status.link_copied: copied link {url} */
 export function statusLinkCopied(url: unknown): string { return `copied link ${url}`; }
 
-/** status.link_failed: can't open link, copied it instead: {err} */
-export function statusLinkFailed(err: unknown): string { return `can't open link, copied it instead: ${e(err)}`; }
-
 /** status.link_opened: opened {url} */
 export function statusLinkOpened(url: unknown): string { return `opened ${url}`; }
 

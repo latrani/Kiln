@@ -273,8 +273,11 @@ func TestLinkClickFallsBackToTheClipboard(t *testing.T) {
 	if got := clipboard(click(h)); got != "https://kiln.test/map" || *n != 1 {
 		t.Errorf("failed opener: clipboard %q, opener run %d times", got, *n)
 	}
-	if !strings.Contains(h.screen(), str.StatusLinkFailed(errors.New("no xdg-open"))) {
-		t.Errorf("no failure status:\n%s", h.screen())
+	if !strings.Contains(h.screen(), str.StatusLinkCopied("https://kiln.test/map")) {
+		t.Errorf("failed opener: no copied-link status:\n%s", h.screen())
+	}
+	if h.m.a.Status().Err {
+		t.Errorf("failed opener: copied link shows as an error")
 	}
 
 	h = newHarness(t, map[string]string{"fm": fmWorld})
