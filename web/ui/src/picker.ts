@@ -4,6 +4,7 @@
 // Go sends the worlds in this order (feed.worlds). A world's own row
 // opens its editor.
 
+import type { Target } from "./editor.ts";
 import type { Answer, State, Store } from "./store.ts";
 
 // WorldInfo is a world of the Worlds event.
@@ -118,17 +119,58 @@ interface PickerKeyish {
 // pickerKey is what a key does to the picker from anywhere on the page:
 // Ctrl+O opens or closes it, as the TUI's; Enter on a world's overview
 // (active "=world", which has no input) opens it, as the TUI's. Ctrl+O
-// where it does nothing (naming a character, as the TUI's name form, or
-// Kiln not running) is still eaten, so the browser doesn't open a file
+// where it does nothing (naming a character or in an editor, as the
+// TUI's forms, or Kiln not running) is still eaten, so the browser doesn't open a file
 // or a line.
 export function pickerKey(e: PickerKeyish, s: Pick<State, "active" | "phase" | "picker">): "open" | "close" | "eat" | undefined {
   const plain = !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
   if (e.key.toLowerCase() === "o" && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-    if (s.phase !== "running" || s.picker?.adding !== undefined) return "eat";
+    if (s.phase !== "running" || s.picker?.adding !== undefined || s.picker?.edit) return "eat";
     return s.picker ? "close" : "open";
   }
   if (e.key === "Enter" && plain && e.onBody && s.active.startsWith("=") && s.phase === "running") return "open";
   return undefined;
+}
+
+// EditorKeyish is a keydown as editorKey reads it: code too, since Alt+T
+// on a Mac types a character, not "t".
+interface EditorKeyish extends PickerKeyish {
+  code: string;
+}
+
+// splitKey is a character's key as its world and id.
+export const splitKey = (k: string): [string, string] => {
+  const i = k.indexOf("/");
+  return [k.slice(0, i), k.slice(i + 1)];
+};
+
+// editorKey is what Ctrl+T or Alt+T does, as the TUI's Ctrl+T: in an
+// editor, hide it (its edits kept); in the picker, open the highlighted
+// world's or character's editor; elsewhere the active character's, or
+// on an overview its world's, closing with the picker. Where it does
+// nothing it's still eaten, so the browser doesn't take it (Windows and
+// Linux browsers keep Ctrl+T anyway; Alt+T works everywhere).
+export function editorKey(e: EditorKeyish, s: Pick<State, "active" | "phase" | "picker" | "chars">): { open: Target; closeAll: boolean } | "hide" | "eat" | undefined {
+  const ctrlT = e.ctrlKey && !e.altKey && e.key.toLowerCase() === "t";
+  const altT = e.altKey && !e.ctrlKey && e.code === "KeyT";
+  if (!(ctrlT || altT) || e.metaKey || e.shiftKey) return undefined;
+  if (s.phase !== "running" || s.picker?.adding !== undefined) return "eat";
+  if (s.picker?.edit) return "hide";
+  if (s.picker) {
+    const sel = s.picker.sel;
+    if (sel.startsWith("=")) return { open: { kind: "world", world: sel.slice(1) }, closeAll: false };
+    if (sel.includes("/")) {
+      const [world, char] = splitKey(sel);
+      return { open: { kind: "char", world, char }, closeAll: false };
+    }
+    return "eat";
+  }
+  if (s.active.startsWith("=")) return { open: { kind: "world", world: s.active.slice(1) }, closeAll: true };
+  if (s.chars[s.active]) {
+    const [world, char] = splitKey(s.active);
+    return { open: { kind: "char", world, char }, closeAll: true };
+  }
+  return "eat";
 }
 
 // answered takes Go's answer to adding a character, while the picker

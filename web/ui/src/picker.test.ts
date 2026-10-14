@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { answered, choose, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { answered, choose, editorKey, fixPick, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
 import { Store } from "./store.ts";
 
 const worlds = [
@@ -117,4 +117,33 @@ test("choosing a world's row or + World opens its editor (Go is asked); leaving 
   assert.deepEqual(sent.at(-1), { Do: "settings", World: "fm", Char: "" });
   choose(s, "+");
   assert.deepEqual(sent.at(-1), { Do: "settings", World: "", Char: "" });
+});
+
+const keyT = (mods: { ctrlKey?: boolean; altKey?: boolean }) => ({ ...key("t", mods), code: "KeyT" });
+const altT = () => ({ ...key("†", { altKey: true }), code: "KeyT" });
+const chars = { "fm/kit": { World: "fm", ID: "kit" } };
+const on = (active: string, picker?: any) => ({ active, phase: "running" as const, picker, chars });
+
+test("Ctrl+T or Alt+T: the active character's editor, or its world's from the overview, as the TUI's", () => {
+  assert.deepEqual(editorKey(keyT({ ctrlKey: true }), on("fm/kit")), { open: { kind: "char", world: "fm", char: "kit" }, closeAll: true });
+  assert.deepEqual(editorKey(altT(), on("=fm")), { open: { kind: "world", world: "fm" }, closeAll: true });
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("")), "eat", "nothing open: nothing, and not the browser's");
+});
+
+test("in the picker: the highlighted world or character's editor; in an editor, Ctrl+T hides it", () => {
+  assert.deepEqual(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "=fm" })), { open: { kind: "world", world: "fm" }, closeAll: false });
+  assert.deepEqual(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "fm/rook" })), { open: { kind: "char", world: "fm", char: "rook" }, closeAll: false });
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "+fm" })), "eat");
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "", edit: {} })), "hide");
+  assert.equal(editorKey(keyT({ ctrlKey: true }), on("", { filter: "", sel: "+fm", adding: "fm" })), "eat");
+});
+
+test("not Ctrl+T: Shift, Meta, or Kiln not running", () => {
+  assert.equal(editorKey(keyT({}), on("fm/kit")), undefined);
+  assert.equal(editorKey({ ...keyT({ ctrlKey: true }), shiftKey: true }, on("fm/kit")), undefined);
+  assert.equal(editorKey(keyT({ ctrlKey: true }), { ...on("fm/kit"), phase: "stopped" as const }), "eat");
+});
+
+test("Ctrl+O while an editor is open does nothing, as the TUI's", () => {
+  assert.equal(pickerKey(key("o", { ctrlKey: true }), at("", { picker: { filter: "", sel: "", edit: {} } as any })), "eat");
 });
