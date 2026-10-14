@@ -46,6 +46,21 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     e.scrollTop = top ?? e.scrollHeight;
     place.current = { ...place.current, k, at: top !== undefined ? p : undefined };
   }, [k]);
+  // Hidden by Ctrl+L (or another view taking the pane): keep where it is
+  // now, even if the last scroll's event hasn't come yet. Not once log
+  // mode has closed (Esc): it opens at the newest line next time. (A
+  // switch keeps the place onScroll saved: by then the rows are the next
+  // character's.)
+  const shownK = useRef(k);
+  shownK.current = k;
+  useLayoutEffect(() => {
+    const e = el.current; // the ref is gone by the time the cleanup runs
+    return () => {
+      const k = shownK.current;
+      const at = e && placeOf(rowsOf(e), e.scrollTop);
+      if (at && store.state.logs[k]?.Open) store.logPlaces.set(k, at);
+    };
+  }, []);
   // Older history arriving above, or the filter hiding lines, keeps your
   // place, as the scrollback's.
   useLayoutEffect(() => {
