@@ -12,15 +12,19 @@ document.head.append(Object.assign(document.createElement("style"), { textConten
 const store: Store = new Store((e) => effect(store)(e));
 mount(store);
 const ws = new URL(new URLSearchParams(location.search).get("bridge")!);
-// Go's field check, from the test's server: synchronous, as the wasm's
-// is (a synchronous request is fine in a test page).
-const check = (field: string, value: string): string => {
-  const u = new URL("check", ws);
+// What the wasm's kiln answers at once, from the test's server:
+// synchronous, as the wasm's is (a synchronous request is fine in a
+// test page).
+const ask = (path: string, q: Record<string, string>): string => {
+  const u = new URL(path, ws);
   u.protocol = ws.protocol === "wss:" ? "https:" : "http:";
-  u.search = new URLSearchParams({ field, value }).toString();
+  u.search = new URLSearchParams(q).toString();
   const x = new XMLHttpRequest();
   x.open("GET", u, false);
   x.send();
   return x.responseText;
 };
-bridge(store, new WebSocket(ws), check);
+bridge(store, new WebSocket(ws), {
+  check: (field, value) => ask("check", { field, value }),
+  over: (text, max, mode) => JSON.parse(ask("over", { text, max: String(max), mode })),
+});

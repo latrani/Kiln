@@ -4,14 +4,22 @@
 // (golden.tsx); the page boots the wasm (boot.ts).
 import type { Event, Store } from "./store.ts";
 
+// Sync is the part of the wasm's kiln the page calls and needs at once
+// (web/cmd/kiln-web).
+export interface Sync {
+  check(field: string, value: string): string;
+  over(text: string, maxLineBytes: number, newlineMode: string): [number, number][];
+}
+
 // bridge runs the page over ws as boot runs it over the wasm: running
 // once ws opens, each message a batch, and what was done before the
-// first batch sent after it, in order (typing.ts). check is Go's field
-// check, which the editor calls as you type and needs at once, so it
-// can't go over ws (golden.tsx asks the test's server, synchronously).
-// kilnPage.act is the tests' handle, as boot's.
-export function bridge(store: Store, ws: WebSocket, check: (field: string, value: string) => string): void {
-  (globalThis as any).kiln = { check };
+// first batch sent after it, in order (typing.ts). sync is what the
+// wasm's kiln answers at once as you type (the editor's field check, the
+// input's over-limit ranges), which can't go over ws: golden.tsx asks
+// the test's server, synchronously. kilnPage.act is the tests' handle,
+// as boot's.
+export function bridge(store: Store, ws: WebSocket, sync: Sync): void {
+  (globalThis as any).kiln = sync;
   const typing = store.state.typing!;
   const act = (o: object) => typing.act(o);
   store.set({ act, saving: true });

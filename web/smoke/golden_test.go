@@ -145,10 +145,19 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 	loops := make(chan *webapi.Loop, 1)
 	mux := http.NewServeMux()
 	mux.Handle("/kiln/", http.StripPrefix("/kiln/", http.FileServer(http.Dir(page))))
-	// Go's field check, which the golden page asks for synchronously
-	// (golden.tsx), as the wasm answers kiln.check.
+	// What the wasm's kiln answers at once (web/cmd/kiln-web), which the
+	// golden page asks for synchronously (golden.tsx): the editor's field
+	// check, the input's over-limit ranges.
 	mux.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(webapi.CheckField(r.FormValue("field"), r.FormValue("value"))))
+	})
+	mux.HandleFunc("/over", func(w http.ResponseWriter, r *http.Request) {
+		max, _ := strconv.Atoi(r.FormValue("max"))
+		rs := webapi.OverRanges(r.FormValue("text"), max, r.FormValue("mode"))
+		if rs == nil {
+			rs = [][2]int{}
+		}
+		json.NewEncoder(w).Encode(rs)
 	})
 	mux.HandleFunc("/bridge", func(w http.ResponseWriter, r *http.Request) {
 		c, err := websocket.Accept(w, r, nil)
@@ -356,6 +365,9 @@ func TestGoldenInput(t *testing.T) {
 	s := goldenScene(t, nil, nil)
 	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
 	s.typeIn(kilntest.InputText)
+	// What's past max_line_bytes is marked, as the TUI's: Go's kiln.over,
+	// in input.over_limit (theme.ts's roleClass).
+	waitFor(t, s.ev, `document.querySelector(".bottom .r-input-over-limit")`, "the overflow marked")
 	s.ev(input + `.setSelectionRange(0, 4)`) // the first four, as the TUI's drag
 	notSent := str.StatusNotSent(errors.New("x"))
 	s.l.Call(func(a *app.App) { a.SetStatus(true, notSent) })
@@ -376,6 +388,8 @@ func TestGoldenScrolled(t *testing.T) {
 		waitFor(t, s.ev, `(e => e.scrollTop + e.clientHeight >= e.scrollHeight - 1)(document.querySelector("main .scroll"))`, "at the end")
 	}
 	pressKey(t, s.ws, "PageUp", 33)
+	// Scrolled up, with nothing new below: the pager's ▼ more.
+	waitFor(t, s.ev, `document.querySelector("main").textContent.includes(`+jsString(str.ViewPillMore())+`)`, "scrolled up")
 	link := `[...document.querySelectorAll("main a")].find(a => a.textContent === "https://kiln.test/19")`
 	waitFor(t, s.ev, link+` && `+link+`.getBoundingClientRect().bottom <= document.querySelector("main .scroll").getBoundingClientRect().bottom`, "line 19 in view")
 	r := s.ev(`JSON.stringify((r => ({x: r.left + 2, y: r.top + r.height / 2}))(` + link + `.getBoundingClientRect()))`)
