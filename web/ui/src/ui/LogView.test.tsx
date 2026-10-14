@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
+import { logAct } from "../log.ts";
 import { Store } from "../store.ts";
 import type { Event } from "../store.ts";
 import { roleClass } from "../theme.ts";
@@ -55,4 +56,56 @@ test("hidden by Ctrl+L: the scrollback shows again", () => {
   s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" }, { type: "Log", Key: "fm/kit", Open: true }]);
   s.setLogView("fm/kit", { hidden: true });
   assert.match(render(<App store={s} />), /role="log"/);
+});
+
+const pageWith = (log: object, view?: object) => {
+  const s = new Store();
+  s.set({ phase: "running", act: () => {} });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" },
+    { type: "LogLines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [L(1, "2026-10-12", "an apple")] },
+    { type: "Log", Key: "fm/kit", Open: true, Find: "", Status: "", StatusErr: false, Searching: false, Loading: false, HistDone: true, Selected: 0, ExportFormat: "", ...log }]);
+  if (view) s.setLogView("fm/kit", view);
+  return render(<App store={s} />);
+};
+const bottom = (html: string) => html.slice(html.indexOf('class="bottom'), html.indexOf('class="status'));
+
+test("the bottom pane: log mode's hints, in the bar's roles", () => {
+  const b = bottom(pageWith({}));
+  assert.ok(b.includes(roleClass("log.bar")) && b.includes(roleClass("log.bar.hints")));
+  assert.ok(b.includes(str.webLogHints()));
+  assert.ok(!b.includes("<textarea"), "no chat input in log mode");
+});
+
+test("a prompt: find's label and field; the format prompt names the default", () => {
+  assert.match(bottom(pageWith({}, { prompt: { kind: "find", value: "x" } })), new RegExp(`<label[^>]*>${str.browseFindPrompt()}</label><input[^>]*value="x"`));
+  assert.ok(bottom(pageWith({ ExportFormat: "html" }, { prompt: { kind: "format" } })).includes(str.browseFormatPromptDefault("html")));
+  assert.ok(bottom(pageWith({}, { prompt: { kind: "format" } })).includes(str.browseFormatPrompt()));
+});
+
+test("top bar: the find status and the Log chip, lit; status line: the log's status, else how many selected", () => {
+  const html = pageWith({ Find: "apple", Matches: [1], Selected: 3 });
+  const top = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  assert.ok(top.includes(str.browseFindStatus("apple", 0, 1)));
+  assert.match(top, new RegExp(`<button class="${roleClass("status.log.on")}"[^>]*>${str.viewLogButton()}</button>`));
+  assert.ok(html.slice(html.indexOf('class="status')).includes(str.viewSelected(3)));
+  assert.ok(pageWith({ Status: "nope", StatusErr: true }).slice(-600).includes("nope"));
+});
+
+test("not in log mode, the Log chip is unlit", () => {
+  const s = new Store();
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" }]);
+  assert.match(render(<App store={s} />), new RegExp(`<button class="${roleClass("status.log")}"[^>]*>${str.viewLogButton()}</button>`));
+});
+
+test("Esc stops a search reading older days, not log mode; otherwise it closes log mode", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" },
+    { type: "Log", Key: "fm/kit", Open: true, Searching: true, Find: "x" }]);
+  logAct(s, "back");
+  assert.deepEqual(sent.at(-1), { Do: "stop_search", Key: "fm/kit" });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Searching: false, Find: "x" }]);
+  logAct(s, "back");
+  assert.deepEqual(sent.at(-1), { Do: "log_close", Key: "fm/kit" });
 });

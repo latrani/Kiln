@@ -75,6 +75,10 @@ a.s { text-decoration: underline; }
 .lrow .ltext { grid-column: 5; min-width: 0; }
 .lrow .ltext .line { padding-left: 0; text-indent: 0; }
 .lrow mark { color: inherit; background: none; }
+/* Log mode's bar: the hints, or a prompt (a label and a field), or
+   export's format question, one row as the TUI's. */
+.logbar { white-space: pre; display: flex; outline: none; }
+.logbar input { flex: 1; min-width: 1ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); }
 .bottom.form { border-top-color: var(--role-rule-form-fg); }
 /* A one-field form, as the TUI's: the label, the field as wide as what's

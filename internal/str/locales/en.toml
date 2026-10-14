@@ -394,6 +394,10 @@ delete_again = "Press again to delete {what}"
 
 # Log mode's name for screen readers: the history you can select from.
 log = "Log"
+
+# Log mode's keys (web): the mouse selects lines, as the spec has it, in
+# place of the TUI's m and space; the letters are the TUI's.
+log_hints = "click to select · shift-click extends · / find · n/N · g date · t tags · e export · c copy · esc back"
 # A character's name in the sidebar, for screen readers, when lines have
 # come you haven't read; and when one of them is a priority (the ● the
 # sidebar shows: a page, a whisper, whatever the priority tags flag).

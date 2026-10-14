@@ -25,7 +25,7 @@ export function App({ store }: { store: Store }) {
       <div class="kiln" style={{ "--side": sidebarCSS() }}>
         <Sidebar state={s} store={store} />
         <div class="divider" />
-        <TopBar state={s} />
+        <TopBar state={s} store={store} />
         {logShows(s, s.active) ? <LogView state={s} store={store} /> : <Scrollback state={s} />}
         <BottomPane state={s} store={store} />
         <StatusLine state={s} />

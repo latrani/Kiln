@@ -109,3 +109,9 @@ export function logAct(store: Store, does: LogKey): void {
       break;
   }
 }
+
+// toggleLog is Ctrl+L, as the TUI's. (For now it only opens log mode;
+// hiding and showing it again come with Ctrl+L itself.)
+export function toggleLog(store: Store): void {
+  store.state.act?.({ Do: "log", Key: store.state.active });
+}
