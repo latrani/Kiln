@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
-import { logAct } from "../log.ts";
+import { filterPromptEnter, logAct } from "../log.ts";
 import { Store } from "../store.ts";
 import type { Event } from "../store.ts";
 import { roleClass } from "../theme.ts";
@@ -114,4 +114,27 @@ test("Esc stops a search reading older days, not log mode; otherwise it closes l
   s.apply([{ type: "Log", Key: "fm/kit", Open: true, Searching: false, Find: "x" }]);
   logAct(s, "back");
   assert.deepEqual(sent.at(-1), { Do: "log_close", Key: "fm/kit" });
+});
+
+test("with the panel open: the panel's hints; the filter prompt's label and field", () => {
+  assert.ok(bottom(pageWith({}, { panel: { sel: "+" } })).includes(str.filterHints()));
+  assert.match(bottom(pageWith({}, { panel: { sel: "+" }, prompt: { kind: "filter", value: "y" } })), new RegExp(`<label[^>]*>${str.filterPrompt()}</label><input[^>]*value="y"`));
+});
+
+test("the Filter chip, between presence and Log in log mode, lit while the panel's open", () => {
+  const top = (html: string) => html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  assert.match(top(pageWith({})), new RegExp(`<button class="${roleClass("status.filter")}"[^>]*>${str.viewFilterButton()}</button><span>${str.separator()}</span><button class="${roleClass("status.log.on")}"`));
+  assert.match(top(pageWith({}, { panel: { sel: "+" } })), new RegExp(`<button class="${roleClass("status.filter.on")}"`));
+});
+
+test("Enter in the filter prompt adds the text, which becomes the highlight; Esc goes back to the panel", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" }, { type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0 }]);
+  s.setLogView("fm/kit", { panel: { sel: "+" }, prompt: { kind: "filter", value: " pie " } });
+  filterPromptEnter(s);
+  assert.deepEqual(sent.at(-1), { Do: "add_text", Key: "fm/kit", Term: "pie" });
+  assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "t:pie", follow: true });
+  assert.equal(s.state.logView["fm/kit"].prompt, undefined);
 });

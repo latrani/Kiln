@@ -133,6 +133,17 @@ export function logAct(store: Store, does: LogKey): void {
   }
 }
 
+// filterPromptEnter is Enter in the filter text prompt, as the TUI's:
+// the text is added, a new row becoming the highlight, and focus goes
+// back to the panel.
+export function filterPromptEnter(store: Store): void {
+  const s = store.state, k = s.active, v = s.logView[k];
+  if (v?.prompt?.kind !== "filter") return;
+  const term = v.prompt.value.trim();
+  s.act?.({ Do: "add_text", Key: k, Term: term });
+  store.setLogView(k, { prompt: undefined, panel: { sel: term ? "t:" + term : v.panel?.sel ?? "+", follow: true } });
+}
+
 // toggleLog is Ctrl+L, as the TUI's: log mode showing is hidden, kept
 // as it was (a search reading older days stops); hidden, it shows again;
 // not open, it opens for the active character. Shown again or opened,

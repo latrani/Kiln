@@ -1,15 +1,17 @@
 import { useEffect, useRef } from "preact/hooks";
 import { composing } from "../input.ts";
-import { formatKey } from "../log.ts";
+import { filterPromptEnter, formatKey } from "../log.ts";
 import type { LogState } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
 // LogBar is log mode's bar in the bottom pane, as the TUI's action bar:
-// its keys, or a prompt. A text prompt (find, a date, export's file name)
-// is a label and a field: Enter sends, Esc closes it and goes back to the
-// log. Export's format prompt takes p, a or h (Enter for a default).
+// its keys (the filter panel's while it's open), or a prompt. A text
+// prompt (find, a date, export's file name, a text to filter by) is a
+// label and a field: Enter sends, Esc closes it and goes back to the log
+// (the filter's, to the panel). Export's format prompt takes p, a or h
+// (Enter for a default).
 export function LogBar({ state, store }: { state: State; store: Store }) {
   const k = state.active;
   const g = state.logs[k] as LogState;
@@ -22,11 +24,15 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
   const here = v.at ?? v.clicked ?? lines.at(-1)?.Seq ?? -1;
   const act = state.act ?? (() => {});
   const back = () => {
+    if (p?.kind === "filter") {
+      store.setLogView(k, { prompt: undefined, panel: { sel: v.panel?.sel ?? "+", follow: true } });
+      return;
+    }
     store.setLogView(k, { prompt: undefined });
     document.querySelector<HTMLElement>(".log")?.focus();
   };
   if (!p) {
-    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{str.webLogHints()}</span></div>;
+    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{v.panel ? str.filterHints() : str.webLogHints()}</span></div>;
   }
   if (p.kind === "format") {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -46,13 +52,17 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
       </div>
     );
   }
-  const label = p.kind === "find" ? str.browseFindPrompt() : p.kind === "date" ? str.browseDatePrompt() : str.browseSavePrompt();
+  const label = p.kind === "filter" ? str.filterPrompt() : p.kind === "find" ? str.browseFindPrompt() : p.kind === "date" ? str.browseDatePrompt() : str.browseSavePrompt();
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
       back();
     } else if (e.key === "Enter" && !composing(e)) {
       e.preventDefault();
+      if (p.kind === "filter") {
+        filterPromptEnter(store);
+        return;
+      }
       const value = p.value.trim();
       if (p.kind === "find") act({ Do: "find", Key: k, Term: value, Seq: here });
       else if (p.kind === "date") act({ Do: "goto_date", Key: k, Day: value });
