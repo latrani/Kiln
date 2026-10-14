@@ -10,9 +10,14 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
+// relinkEvery is how often the watcher checks whether the allowlist's
+// link points somewhere new, for systems that don't say.
+const relinkEvery = time.Second
+
 // WatchAllowlist loads path into s, then reloads it whenever it changes.
 // A file that fails to load (half-saved, a typo) is logged and the old
-// list kept. If path is a symlink, a change to its target counts too.
+// list kept. If path is a symlink, a change to its target counts too,
+// and so does repointing it.
 // Close the result to stop watching.
 func WatchAllowlist(s *Server, path string) (io.Closer, error) {
 	a, err := LoadAllowlist(path)
@@ -53,8 +58,16 @@ func WatchAllowlist(s *Server, path string) (io.Closer, error) {
 	go func() {
 		settle := time.NewTimer(time.Hour)
 		settle.Stop()
+		// A link repointed in place (ln -sfn) sends no event on macOS
+		// (kqueue), so the link is also looked at now and then.
+		relink := time.NewTicker(relinkEvery)
+		defer relink.Stop()
 		for {
 			select {
+			case <-relink.C:
+				if t, err := filepath.EvalSymlinks(path); err == nil && t != path && t != target {
+					settle.Reset(200 * time.Millisecond)
+				}
 			case ev, ok := <-fw.Events:
 				if !ok {
 					return
