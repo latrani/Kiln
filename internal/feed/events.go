@@ -125,6 +125,7 @@ type Log struct {
 	Start, End                   *int
 	Selected                     int // lines an export or copy would take
 	Excluded, Hidden, Matches    []int
+	ExportFormat                 string // config's export_format: the format export picks on Enter; "" asks
 }
 
 // LogLines changes a character's log-mode lines; Epoch as in Lines.

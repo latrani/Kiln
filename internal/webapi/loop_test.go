@@ -910,3 +910,95 @@ func TestSettingsThatCantBeReadSayWhy(t *testing.T) {
 		t.Errorf("status: %v", st)
 	}
 }
+
+// logWith opens fm/kit's log mode over a day of lines and returns the
+// harness and the lines' seqs, oldest first.
+func logWith(t *testing.T, texts ...string) (*harness, []int) {
+	t.Helper()
+	a, dir := newApp(t)
+	ch, _ := a.Find("fm/kit")
+	l, _ := a.LogLayout(ch)
+	kilntest.WriteLog(t, l, day, texts...)
+	h := startOn(t, a, dir)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	b := h.act(`{"Do":"log","Key":"fm/kit"}`)
+	var seqs []int
+	for _, e := range b {
+		if e["type"] == "LogLines" {
+			for _, x := range e["Lines"].([]any) {
+				seqs = append(seqs, int(x.(map[string]any)["Seq"].(float64)))
+			}
+		}
+	}
+	return h, seqs
+}
+
+func TestFindAndStepsSayWhereTheyLand(t *testing.T) {
+	h, seqs := logWith(t, "apple one", "pear", "apple two")
+	b := h.act(`{"Do":"find","Key":"fm/kit","Term":"apple","Seq":-1}`)
+	if at := event(b, "LogAt"); at == nil || at["Seq"] != float64(seqs[2]) {
+		t.Fatalf("find: %v", at)
+	}
+	b = h.act(fmt.Sprintf(`{"Do":"find_older","Key":"fm/kit","Seq":%d}`, seqs[2]))
+	if at := event(b, "LogAt"); at == nil || at["Seq"] != float64(seqs[0]) {
+		t.Errorf("n: %v", at)
+	}
+	b = h.act(fmt.Sprintf(`{"Do":"find_newer","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	if at := event(b, "LogAt"); at == nil || at["Seq"] != float64(seqs[2]) {
+		t.Errorf("N: %v", at)
+	}
+	b = h.act(fmt.Sprintf(`{"Do":"find_newer","Key":"fm/kit","Seq":%d}`, seqs[2]))
+	if at := event(b, "LogAt"); at != nil {
+		t.Errorf("N past the newest: %v", at)
+	}
+	if lg := event(b, "Log"); lg == nil || lg["Status"] != str.BrowseNoNewerMatches("apple") {
+		t.Errorf("N past the newest says so: %v", lg)
+	}
+}
+
+func TestFindOlderLandsOnALaterTurn(t *testing.T) {
+	a, dir := newApp(t)
+	ch, _ := a.Find("fm/kit")
+	l, _ := a.LogLayout(ch)
+	kilntest.WriteLog(t, l, day.AddDate(0, 0, -1), "needle")
+	kilntest.WriteLog(t, l, day, "hay")
+	h := startOn(t, a, dir)
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"log","Key":"fm/kit"}`)
+	h.l.Act([]byte(`{"Do":"find","Key":"fm/kit","Term":"needle","Seq":-1}`))
+	for range 10 { // the older day is read, then the find goes on in it
+		if at := event(h.next(), "LogAt"); at != nil {
+			return
+		}
+	}
+	t.Error("no LogAt after reading the older day")
+}
+
+func TestGotoDateLands(t *testing.T) {
+	h, seqs := logWith(t, "one", "two")
+	b := h.act(`{"Do":"goto_date","Key":"fm/kit","Day":"` + day.Format("2006-01-02") + `"}`)
+	if at := event(b, "LogAt"); at == nil || at["Seq"] != float64(seqs[0]) {
+		t.Errorf("goto: %v", at)
+	}
+}
+
+func TestTagsExportNameAndSay(t *testing.T) {
+	h, seqs := logWith(t, "one", "two")
+	b := h.act(fmt.Sprintf(`{"Do":"tags","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	if lg := event(b, "Log"); lg == nil || lg["Status"] != str.BrowseNoLineTags() {
+		t.Errorf("tags: %v", lg)
+	}
+	b = h.act(`{"Do":"export_name","Key":"fm/kit","Format":"plain"}`)
+	if lg := event(b, "Log"); lg == nil || lg["Status"] != str.BrowseMarkRange() || event(b, "ExportName") != nil {
+		t.Errorf("nothing marked: %v", types(b))
+	}
+	h.act(fmt.Sprintf(`{"Do":"range","Key":"fm/kit","Start":%d,"End":%d}`, seqs[0], seqs[1]))
+	b = h.act(`{"Do":"export_name","Key":"fm/kit","Format":"plain"}`)
+	if n := event(b, "ExportName"); n == nil || n["Format"] != "plain" || n["Name"] == "" || strings.Contains(n["Name"].(string), "/") {
+		t.Errorf("export name: %v (no directory: a download)", n)
+	}
+	b = h.act(`{"Do":"say","Text":"hello","Err":true}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != "hello" || st["Err"] != true {
+		t.Errorf("say: %v", st)
+	}
+}
