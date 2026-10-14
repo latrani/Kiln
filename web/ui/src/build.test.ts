@@ -29,3 +29,13 @@ test("build works from a folder with a space in its name", (t) => {
   execFileSync(process.execPath, ["--preserve-symlinks", "--preserve-symlinks-main", join(dir, "my ui", "build.mjs"), out], { cwd: dir, stdio: "pipe" });
   assert.ok(existsSync(join(out, "app.js")));
 });
+
+test("the golden build has the WebSocket bridge; the page's build doesn't", (t) => {
+  const page = mkdtempSync(join(tmpdir(), "kiln-ui-"));
+  const golden = mkdtempSync(join(tmpdir(), "kiln-ui-"));
+  t.after(() => { rmSync(page, { recursive: true, force: true }); rmSync(golden, { recursive: true, force: true }); });
+  execFileSync(process.execPath, ["build.mjs", page], { cwd: ui });
+  execFileSync(process.execPath, ["build.mjs", golden, "golden"], { cwd: ui });
+  assert.ok(!readFileSync(join(page, "app.js"), "utf8").includes("WebSocket"), "the page talks to Go only through the wasm");
+  assert.ok(readFileSync(join(golden, "app.js"), "utf8").includes("WebSocket"));
+});
