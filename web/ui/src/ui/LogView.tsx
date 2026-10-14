@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { logAct, logKey, logRows, segments } from "../log.ts";
-import type { LogState } from "../log.ts";
+import { logAct, logClick, logKey, logRows, placeOf, segments, topFor } from "../log.ts";
+import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -31,11 +31,23 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const el = useRef<HTMLDivElement>(null);
   const act = state.act ?? (() => {});
 
+  const place = useRef<{ k: string; first?: number; at?: Place }>({ k });
+  const rowsOf = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".lrow")].map((r) => ({ seq: Number(r.dataset.seq), top: r.offsetTop, height: r.offsetHeight }));
+
   useEffect(() => el.current?.focus(), [k]);
   // Opened at the newest line, as the TUI's cursor starts there.
   useLayoutEffect(() => {
     if (el.current) el.current.scrollTop = el.current.scrollHeight;
   }, [k]);
+  // Older history arriving above keeps your place, as the scrollback's.
+  useLayoutEffect(() => {
+    const e = el.current, p = place.current, first = lines[0]?.Seq;
+    if (e && p.k === k && p.at && p.first !== undefined && first !== p.first) {
+      const top = topFor(p.at, rowsOf(e));
+      if (top !== undefined) e.scrollTop = top;
+    }
+    place.current = { k, first, at: p.k === k ? p.at : undefined };
+  });
   // Find and go-to-date bring their line into view, once per landing.
   useLayoutEffect(() => {
     if (v.at !== undefined) el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
@@ -43,6 +55,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
 
   const onScroll = () => {
     const e = el.current!;
+    place.current.at = placeOf(rowsOf(e), e.scrollTop);
     if (e.scrollTop < e.clientHeight && !g.Loading && !g.HistDone) act({ Do: "log_older", Key: k });
   };
   const onClick = (e: MouseEvent) => {
@@ -50,11 +63,12 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     const seq = seqOf(e.target as Node);
     if (seq === undefined) return;
     const inRange = (e.target as Element).closest(".lrow")?.querySelector(".gutter")?.textContent !== " ";
-    if (e.shiftKey && g.Start != null && g.End != null && inRange) act({ Do: "exclude", Key: k, Seq: seq });
-    else if (e.shiftKey && g.Start != null) act({ Do: "extend", Key: k, Seq: seq });
-    else if ((e.target as Element).closest(".gutter") && inRange && g.End != null) act({ Do: "exclude", Key: k, Seq: seq });
-    else act({ Do: "range", Key: k, Start: seq, End: seq });
-    store.setLogView(k, { clicked: seq });
+    logClick(store, seq, { shift: e.shiftKey, gutter: !!(e.target as Element).closest(".gutter"), inRange });
+  };
+  // Shift+click is log mode's (extend, or take a line out), not the
+  // browser's text selection growing, which would read as a drag.
+  const onMouseDown = (e: MouseEvent) => {
+    if (e.shiftKey) e.preventDefault();
   };
   // A drag selects the lines it covers, as a range.
   const onMouseUp = () => {
@@ -62,8 +76,9 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     if (!sel || sel.isCollapsed || !el.current?.contains(sel.anchorNode)) return;
     const a = seqOf(sel.anchorNode), b = seqOf(sel.focusNode);
     if (a !== undefined && b !== undefined) {
+      if (g.Searching) act({ Do: "stop_search", Key: k });
       act({ Do: "range", Key: k, Start: a, End: b });
-      store.setLogView(k, { clicked: b });
+      store.setLogView(k, { clicked: b, at: undefined });
     }
   };
   const onKeyDown = (e: KeyboardEvent) => {
@@ -75,7 +90,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
 
   return (
     <main class="body">
-      <div class="log" ref={el} tabindex={0} aria-label={str.webLog()} onScroll={onScroll} onClick={onClick} onMouseUp={onMouseUp} onKeyDown={onKeyDown}>
+      <div class="log" ref={el} tabindex={0} role="region" aria-label={str.webLog()} onScroll={onScroll} onMouseDown={onMouseDown} onClick={onClick} onMouseUp={onMouseUp} onKeyDown={onKeyDown}>
         {g.Loading && <div class={roleClass("log.loading")}>{str.browseLoading()}</div>}
         {!lines.length && g.HistDone && <div class={roleClass("log.loading")}>{str.browseNoLogs()}</div>}
         {logRows(lines, g).map((r) => {

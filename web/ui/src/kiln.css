@@ -67,8 +67,9 @@ a.s { text-decoration: underline; }
 .ov-rule { border: 0; border-top: 1px solid currentColor; margin: calc(.5lh - .5px) 0; }
 /* Log mode, as the TUI's: each line its time, gutter and text, wrapped
    rows hanging under the text. Every row stays in the DOM (no virtual
-   scrolling), and older history arriving above keeps your place. */
-.log { flex: 1; overflow-y: auto; overflow-anchor: auto; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+   scrolling), and older history arriving above keeps your place
+   (LogView.tsx, as the scrollback's: Safari has no overflow-anchor). */
+.log { flex: 1; overflow-y: auto; position: relative; overflow-anchor: none; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
 .lrow { display: grid; grid-template-columns: 5ch 1ch 1ch 1ch 1fr; cursor: default; }
 .lrow > :nth-child(1) { grid-column: 1; }
 .lrow .gutter { grid-column: 3; cursor: pointer; }

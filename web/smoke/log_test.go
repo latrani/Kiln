@@ -34,13 +34,6 @@ func TestLog(t *testing.T) {
 	waitFor(t, ev, `document.activeElement === `+logEl+` && document.querySelector(".lrow")`, "log mode, focused, with lines")
 	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.WebLogHints()), "the hints")
 
-	// A click selects a line; a shift-click on another extends the range.
-	rows := `[...document.querySelectorAll(".lrow")]`
-	click(t, ws, ev, rows+`[0]`)
-	waitFor(t, ev, rows+`[0].querySelector(".gutter").textContent === `+jsString(glyph.Selected), "the first line selected")
-	shiftClick(t, ws, ev, rows+`.at(-1)`)
-	waitFor(t, ev, rows+`.every(r => r.querySelector(".gutter").textContent === `+jsString(glyph.Selected)+`)`, "the range runs to the last line")
-
 	// / opens find; typing goes to the prompt, not log mode's letters;
 	// Enter finds; Esc in a prompt closes only the prompt.
 	ev(logEl + `.focus()`)
@@ -65,6 +58,21 @@ func TestLog(t *testing.T) {
 	if got := ev(`kilnPage.sent.some(a => a.Do === "log_close")`); got != "false" {
 		t.Error("Esc in a prompt closed log mode")
 	}
+
+	// A click selects a line (and is where find goes from next: find
+	// searches older from where you are, as the TUI's); a shift-click on
+	// another extends the range.
+	rows := `[...document.querySelectorAll(".lrow")]`
+	click(t, ws, ev, rows+`[0]`)
+	waitFor(t, ev, rows+`[0].querySelector(".gutter").textContent === `+jsString(glyph.Selected), "the first line selected")
+	shiftClick(t, ws, ev, rows+`.at(-1)`)
+	waitFor(t, ev, rows+`.every(r => r.querySelector(".gutter").textContent === `+jsString(glyph.Selected)+`)`, "the range runs to the last line")
+	// A shift-click inside the range takes that line out, and again puts
+	// it back.
+	shiftClick(t, ws, ev, rows+`[1]`)
+	waitFor(t, ev, rows+`[1].querySelector(".gutter").textContent === `+jsString(glyph.Excluded), "the middle line taken out")
+	shiftClick(t, ws, ev, rows+`[1]`)
+	waitFor(t, ev, rows+`.every(r => r.querySelector(".gutter").textContent === `+jsString(glyph.Selected)+`)`, "and back in")
 
 	// c copies (the effect reaches the page); e, then h, then Enter:
 	// a download of the export.

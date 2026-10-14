@@ -36,7 +36,7 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
         back();
       } else if (f) {
         e.preventDefault();
-        store.setLogView(k, { prompt: undefined });
+        back(); // the log keeps the keys until Go's file name comes (or why not)
         act({ Do: "export_name", Key: k, Format: f });
       }
     };

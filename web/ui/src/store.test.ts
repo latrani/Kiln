@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toggleLog } from "./log.ts";
+import { logAct, logClick, toggleLog } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import type { LineData } from "./store.ts";
@@ -369,4 +369,57 @@ test("toggleLog: open, hide, show again; nothing open, nothing", () => {
   toggleLog(s);
   assert.equal(logShows(s.state, "fm/kit"), true);
   assert.equal(sent.filter((a) => a.Do === "log").length, 1, "shown again without asking Go");
+});
+
+// logged is a store with Kit's log mode open over lines 1-3, and what it
+// sends.
+const logged = (log: object = {}) => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  const L = (Seq: number) => ({ Seq, Kind: "server", Day: "2026-10-13", Out: false, Plain: `l${Seq}`, Spans: null, Priority: false, Quiet: false });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" },
+    { type: "LogLines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [L(1), L(2), L(3)] }, { type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0, ...log }]);
+  return { s, sent };
+};
+
+test("a click moves where you are: t and n go from the line clicked, not where find last landed", () => {
+  const { s, sent } = logged({ Find: "l" });
+  s.apply([{ type: "LogAt", Key: "fm/kit", Seq: 1 }]);
+  logClick(s, 3, {});
+  assert.deepEqual(sent.at(-1), { Do: "range", Key: "fm/kit", Start: 3, End: 3 });
+  assert.equal(s.state.logView["fm/kit"].at, undefined, "the time's highlight leaves the found line");
+  logAct(s, "tags");
+  assert.deepEqual(sent.at(-1), { Do: "tags", Key: "fm/kit", Seq: 3 });
+  logAct(s, "older");
+  assert.deepEqual(sent.at(-1), { Do: "find_older", Key: "fm/kit", Seq: 3 });
+});
+
+test("a click, or hiding log mode, stops a search reading older days, as the TUI's", () => {
+  const { s, sent } = logged({ Find: "x", Searching: true });
+  logClick(s, 2, {});
+  assert.deepEqual(sent.slice(-2), [{ Do: "stop_search", Key: "fm/kit" }, { Do: "range", Key: "fm/kit", Start: 2, End: 2 }]);
+  toggleLog(s);
+  assert.deepEqual(sent.at(-1), { Do: "stop_search", Key: "fm/kit" });
+  assert.equal(logShows(s.state, "fm/kit"), false);
+});
+
+test("Ctrl+L does nothing over the picker or an editor: they keep the keys, as the TUI's", () => {
+  const { s, sent } = logged();
+  s.setLogView("fm/kit", { hidden: true });
+  s.openPicker();
+  toggleLog(s);
+  assert.equal(logShows(s.state, "fm/kit"), false);
+  assert.ok(s.state.picker);
+  assert.equal(sent.filter((a) => a.Do === "log").length, 0);
+});
+
+test("e with nothing selected asks Go, which says to mark a range; no format prompt", () => {
+  const { s, sent } = logged({ Selected: 0 });
+  logAct(s, "export");
+  assert.deepEqual(sent.at(-1), { Do: "export_name", Key: "fm/kit", Format: "" });
+  assert.equal(s.state.logView["fm/kit"].prompt, undefined);
+  const b = logged({ Start: 1, End: 2, Selected: 2 });
+  logAct(b.s, "export");
+  assert.deepEqual(b.s.state.logView["fm/kit"].prompt, { kind: "format" });
 });

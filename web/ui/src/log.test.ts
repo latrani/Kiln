@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportFormats, findStatus, logKey, logRows, segments } from "./log.ts";
+import { exportFormats, findStatus, logKey, logRows, placeOf, segments, topFor } from "./log.ts";
 import type { LogState } from "./log.ts";
 import type { LineData } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -50,4 +50,13 @@ test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
   assert.equal(k("n", { ctrlKey: true }), undefined);
   assert.equal(k("m"), undefined, "no cursor keys on the web (spec)");
   assert.deepEqual(exportFormats, { p: "plain", a: "ansi", h: "html" });
+});
+
+test("place: the first row showing and how far above the view's top it starts; put back after older rows arrive", () => {
+  const rows = [{ seq: 5, top: 0, height: 20 }, { seq: 6, top: 20, height: 40 }, { seq: 7, top: 60, height: 20 }];
+  assert.deepEqual(placeOf(rows, 30), { seq: 6, off: -10 });
+  assert.equal(placeOf([], 0), undefined);
+  const after = [{ seq: 1, top: 0, height: 100 }, ...rows.map((r) => ({ ...r, top: r.top + 100 }))];
+  assert.equal(topFor({ seq: 6, off: -10 }, after), 130, "the same line, the same distance from the top");
+  assert.equal(topFor({ seq: 99, off: 0 }, after), undefined, "gone: nothing to keep");
 });

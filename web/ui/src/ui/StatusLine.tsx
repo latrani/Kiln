@@ -28,16 +28,12 @@ export function StatusLine({ state }: { state: State }) {
   } else if (!state.saving) polite = str.webNotSaving();
   const loading = state.phase === "loading" && state.progress;
   // With no news, the character showing's connection, as the TUI's; in
-  // log mode its status (an error read as an alert), else how many lines
-  // are selected, as the TUI's takeLogStatus.
+  // log mode how many lines are selected. (Log mode's messages come as
+  // the status: Go moves them there, as the TUI's takeLogStatus.)
   const c = state.chars[state.active];
   const g = c && logShows(state, state.active) ? (state.logs[state.active] as LogState) : undefined;
-  if (g && !state.status?.Text && g.Status) {
-    if (g.StatusErr) urgent = g.Status;
-    else polite = g.Status;
-  }
   const conn = state.phase === "running" && !state.status?.Text && c
-    ? (g ? (g.Status ? "" : str.viewSelected(g.Selected)) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
+    ? (g ? str.viewSelected(g.Selected) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
     : "";
   return (
     <div class={`status ${roleClass("status")}`}>

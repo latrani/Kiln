@@ -98,7 +98,11 @@ export function logAct(store: Store, does: LogKey): void {
   switch (does) {
     case "find": store.setLogView(k, { prompt: { kind: "find", value: g.Find } }); break;
     case "date": store.setLogView(k, { prompt: { kind: "date", value: "" } }); break;
-    case "export": store.setLogView(k, { prompt: { kind: "format" } }); break;
+    case "export":
+      // Nothing selected: Go says to mark a range, as the TUI's e.
+      if (!g.Selected) act({ Do: "export_name", Key: k, Format: "" });
+      else store.setLogView(k, { prompt: { kind: "format" } });
+      break;
     case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
@@ -111,14 +115,53 @@ export function logAct(store: Store, does: LogKey): void {
 }
 
 // toggleLog is Ctrl+L, as the TUI's: log mode showing is hidden, kept
-// as it was; hidden, it shows again; not open, it opens for the active
-// character. Nothing with no character showing.
+// as it was (a search reading older days stops); hidden, it shows again;
+// not open, it opens for the active character. Nothing with no character
+// showing, or with the picker or an editor up.
 export function toggleLog(store: Store): void {
   const s = store.state, k = s.active;
-  if (!s.chars[k]) return;
+  if (!s.chars[k] || s.picker) return; // the picker and editors keep the keys, as the TUI's
   if (s.logs[k]?.Open) {
-    store.setLogView(k, { hidden: !s.logView[k]?.hidden });
+    const hide = !s.logView[k]?.hidden;
+    if (hide && s.logs[k].Searching) s.act?.({ Do: "stop_search", Key: k }); // as the TUI's hideBrowse
+    store.setLogView(k, { hidden: hide });
     return;
   }
   s.act?.({ Do: "log", Key: k });
+}
+
+// logClick is a click on line seq, as the TUI's click: it stops a search
+// reading older days; a click takes the line; Shift+click inside the
+// range takes it out (or back in), elsewhere extends the range; a click
+// on the gutter of a line in the range takes it out. The line clicked is
+// where you are now: find's steps and t go from it, not from where find
+// last landed.
+export function logClick(store: Store, seq: number, how: { shift?: boolean; gutter?: boolean; inRange?: boolean }): void {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState;
+  const act = s.act ?? (() => {});
+  if (g.Searching) act({ Do: "stop_search", Key: k });
+  if (how.shift && g.Start != null && g.End != null && how.inRange) act({ Do: "exclude", Key: k, Seq: seq });
+  else if (how.shift && g.Start != null) act({ Do: "extend", Key: k, Seq: seq });
+  else if (how.gutter && how.inRange && g.End != null) act({ Do: "exclude", Key: k, Seq: seq });
+  else act({ Do: "range", Key: k, Start: seq, End: seq });
+  store.setLogView(k, { clicked: seq, at: undefined });
+}
+
+// Place is where the view is: the first row showing, and how far its top
+// is from the view's (negative: above it).
+export type Place = { seq: number; off: number };
+
+// placeOf is the place of a view scrolled to scrollTop over rows (their
+// tops and heights within it).
+export function placeOf(rows: { seq: number; top: number; height: number }[], scrollTop: number): Place | undefined {
+  const r = rows.find((r) => r.top + r.height > scrollTop);
+  return r && { seq: r.seq, off: r.top - scrollTop };
+}
+
+// topFor is the scrollTop that puts place p back over rows, as the
+// scrollback keeps your place when older lines arrive above (the browser's
+// own anchoring isn't in Safari); undefined if its line is gone.
+export function topFor(p: Place, rows: { seq: number; top: number }[]): number | undefined {
+  const r = rows.find((r) => r.seq === p.seq);
+  return r && r.top - p.off;
 }

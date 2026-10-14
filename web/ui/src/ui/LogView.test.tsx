@@ -23,6 +23,7 @@ const main = (html: string) => html.slice(html.indexOf("<main"), html.indexOf("<
 test("log mode has the main area: a focusable log, no live region", () => {
   const m = main(page({}));
   assert.match(m, /<div class="log"[^>]*tabindex="0"/);
+  assert.match(m, new RegExp(`<div class="log"[^>]*role="region"[^>]*aria-label="${str.webLog()}"`), "named where a screen reader reads the name: a region, not a live one");
   assert.ok(!m.includes("aria-live"), "history: nothing read aloud (spec)");
   assert.ok(!m.includes('role="log"'));
 });
@@ -88,7 +89,10 @@ test("top bar: the find status and the Log chip, lit; status line: the log's sta
   assert.ok(top.includes(str.browseFindStatus("apple", 0, 1)));
   assert.match(top, new RegExp(`<button class="${roleClass("status.log.on")}"[^>]*>${str.viewLogButton()}</button>`));
   assert.ok(html.slice(html.indexOf('class="status')).includes(str.viewSelected(3)));
-  assert.ok(pageWith({ Status: "nope", StatusErr: true }).slice(-600).includes("nope"));
+  // Log mode's messages come as the status (Go moves them there, as the
+  // TUI's takeLogStatus); the log's own field isn't drawn.
+  const stale = pageWith({ Status: "stale", Selected: 2 });
+  assert.ok(!stale.includes("stale") && stale.slice(stale.indexOf('class="status')).includes(str.viewSelected(2)));
 });
 
 test("not in log mode, the Log chip is unlit", () => {
