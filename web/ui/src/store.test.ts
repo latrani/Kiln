@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { listing, Store } from "./store.ts";
+import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import type { LineData } from "./store.ts";
 
@@ -309,4 +309,31 @@ test("the sidebar lists the picker only when no main-view editor is up, as the T
   s.openEditor({ kind: "char", world: "fm", char: "kit" }, true);
   s.apply([kitSettings]);
   assert.equal(listing(s.state), false, "Ctrl+T's editor keeps the characters showing");
+});
+
+test("log view: where find landed moves the view each time it's said; ExportName asks for the file name", () => {
+  const s = new Store();
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true }]);
+  assert.equal(logShows(s.state, "fm/kit"), true);
+  s.apply([{ type: "LogAt", Key: "fm/kit", Seq: 4 }]);
+  assert.deepEqual([s.state.logView["fm/kit"].at, s.state.logView["fm/kit"].goN], [4, 1]);
+  s.apply([{ type: "LogAt", Key: "fm/kit", Seq: 4 }]);
+  assert.equal(s.state.logView["fm/kit"].goN, 2, "the same line again still moves the view");
+  s.apply([{ type: "LogLines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [] }]);
+  assert.equal(s.state.logView["fm/kit"].goN, 2, "lines arriving don't");
+  s.apply([{ type: "ExportName", Key: "fm/kit", Format: "html", Name: "kit.html" }]);
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filename", value: "kit.html", format: "html" });
+});
+
+test("log view: hidden by Ctrl+L isn't shown; closing drops it; each character's is its own", () => {
+  const s = new Store();
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true }, { type: "Log", Key: "fm/rook", Open: true }]);
+  s.setLogView("fm/kit", { hidden: true, prompt: { kind: "find", value: "x" } });
+  assert.equal(logShows(s.state, "fm/kit"), false);
+  assert.equal(logShows(s.state, "fm/rook"), true);
+  assert.equal(s.state.logView["fm/rook"]?.prompt, undefined);
+  s.apply([{ type: "Log", Key: "fm/kit", Open: false }]);
+  assert.equal(s.state.logView["fm/kit"], undefined);
+  s.apply([{ type: "Closed", Key: "fm/rook" }]);
+  assert.equal(s.state.logView["fm/rook"], undefined);
 });

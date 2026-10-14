@@ -55,6 +55,22 @@ export interface Answer {
   Problems?: { Field: string; Msg: string }[];
 }
 
+// Prompt is log mode's prompt in the bottom pane, as the TUI's: find,
+// go to date, export's format (a key), export's file name.
+export type Prompt = { kind: "find" | "date" | "filename"; value: string; format?: string } | { kind: "format" };
+
+// LogView is the page's side of a character's log mode: hidden by Ctrl+L
+// (kept as it was), its prompt, the line find or go-to-date last landed
+// on (at; goN counts landings, so each moves the view once), and the
+// line last clicked.
+export interface LogView {
+  hidden?: boolean;
+  prompt?: Prompt;
+  at?: number;
+  goN: number;
+  clicked?: number;
+}
+
 export interface State {
   phase: Phase;
   progress?: { got: number; total?: number };
@@ -72,6 +88,7 @@ export interface State {
   logs: Record<string, any>;
   logLines: Record<string, Lines>;
   filters: Record<string, any>;
+  logView: Record<string, LogView>; // by character
   status?: { Text: string; Err: boolean; Gen: number };
   presence?: number;
   confirm?: boolean;
@@ -86,7 +103,7 @@ export interface State {
 // fresh is a state holding nothing of Go's: only the page's own.
 const fresh = ({ phase, progress, saving, onUseHere, act, typing }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing">): State => ({
   phase, progress, saving, onUseHere, act, typing,
-  worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, drafts: {}, parked: {},
+  worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, logView: {}, drafts: {}, parked: {},
 });
 
 // merge is prev with a Lines or LogLines event applied. Only a reset
@@ -233,11 +250,23 @@ export class Store {
       case "Input":
         s.typing?.saw(e.Ack ?? 0);
         return { ...s, inputs: { ...s.inputs, [k]: e } };
-      case "Log": return { ...s, logs: { ...s.logs, [k]: e } };
+      case "Log": {
+        const logs = { ...s.logs, [k]: e };
+        const logView = e.Open ? { ...s.logView, [k]: s.logView[k] ?? { goN: 0 } } : without(s.logView, k);
+        return { ...s, logs, logView };
+      }
+      case "LogAt": {
+        const v = s.logView[k] ?? { goN: 0 };
+        return { ...s, logView: { ...s.logView, [k]: { ...v, at: e.Seq, goN: v.goN + 1 } } };
+      }
+      case "ExportName": {
+        const v = s.logView[k] ?? { goN: 0 };
+        return { ...s, logView: { ...s.logView, [k]: { ...v, prompt: { kind: "filename", value: e.Name, format: e.Format } } } };
+      }
       case "Filter": return { ...s, filters: { ...s.filters, [k]: e } };
       case "Closed":
         return { ...s, chars: without(s.chars, k), inputs: without(s.inputs, k), lines: without(s.lines, k),
-          logs: without(s.logs, k), logLines: without(s.logLines, k), filters: without(s.filters, k) };
+          logs: without(s.logs, k), logLines: without(s.logLines, k), filters: without(s.filters, k), logView: without(s.logView, k) };
       case "Lines": {
         const m = merge(s.lines[k], e);
         return m ? { ...s, lines: { ...s.lines, [k]: m } } : s;
@@ -362,6 +391,11 @@ export class Store {
     this.state.act?.(action);
   }
 
+  // setLogView changes k's log view.
+  setLogView(k: string, patch: Partial<LogView>): void {
+    this.set({ logView: { ...this.state.logView, [k]: { ...(this.state.logView[k] ?? { goN: 0 }), ...patch } } });
+  }
+
   // set changes the page's own state.
   set(patch: Partial<State>): void {
     this.state = { ...this.state, ...patch };
@@ -388,3 +422,6 @@ export class Store {
 // not under an editor opened from the main view (Ctrl+T, /edit), which
 // leaves the characters showing so you can switch away from it.
 export const listing = (s: State): boolean => !!s.picker && !s.picker.edit?.closeAll;
+
+// logShows reports whether k's log mode is up: open in Go, not hidden.
+export const logShows = (s: State, k: string): boolean => !!s.logs[k]?.Open && !s.logView[k]?.hidden;
