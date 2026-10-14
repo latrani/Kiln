@@ -69,3 +69,16 @@ export function keyAction(e: Keyish, caret: Caret): KeyDo {
   }
   return undefined;
 }
+
+// strayKey reports whether a key pressed outside any control belongs in
+// the input: a printing key (with Option or AltGr too, which make
+// letters), a dead key, or an IME starting. Not one the page already
+// took (a shortcut), nor Ctrl or Cmd with a key, which are the browser's.
+// The input is focused and the key isn't consumed, so the browser gives
+// it, and what it composes, to the input.
+export function strayKey(e: { key: string; keyCode?: number; isComposing?: boolean; ctrlKey: boolean; altKey: boolean; metaKey: boolean; defaultPrevented?: boolean }): boolean {
+  if (e.defaultPrevented || e.metaKey) return false;
+  if (e.isComposing || e.keyCode === 229 || e.key === "Process" || e.key === "Dead") return true;
+  if ([...e.key].length !== 1) return false;
+  return !e.ctrlKey || e.altKey; // Ctrl+Alt is AltGr in some browsers
+}

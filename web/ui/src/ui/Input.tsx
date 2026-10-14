@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { keyAction } from "../input.ts";
+import { keyAction, strayKey } from "../input.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -83,10 +83,11 @@ export function Input({ state, store }: { state: State; store: Store }) {
 
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
-    // A letter typed with focus outside any control goes to the input.
+    // What's typed with focus outside any control goes to the input:
+    // letters, accents and IMEs too (strayKey), never a shortcut.
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as Element | null;
-      if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!strayKey(e)) return;
       if (t && t !== document.body && t.closest("a, button, input, textarea, select, summary, [contenteditable], nav")) return;
       ref.current?.focus();
     };
