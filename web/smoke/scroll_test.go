@@ -146,9 +146,11 @@ func TestScrollbackMoves(t *testing.T) {
 
 	// Reading mid-history, you switch away and lines come: switching back,
 	// the line you were reading is where it was, and the pill counts them.
-	// (Sent first, since sending goes to the end; the lines come a second
-	// later.)
-	say("later 30", 2013)
+	// (Sent first, since sending goes to the end, and taken in before
+	// scrolling up; the lines come well after the switch away.)
+	sends := ev(`kilnPage.events.filter(e => e.type === "Sent").length`)
+	say("later 30 after 3000", 2013)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Sent").length > `+sends+` && atEnd()`, "the send taken in")
 	ev(`sc().scrollTop = (sc().scrollHeight - sc().clientHeight) / 2`)
 	time.Sleep(300 * time.Millisecond)
 	before := ev(`JSON.stringify({ seq: firstShown().dataset.seq, top: firstShown().getBoundingClientRect().top, n: pillN() })`)
