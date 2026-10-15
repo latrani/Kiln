@@ -40,7 +40,7 @@ fm              │fm · Kit                                       ? focus  ·  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#e3d0a0; @75-79 faint,fg=#e3d0a0
                 │ look                                                   ▼ more 
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-71 fg=#e3d0a0; @72-79 reverse,fg=#e3d0a0
-                │›                                                              
+                │/                                                              
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd

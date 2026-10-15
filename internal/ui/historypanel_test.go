@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -28,6 +29,9 @@ func TestHistoryPanelKeys(t *testing.T) {
 	h.key("up") // the top row: the panel, the draft its query
 	if !h.m.a.History().IsOpen() || !strings.Contains(h.screen(), str.ViewHistoryNoMatch()) {
 		t.Fatalf("up didn't open the panel over its query:\n%s", h.screen())
+	}
+	if l := h.m.layout(); !strings.HasPrefix(xansi.Strip(l.inRows[len(l.inRows)-1]), glyph.Search+"zz") {
+		t.Errorf("query row %q; want it marked %s, not %s", xansi.Strip(l.inRows[len(l.inRows)-1]), glyph.Search, gutterMark)
 	}
 	h.press(tea.KeyBackspace, 0)
 	h.press(tea.KeyBackspace, 0)

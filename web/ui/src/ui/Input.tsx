@@ -62,7 +62,7 @@ function caretRows(t: HTMLTextAreaElement): { first: boolean } {
 // Input is the TUI's input: what you type for the character showing (or,
 // with nothing open, commands), sent with Enter; Shift+Enter is a new
 // line; ↑ from the first row opens the history panel, whose query it
-// then is (keyAction has its keys); Esc cancels and, as the pill does,
+// then is, marked / instead of › (keyAction has its keys); Esc cancels and, as the pill does,
 // goes back to the end of the scrollback; PgUp/PgDn scroll the
 // scrollback. The hint is its placeholder. Focus
 // comes here on load, after a switch, and with a letter typed outside
@@ -154,7 +154,7 @@ export function Input({ state, store }: { state: State; store: Store }) {
     <div class="input-row">
       <div class={"field" + (said ? "" : " echo") + (ranges.length ? " marked" : "")}>
         <div class="mirror" aria-hidden="true">
-          {value.split("\n").map((l, i) => <div data-mark={!said && (i === 0 || !flat) ? str.glyph.echo : undefined}>{l}</div>)}
+          {value.split("\n").map((l, i) => <div data-mark={!said && (i === 0 || !flat) ? (panel ? str.glyph.search : str.glyph.echo) : undefined}>{l}</div>)}
         </div>
         {ranges.length > 0 && <Overflow text={value} ranges={ranges} />}
         <textarea ref={ref} rows={1} value={value} placeholder={said}

@@ -1046,6 +1046,7 @@ export function webUseHere(): string { return `Use here`; }
 /** The glyphs Kiln draws (internal/glyph). */
 export const glyph = {
   echo: "›",
+  search: "/",
   sys: "*",
   rule: "─",
   open: "▼",

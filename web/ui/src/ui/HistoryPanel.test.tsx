@@ -21,6 +21,7 @@ test("the panel sits over the input, the bottom pane at its most: a line a row, 
   const b = bottom(page());
   assert.match(b, /^<div class="bottom [^"]* histories">/);
   assert.ok(b.indexOf(`class="history"`) < b.indexOf("<textarea"), "the panel, then the input");
+  assert.ok(b.includes(`<div class="mirror" aria-hidden="true"><div data-mark="${str.glyph.search}">`), "the query marked / , not ›");
   assert.ok(b.includes(`<div role="option" aria-selected="false" class="hrow ${roleClass("input.history")}"><span class="htext">look</span><span class="${roleClass("input.history.time")}">Wed Sep 23 22:03</span></div>`));
   assert.ok(b.includes(`<div role="option" aria-selected="true" class="hrow ${roleClass("input.history.selected")}" data-mark="${str.glyph.echo}"><span class="htext">${firstLine("say hi\nand more")}</span><span class="${roleClass("input.history.cursor")}">21:15</span></div>`));
 });
