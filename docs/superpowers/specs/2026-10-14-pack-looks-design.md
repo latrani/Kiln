@@ -64,6 +64,12 @@ and whispers lose their color. They get it back by deleting the old
 pack (Kiln writes the new one) or, on the web, with `/reset`. The
 release notes say so.
 
+A person's theme that names `ember` or `lavender` without defining them
+no longer loads: those names left the built-in palette, and a theme is
+loaded before any pack's looks go under it. The starter theme's
+examples name only the built-in's colors. The release notes say this
+too.
+
 ## Not changing
 
 - Classify rules, `priority` and `quiet`: as they are.
