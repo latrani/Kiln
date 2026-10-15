@@ -111,7 +111,7 @@ func TestFirstTurnSendsEverything(t *testing.T) {
 	open(t, a, "fm/kit")
 	f := New(a)
 	evs := f.Turn(nil)
-	want := []string{"Worlds", "Order", "Char", "Input", "Input", "Presence", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
+	want := []string{"Worlds", "Order", "Char", "Input", "Input", "History", "Presence", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
 	if got := kinds(evs); !reflect.DeepEqual(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)
 	}

@@ -1,54 +1,155 @@
 package app
 
-// History is one input's sent lines, oldest first, and where browsing
-// them has got to. The zero value is empty and not browsing.
+import (
+	"strings"
+	"time"
+)
+
+// Sent is a line sent from an input, and when.
+type Sent struct {
+	Text string
+	At   time.Time
+}
+
+// History is one input's sent lines, and its history panel: a list of
+// them, filtered by what's typed (the query), with one selected. The
+// zero value is empty and closed.
 type History struct {
-	lines []string
-	pos   int    // the line shown while browsing; len(lines) = not browsing
-	draft string // what was being typed when browsing started
+	logged []Sent // read from the logs, oldest first
+	run    []Sent // sent since Kiln started, oldest first
+	open   bool   // the panel is up
+	query  string // the input's text while the panel is up
+	draft  string // the input's text when the panel opened
+	back   int    // the selection, counted back from the newest shown
+	shown  []Sent // Shown's answer
+	stale  bool   // shown needs working out again
 }
 
-// Add records v, unless it's empty or the same as the last line, and
-// stops browsing.
-func (h *History) Add(v string) {
-	if v != "" && (len(h.lines) == 0 || h.lines[len(h.lines)-1] != v) {
-		h.lines = append(h.lines, v)
+// Add records v, sent at at, unless it's empty or the same as the last
+// line.
+func (h *History) Add(v string, at time.Time) {
+	if v == "" || len(h.run) > 0 && h.run[len(h.run)-1].Text == v {
+		return
 	}
-	h.Stop()
+	h.run = append(h.run, Sent{Text: v, At: at})
+	h.stale = true
 }
 
-// Older is the line before the one shown, for Up at the top of the input.
-// cur is the input's text: starting to browse keeps it as the draft that
-// Newer brings back. ok is false when there's nothing older.
-func (h *History) Older(cur string) (string, bool) {
-	if h.pos == 0 || len(h.lines) == 0 {
+// SetLogged replaces what was read from the logs with ss, oldest first.
+func (h *History) SetLogged(ss []Sent) {
+	h.logged = ss
+	h.stale = true
+}
+
+// AddOlder puts ss, read from older logs, before the rest.
+func (h *History) AddOlder(ss []Sent) {
+	if len(ss) == 0 {
+		return
+	}
+	h.logged = append(append([]Sent(nil), ss...), h.logged...)
+	h.stale = true
+}
+
+// Lines is every line, oldest first, repeats and all.
+func (h *History) Lines() []string {
+	out := make([]string, 0, len(h.logged)+len(h.run))
+	for _, s := range h.logged {
+		out = append(out, s.Text)
+	}
+	for _, s := range h.run {
+		out = append(out, s.Text)
+	}
+	return out
+}
+
+// Open puts the panel up over draft, the input's text, which starts as
+// the query. The newest line that matches is selected.
+func (h *History) Open(draft string) {
+	h.open, h.draft, h.query, h.back = true, draft, draft, 0
+	h.stale = true
+}
+
+// IsOpen reports whether the panel is up.
+func (h *History) IsOpen() bool { return h.open }
+
+// Close takes the panel down and returns the draft it opened over.
+func (h *History) Close() string {
+	d := h.draft
+	h.open, h.query, h.draft, h.back, h.shown = false, "", "", 0, nil
+	return d
+}
+
+// SetQuery filters the panel by q, selecting the newest match.
+func (h *History) SetQuery(q string) {
+	if q != h.query {
+		h.query, h.back, h.stale = q, 0, true
+	}
+}
+
+// Query is what the panel is filtered by.
+func (h *History) Query() string { return h.query }
+
+// Shown is what the panel lists, oldest first: the lines that contain
+// the query (ignoring case), each only at its newest. Don't change it.
+func (h *History) Shown() []Sent {
+	if !h.open {
+		return nil
+	}
+	if h.shown != nil && !h.stale {
+		return h.shown
+	}
+	q := strings.ToLower(h.query)
+	seen := map[string]bool{}
+	h.shown = []Sent{}
+	for _, part := range [][]Sent{h.run, h.logged} {
+		for i := len(part) - 1; i >= 0; i-- {
+			s := part[i]
+			if seen[s.Text] || !strings.Contains(strings.ToLower(s.Text), q) {
+				continue
+			}
+			seen[s.Text] = true
+			h.shown = append(h.shown, s)
+		}
+	}
+	for i, j := 0, len(h.shown)-1; i < j; i, j = i+1, j-1 {
+		h.shown[i], h.shown[j] = h.shown[j], h.shown[i]
+	}
+	h.back = min(h.back, max(0, len(h.shown)-1))
+	h.stale = false
+	return h.shown
+}
+
+// Sel is the index in Shown of the selected line; -1 when nothing's
+// shown.
+func (h *History) Sel() int { return len(h.Shown()) - 1 - h.back }
+
+// Select selects Shown()[i].
+func (h *History) Select(i int) {
+	if n := len(h.Shown()); i >= 0 && i < n {
+		h.back = n - 1 - i
+	}
+}
+
+// Move moves the selection delta lines newer (negative: older), stopping
+// at the oldest shown. Past the newest it closes the panel: closed is
+// true and draft is what it opened over.
+func (h *History) Move(delta int) (draft string, closed bool) {
+	n := len(h.Shown())
+	if h.back-delta < 0 {
+		return h.Close(), true
+	}
+	h.back = min(h.back-delta, max(0, n-1))
+	return "", false
+}
+
+// Pick closes the panel and returns the selected line; ok is false, and
+// the panel stays up, when nothing's shown.
+func (h *History) Pick() (string, bool) {
+	ss := h.Shown()
+	if len(ss) == 0 {
 		return "", false
 	}
-	if h.pos == len(h.lines) {
-		h.draft = cur
-	}
-	h.pos--
-	return h.lines[h.pos], true
+	v := ss[len(ss)-1-h.back].Text
+	h.Close()
+	return v, true
 }
-
-// Newer is the line after the one shown, and past the newest, the draft.
-// ok is false when not browsing.
-func (h *History) Newer() (string, bool) {
-	if h.pos >= len(h.lines) {
-		return "", false
-	}
-	h.pos++
-	if h.pos == len(h.lines) {
-		return h.draft, true
-	}
-	return h.lines[h.pos], true
-}
-
-// Stop stops browsing: the input has been cleared or sent.
-func (h *History) Stop() { h.pos = len(h.lines) }
-
-// Pos is the line being shown while browsing; len(Lines()) when not.
-func (h *History) Pos() int { return h.pos }
-
-// Lines is the history, oldest first. Don't change it.
-func (h *History) Lines() []string { return h.lines }

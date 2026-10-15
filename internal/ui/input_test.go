@@ -106,42 +106,6 @@ func TestInputUpDownSnapsToCluster(t *testing.T) {
 	}
 }
 
-func TestInputHistory(t *testing.T) {
-	in := NewInput()
-	in.InsertText("first")
-	in.Commit()
-	in.InsertText("second")
-	in.Commit()
-	in.InsertText("draft")
-	in.Up()
-	if in.Value() != "second" {
-		t.Errorf("Up = %q", in.Value())
-	}
-	in.Up()
-	in.Up() // clamps at oldest
-	if in.Value() != "first" {
-		t.Errorf("Up Up = %q", in.Value())
-	}
-	in.Down()
-	in.Down()
-	if in.Value() != "draft" {
-		t.Errorf("back to draft = %q", in.Value())
-	}
-}
-
-func TestInputHistorySkipsSecretsAndRepeats(t *testing.T) {
-	in := NewInput()
-	in.InsertText("hunter2")
-	in.CommitSecret()
-	in.InsertText("look")
-	in.Commit()
-	in.InsertText("look")
-	in.Commit()
-	if !reflect.DeepEqual(in.hist.Lines(), []string{"look"}) {
-		t.Errorf("history = %q", in.hist.Lines())
-	}
-}
-
 func plainRows(rows []string) []string {
 	out := make([]string, len(rows))
 	for i, r := range rows {
@@ -296,12 +260,13 @@ func TestInputUpDownWrappedRows(t *testing.T) {
 		t.Errorf("Up within a wrapped line: %q", in.Value())
 	}
 	in.SetValue("abcdefghij")
-	in.Commit()
-	in.InsertText("abcdefghij")
 	in.Home()
-	in.Up() // top row: history
-	if in.Value() != "abcdefghij" || in.hist.Pos() != 0 {
-		t.Errorf("Up on the top row should recall history (hist=%d)", in.hist.Pos())
+	if in.Up() || in.Value() != "abcdefghij" {
+		t.Errorf("Up on the top row moved, or changed %q; it's the history panel's", in.Value())
+	}
+	in.End()
+	if in.Down() {
+		t.Error("Down on the bottom row moved")
 	}
 }
 

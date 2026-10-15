@@ -6,6 +6,7 @@ package glyph
 //str:ok
 const (
 	Echo       = "›" // before a line you sent
+	Search     = "/" // before the history panel's query, in its place
 	Sys        = "*" // before Kiln's own lines
 	Rule       = "─" // rules, and around a day's label
 	Open       = "▼" // an open disclosure
@@ -27,7 +28,7 @@ const (
 //
 //str:ok
 var All = [][2]string{
-	{"Echo", Echo}, {"Sys", Sys}, {"Rule", Rule}, {"Open", Open}, {"Collapsed", Collapsed},
+	{"Echo", Echo}, {"Search", Search}, {"Sys", Sys}, {"Rule", Rule}, {"Open", Open}, {"Collapsed", Collapsed},
 	{"Filtered", Filtered}, {"Remove", Remove}, {"Selected", Selected}, {"Excluded", Excluded},
 	{"Priority", Priority}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu},
 	{"Connecting", Connecting},

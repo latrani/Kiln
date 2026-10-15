@@ -52,13 +52,22 @@ const (
 	InputHint      Role = "input.hint"
 	InputOverLimit Role = "input.over_limit"
 	InputSelection Role = "input.selection"
+	// The history panel, in the input area: its lines, the selected one,
+	// their times (the selected one's apart), and the "more" badge.
+	InputHistory         Role = "input.history"
+	InputHistorySelected Role = "input.history.selected"
+	InputHistoryTime     Role = "input.history.time"
+	InputHistoryCursor   Role = "input.history.cursor"
+	InputHistoryMore     Role = "input.history.more"
 
-	Status         Role = "status"     // area
-	StatusLog      Role = "status.log" // the Log chip
-	StatusLogOn    Role = "status.log.on"
-	StatusFilter   Role = "status.filter" // the Filter chip, in log mode
-	StatusFilterOn Role = "status.filter.on"
-	StatusError    Role = "status.error"
+	Status          Role = "status"     // area
+	StatusLog       Role = "status.log" // the Log chip
+	StatusLogOn     Role = "status.log.on"
+	StatusFilter    Role = "status.filter" // the Filter chip, in log mode
+	StatusFilterOn  Role = "status.filter.on"
+	StatusHistory   Role = "status.history" // the History chip, in the statusline
+	StatusHistoryOn Role = "status.history.on"
+	StatusError     Role = "status.error"
 	// The presence chip: here, away, or can't tell (no focus events seen).
 	StatusPresence        Role = "status.presence"
 	StatusPresenceHere    Role = "status.presence.here"
@@ -105,7 +114,8 @@ var Roles = []Role{
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
-	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
+	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,
+	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusHistory, StatusHistoryOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,

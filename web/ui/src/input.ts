@@ -16,7 +16,7 @@ export function takes(t: Typed | undefined, ack: number): boolean {
   return !t || (!t.dirty && ack >= t.n);
 }
 
-export type KeyDo = "submit" | "older" | "newer" | "cancel" | "page_up" | "page_down" | undefined;
+export type KeyDo = "submit" | "older" | "cancel" | "page_up" | "page_down" | "history_up" | "history_down" | "history_close" | undefined;
 
 interface Keyish {
   key: string;
@@ -36,36 +36,37 @@ export function composing(e: Keyish): boolean {
 }
 
 // Caret is where the caret is: start..end in value, and when the page
-// could measure it, whether it's on the first or last screen row.
+// could measure it, whether it's on the first screen row.
 export interface Caret {
   start: number;
   end: number;
   value: string;
   first?: boolean;
-  last?: boolean;
 }
 
 // keyAction is what a key in the input does; undefined leaves it to the
-// browser. ↑ and ↓ recall history only from the first and last rows, as
-// the TUI's screen rows, so they still move through a wrapped or
-// multi-line draft (without a measure, rows are lines); with a modifier
-// they're the switching keys.
-export function keyAction(e: Keyish, caret: Caret): KeyDo {
+// browser. ↑ on the first row opens the history panel, as the TUI's (so
+// ↑ still moves through a wrapped or multi-line draft; without a
+// measure, rows are lines); with a modifier it's a switching key. With
+// the panel up (panel), ↑ and ↓ move its selection wherever the caret
+// is, PgUp and PgDn a page, and Esc closes it.
+export function keyAction(e: Keyish, caret: Caret, panel = false): KeyDo {
   if (composing(e)) return undefined;
   const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
   switch (e.key) {
     case "Enter":
       return e.shiftKey || e.altKey || e.ctrlKey || e.metaKey ? undefined : "submit";
     case "Escape":
-      return "cancel";
+      return panel ? "history_close" : "cancel";
     case "PageUp":
       return plain ? "page_up" : undefined;
     case "PageDown":
       return plain ? "page_down" : undefined;
     case "ArrowUp":
+      if (panel) return plain ? "history_up" : undefined;
       return plain && caret.start === caret.end && (caret.first ?? !caret.value.slice(0, caret.start).includes("\n")) ? "older" : undefined;
     case "ArrowDown":
-      return plain && caret.start === caret.end && (caret.last ?? !caret.value.slice(caret.end).includes("\n")) ? "newer" : undefined;
+      return panel && plain ? "history_down" : undefined;
   }
   return undefined;
 }

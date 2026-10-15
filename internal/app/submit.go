@@ -21,23 +21,28 @@ func (c *Char) startPassword() {
 	if c.NeedPW {
 		return
 	}
+	if c.History.IsOpen() {
+		c.Text = c.History.Close()
+	}
 	c.NeedPW, c.pwDraft, c.Text = true, c.Text, ""
-	c.History.Stop()
 }
 
 // endPassword takes the prompt down (submitted, skipped, or the
 // connection dropped), bringing the draft back.
 func (c *Char) endPassword() {
 	c.NeedPW, c.Text, c.pwDraft = false, c.pwDraft, ""
-	c.History.Stop()
 }
 
 // SetInput is the active input's text, as the front end has it now.
+// While the history panel is up, it's the panel's query.
 func (a *App) SetInput(text string) {
 	if c := a.chars[a.active]; c != nil {
 		c.Text = text
 	} else {
 		a.idleText = text
+	}
+	if h := a.History(); h.IsOpen() {
+		h.SetQuery(text)
 	}
 }
 
@@ -80,38 +85,69 @@ func (a *App) SetDraft(k, text string) {
 // IdleText is the text of the input used while nothing is open.
 func (a *App) IdleText() string { return a.idleText }
 
-// history is the active input's history: the active character's, or the
-// idle input's.
-func (a *App) history() *History {
+// History is the active input's history: the active character's, or
+// the idle input's. Front ends read its panel from it; App changes it.
+func (a *App) History() *History {
 	if c := a.chars[a.active]; c != nil {
 		return &c.History
 	}
 	return &a.idleHist
 }
 
-// HistoryOlder puts the line sent before the one shown into the active
-// input, cur (its text now) kept as the draft HistoryNewer comes back to.
-// false if there's nothing older.
-func (a *App) HistoryOlder(cur string) bool {
-	v, ok := a.history().Older(cur)
-	if ok {
-		a.SetInput(v)
+// HistoryOpen puts the active input's history panel up, its text the
+// query. The front end shows the panel while History().IsOpen().
+func (a *App) HistoryOpen() []Effect {
+	h := a.History()
+	if !h.IsOpen() {
+		h.Open(a.Text())
 	}
-	return ok
+	return a.moreSent()
 }
 
-// HistoryNewer puts the next newer line, or the draft, into the active
-// input. false if it isn't browsing history.
-func (a *App) HistoryNewer() bool {
-	v, ok := a.history().Newer()
-	if ok {
-		a.SetInput(v)
+// HistoryMove moves the panel's selection delta lines newer (negative:
+// older). Past the newest the panel closes, the draft back in the input.
+func (a *App) HistoryMove(delta int) []Effect {
+	h := a.History()
+	if !h.IsOpen() {
+		return nil
 	}
-	return ok
+	if draft, closed := h.Move(delta); closed {
+		a.SetInput(draft)
+		return nil
+	}
+	return a.moreSent()
 }
 
-// IdleHistory is the history of the input used while nothing is open.
-func (a *App) IdleHistory() *History { return &a.idleHist }
+// HistorySelect selects the panel's Shown()[i], as a click on it does.
+func (a *App) HistorySelect(i int) []Effect {
+	a.History().Select(i)
+	return a.moreSent()
+}
+
+// HistoryPick closes the panel and puts its selected line in the input,
+// to edit and send. Nothing if nothing's shown.
+func (a *App) HistoryPick() {
+	if v, ok := a.History().Pick(); ok {
+		a.SetInput(v)
+	}
+}
+
+// HistoryClose closes the panel, the draft back in the input.
+func (a *App) HistoryClose() {
+	if h := a.History(); h.IsOpen() {
+		a.SetInput(h.Close())
+	}
+}
+
+// HistoryToggle opens the panel, or closes it if it's up: the History
+// button.
+func (a *App) HistoryToggle() []Effect {
+	if a.History().IsOpen() {
+		a.HistoryClose()
+		return nil
+	}
+	return a.HistoryOpen()
+}
 
 // Unconfirm drops the confirmation, as Esc does: the next Submit of an
 // over-limit line asks again.
@@ -203,11 +239,15 @@ func overLimit(text string, limit int, joined bool) bool {
 // server. A front end handles Enter on a world's overview, and on an
 // empty input with nothing open, itself.
 func (a *App) Submit() (SubmitResult, []Effect) {
+	if a.History().IsOpen() { // Enter on the panel takes its line to edit
+		a.HistoryPick()
+		return SubmitResult{}, nil
+	}
 	c := a.chars[a.active]
 	if c == nil {
 		text := a.idleText
 		if isCommand(text) {
-			a.idleHist.Add(text)
+			a.idleHist.Add(text, a.d.Now())
 			a.idleText = ""
 			return SubmitResult{}, a.command(nil, text)
 		}
@@ -217,7 +257,6 @@ func (a *App) Submit() (SubmitResult, []Effect) {
 	if c.NeedPW {
 		pw := c.Text
 		c.Text = ""
-		c.History.Stop()
 		e, err := c.Sess.Login(pw)
 		if err != nil && !isLogErr(err) {
 			a.SetStatus(true, str.StatusLoginNotSent(err))
@@ -239,7 +278,7 @@ func (a *App) Submit() (SubmitResult, []Effect) {
 	}
 	text := c.Text
 	if isCommand(text) {
-		c.History.Add(text)
+		c.History.Add(text, a.d.Now())
 		c.Text = ""
 		return SubmitResult{}, a.command(c, text)
 	}
@@ -273,10 +312,9 @@ func (a *App) Submit() (SubmitResult, []Effect) {
 		res.Echoed = a.Echo(c.Key, e) != nil
 	}
 	if !secret {
-		c.History.Add(text)
+		c.History.Add(text, a.d.Now())
 	}
 	c.Text = ""
-	c.History.Stop()
 	return res, nil
 }
 

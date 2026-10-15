@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { keyAction, strayKey } from "../input.ts";
+import { historyShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -42,9 +43,9 @@ function Overflow({ text, ranges }: { text: string; ranges: [number, number][] }
   return <div class="overflow" aria-hidden="true">{parts}</div>;
 }
 
-// caretRows says whether the caret is on t's first or last screen row:
+// caretRows says whether the caret is on t's first screen row:
 // the text up to it, laid out as t lays it out, shows where its row is.
-function caretRows(t: HTMLTextAreaElement): { first: boolean; last: boolean } {
+function caretRows(t: HTMLTextAreaElement): { first: boolean } {
   const m = document.createElement("div");
   const cs = getComputedStyle(t);
   m.style.cssText = `position:absolute;visibility:hidden;top:0;left:0;width:${t.clientWidth}px;font:${cs.font};letter-spacing:${cs.letterSpacing};white-space:pre-wrap;overflow-wrap:anywhere;tab-size:${cs.tabSize};padding:0;border:0`;
@@ -53,16 +54,17 @@ function caretRows(t: HTMLTextAreaElement): { first: boolean; last: boolean } {
   m.append(t.value.slice(0, t.selectionStart), mark, t.value.slice(t.selectionStart) + "\u200b");
   t.parentElement!.append(m);
   const lh = parseFloat(cs.lineHeight) || mark.offsetHeight;
-  const top = mark.offsetTop, all = m.scrollHeight;
+  const top = mark.offsetTop;
   m.remove();
-  return { first: top < lh / 2, last: top + lh * 1.5 > all };
+  return { first: top < lh / 2 };
 }
 
 // Input is the TUI's input: what you type for the character showing (or,
 // with nothing open, commands), sent with Enter; Shift+Enter is a new
-// line; ↑/↓ from the first or last row recall history; Esc cancels
-// and, as the pill does, goes back to the end of the scrollback;
-// PgUp/PgDn scroll the scrollback. The hint is its placeholder. Focus
+// line; ↑ from the first row opens the history panel, whose query it
+// then is, marked / instead of › (keyAction has its keys); Esc cancels and, as the pill does,
+// goes back to the end of the scrollback; PgUp/PgDn scroll the
+// scrollback. The hint is its placeholder. Focus
 // comes here on load, after a switch, and with a letter typed outside
 // any control.
 export function Input({ state, store }: { state: State; store: Store }) {
@@ -80,6 +82,7 @@ export function Input({ state, store }: { state: State; store: Store }) {
   const ranges = over(value, c);
   const said = value ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does
   const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›
+  const panel = historyShows(state);
 
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
@@ -99,13 +102,13 @@ export function Input({ state, store }: { state: State; store: Store }) {
 
   const onKeyDown = (e: KeyboardEvent) => {
     const t = e.currentTarget as HTMLTextAreaElement;
-    const rows = e.key === "ArrowUp" || e.key === "ArrowDown" ? caretRows(t) : {};
-    const does = keyAction(e, { start: t.selectionStart, end: t.selectionEnd, value: t.value, ...rows });
+    const rows = e.key === "ArrowUp" && !panel ? caretRows(t) : {};
+    const does = keyAction(e, { start: t.selectionStart, end: t.selectionEnd, value: t.value, ...rows }, panel);
     if (!does) return;
     e.preventDefault();
     switch (does) {
       case "submit":
-        if (!c && !t.value) {
+        if (!c && !t.value && !panel) {
           store.openPicker(); // nothing to send to: choose a connection, as the TUI's Enter
           return;
         }
@@ -113,8 +116,14 @@ export function Input({ state, store }: { state: State; store: Store }) {
         redraw((n) => n + 1);
         return;
       case "older":
-      case "newer":
         typing?.send(key, { Do: does, Text: t.value });
+        return;
+      case "history_up":
+      case "history_down":
+        typing?.act({ Do: "history_move", N: does === "history_up" ? -1 : 1 });
+        return;
+      case "history_close":
+        typing?.act({ Do: "history_close" });
         return;
       case "cancel":
         typing?.act({ Do: "cancel" });
@@ -122,6 +131,14 @@ export function Input({ state, store }: { state: State; store: Store }) {
         return;
       case "page_up":
       case "page_down": {
+        const l = panel && document.querySelector<HTMLElement>(".history .list");
+        if (l) { // a page of the panel, as the TUI's; a page down never closes it
+          const n = Math.max(1, Math.floor(l.clientHeight / parseFloat(getComputedStyle(l).lineHeight)) - 1);
+          const last = (state.history?.Rows?.length ?? 0) - 1, sel = state.history?.Sel ?? last;
+          const by = does === "page_up" ? -n : Math.min(n, last - sel);
+          if (by) typing?.act({ Do: "history_move", N: by });
+          return;
+        }
         const s = document.querySelector<HTMLElement>("main .scroll");
         if (s) s.scrollBy({ top: (does === "page_up" ? -1 : 1) * (s.clientHeight - parseFloat(getComputedStyle(s).lineHeight)) });
       }
@@ -129,6 +146,7 @@ export function Input({ state, store }: { state: State; store: Store }) {
   };
   const onInput = (e: Event) => {
     typing?.edit(key, (e.currentTarget as HTMLTextAreaElement).value);
+    if (panel) typing?.flush(); // it's the panel's query: filter as it's typed
     redraw((n) => n + 1);
   };
 
@@ -136,7 +154,7 @@ export function Input({ state, store }: { state: State; store: Store }) {
     <div class="input-row">
       <div class={"field" + (said ? "" : " echo") + (ranges.length ? " marked" : "")}>
         <div class="mirror" aria-hidden="true">
-          {value.split("\n").map((l, i) => <div data-mark={!said && (i === 0 || !flat) ? str.glyph.echo : undefined}>{l}</div>)}
+          {value.split("\n").map((l, i) => <div data-mark={!said && (i === 0 || !flat) ? (panel ? str.glyph.search : str.glyph.echo) : undefined}>{l}</div>)}
         </div>
         {ranges.length > 0 && <Overflow text={value} ranges={ranges} />}
         <textarea ref={ref} rows={1} value={value} placeholder={said}

@@ -498,7 +498,7 @@ func TestPasswordPromptAndSave(t *testing.T) {
 	if h.saved["fm/kit"] != "s3cret" {
 		t.Errorf("saved = %q", h.saved)
 	}
-	if len(h.m.chars["fm/kit"].in.hist.Lines()) != 0 {
+	if len(h.m.chars["fm/kit"].History.Lines()) != 0 {
 		t.Error("password leaked into input history")
 	}
 }

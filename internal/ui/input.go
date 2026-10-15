@@ -9,7 +9,6 @@ import (
 	"github.com/rivo/uniseg"
 
 	"github.com/latrani/Kiln/internal/ansi"
-	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -22,22 +21,21 @@ const (
 	gutterWidth = 1
 )
 
-// Input is a multi-line editor with per-character history. The cursor
+// Input is a multi-line editor. The cursor
 // moves, and Backspace/Delete remove, whole grapheme clusters, so emoji
 // ZWJ sequences, flags and skin-tone modifiers act as one character.
 type Input struct {
 	lines  [][]rune // never empty
 	row    int
-	col    int          // rune index into lines[row], always on a cluster boundary
-	hist   *app.History // its history: the core's, for a character's input
-	goal   int          // screen column Up/Down aim for; -1 = the cursor's own
-	width  int          // text width of the last Render; 0 = no wrapping
-	masked bool         // the last Render showed bullets
-	sel    *inSel       // a mouse selection; see StartSelect
+	col    int    // rune index into lines[row], always on a cluster boundary
+	goal   int    // screen column Up/Down aim for; -1 = the cursor's own
+	width  int    // text width of the last Render; 0 = no wrapping
+	masked bool   // the last Render showed bullets
+	sel    *inSel // a mouse selection; see StartSelect
 }
 
 // NewInput returns an empty editor.
-func NewInput() *Input { return &Input{lines: [][]rune{nil}, goal: -1, hist: &app.History{}} }
+func NewInput() *Input { return &Input{lines: [][]rune{nil}, goal: -1} }
 
 // Value is the full text, lines joined with "\n".
 func (in *Input) Value() string {
@@ -62,27 +60,8 @@ func (in *Input) SetValue(s string) {
 	in.goal = -1
 }
 
-// Reset clears the text and stops browsing history.
-func (in *Input) Reset() {
-	in.SetValue("")
-	in.hist.Stop()
-}
-
-// Commit returns the text, records it in history, and clears the editor.
-func (in *Input) Commit() string {
-	v := in.Value()
-	in.hist.Add(v)
-	in.Reset()
-	return v
-}
-
-// CommitSecret returns the text and clears the editor without recording
-// it in history (for passwords).
-func (in *Input) CommitSecret() string {
-	v := in.Value()
-	in.Reset()
-	return v
-}
+// Reset clears the text.
+func (in *Input) Reset() { in.SetValue("") }
 
 // InsertText inserts s at the cursor; "\n" (or "\r\n") starts a new line.
 func (in *Input) InsertText(s string) {
@@ -326,29 +305,27 @@ func (in *Input) KillToEnd() {
 	in.goal = -1
 }
 
-// Up moves up a screen row, or on the top row recalls older history.
-func (in *Input) Up() {
+// Up moves up a screen row; false on the top row, where Up opens the
+// history panel.
+func (in *Input) Up() bool {
 	rows := in.visualRows()
-	if r, x := in.cursorAt(rows); r > 0 {
-		in.moveTo(rows[r-1], x)
-		return
+	r, x := in.cursorAt(rows)
+	if r == 0 {
+		return false
 	}
-	if v, ok := in.hist.Older(in.Value()); ok {
-		in.SetValue(v)
-	}
+	in.moveTo(rows[r-1], x)
+	return true
 }
 
-// Down moves down a screen row, or on the bottom row recalls newer history
-// and finally the draft that was being typed.
-func (in *Input) Down() {
+// Down moves down a screen row; false on the bottom row.
+func (in *Input) Down() bool {
 	rows := in.visualRows()
-	if r, x := in.cursorAt(rows); r < len(rows)-1 {
-		in.moveTo(rows[r+1], x)
-		return
+	r, x := in.cursorAt(rows)
+	if r >= len(rows)-1 {
+		return false
 	}
-	if v, ok := in.hist.Newer(); ok {
-		in.SetValue(v)
-	}
+	in.moveTo(rows[r+1], x)
+	return true
 }
 
 // Click puts the cursor at text cell (x, y) of the last Render, clamped to

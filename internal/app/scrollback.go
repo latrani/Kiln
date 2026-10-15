@@ -5,6 +5,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/session"
 )
 
 // HistoryLines is how many logged lines are preloaded per character.
@@ -37,6 +38,8 @@ func (a *App) Preload(k string) {
 		return
 	}
 	c.Lines, c.More, c.Loading, c.hist, c.leftover = nil, false, false, nil, nil
+	c.History.SetLogged(nil)
+	c.sentHist, c.sentLoading = nil, false
 	l, ok := a.LogLayout(c.Ch)
 	if !ok {
 		return
@@ -52,6 +55,12 @@ func (a *App) Preload(k string) {
 			break
 		}
 		entries = append(es, entries...)
+	}
+	// What was sent on the days read goes in the input's history; older
+	// days are read for it as its panel needs them (moreSent).
+	c.History.SetLogged(sentOf(entries, session.IsLogin(c.Ch)))
+	if !hist.Exhausted() {
+		c.sentHist = hist.Clone()
 	}
 	if len(entries) == 0 {
 		return
@@ -153,4 +162,74 @@ func (a *App) LastTime(k string) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+// sentOf is what es records as sent, oldest first, but login lines.
+func sentOf(es []logstore.Entry, isLogin func(string) bool) []Sent {
+	var out []Sent
+	for _, e := range es {
+		if e.Dir == logstore.Out && !isLogin(e.Text) {
+			out = append(out, Sent{Text: e.Text, At: e.Time})
+		}
+	}
+	return out
+}
+
+// sentAhead is how near the oldest line the history panel's selection
+// gets before an older log day is read for it.
+const sentAhead = 50
+
+// SentOlderMsg is an older log day's sent lines, for the history panel,
+// as a Run from moreSent returns it; HandleSentOlder takes it.
+type SentOlderMsg struct {
+	Key  string
+	hist *history.Reader // the reader that was asked; stale if it has changed
+	sent []Sent
+}
+
+// moreSent starts reading an older log day for the active character's
+// history panel, off the loop, if the panel is up, its selection is near
+// the oldest line, and older days are still to read.
+func (a *App) moreSent() []Effect {
+	if c := a.chars[a.active]; c == nil || c.History.Sel() >= sentAhead {
+		return nil
+	}
+	return a.HistoryMore()
+}
+
+// HistoryMore starts reading an older log day for the active character's
+// history panel, as moreSent but wherever its selection is: the page's
+// panel scrolled to its top.
+func (a *App) HistoryMore() []Effect {
+	c := a.chars[a.active]
+	if c == nil || !c.History.IsOpen() || c.sentHist == nil || c.sentLoading {
+		return nil
+	}
+	c.sentLoading = true
+	h, k, isLogin := c.sentHist, c.Key, session.IsLogin(c.Ch)
+	return []Effect{Run{Func: func() any {
+		msg := SentOlderMsg{Key: k, hist: h}
+		if es, _, ok, err := h.LoadOlder(); ok && err == nil {
+			msg.sent = sentOf(es, isLogin)
+		}
+		return msg
+	}}}
+}
+
+// HandleSentOlder puts a day moreSent read before the rest of its
+// character's history, and reads on while the panel still wants more.
+func (a *App) HandleSentOlder(msg SentOlderMsg) []Effect {
+	c := a.chars[msg.Key]
+	if c == nil || c.sentHist != msg.hist {
+		return nil
+	}
+	c.History.AddOlder(msg.sent)
+	c.sentLoading = false
+	if msg.hist.Exhausted() {
+		c.sentHist = nil
+	}
+	if msg.Key != a.active {
+		return nil
+	}
+	return a.moreSent()
 }

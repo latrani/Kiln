@@ -282,3 +282,24 @@ func TestGoldenLogFilter(t *testing.T) {
 	h.keys("down", "down", "h", "down", "o") // past Untagged and page: hide self; o on + Text does nothing
 	assertGolden(t, "log-filter", h.drawn())
 }
+
+func TestGoldenHistory(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": goldenWorld})
+	h.init()
+	h.writeLog(kilntest.HistoryDay, kilntest.HistoryLogged...)
+	h.m.preload(h.m.cur())
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.advance(time.Minute)
+	for _, s := range kilntest.HistorySent {
+		h.typeText(s)
+		h.enter()
+		if h.m.a.Confirming() { // over max_line_bytes: Enter again sends it anyway
+			h.enter()
+		}
+		h.advance(time.Minute)
+	}
+	h.key("up")
+	assertGolden(t, "history", h.drawn())
+	h.keys("up", "up", "up", "up", "up", "up", "up") // past the top row: the list scrolls
+	assertGolden(t, "history-scrolled", h.drawn())
+}

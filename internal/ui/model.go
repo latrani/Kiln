@@ -141,7 +141,6 @@ func New(d Deps, cfg *config.Config) *Model {
 		LogRoot: d.LogRoot, Load: d.Load, DeletePassword: d.DeletePassword, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
 		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
 	})
-	m.idle.hist = m.a.IdleHistory()
 	m.applyWith(func() (app.ConfigResult, bool) { return m.a.ApplyConfig(cfg), true })
 	m.shownPresence = m.a.Presence()
 	m.loadTheme() // at start a broken theme falls back to the built-in, and says so
@@ -489,6 +488,8 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case app.LogOlderMsg:
 		return m, m.run(m.a.HandleLogOlder(msg))
+	case app.SentOlderMsg:
+		return m, m.run(m.a.HandleSentOlder(msg))
 	case tea.PasteMsg:
 		m.a.Here() // only a focused window gets input, even if its focus-in was lost
 		if m.picker != nil && m.picker.edit != nil {
@@ -672,6 +673,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		return cmd
 	}
+	if m.historyShows() {
+		if cmd, ok := m.historyKey(k); ok {
+			return cmd
+		}
+	}
 	switch k.String() {
 	case openBrowseKey:
 		if cs != nil {
@@ -722,7 +728,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case "shift+enter", "alt+enter":
 		in.Newline()
 	case "up":
-		in.Up()
+		if !in.Up() { // on the top row: the history panel, atuin-style
+			cmd := m.run(m.a.HistoryOpen())
+			m.pullInput(cs)
+			return cmd
+		}
 	case "down":
 		in.Down()
 	default:
@@ -840,7 +850,7 @@ func (m *Model) submit() tea.Cmd {
 		return nil
 	}
 	m.pushInput()
-	if m.cur() == nil && m.a.Text() == "" {
+	if m.cur() == nil && m.a.Text() == "" && !m.a.History().IsOpen() {
 		m.openPicker()
 		return nil
 	}
@@ -1090,6 +1100,9 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		}
 		return nil
 	}
+	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 && msg.X-l.sw-1 >= c[0] && msg.X-l.sw-1 < c[1] {
+		return m.historyToggle()
+	}
 	msg.Y -= l.top // body rows from here on
 	if m.overviewing() {
 		if msg.Y < len(m.ovKeys) && m.ovKeys[msg.Y] != "" {
@@ -1118,7 +1131,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		return nil
 	}
 	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
-		m.input().StartSelect(msg.X-l.sw-1-gutterWidth, l.inTop+y) // past the separator and gutter
+		if y < len(l.hist) {
+			return m.historyClick(l.hist[y])
+		}
+		m.input().StartSelect(msg.X-l.sw-1-gutterWidth, l.inTop+y-len(l.hist)) // past the separator and gutter
 	}
 	return nil
 }

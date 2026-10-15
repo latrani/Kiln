@@ -19,7 +19,7 @@ type Action struct {
 	Key, Text, Term, Tag, Day, Format, Name, ID, World string
 	Char                                               string
 	Seq, Start, End, Epoch, Cols, Rows                 int
-	N                                                  int // numbers input, submit, older and newer (see feed.Input.Ack); step's distance; next_unread's direction
+	N                                                  int // numbers input, submit and older (see feed.Input.Ack); step's distance; next_unread's direction; history_move's distance; history_pick's line
 	In, Shut, Save                                     bool
 	Err                                                bool // say's
 	Item                                               *scene.Item
@@ -69,7 +69,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		if k := a.UnreadTarget(act.N); k != "" {
 			a.Switch(k)
 		}
-	case "input", "submit", "older", "newer": //str:ok
+	case "input", "submit", "older": //str:ok
 		k := l.inputKey()
 		if c := a.Char(act.Key); act.Key != k || c != nil && c.NeedPW {
 			// The page hadn't heard the active input changed, or that the
@@ -105,9 +105,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
 		case "older": //str:ok
-			a.HistoryOlder(act.Text)
-		case "newer": //str:ok
-			a.HistoryNewer()
+			effs = a.HistoryOpen() // ↑ on the first row: the history panel
 		}
 		if act.Do != "input" { //str:ok
 			l.f.Resend(k) // the page waits to hear the action was taken, changed or not
@@ -121,6 +119,20 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 			_, effs = a.Submit()
 			l.f.Resend(act.Key)
 		}
+	case "history_move": //str:ok
+		effs = a.HistoryMove(act.N)
+	case "history_pick": //str:ok
+		// A tap on line N, or Enter on the selected one (N < 0).
+		if act.N >= 0 {
+			effs = a.HistorySelect(act.N)
+		}
+		a.HistoryPick()
+	case "history_more": //str:ok
+		effs = a.HistoryMore()
+	case "history_close": //str:ok
+		a.HistoryClose()
+	case "history_toggle": //str:ok
+		effs = a.HistoryToggle()
 	case "cancel": //str:ok
 		a.Unconfirm()
 		a.SkipLogin()

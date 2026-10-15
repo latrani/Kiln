@@ -20,14 +20,21 @@ test("Enter sends; Shift+Enter is a new line; Enter while composing is the IME's
   assert.equal(keyAction(k("Enter", { keyCode: 229 }), at("hi", 2)), undefined, "Safari's Enter confirming a conversion");
 });
 
-test("up and down recall history only from the first and last rows", () => {
+test("up opens the history panel only from the first row; down is the caret's", () => {
   const v = "one\ntwo\nthree";
   assert.equal(keyAction(k("ArrowUp"), at(v, 2)), "older");
   assert.equal(keyAction(k("ArrowUp"), at(v, 6)), undefined, "the second row moves the caret");
-  assert.equal(keyAction(k("ArrowDown"), at(v, 10)), "newer");
-  assert.equal(keyAction(k("ArrowDown"), at(v, 2)), undefined, "the first row moves the caret");
+  assert.equal(keyAction(k("ArrowDown"), at(v, 10)), undefined);
   assert.equal(keyAction(k("ArrowUp"), at("", 0)), "older");
-  assert.equal(keyAction(k("ArrowDown"), at("", 0)), "newer");
+});
+
+test("with the history panel up, up and down move it wherever the caret is; Esc closes it", () => {
+  const v = "one\ntwo";
+  assert.equal(keyAction(k("ArrowUp"), at(v, 6), true), "history_up");
+  assert.equal(keyAction(k("ArrowDown"), at(v, 0), true), "history_down");
+  assert.equal(keyAction(k("ArrowUp", { shiftKey: true }), at(v, 6), true), undefined);
+  assert.equal(keyAction(k("Escape"), at(v, 0), true), "history_close");
+  assert.equal(keyAction(k("Enter"), at(v, 0), true), "submit", "Enter takes the line to edit (Go's submit)");
 });
 
 test("up with a selection, or with a modifier, isn't history", () => {
@@ -46,10 +53,8 @@ test("Esc cancels; PgUp and PgDn scroll the scrollback", () => {
 
 test("rows are screen rows when the page measured them: a wrapped line has several", () => {
   const long = "x".repeat(300); // one line, wrapped
-  assert.equal(keyAction(k("ArrowUp"), { ...at(long, 300), first: false, last: true }), undefined, "the last row of three: the caret moves up");
-  assert.equal(keyAction(k("ArrowUp"), { ...at(long, 5), first: true, last: false }), "older");
-  assert.equal(keyAction(k("ArrowDown"), { ...at(long, 5), first: true, last: false }), undefined);
-  assert.equal(keyAction(k("ArrowDown"), { ...at(long, 300), first: false, last: true }), "newer");
+  assert.equal(keyAction(k("ArrowUp"), { ...at(long, 300), first: false }), undefined, "the last row of three: the caret moves up");
+  assert.equal(keyAction(k("ArrowUp"), { ...at(long, 5), first: true }), "older");
 });
 
 test("typed outside a control, these go to the input: letters, dead keys, Option and AltGr letters, IME; never a shortcut", () => {

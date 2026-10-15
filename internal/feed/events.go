@@ -60,6 +60,21 @@ type Input struct {
 	NeedPW    bool   // the password prompt is up
 }
 
+// History is the active input's history panel (Key "" for the idle
+// input's): while Open, the sent lines it lists, oldest first, and the
+// selected one's index (-1 for none). Query is what they're filtered by.
+type History struct {
+	Key   string
+	Open  bool
+	Query string
+	Rows  []HistoryRow
+	Sel   int
+}
+
+// HistoryRow is one line in the history panel, and when it was sent, as
+// people read it.
+type HistoryRow struct{ Text, Clock string }
+
 // Start begins everything (All): the page drops what it holds first.
 type Start struct{}
 
@@ -158,6 +173,7 @@ func (Order) event()        {}
 func (Char) event()         {}
 func (Closed) event()       {}
 func (Input) event()        {}
+func (History) event()      {}
 func (Start) event()        {}
 func (Presence) event()     {}
 func (Active) event()       {}

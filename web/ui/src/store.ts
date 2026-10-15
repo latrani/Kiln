@@ -76,6 +76,25 @@ export interface LogView {
   panel?: { sel: string; follow?: boolean }; // the filter panel, open, and its highlight (filter.ts)
 }
 
+// HistoryPanel is the History event: the active input's history panel
+// (Key "" for the idle input's), its lines oldest first, and the
+// selected one's index (-1 for none).
+export interface HistoryPanel {
+  Key: string;
+  Open: boolean;
+  Query: string;
+  Rows: { Text: string; Clock: string }[] | null;
+  Sel: number;
+}
+
+// historyShows reports whether the history panel is up in the input
+// area: open for the input showing, nothing else having the area.
+export function historyShows(s: State): boolean {
+  const h = s.history;
+  const key = s.chars[s.active] ? s.active : "";
+  return !!h?.Open && h.Key === key && !s.picker && !s.active.startsWith("=") && !logShows(s, s.active) && !s.inputs[s.active]?.NeedPW;
+}
+
 export interface State {
   phase: Phase;
   progress?: { got: number; total?: number };
@@ -97,6 +116,7 @@ export interface State {
   status?: { Text: string; Err: boolean; Gen: number };
   presence?: number;
   confirm?: boolean;
+  history?: HistoryPanel; // the active input's history panel, as Go holds it
   saveQuestion?: any;
   picker?: Picker;
   answer?: Answer;
@@ -328,6 +348,7 @@ export class Store {
       case "Status": return { ...s, status: { Text: e.Text, Err: e.Err, Gen: e.Gen } };
       case "Presence": return { ...s, presence: e.State };
       case "Confirm": return { ...s, confirm: e.On };
+      case "History": return { ...s, history: e as unknown as HistoryPanel };
       case "SaveQuestion": return { ...s, saveQuestion: e };
       case "Saved":
       case "Problems":
