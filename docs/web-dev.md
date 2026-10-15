@@ -23,7 +23,7 @@ it. Esc closes log mode.
 web/build.sh
 cp -R web/preset.example web/preset.local      # edit config/worlds/*.toml
 cp web/dev-allow.example.toml web/dev-allow.toml  # list the same worlds
-go run ./cmd/kiln-relay -dev -allow web/dev-allow.toml \
+go run ./cmd/kiln-relay -listen localhost:8080 -allow web/dev-allow.toml \
   -web web/static -preset web/preset.local
 ```
 

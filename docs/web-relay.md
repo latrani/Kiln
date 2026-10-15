@@ -8,6 +8,33 @@ frame starts a TLS handshake and refuses it otherwise, so an honest
 client can't send a password in the clear by accident. It doesn't inspect
 anything after that first frame.
 
+The relay also serves the page itself, and a preset: the worlds a
+player's browser starts with. So one process and one nginx block run
+the whole web build.
+
+## Installing
+
+```sh
+brew install latrani/tap/kiln
+```
+
+installs `kiln`, `kiln-relay` and the page, at
+`$(brew --prefix)/share/kiln/web`, from a release whose formula builds
+the relay and the page. To deploy a new release:
+
+```sh
+brew upgrade kiln
+sudo systemctl restart kiln-relay
+```
+
+The relay's flags:
+
+- `-allow PATH`: the allowlist (below). Required.
+- `-web DIR`: serve the page at `/kiln/`.
+- `-preset DIR`: serve a preset at `/kiln/preset/` (below). Without it
+  the page starts with nothing preset.
+- `-listen ADDR`: where to listen; `127.0.0.1:7801` by default.
+
 ## Allowlist
 
 ```toml
@@ -57,17 +84,42 @@ data trusts whatever it's shown. Close that gap for the worlds you serve:
   once it has connected. The page adds each to the browser's pins unless that host:port already
   has one.
 
+## Preset
+
+A preset is laid out like a `/backup` zip, in a folder of its own, say
+`/etc/kiln-relay/preset/`:
+
+```
+/etc/kiln-relay/preset/
+  config/worlds/PFMuck.toml
+  known_hosts            # pins for self-signed worlds (above)
+```
+
+`config/` is Kiln's config folder: worlds, and any other config file you
+want players to start with. The relay lists the folder for the page on
+each request, so adding or editing a file needs no restart. A preset
+file is written into a player's browser only where nothing is saved
+yet, so a player's own edits win (see `docs/web-dev.md`).
+
 ## nginx
 
+Over https: the page's tab lock and copying to the clipboard need a
+secure context. Everything under `/kiln/` goes to the relay, the page,
+the preset and the WebSocket alike:
+
 ```nginx
-location /kiln/ {
-    alias /srv/kiln/static/;
+# In http {}: a WebSocket asks to upgrade; the page's files don't.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
 }
-location = /kiln/relay {
+
+# In the https server {}:
+location /kiln/ {
     proxy_pass http://127.0.0.1:7801;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
+    proxy_set_header Connection $connection_upgrade;
     proxy_set_header Host $http_host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_read_timeout 1d;
@@ -87,13 +139,18 @@ Description=Kiln web relay
 After=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/kiln-relay -allow /etc/kiln-relay/allow.toml
+ExecStart=/home/linuxbrew/.linuxbrew/bin/kiln-relay -allow /etc/kiln-relay/allow.toml -web /home/linuxbrew/.linuxbrew/share/kiln/web -preset /etc/kiln-relay/preset
 DynamicUser=yes
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+Write your own `brew --prefix` in place of `/home/linuxbrew/.linuxbrew`:
+systemd doesn't expand it. With `DynamicUser`, the relay runs as a user
+made up for it, so `/etc/kiln-relay` and what's in it must be readable
+by anyone (the usual 755 and 644).
 
 ## Local testing
 
