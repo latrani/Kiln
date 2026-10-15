@@ -879,7 +879,7 @@ func writePack(t *testing.T, h *harness, id, body string) {
 // reported and leaves them.
 func TestBadWorldLookKeepsPackLooks(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	writePack(t, h, "extra", "[tags]\n\"ooc\" = { fg = \"#0a0b0c\" }\n\n[[classify]]\ntag = \"ooc\"\npattern = '^OOC'\n")
+	writePack(t, h, "extra", "[tags]\n\"aside\" = { fg = \"#0a0b0c\" }\n\n[[classify]]\ntag = \"aside\"\npattern = '^OOC'\n")
 	world := strings.Replace(fmWorld, `use = ["fuzzball"]`, `use = ["fuzzball", "extra"]`, 1) + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
 	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(world), 0o600); err != nil {
 		t.Fatal(err)
@@ -894,7 +894,7 @@ func TestBadWorldLookKeepsPackLooks(t *testing.T) {
 	}
 	h.show("OOC: brb")
 	if !strings.Contains(h.drawn(), "\x1b[38;2;10;11;12mOOC: brb") {
-		t.Error("the pack's ooc look should stay when the world's doesn't resolve")
+		t.Error("the pack's look should stay when the world's doesn't resolve")
 	}
 }
 
