@@ -219,6 +219,16 @@ func TestGoldenPicker(t *testing.T) {
 	assertGolden(t, "picker", h.drawn())
 }
 
+func TestGoldenPickerAdd(t *testing.T) {
+	h := goldenHarness(t)
+	h.show(kilntest.MainLines[0])
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.enter()
+	h.typeText("Ash ") // the space is refused: the problem shows under the name
+	assertGolden(t, "picker-add", h.drawn())
+}
+
 func TestGoldenEditor(t *testing.T) {
 	h := goldenHarness(t)
 	h.typeText("/edit world")

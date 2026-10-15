@@ -34,6 +34,15 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
    TUI's. */
 .side .pick { display: block; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .side li[role="group"] { display: block; }
+/* The name being added, as the TUI's: one in, the add chip's colors
+   across the rest of the row, the text one in from its edge and
+   scrolled sideways when long; under it, why it won't do, wrapped. The
+   indents are padding: a lone space at the start of a flex row is
+   dropped. */
+.side .pick.naming { cursor: auto; overflow: visible; white-space: normal; }
+.side .name-field { display: flex; margin-left: 1ch; padding-left: 1ch; }
+.side .name-field input { flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
+.side .name-note { display: block; padding-left: 1ch; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The filter panel, as the TUI's: rows of text, each a block (a flex row
    would drop the indent, a run of spaces alone), cut with … when long. */
 .side li.fentry, .filter-panel li { display: block; }

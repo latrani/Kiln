@@ -1066,6 +1066,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		case hint != 0:
 			m.scrollSidebar(hint * max(1, sv.avail-1))
 		case r == nil:
+		case m.listing() && r.kind == rowAddCharError: // the name's problem: nothing
 		case m.listing(): // the rows are the picker's
 			m.leaveEditor()
 			if k := selKey(*r); k != "" {

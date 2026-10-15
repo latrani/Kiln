@@ -7,6 +7,7 @@ import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { FilterPanel } from "./FilterPanel.tsx";
+import { NameField } from "./PickerForm.tsx";
 
 // Session states (session.State).
 const connecting = 1, connected = 2;
@@ -97,12 +98,22 @@ function PickerList({ state, store }: { state: State; store: Store }) {
               {rows.map((r) => {
                 // A world's row is its name, lit in its own role; a
                 // character's row is lit across, one space in; "+
-                // Character" is a chip, one space in.
+                // Character" is a chip, one space in, and the name
+                // field while adding one.
                 const k = selKey(r);
                 const on = k === p.sel;
                 const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
                 if (r.kind === "world") {
                   return <li {...opts} class={"pick " + roleClass(on ? "picker.world.selected" : "picker.world")}>{r.world}</li>;
+                }
+                if (r.kind === "add_char" && p.adding === r.world) {
+                  // The name being added, in the add row's place. No
+                  // click: that would start the name over. Its key is
+                  // its own, not spread: a row added above it (the new
+                  // character, as Go saves it) mustn't remount it before
+                  // it hears Go's answer.
+                  const { key: _k, onClick: _c, ...here } = opts;
+                  return <li key={k} {...here} class="pick naming"><NameField state={state} store={store} /></li>;
                 }
                 if (r.kind === "add_char") {
                   return <li {...opts} class="pick"> <span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;

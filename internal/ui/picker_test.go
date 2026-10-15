@@ -359,14 +359,49 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	if h.m.picker.edit == nil {
 		t.Fatalf("no character editor:\n%s", h.screen())
 	}
-	if s := h.screen(); !strings.Contains(s, "│Name: ") {
-		t.Errorf("no name prompt:\n%s", s)
+	// The name goes where + Character was (rows: fm, Rook, it, + World);
+	// the input area keeps only the hint.
+	if got := strings.TrimSpace(sideRow(h, 2)); got != "" {
+		t.Errorf("the name field = %q, want it empty", got)
 	}
+	if got := strings.TrimSpace(sideRow(h, 3)); got != addWorldLabel {
+		t.Errorf("row under the name field = %q", got)
+	}
+	if s := h.screen(); !strings.Contains(s, "│"+addCharHint) || strings.Contains(s, str.PickerName()+": ") {
+		t.Errorf("the input area should hold just the hint:\n%s", s)
+	}
+	cursorAt := func(x, y int) {
+		t.Helper()
+		if c := h.m.View().Cursor; c == nil || c.X != x || c.Y != y {
+			t.Errorf("cursor = %+v, want (%d, %d)", c, x, y)
+		}
+	}
+	cursorAt(2, 2)
 	h.typeText("O'Br ")
-	if !strings.Contains(h.screen(), "spaces") {
-		t.Errorf("the refused space isn't explained:\n%s", h.screen())
+	if got := strings.TrimSpace(sideRow(h, 2)); got != "O'Br" {
+		t.Errorf("the name field = %q", got)
+	}
+	cursorAt(6, 2)
+	var problem []string
+	for _, r := range h.m.pickerRows() {
+		if r.kind == rowAddCharError {
+			problem = append(problem, r.text)
+		}
+	}
+	if got, want := strings.Join(problem, " "), str.ConfigNameHasSpaces(); got != want {
+		t.Errorf("the refused space is explained as %q, want %q", got, want)
+	}
+	if got := strings.TrimSpace(sideRow(h, 3)); got != problem[0] {
+		t.Errorf("row under the name field = %q, want the problem", got)
+	}
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: 3, Button: tea.MouseLeft})
+	if e := h.m.addingChar(); e == nil || e.form.value(0) != "O'Br" {
+		t.Error("a click on the problem should leave the name be")
 	}
 	h.typeText("ien")
+	if strings.Contains(h.screen(), problem[0]) {
+		t.Errorf("a good edit should clear the problem:\n%s", h.screen())
+	}
 	h.enter()
 	cs := h.m.chars["fm/O_Brien"]
 	if h.m.picker != nil || cs == nil || cs.Sess == nil || h.m.a.Active() != "fm/O_Brien" {
@@ -374,6 +409,27 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	}
 	if cs.Ch.Name != "O'Brien" {
 		t.Errorf("name = %q", cs.Ch.Name)
+	}
+}
+
+func TestPickerAddCharacterScrolls(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyDown, 0)
+	h.enter()
+	name := strings.Repeat("Kit", 15)
+	h.typeText(name)
+	sw := SidebarWidth(h.m.width)
+	got := strings.TrimSpace(sideRow(h, 2))
+	if !strings.HasSuffix(name, got) || len(got) != sw-3 {
+		t.Errorf("the name field = %q, want the last %d of %q", got, sw-3, name)
+	}
+	if c := h.m.View().Cursor; c == nil || c.X != sw-1 || c.Y != 2 {
+		t.Errorf("cursor = %+v, want the field's last column", c)
+	}
+	h.press(tea.KeyHome, 0)
+	if got := strings.TrimSpace(sideRow(h, 2)); !strings.HasPrefix(name, got) {
+		t.Errorf("after Home the name field = %q, want the start of the name", got)
 	}
 }
 

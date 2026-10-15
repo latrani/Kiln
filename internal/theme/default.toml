@@ -27,6 +27,7 @@
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
 "picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
+"picker.error"          = { fg = "red" }
 
 "divider"     = { fg = "glaze.celadon-line" }
 "rule.input"  = { fg = "glaze.gold-line" }

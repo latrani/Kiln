@@ -110,6 +110,8 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 			name = pc.Ch.Name
 		}
 		return hint(str.ViewSavePassword(name, storeName(m.a.PasswordStore())))
+	case m.addingChar() != nil: // the name is typed in the sidebar; its keys stay here
+		return []string{theme.Paint(theme.FormHint, addCharHint)}, 0, 0, true
 	case m.picker != nil:
 		f := m.picker.form
 		if m.picker.edit != nil {
@@ -419,6 +421,10 @@ func (m *Model) View() tea.View {
 			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)), l.sw))
 		case r != nil && m.listing():
 			b.WriteString(theme.Fill(side, m.pickerLine(*r, l.sw), l.sw))
+			if e := m.addingChar(); e != nil && r.kind == rowAddChar && r.world == e.world {
+				_, x := nameField(e.form, l.sw)
+				cursor = tea.NewCursor(x, y)
+			}
 		case r != nil:
 			b.WriteString(theme.Fill(side, m.sidebarLine(*r, l.sw), l.sw))
 		default:

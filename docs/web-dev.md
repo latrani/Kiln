@@ -72,7 +72,7 @@ one cell wide in the bundled font. It needs Google Chrome
 ### Screenshot goldens
 
 `web/smoke`'s `TestGolden…` tests draw the TUI's golden scenarios (main,
-picker, editor, editor error, log, input, scrolled, password, log
+picker, picker add, editor, editor error, log, input, scrolled, password, log
 filter) on the page, light and dark, and compare each with
 `web/smoke/testdata/golden/<scenario>-<light|dark>.png`. They run with
 the smoke tests:
