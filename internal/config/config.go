@@ -75,7 +75,8 @@ type Character struct {
 	Notify       notify.Level // what notifies while you're away
 	LocalEcho    bool         // show sent lines in the scrollback
 	Rules        Rules
-	Looks        []theme.Layer // the world's and then the character's own [palette] and [tags]
+	PackLooks    []theme.Layer // the [palette] and [tags] of the packs its world uses, in use order: under the theme
+	Looks        []theme.Layer // the world's and then the character's own [palette] and [tags]: over the theme
 }
 
 // World groups resolved characters under their world id.
@@ -184,6 +185,19 @@ type charFile struct {
 	Aliases []string       `toml:"aliases"`
 }
 
+// packFile is a pack as written: rules, and looks for its tags.
+type packFile struct {
+	Rules
+	Palette map[string]any `toml:"palette"`
+	Tags    map[string]any `toml:"tags"`
+}
+
+// pack is a loaded pack: its rules, and its looks if it has any.
+type pack struct {
+	rules Rules
+	looks []theme.Layer
+}
+
 type worldFile struct {
 	settings
 	Rules
@@ -229,7 +243,7 @@ func Load(dir string) (*Config, error) {
 	}
 	sort.Strings(worldPaths)
 
-	packs := map[string]Rules{}
+	packs := map[string]pack{}
 	exportDir, err := ExpandHome(g.ExportDir)
 	if err != nil {
 		return nil, err
@@ -323,13 +337,13 @@ func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	return g, base, Rules{Priority: g.Defaults.Priority, Quiet: g.Defaults.Quiet}, nil
 }
 
-func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]Rules) (World, error) {
+func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]pack) (World, error) {
 	return loadWorldData(dir, path, nil, base, baseRules, packs)
 }
 
 // loadWorldData is loadWorld with the file's contents given as data,
 // or read from path when data is nil.
-func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules, packs map[string]Rules) (World, error) {
+func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules, packs map[string]pack) (World, error) {
 	id := strings.TrimSuffix(filepath.Base(path), ".toml")
 	rel := filepath.Join("worlds", filepath.Base(path))
 	if !idRE.MatchString(id) {
@@ -367,12 +381,14 @@ func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules
 	}
 
 	worldRules := baseRules
+	var packLooks []theme.Layer
 	for _, p := range wf.Use {
-		r, err := loadPack(dir, p, packs)
+		pk, err := loadPack(dir, p, packs)
 		if err != nil {
 			return World{}, fmt.Errorf("%s: %w", rel, err)
 		}
-		worldRules = appendRules(worldRules, r)
+		worldRules = appendRules(worldRules, pk.rules)
+		packLooks = append(packLooks, pk.looks...)
 	}
 	worldRules = appendRules(worldRules, wf.Rules)
 	ws := base
@@ -413,7 +429,7 @@ func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules
 			Host: wf.Host, Port: wf.Port, TLS: wf.TLS, TLSTrust: wf.TLSTrust,
 			Login: *cs.Login, MaxLineBytes: *cs.MaxLineBytes, NewlineMode: *cs.NewlineMode, Autoconnect: *cs.Autoconnect,
 			Reconnect: *cs.Reconnect, Notify: notify.Level(*cs.Notify), LocalEcho: *cs.LocalEcho,
-			Rules: appendRules(worldRules, cf.Rules), Looks: looks,
+			Rules: appendRules(worldRules, cf.Rules), PackLooks: packLooks, Looks: looks,
 		}
 		if err := validate(ch); err != nil {
 			return World{}, fmt.Errorf("%s: %w", where, err)
@@ -423,23 +439,32 @@ func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules
 	return w, nil
 }
 
-func loadPack(dir, id string, cache map[string]Rules) (Rules, error) {
-	if r, ok := cache[id]; ok {
-		return r, nil
+func loadPack(dir, id string, cache map[string]pack) (pack, error) {
+	if p, ok := cache[id]; ok {
+		return p, nil
 	}
 	if !idRE.MatchString(id) {
-		return Rules{}, errors.New(str.ConfigBadPackId(id))
+		return pack{}, errors.New(str.ConfigBadPackId(id))
 	}
-	var r Rules
-	path := filepath.Join(dir, "packs", id+".toml")
+	rel := filepath.Join("packs", id+".toml")
+	path := filepath.Join(dir, rel)
 	if _, err := os.Stat(path); err != nil {
-		return Rules{}, errors.New(str.ConfigUnknownPack(id))
+		return pack{}, errors.New(str.ConfigUnknownPack(id))
 	}
-	if err := decodeFile(path, &r, false); err != nil {
-		return Rules{}, err
+	var pf packFile
+	if err := decodeFile(path, &pf, false); err != nil {
+		return pack{}, err
 	}
-	cache[id] = r
-	return r, nil
+	p := pack{rules: pf.Rules}
+	if pf.Palette != nil || pf.Tags != nil {
+		l, err := theme.ParseLayer(rel, pf.Palette, pf.Tags)
+		if err != nil {
+			return pack{}, err
+		}
+		p.looks = []theme.Layer{l}
+	}
+	cache[id] = p
+	return p, nil
 }
 
 func validate(ch Character) error {
@@ -482,17 +507,18 @@ func decodeBytes(path string, b []byte, v any) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
-	_, world := v.(*worldFile) // only worlds and their characters have looks
+	_, world := v.(*worldFile)
+	_, pk := v.(*packFile) // worlds, their characters and packs have looks
 	for _, k := range md.Undecoded() {
-		if !world || !inLooks(k) {
+		if !(world || pk) || !inLooks(k) {
 			return errors.New(str.ConfigUnknownKey(filepath.Base(path), k.String()))
 		}
 	}
 	return nil
 }
 
-// inLooks reports whether k is inside a world's or character's [tags]
-// or [palette]. Those decode into maps of any, which the TOML decoder
+// inLooks reports whether k is inside a world's, character's or pack's
+// [tags] or [palette]. Those decode into maps of any, which the TOML decoder
 // counts as undecoded below their first level; the theme checks them.
 func inLooks(k toml.Key) bool {
 	if len(k) > 1 && k[0] == "characters" {

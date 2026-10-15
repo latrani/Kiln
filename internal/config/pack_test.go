@@ -10,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/rules"
+	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -103,5 +104,67 @@ func TestStarterPackWatchfor(t *testing.T) {
 		if judge.Of(cls.Tags(c.line)).Priority {
 			t.Errorf("%q: a priority", c.line)
 		}
+	}
+}
+
+// packWorld writes a pack named extra and a world fm using it, and
+// returns Kit.
+func packWorld(t *testing.T, pack string) config.Character {
+	t.Helper()
+	dir := t.TempDir()
+	for _, sub := range []string{"worlds", "packs"} {
+		os.MkdirAll(filepath.Join(dir, sub), 0o700)
+	}
+	os.WriteFile(filepath.Join(dir, "packs", "extra.toml"), []byte(pack), 0o600)
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte("host = \"h\"\nport = 1\nuse = [\"extra\"]\n[[characters]]\nname = \"Kit\"\n"), 0o600)
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "Kit")
+	return kit
+}
+
+// A pack's [palette] and [tags] go under the theme, light variants and all.
+func TestPackLooks(t *testing.T) {
+	kit := packWorld(t, "[palette]\nsea = \"#123456\"\n[palette.light]\nsea = \"#0a0b0c\"\n[tags]\n\"ooc\" = { fg = \"sea\" }\n\n[[classify]]\ntag = \"ooc\"\npattern = '^OOC'\n")
+	if len(kit.PackLooks) != 1 || len(kit.Looks) != 0 {
+		t.Fatalf("pack looks %d, own looks %d", len(kit.PackLooks), len(kit.Looks))
+	}
+	for _, c := range []struct {
+		th   *theme.Theme
+		want string
+	}{{theme.Builtin(), "\x1b[38;2;18;52;86m"}, {theme.BuiltinFor(theme.Light), "\x1b[38;2;10;11;12m"}} {
+		th, err := c.th.Stack(kit.PackLooks, kit.Looks)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ts, _ := th.Tag("ooc"); ts.Style.SGR() != c.want {
+			t.Errorf("ooc = %q, want %q", ts.Style.SGR(), c.want)
+		}
+	}
+}
+
+// A pack's look that names no color loads, and says which pack when it's
+// put on a theme.
+func TestPackBadColorNamesThePack(t *testing.T) {
+	kit := packWorld(t, "[tags]\n\"ooc\" = { fg = \"nowhere\" }\n")
+	_, err := theme.Builtin().Stack(kit.PackLooks, nil)
+	want := str.ThemeBadColor(filepath.Join("packs", "extra.toml"), str.ThemeTagEntry("ooc"), "nowhere")
+	if err == nil || err.Error() != want {
+		t.Errorf("err %v, want %q", err, want)
+	}
+}
+
+// A pack still rejects keys that aren't rules or looks.
+func TestPackUnknownKey(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
+	os.MkdirAll(filepath.Join(dir, "packs"), 0o700)
+	os.WriteFile(filepath.Join(dir, "packs", "extra.toml"), []byte("[frob]\nx = 1\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte("host = \"h\"\nport = 1\nuse = [\"extra\"]\n[[characters]]\nname = \"Kit\"\n"), 0o600)
+	_, err := config.Load(dir)
+	if err == nil || !strings.Contains(err.Error(), str.ConfigUnknownKey("extra.toml", "frob")) {
+		t.Errorf("err %v", err)
 	}
 }

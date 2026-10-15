@@ -642,11 +642,10 @@ func TestHighlightIsGone(t *testing.T) {
 	}
 }
 
-// Only worlds and characters have looks: a [tags] table in a pack or
+// Only worlds, characters and packs have looks: a [tags] table in
 // config.toml is an unknown key, not silently ignored.
-func TestLooksOnlyInWorlds(t *testing.T) {
+func TestLooksOnlyInWorldsAndPacks(t *testing.T) {
 	for _, c := range []struct{ file, body, key string }{
-		{"packs/p.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
 		{"config.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
 		{"config.toml", "[palette.x]\ny = 1\n", "palette.x"},
 		// "attention" was renamed priority: no longer a key.
