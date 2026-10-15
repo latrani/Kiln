@@ -7,7 +7,7 @@
 - [Log mode](log-mode.md): browsing, filtering and exporting logs
 - [Logs](logs.md): log files, folders and name templates
 - [Configuration](configuration.md): every setting, and server certificates
-- [Rules](rules.md): tagging lines, priority and quiet, core tags
+- [Rules](rules.md): tagging lines, priority and quiet, tags and their looks
 - [Themes](themes.md): colors, palettes, light and dark, the role list
 - [Notifications](notifications.md): desktop notifications, presence, tmux and ssh
 - [Releasing](releasing.md): cutting a release (for maintainers)
