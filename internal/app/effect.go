@@ -13,7 +13,7 @@ type Quit struct{}
 
 // Do is a command for the front end to carry out: one about its own
 // screens (/open, /log, /edit), or one the core doesn't handle yet
-// (/backup, /restore). Key is the active character's, or "" with none.
+// (/backup, /restore, /reset). Key is the active character's, or "" with none.
 type Do struct {
 	Cmd  string
 	Args []string
