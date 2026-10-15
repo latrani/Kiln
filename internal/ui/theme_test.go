@@ -699,7 +699,7 @@ func TestLayerLightPaletteFollowsAnswer(t *testing.T) {
 	h.m.Update(reloadMsg{})
 	h.m.Update(lightBG)
 	text, _ := h.m.chars["fm/kit"].render(logstore.Entry{Dir: logstore.In, Text: "Mira pages: hi"})
-	if !strings.Contains(text, "\x1b[38;2;17;17;17m") {
+	if !strings.Contains(text, "38;2;17;17;17m") {
 		t.Errorf("the world's light palette wasn't used: %q", text)
 	}
 }
@@ -864,5 +864,52 @@ func TestBrowseDrawnLinesRestyle(t *testing.T) {
 	cs := h.m.chars["fm/kit"]
 	if want, _ := cs.render(l.Entry); b.text(l) != want || want == before {
 		t.Errorf("drawn line kept its old style: %q (was %q)", b.text(l), before)
+	}
+}
+
+// writePack writes packs/<id>.toml into the harness's config dir.
+func writePack(t *testing.T, h *harness, id, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(h.dir, "packs", id+".toml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A pack's looks style its lines; a world look that doesn't resolve is
+// reported and leaves them.
+func TestBadWorldLookKeepsPackLooks(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	writePack(t, h, "extra", "[tags]\n\"ooc\" = { fg = \"#0a0b0c\" }\n\n[[classify]]\ntag = \"ooc\"\npattern = '^OOC'\n")
+	world := strings.Replace(fmWorld, `use = ["fuzzball"]`, `use = ["fuzzball", "extra"]`, 1) + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(world), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.m.Update(reloadMsg{})
+	// The reload's own "config reloaded" takes the status line, so ask
+	// the look itself.
+	if err := h.m.chars["fm/kit"].compileLook(); err == nil || err.Error() != str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere") {
+		t.Errorf("look error %v, want the bad color", err)
+	}
+	h.show("OOC: brb")
+	if !strings.Contains(h.drawn(), "\x1b[38;2;10;11;12mOOC: brb") {
+		t.Error("the pack's ooc look should stay when the world's doesn't resolve")
+	}
+}
+
+// A reload that finds a look that doesn't resolve says so, rather than
+// "config reloaded" over it.
+func TestReloadKeepsLookError(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	broken := fmWorld + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(broken), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.m.Update(reloadMsg{})
+	if st := h.m.a.Status(); !st.Err || !strings.Contains(st.Text, str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere")) {
+		t.Errorf("status = %+v, want the bad color", st)
 	}
 }

@@ -47,13 +47,23 @@ func TestBuiltinLook(t *testing.T) {
 		tag, want string
 		match     bool
 	}{
-		{"page/in", "\x1b[1;38;2;255;159;67m", false},
-		{"whisper/in", "\x1b[3;38;2;195;155;211m", false},
 		{"self", "\x1b[1m", false},
 		{"highlight", "\x1b[1;38;2;255;209;102m", true},
 	} {
 		if _, ts, _ := b.Tag(c.tag); ts.Style.SGR() != c.want || ts.Match != c.match {
 			t.Errorf("builtin tag %s = %q, match %v; want %q, match %v", c.tag, ts.Style.SGR(), ts.Match, c.want, c.match)
+		}
+	}
+	for _, tag := range []string{"page", "whisper"} {
+		if _, _, ok := b.Tag(tag); ok {
+			t.Errorf("the built-in theme styles %s: that's the fuzzball pack's", tag)
+		}
+	}
+	// It names the colors packs use: the fuzzball pack's pages and
+	// whispers are ember and lavender.
+	for _, c := range []string{"ember", "lavender"} {
+		if _, err := FromTOML("[tags]\nx = { fg = \"" + c + "\" }\n"); err != nil {
+			t.Errorf("a theme on the built-in can't name %s: %v", c, err)
 		}
 	}
 }
@@ -192,9 +202,6 @@ func TestBuiltinLightLook(t *testing.T) {
 		if got := b.SGR(c.role); got != c.want {
 			t.Errorf("light %s = %q, want %q", c.role, got, c.want)
 		}
-	}
-	if _, ts, _ := b.Tag("page/in"); ts.Style.SGR() != "\x1b[1;38;2;194;90;10m" {
-		t.Errorf("light page/in = %q", ts.Style.SGR())
 	}
 	if Builtin().SGR(InputOverLimit) != "\x1b[38;2;217;38;38;48;2;42;9;9m" {
 		t.Error("the dark over-limit changed")

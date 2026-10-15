@@ -157,8 +157,13 @@ func TestCharLooksAndSpans(t *testing.T) {
 	if kit == nil || kit["page/in"].(map[string]any)["FG"] != "#abcdef" {
 		t.Errorf("Kit's tags %v", chars)
 	}
-	if _, ok := chars["fm/rook"]; ok {
-		t.Error("Rook has no looks of its own but got an entry")
+	// Rook has the fuzzball pack's looks, not Kit's own.
+	rook, _ := chars["fm/rook"].(map[string]any)
+	if rook == nil || rook["page"].(map[string]any)["FG"] != "#ff9f43" {
+		t.Errorf("Rook's tags %v, want the pack's page", rook)
+	}
+	if in, _ := rook["page/in"].(map[string]any); in != nil && in["FG"] == "#abcdef" {
+		t.Error("Rook got Kit's own page/in")
 	}
 	if tags := lastSpanTags(feedKit(t, h, "Mira pages: hi")); !slices.Equal(tags, []any{"page", "page/in"}) {
 		t.Errorf("span tags %v", tags)
@@ -170,8 +175,13 @@ func TestBadLookFallsBackAndSaysSo(t *testing.T) {
 	withKitLooks(t, a, dir, "nosuchcolor")
 	h := startThemed(t, a, dir)
 	ev := event(h.next(), "Theme")
-	if chars, _ := evLooks(t, ev, "Dark")["Chars"].(map[string]any); chars["fm/kit"] != nil {
-		t.Error("a look that didn't resolve was sent")
+	// Kit's own look doesn't resolve: Kit gets the theme with the pack's
+	// looks alone.
+	chars, _ := evLooks(t, ev, "Dark")["Chars"].(map[string]any)
+	if kit, _ := chars["fm/kit"].(map[string]any); kit != nil {
+		if in, _ := kit["page/in"].(map[string]any); in != nil && in["FG"] == "nosuchcolor" {
+			t.Error("a look that didn't resolve was sent")
+		}
 	}
 	b := h.act(`{"Do":"open","Key":"fm/kit"}`)
 	want := upTo(str.StatusCharError("fm/kit", errors.New(mark)))
@@ -279,5 +289,25 @@ func TestLookErrorOnlyOnFirstOpen(t *testing.T) {
 	h.act(`{"Do":"open","Key":"fm/rook"}`)
 	if st := event(h.act(`{"Do":"open","Key":"fm/kit"}`), "Status"); st != nil {
 		t.Errorf("switching back said it again: %v", st)
+	}
+}
+
+// A character whose pack has looks gets its own tag table, light
+// variants included.
+func TestPackLooksReachTheWeb(t *testing.T) {
+	a, dir := newApp(t)
+	writeFile(t, filepath.Join(dir, "packs", "extra.toml"), "[palette]\nsea = \"#123456\"\n[palette.light]\nsea = \"#0a0b0c\"\n[tags]\n\"ooc\" = { fg = \"sea\" }\n")
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(strings.Replace(kitLooks, "%s", "#abcdef", 1), `use = ["fuzzball"]`, `use = ["fuzzball", "extra"]`, 1))
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	h := startThemed(t, a, dir)
+	ev := event(h.next(), "Theme")
+	for ap, want := range map[string]string{"Dark": "#123456", "Light": "#0a0b0c"} {
+		chars, _ := evLooks(t, ev, ap)["Chars"].(map[string]any)
+		rook, _ := chars["fm/rook"].(map[string]any)
+		if rook == nil || rook["ooc"].(map[string]any)["FG"] != want {
+			t.Errorf("%s: Rook's tags %v, want ooc %s", ap, rook, want)
+		}
 	}
 }

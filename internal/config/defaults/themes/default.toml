@@ -1,5 +1,5 @@
 # Your theme. It starts as Kiln's built-in one and changes only what you
-# set here; Kiln picks up changes as you save. To see every role, tag and
+# set here; Kiln picks up changes as you save. To see every role and
 # color the built-in sets: kiln theme show kiln
 #
 # Colors are "#rrggbb", a [palette] name, a terminal color (red,
@@ -17,7 +17,7 @@ extends = "kiln"
 
 # [ui]
 # "sidebar"      = { bg = "#1d2021" }
-# "status.error" = { fg = "ember", bold = true }
+# "status.error" = { fg = "alarm", bold = true }
 
 # [tags]
-# "page" = { fg = "ember", bold = true, scope = "match" }
+# "page" = { fg = "beacon", bold = true, scope = "match" }

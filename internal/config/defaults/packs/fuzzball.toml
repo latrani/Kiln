@@ -1,11 +1,10 @@
 # Starter rules for Fuzzball MUCKs (built-in commands plus the stock
-# cmd-page and cmd-whisper programs). Servers customize these heavily;
-# edit freely. The pack says what lines are and which ones are a
-# priority; how they look is up to the theme's [tags].
+# cmd-page, cmd-whisper and cmd-watchfor programs). Servers customize
+# these heavily; edit freely. The pack says what lines are and which
+# ones are a priority; how they look is up to the theme's [tags].
 
 priority = ["page/in", "whisper/in", "self"]
 
-# Whispers, like pages below: "whisper/in" to you, "whisper/out" your own.
 [[classify]]
 tags = ["whisper", "whisper/in"]
 pattern = '^\S+ whispers,? "'
@@ -14,9 +13,6 @@ pattern = '^\S+ whispers,? "'
 tags = ["whisper", "whisper/out"]
 pattern = '^You whisper, '
 
-# Pages carry "page" plus "page/in" (to you) or "page/out" (your own,
-# as the server echoes them), so a "page" filter shows both sides of a
-# conversation while only what you receive is a priority.
 [[classify]]
 tags = ["page", "page/in"]
 pattern = '^\S+ pages( from [^:]+)?: '
@@ -36,3 +32,26 @@ pattern = '^You sense that \S+ is paging you'
 [[classify]]
 tags = ["page", "page/out"]
 pattern = '^You page(-pose)?, '
+
+[[classify]]
+tags = ["watchfor", "watchfor/connect"]
+pattern = '^Somewhere on the muck, \S+ (has )?(re)?connected\.'
+
+[[classify]]
+tags = ["watchfor", "watchfor/disconnect"]
+pattern = '^Somewhere on the muck, \S+ (has )?disconnected\.'
+
+[[classify]]
+tag = "system"
+pattern = '^##'
+
+[[classify]]
+tag = "ooc"
+pattern = '<OOC>|\[OOC\]|\(OOC\)'
+
+# How these lines look, in the theme's colors. A theme, world or
+# character can restyle any of them; a tag inherits up its slashes, so
+# page/in starts from page.
+[tags]
+"page"    = { fg = "ember", bold = true }
+"whisper" = { fg = "lavender", italic = true }

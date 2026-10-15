@@ -207,8 +207,9 @@ type Theme struct {
 	ap      Appearance       // which palettes it was built with
 }
 
-// Layer is a world's or character's own [palette] and [tags], drawn over
-// the theme it uses (see Theme.With).
+// Layer is a pack's, world's or character's own [palette] and [tags]:
+// a pack's go under the theme it's used with, a world's and character's
+// over it (see Theme.Stack).
 type Layer struct{ f file }
 
 // ParseLayer reads a layer's tables, as a world or character file gives
@@ -226,16 +227,42 @@ func ParseLayer(where string, palette, tags map[string]any) (Layer, error) {
 	return Layer{f}, err
 }
 
-// With is t with layers on top, in order, merged field by field.
-func (t *Theme) With(layers ...Layer) (*Theme, error) {
-	if len(layers) == 0 {
+// Stack is t with below under it and above on top, each in order,
+// merged field by field: the packs' looks under a theme, a world's and
+// a character's over it. Palette names resolve across all of them.
+func (t *Theme) Stack(below, above []Layer) (*Theme, error) {
+	if len(below) == 0 && len(above) == 0 {
 		return t, nil
 	}
-	chain := slices.Clone(t.chain)
-	for _, l := range layers {
+	chain := make([]file, 0, len(below)+len(t.chain)+len(above))
+	for _, l := range below {
+		chain = append(chain, l.f)
+	}
+	chain = append(chain, t.chain...)
+	for _, l := range above {
 		chain = append(chain, l.f)
 	}
 	return build(chain, t.ap)
+}
+
+// Best is Stack, or where that doesn't resolve (a color nobody
+// defines), the most that does: t with below alone, else with above
+// alone, else t itself. A typo in one file costs only that file's
+// looks. err says why the whole stack didn't.
+func (t *Theme) Best(below, above []Layer) (*Theme, error) {
+	th, err := t.Stack(below, above)
+	if err == nil {
+		return th, nil
+	}
+	for _, try := range [][2][]Layer{{below, nil}, {nil, above}} {
+		if len(try[0])+len(try[1]) == 0 {
+			continue
+		}
+		if th, terr := t.Stack(try[0], try[1]); terr == nil {
+			return th, err
+		}
+	}
+	return t, err
 }
 
 // Tag is how a line tag is drawn: the style of the most specific styled
@@ -484,9 +511,9 @@ func readTags(name string, tbl map[string]any, out map[string]tagFileStyle) erro
 func build(chain []file, ap Appearance) (*Theme, error) {
 	palette := map[string]color{}
 	merged := map[Role]fileStyle{}
-	origin := map[Role]string{} // which file set a role last, for messages
+	origin := map[Role]colorOrigin{} // which files set a role's colors, for messages
 	mergedTags := map[string]tagFileStyle{}
-	tagOrigin := map[string]string{}
+	tagOrigin := map[string]colorOrigin{}
 	for _, f := range chain {
 		for _, entries := range []map[string]string{f.palette, f.appearance[ap]} {
 			if err := addPalette(f.name, entries, palette); err != nil {
@@ -498,7 +525,7 @@ func build(chain []file, ap Appearance) (*Theme, error) {
 				return nil, errors.New(str.ThemeUnknownRole(f.name, string(r)))
 			}
 			merged[r] = overlay(merged[r], s)
-			origin[r] = f.name
+			origin[r] = origin[r].set(f.name, s)
 		}
 		for tag, s := range f.tags {
 			m := mergedTags[tag]
@@ -506,7 +533,7 @@ func build(chain []file, ap Appearance) (*Theme, error) {
 			if s.scope != nil {
 				m.scope = s.scope
 			}
-			mergedTags[tag], tagOrigin[tag] = m, f.name
+			mergedTags[tag], tagOrigin[tag] = m, tagOrigin[tag].set(f.name, s.fileStyle)
 		}
 	}
 	t := &Theme{styles: map[Role]style{}, sgr: map[Role]string{}, tags: map[string]TagStyle{}, palette: palette, chain: chain, ap: ap}
@@ -555,13 +582,15 @@ func addPalette(name string, entries map[string]string, palette map[string]color
 }
 
 // resolveStyle is fs's fields over base, with its colors resolved in
-// palette. origin and where say where fs came from, for messages.
-func resolveStyle(base style, fs fileStyle, palette map[string]color, origin, where string) (style, error) {
+// palette. origin says which files set its colors and where names the
+// role or tag, for messages.
+func resolveStyle(base style, fs fileStyle, palette map[string]color, origin colorOrigin, where string) (style, error) {
 	s := base
 	for _, c := range []struct {
-		src *string
-		dst **color
-	}{{fs.fg, &s.fg}, {fs.bg, &s.bg}} {
+		src  *string
+		dst  **color
+		file string
+	}{{fs.fg, &s.fg, origin.fg}, {fs.bg, &s.bg, origin.bg}} {
 		if c.src == nil {
 			continue
 		}
@@ -571,7 +600,7 @@ func resolveStyle(base style, fs fileStyle, palette map[string]color, origin, wh
 		}
 		col, ok := resolve(*c.src, palette)
 		if !ok {
-			return s, errors.New(str.ThemeBadColor(origin, where, *c.src))
+			return s, errors.New(str.ThemeBadColor(c.file, where, *c.src))
 		}
 		*c.dst = &col
 	}
@@ -584,6 +613,22 @@ func resolveStyle(base style, fs fileStyle, palette map[string]color, origin, wh
 		}
 	}
 	return s, nil
+}
+
+// colorOrigin is which file set a style's fg and bg, so a color that
+// doesn't resolve is blamed on its own file, not a later one that only
+// set the same style's other fields.
+type colorOrigin struct{ fg, bg string }
+
+// set is o after file sets s's fields.
+func (o colorOrigin) set(file string, s fileStyle) colorOrigin {
+	if s.fg != nil {
+		o.fg = file
+	}
+	if s.bg != nil {
+		o.bg = file
+	}
+	return o
 }
 
 // overlay is a with b's set fields on top.

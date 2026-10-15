@@ -187,6 +187,32 @@ func TestStarterThemeIsBuiltin(t *testing.T) {
 	}
 }
 
+// Each of the starter theme's commented examples loads on its own,
+// uncommented: none leans on a palette name only a pack defines, or on
+// another example.
+func TestStarterThemeExamplesStandAlone(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("defaults", "themes", "default.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The examples are the commented blocks after extends, one per table.
+	_, rest, _ := strings.Cut(string(src), "extends = \"kiln\"\n")
+	for _, block := range strings.Split(strings.TrimSpace(rest), "\n\n") {
+		var b strings.Builder
+		for _, l := range strings.Split(block, "\n") {
+			b.WriteString(strings.TrimPrefix(l, "# ") + "\n")
+		}
+		dir := t.TempDir()
+		EnsureDefaults(dir)
+		os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("extends = \"kiln\"\n"+b.String()), 0o600)
+		for _, ap := range []theme.Appearance{theme.Dark, theme.Light} {
+			if _, err := theme.Load(dir, "default", ap); err != nil {
+				t.Errorf("the example\n%s\ndoesn't load alone: %v", block, err)
+			}
+		}
+	}
+}
+
 func TestClassifyRuleTags(t *testing.T) {
 	r := ClassifyRule{Tag: "page", Tags: []string{"page/in", "", "page"}}
 	if got := strings.Join(r.AllTags(), ","); got != "page,page/in" {
@@ -615,7 +641,7 @@ name = "Rook"
 	if len(kit.Looks) != 2 || len(rook.Looks) != 1 {
 		t.Fatalf("looks: kit %d, rook %d; want 2 and 1", len(kit.Looks), len(rook.Looks))
 	}
-	th, err := theme.Builtin().With(kit.Looks...)
+	th, err := theme.Builtin().Stack(nil, kit.Looks)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,11 +668,10 @@ func TestHighlightIsGone(t *testing.T) {
 	}
 }
 
-// Only worlds and characters have looks: a [tags] table in a pack or
+// Only worlds, characters and packs have looks: a [tags] table in
 // config.toml is an unknown key, not silently ignored.
-func TestLooksOnlyInWorlds(t *testing.T) {
+func TestLooksOnlyInWorldsAndPacks(t *testing.T) {
 	for _, c := range []struct{ file, body, key string }{
-		{"packs/p.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
 		{"config.toml", "[tags.page]\nfg = \"red\"\n", "tags.page"},
 		{"config.toml", "[palette.x]\ny = 1\n", "palette.x"},
 		// "attention" was renamed priority: no longer a key.

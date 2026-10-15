@@ -21,8 +21,8 @@ type Theme struct {
 }
 
 // Looks is one appearance's styles. Chars has, by character key, the tag
-// table of each character whose own [palette] or [tags] change it; the
-// rest use Tags.
+// table of each character whose packs or own [palette] or [tags] change
+// it; the rest use Tags.
 type Looks struct {
 	Roles map[theme.Role]theme.Look
 	Tags  map[string]theme.TagLook
@@ -72,14 +72,16 @@ func (lk *looks) load(dir string, cfg *config.Config, chars []config.Character) 
 	for _, ch := range chars {
 		k := app.Key(ch.World, ch.ID)
 		styled[k] = baseStyled
-		if len(ch.Looks) == 0 {
+		if len(ch.PackLooks) == 0 && len(ch.Looks) == 0 {
 			continue
 		}
-		d, derr := lk.dark.With(ch.Looks...)
-		l, lerr := lk.light.With(ch.Looks...)
-		if derr != nil || lerr != nil {
-			lk.lookErrs[k] = firstErr(derr, lerr)
-			continue
+		d, derr := lk.dark.Best(ch.PackLooks, ch.Looks)
+		l, lerr := lk.light.Best(ch.PackLooks, ch.Looks)
+		if err := firstErr(derr, lerr); err != nil {
+			lk.lookErrs[k] = err
+		}
+		if d == lk.dark && l == lk.light {
+			continue // nothing resolved: the theme's own
 		}
 		lk.hl[k], styled[k] = rules.New(d), styledOf(d)
 		for _, p := range []struct {

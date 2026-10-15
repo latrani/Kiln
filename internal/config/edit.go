@@ -516,7 +516,7 @@ func editWorld(dir, path string, edit func(*tomlDoc) ([]span, error)) error {
 	if err != nil {
 		return err
 	}
-	if _, err := loadWorldData(dir, path, out, base, Rules{}, map[string]Rules{}); err != nil {
+	if _, err := loadWorldData(dir, path, out, base, Rules{}, map[string]pack{}); err != nil {
 		return err
 	}
 	return replaceFile(path, out)
