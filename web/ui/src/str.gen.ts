@@ -581,26 +581,17 @@ export function relayAllowUnknownKey(path: unknown, key: unknown): string { retu
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
-/** relay.dev_needs_dirs: -dev needs -web DIR and -preset DIR */
-export function relayDevNeedsDirs(): string { return `-dev needs -web DIR and -preset DIR`; }
-
-/** relay.dev_serving: dev: open {url} */
-export function relayDevServing(url: unknown): string { return `dev: open ${url}`; }
-
 /** relay.flag_allow: allowlist file (TOML) */
 export function relayFlagAllow(): string { return `allowlist file (TOML)`; }
 
-/** relay.flag_dev: also serve the web page and a preset, for local testing */
-export function relayFlagDev(): string { return `also serve the web page and a preset, for local testing`; }
+/** relay.flag_listen: address to listen on (default 127.0.0.1:7801) */
+export function relayFlagListen(): string { return `address to listen on (default 127.0.0.1:7801)`; }
 
-/** relay.flag_listen: address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev) */
-export function relayFlagListen(): string { return `address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev)`; }
+/** relay.flag_preset: serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts) */
+export function relayFlagPreset(): string { return `serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)`; }
 
-/** relay.flag_preset: with -dev: the files to preload in the browser (config/… and known_hosts) */
-export function relayFlagPreset(): string { return `with -dev: the files to preload in the browser (config/… and known_hosts)`; }
-
-/** relay.flag_web: with -dev: the built page (web/static) */
-export function relayFlagWeb(): string { return `with -dev: the built page (web/static)`; }
+/** relay.flag_web: serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web) */
+export function relayFlagWeb(): string { return `serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)`; }
 
 /** relay.listening: kiln-relay listening on {addr} */
 export function relayListening(addr: unknown): string { return `kiln-relay listening on ${addr}`; }
@@ -628,6 +619,9 @@ export function relayRefusedTooMany(ip: unknown, world: unknown): string { retur
 
 /** relay.refused_unreachable: refused {ip} → {world:%q}: {err} */
 export function relayRefusedUnreachable(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: ${e(err)}`; }
+
+/** relay.serving_page: serving the page at {url} */
+export function relayServingPage(url: unknown): string { return `serving the page at ${url}`; }
 
 /** relay.watch_failed: watching the allowlist: {err} */
 export function relayWatchFailed(err: unknown): string { return `watching the allowlist: ${e(err)}`; }

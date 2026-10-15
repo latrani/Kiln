@@ -8,21 +8,29 @@ import (
 	"sort"
 )
 
-// devRoutes serves the page and a preset from one origin, the way
-// production's nginx will, so the whole thing runs on a laptop. A preset
-// is laid out like a backup: config/… and known_hosts.
-func devRoutes(mux *http.ServeMux, web, preset string) {
+// webRoutes serves the built page at /kiln/ and a preset at
+// /kiln/preset/, with a manifest of the preset's files made on each
+// request, so it never drifts from the folder; with no preset the
+// manifest is empty and the page starts with nothing preloaded. nginx
+// proxies all of /kiln/ here. A preset is laid out like a backup:
+// config/… and known_hosts.
+func webRoutes(mux *http.ServeMux, web, preset string) {
 	mux.Handle("/kiln/", http.StripPrefix("/kiln/", http.FileServer(http.Dir(web))))            //str:ok
 	mux.HandleFunc("/kiln/preset/manifest.json", func(w http.ResponseWriter, r *http.Request) { //str:ok
-		m, err := manifest(preset)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		m := []string{}
+		if preset != "" {
+			var err error
+			if m, err = manifest(preset); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		w.Header().Set("Content-Type", "application/json") //str:ok
 		json.NewEncoder(w).Encode(m)
 	})
-	mux.Handle("/kiln/preset/", http.StripPrefix("/kiln/preset/", http.FileServer(http.Dir(preset)))) //str:ok
+	if preset != "" {
+		mux.Handle("/kiln/preset/", http.StripPrefix("/kiln/preset/", http.FileServer(http.Dir(preset)))) //str:ok
+	}
 }
 
 // manifest lists the files under dir as sorted slash paths relative to
