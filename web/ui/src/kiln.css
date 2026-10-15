@@ -135,7 +135,7 @@ a.s { text-decoration: underline; }
 /* The splash, while another tab has Kiln: centered, a line between
    each part. */
 .splash { min-height: 100dvh; box-sizing: border-box; padding: 1lh 2ch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1lh; text-align: center; }
-.splash h1, .splash p { font: inherit; margin: 0; }
+.splash h1, .splash p { font-size: inherit; margin: 0; }
 /* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }
 button:disabled { cursor: default; opacity: .6; }
