@@ -24,7 +24,11 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
-    files: [README.md, LICENSE]
+    files:
+      - README.md
+      - LICENSE
+      - src: internal/theme/catppuccin.LICENSE
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt

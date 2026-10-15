@@ -107,7 +107,6 @@ var appearanceKeys = map[string]Appearance{"dark": Dark, "light": Light} //str:o
 // file is one parsed theme file.
 type file struct {
 	name       string
-	src        []byte // as written
 	extends    string
 	palette    map[string]string
 	appearance map[Appearance]map[string]string // [palette.dark], [palette.light]
@@ -326,7 +325,6 @@ func parse(name string, data []byte) (file, error) {
 		return file{name: name}, errors.New(str.ThemeParse(name, err))
 	}
 	f, err := parseTables(name, raw)
-	f.src = data
 	return f, err
 }
 
