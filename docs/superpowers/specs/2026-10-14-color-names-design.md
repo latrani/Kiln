@@ -24,8 +24,9 @@ sixteen (`red`, `bright-blue`) and whatever a theme, pack, world or
 character defines itself. Namespaces keep Catppuccin's `red`, `green`,
 `yellow` and `blue` from colliding with the terminal's, and leave room
 for more shipped palettes. A file can still redefine a namespaced name
-(`"catppuccin.mauve" = "#…"`, quoted, since a bare dotted key is a TOML
-table), but restyling a tag is the usual way.
+(`catppuccin.mauve = "#…"`: TOML reads the dotted key as a table, and
+any `[palette]` table but `light` and `dark` is a namespace), but
+restyling a tag is the usual way.
 
 ## Layers
 

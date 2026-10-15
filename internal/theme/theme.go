@@ -349,19 +349,18 @@ func parseTables(name string, raw map[string]any) (file, error) {
 			}
 			for pk, pv := range tbl {
 				if sub, ok := pv.(map[string]any); ok {
-					ap, known := appearanceKeys[pk]
-					if !known {
-						return f, errors.New(str.ThemeBadAppearancePalette(name, pk))
-					}
-					m := map[string]string{}
-					for sk, sv := range sub {
-						s, ok := sv.(string)
-						if !ok {
-							return f, errors.New(str.ThemePaletteNotColor(name, sk))
+					// [palette.light] and [palette.dark] are an appearance's;
+					// any other table is a dotted name written unquoted
+					// (catppuccin.mauve = ...), as TOML reads it.
+					if ap, known := appearanceKeys[pk]; known {
+						m := map[string]string{}
+						if err := readColors(name, "", sub, m); err != nil {
+							return f, err
 						}
-						m[sk] = s
+						f.appearance[ap] = m
+					} else if err := readColors(name, pk+".", sub, f.palette); err != nil {
+						return f, err
 					}
-					f.appearance[ap] = m
 					continue
 				}
 				s, ok := pv.(string)
@@ -391,6 +390,24 @@ func parseTables(name string, raw map[string]any) (file, error) {
 		}
 	}
 	return f, nil
+}
+
+// readColors adds tbl's palette entries to out, each name after prefix.
+// A table inside is a dotted name written unquoted: catppuccin.mauve.
+func readColors(name, prefix string, tbl map[string]any, out map[string]string) error {
+	for k, v := range tbl {
+		switch v := v.(type) {
+		case string:
+			out[prefix+k] = v
+		case map[string]any:
+			if err := readColors(name, prefix+k+".", v, out); err != nil {
+				return err
+			}
+		default:
+			return errors.New(str.ThemePaletteNotColor(name, prefix+k))
+		}
+	}
+	return nil
 }
 
 // validName reports whether s can name a theme: a bare file name in

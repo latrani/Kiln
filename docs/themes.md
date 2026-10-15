@@ -54,7 +54,7 @@ Catppuccin's accents, from its Macchiato (dark) and Latte (light) flavors:
 
 Kiln's glazes, which its own parts of the screen use: `glaze.celadon-*` (the sidebar), `glaze.cobalt-*` (the status bars), `glaze.gold-*` (the input) and `glaze.kaki-*` (forms), each in `-deep`, `-mid`, `-line`, `-ink` and `-bright` (gold has `-mid`, `-line` and `-ink`), and `glaze.alarm` and `glaze.alarm-deep` for errors. `kiln theme show kiln` prints their values.
 
-Names without a dot are the terminal's own sixteen (`red`, `bright-blue`) and whatever you define in a `[palette]`. You can redefine a shipped name too; quote it, since a bare dotted key is a TOML table: `"catppuccin.mauve" = "#b48ead"`.
+Names without a dot are the terminal's own sixteen (`red`, `bright-blue`) and whatever you define in a `[palette]`. You can redefine a shipped name too: `catppuccin.mauve = "#b48ead"` in a `[palette]`.
 
 Catppuccin's colors are MIT licensed ([catppuccin/palette](https://github.com/catppuccin/palette)).
 

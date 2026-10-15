@@ -270,3 +270,19 @@ func TestRetiredNamesAreGone(t *testing.T) {
 		t.Errorf("catppuccin.lavender = %q", ts.Style.SGR())
 	}
 }
+
+// A dotted palette name works unquoted, as TOML reads it (a table):
+// in [palette] and in an appearance's.
+func TestDottedPaletteNamesUnquoted(t *testing.T) {
+	dir := t.TempDir()
+	writeTheme(t, dir, "dot", "[palette]\ncatppuccin.mauve = \"#010203\"\n[palette.light]\ncatppuccin.mauve = \"#040506\"\n[tags]\na = { fg = \"catppuccin.mauve\" }\n")
+	for ap, want := range map[Appearance]string{Dark: "\x1b[38;2;1;2;3m", Light: "\x1b[38;2;4;5;6m"} {
+		th, err := Load(dir, "dot", ap)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ts, _ := th.Tag("a"); ts.Style.SGR() != want {
+			t.Errorf("%v: %q, want %q", ap, ts.Style.SGR(), want)
+		}
+	}
+}

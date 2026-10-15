@@ -796,9 +796,6 @@ export function statusTrusted(host: unknown): string { return `trusted new certi
 /** status.unknown_command: unknown command {command} */
 export function statusUnknownCommand(command: unknown): string { return `unknown command ${command}`; }
 
-/** theme.bad_appearance_palette: {file}: [palette.{name}] isn't an appearance (a palette can have [palette.light] and [palette.dark]) */
-export function themeBadAppearancePalette(file: unknown, name: unknown): string { return `${file}: [palette.${name}] isn't an appearance (a palette can have [palette.light] and [palette.dark])`; }
-
 /** theme.bad_color: {file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, a terminal color like bright-blue, or default) */
 export function themeBadColor(file: unknown, where: unknown, color: unknown): string { return `${file}: ${where}: ${q(color)} isn't a color (use #rrggbb, a palette name, a terminal color like bright-blue, or default)`; }
 
