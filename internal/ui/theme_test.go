@@ -866,3 +866,34 @@ func TestBrowseDrawnLinesRestyle(t *testing.T) {
 		t.Errorf("drawn line kept its old style: %q (was %q)", b.text(l), before)
 	}
 }
+
+// writePack writes packs/<id>.toml into the harness's config dir.
+func writePack(t *testing.T, h *harness, id, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(h.dir, "packs", id+".toml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A pack's looks style its lines; a world look that doesn't resolve is
+// reported and leaves them.
+func TestBadWorldLookKeepsPackLooks(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	writePack(t, h, "extra", "[tags]\n\"ooc\" = { fg = \"#0a0b0c\" }\n\n[[classify]]\ntag = \"ooc\"\npattern = '^OOC'\n")
+	world := strings.Replace(fmWorld, `use = ["fuzzball"]`, `use = ["fuzzball", "extra"]`, 1) + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(world), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.m.Update(reloadMsg{})
+	// The reload's own "config reloaded" takes the status line, so ask
+	// the look itself.
+	if err := h.m.chars["fm/kit"].compileLook(); err == nil || err.Error() != str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere") {
+		t.Errorf("look error %v, want the bad color", err)
+	}
+	h.show("OOC: brb")
+	if !strings.Contains(h.drawn(), "\x1b[38;2;10;11;12mOOC: brb") {
+		t.Error("the pack's ooc look should stay when the world's doesn't resolve")
+	}
+}

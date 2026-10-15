@@ -281,3 +281,23 @@ func TestLookErrorOnlyOnFirstOpen(t *testing.T) {
 		t.Errorf("switching back said it again: %v", st)
 	}
 }
+
+// A character whose pack has looks gets its own tag table, light
+// variants included.
+func TestPackLooksReachTheWeb(t *testing.T) {
+	a, dir := newApp(t)
+	writeFile(t, filepath.Join(dir, "packs", "extra.toml"), "[palette]\nsea = \"#123456\"\n[palette.light]\nsea = \"#0a0b0c\"\n[tags]\n\"ooc\" = { fg = \"sea\" }\n")
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(strings.Replace(kitLooks, "%s", "#abcdef", 1), `use = ["fuzzball"]`, `use = ["fuzzball", "extra"]`, 1))
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	h := startThemed(t, a, dir)
+	ev := event(h.next(), "Theme")
+	for ap, want := range map[string]string{"Dark": "#123456", "Light": "#0a0b0c"} {
+		chars, _ := evLooks(t, ev, ap)["Chars"].(map[string]any)
+		rook, _ := chars["fm/rook"].(map[string]any)
+		if rook == nil || rook["ooc"].(map[string]any)["FG"] != want {
+			t.Errorf("%s: Rook's tags %v, want ooc %s", ap, rook, want)
+		}
+	}
+}

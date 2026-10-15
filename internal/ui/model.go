@@ -304,25 +304,24 @@ func (m *Model) applyWith(apply func() (app.ConfigResult, bool)) bool {
 }
 
 // styleInputs is what a character's scrollback styling depends on: the
-// rules, its looks, and the name and aliases that classify its own lines.
+// rules, its packs' and own looks, and the name and aliases that
+// classify its own lines.
 func styleInputs(ch config.Character) any {
 	return struct {
-		rules   config.Rules
-		looks   []theme.Layer
-		name    string
-		aliases []string
-	}{ch.Rules, ch.Looks, ch.Name, ch.Aliases}
+		rules     config.Rules
+		packLooks []theme.Layer
+		looks     []theme.Layer
+		name      string
+		aliases   []string
+	}{ch.Rules, ch.PackLooks, ch.Looks, ch.Name, ch.Aliases}
 }
 
 // compileLook builds cs's highlighter from the active theme with the
-// character's own looks on top. Looks that don't resolve (a color nobody
-// defines) leave the theme's own tag styles in use; either way the error
-// is returned for the caller to show.
+// character's packs' looks under it and its own on top. Looks that
+// don't resolve leave the most that does (theme.Best); either way the
+// error is returned for the caller to show.
 func (cs *charState) compileLook() error {
-	th, err := theme.Active().Stack(nil, cs.Ch.Looks)
-	if err != nil {
-		th = theme.Active()
-	}
+	th, err := theme.Active().Best(cs.Ch.PackLooks, cs.Ch.Looks)
 	cs.hl = rules.New(th)
 	return err
 }
