@@ -1,7 +1,7 @@
 # Starter rules for Fuzzball MUCKs (built-in commands plus the stock
-# cmd-page and cmd-whisper programs). Servers customize these heavily;
-# edit freely. The pack says what lines are and which ones are a
-# priority; how they look is up to the theme's [tags].
+# cmd-page, cmd-whisper and cmd-watchfor programs). Servers customize
+# these heavily; edit freely. The pack says what lines are and which
+# ones are a priority; how they look is up to the theme's [tags].
 
 priority = ["page/in", "whisper/in", "self"]
 
@@ -36,3 +36,15 @@ pattern = '^You sense that \S+ is paging you'
 [[classify]]
 tags = ["page", "page/out"]
 pattern = '^You page(-pose)?, '
+
+# Watchfor's notices of someone you watch for coming and going: the stock
+# cmd-watchfor's "Somewhere on the muck, Rook connected." and older
+# versions' "Somewhere on the muck, Rook has connected.". Reconnecting
+# counts as connecting.
+[[classify]]
+tags = ["watchfor", "watchfor/connect"]
+pattern = '^Somewhere on the muck, \S+ (has )?(re)?connected\.'
+
+[[classify]]
+tags = ["watchfor", "watchfor/disconnect"]
+pattern = '^Somewhere on the muck, \S+ (has )?disconnected\.'

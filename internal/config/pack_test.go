@@ -60,3 +60,48 @@ func TestStarterPackPages(t *testing.T) {
 		}
 	}
 }
+
+// The starter fuzzball pack tags watchfor's notices: Fuzzball's own
+// ("Somewhere on the muck, Rook connected.") and the older fbmuf one's
+// ("Somewhere on the muck, Rook has connected."). Reconnecting counts as
+// connecting. They aren't a priority.
+func TestStarterPackWatchfor(t *testing.T) {
+	dir := t.TempDir()
+	if err := config.EnsureDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte("host = \"h\"\nport = 1\nuse = [\"fuzzball\"]\n[[characters]]\nname = \"Kit\"\n"), 0o600)
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kit, _ := cfg.Find("fm", "Kit")
+	cls, err := classify.New(kit.Rules.Classify, kit.Name, kit.Aliases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	judge := rules.Judge{Priority: kit.Rules.Priority, Quiet: kit.Rules.Quiet}
+	for _, c := range []struct{ line, tag string }{
+		{"Somewhere on the muck, Rook connected.", "watchfor/connect"},
+		{"Somewhere on the muck, Rook reconnected.", "watchfor/connect"},
+		{"Somewhere on the muck, Rook disconnected.", "watchfor/disconnect"},
+		{"Somewhere on the muck, Rook has connected.", "watchfor/connect"},
+		{"Somewhere on the muck, Rook has reconnected.", "watchfor/connect"},
+		{"Somewhere on the muck, Rook has disconnected.", "watchfor/disconnect"},
+		{`Rook says, "Somewhere on the muck, Ash connected."`, ""},
+	} {
+		tags := cls.Classify(c.line)
+		if c.tag == "" {
+			if slices.Contains(tags, "watchfor") {
+				t.Errorf("%q: tags %v, want no watchfor", c.line, tags)
+			}
+			continue
+		}
+		if !slices.Contains(tags, "watchfor") || !slices.Contains(tags, c.tag) {
+			t.Errorf("%q: tags %v, want watchfor and %s", c.line, tags, c.tag)
+		}
+		if judge.Of(cls.Tags(c.line)).Priority {
+			t.Errorf("%q: a priority", c.line)
+		}
+	}
+}
