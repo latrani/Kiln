@@ -73,9 +73,9 @@ func TestStarterPackPages(t *testing.T) {
 		th        *theme.Theme
 		tag, want string
 	}{
-		{th, "page/in", "\x1b[1;38;2;245;169;127m"},
-		{th, "whisper/in", "\x1b[3;38;2;198;160;246m"},
-		{light, "page/in", "\x1b[1;38;2;254;100;11m"},
+		{th, "page/in", "\x1b[1;38;2;138;173;244m"},
+		{th, "whisper/in", "\x1b[1;38;2;145;215;227m"},
+		{light, "page/in", "\x1b[1;38;2;30;102;245m"},
 	} {
 		if _, ts, _ := c.th.Tag(c.tag); ts.Style.SGR() != c.want {
 			t.Errorf("%s = %q, want %q", c.tag, ts.Style.SGR(), c.want)
@@ -89,7 +89,7 @@ func TestStarterPackPages(t *testing.T) {
 // The starter fuzzball pack tags watchfor's notices: Fuzzball's own
 // ("Somewhere on the muck, Rook connected.") and the older fbmuf one's
 // ("Somewhere on the muck, Rook has connected."). Reconnecting counts as
-// connecting. They aren't a priority.
+// connecting, which is a priority.
 func TestStarterPackWatchfor(t *testing.T) {
 	dir := t.TempDir()
 	if err := config.EnsureDefaults(dir); err != nil {
@@ -125,8 +125,9 @@ func TestStarterPackWatchfor(t *testing.T) {
 		if !slices.Contains(tags, "watchfor") || !slices.Contains(tags, c.tag) {
 			t.Errorf("%q: tags %v, want watchfor and %s", c.line, tags, c.tag)
 		}
-		if judge.Of(cls.Tags(c.line)).Priority {
-			t.Errorf("%q: a priority", c.line)
+		// Someone you watch for connecting is a priority; leaving isn't.
+		if got, want := judge.Of(cls.Tags(c.line)).Priority, c.tag == "watchfor/connect"; got != want {
+			t.Errorf("%q: priority %v, want %v", c.line, got, want)
 		}
 	}
 }

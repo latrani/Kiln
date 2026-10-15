@@ -159,7 +159,7 @@ func TestCharLooksAndSpans(t *testing.T) {
 	}
 	// Rook has the fuzzball pack's looks, not Kit's own.
 	rook, _ := chars["fm/rook"].(map[string]any)
-	if rook == nil || rook["page"].(map[string]any)["FG"] != "#f5a97f" {
+	if rook == nil || rook["page"].(map[string]any)["FG"] != "#8aadf4" {
 		t.Errorf("Rook's tags %v, want the pack's page", rook)
 	}
 	if in, _ := rook["page/in"].(map[string]any); in != nil && in["FG"] == "#abcdef" {
