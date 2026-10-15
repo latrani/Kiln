@@ -75,8 +75,8 @@ changes: the bump workflow only updates the tag.
 ## Docs
 
 - `docs/web-relay.md` is rewritten around this: install, allowlist,
-  preset layout, nginx, systemd, upgrading. It says the release must be
-  one built with the relay and page (0.7.1 on).
+  preset layout, nginx, systemd, upgrading. It says the install needs a
+  release whose formula builds `kiln-relay` and the page.
 - `docs/web-dev.md`: the run command drops `-dev` for `-listen
   localhost:8080`.
 - The README is the maintainer's: unchanged.
@@ -92,6 +92,5 @@ changes: the bump workflow only updates the tag.
 ## Not in this
 
 - Theme discovery, the phone layout, password managers: separate.
-- Cutting the release itself: after this merges and the tap change
-  lands, Indi publishes 0.7.1 (0.7.0, with the config breaks, goes
-  out first on its own).
+- Cutting the release itself: Indi's call, after this merges and the
+  tap change lands.
