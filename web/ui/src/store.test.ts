@@ -634,3 +634,11 @@ test("an answer for an editor Esc'd away changes nothing, but a world deleted st
   s.apply([{ type: "Saved", Op: "delete_world", World: "fm", Char: "" }]);
   assert.deepEqual(s.state.drafts, {});
 });
+
+test("a Sent event is counted, so the scrollback hears each one, across a fresh start too", () => {
+  const s = new Store();
+  s.apply([{ type: "Sent", Key: "fm/kit", Seen: 40 }]);
+  s.apply([{ type: "Start" }]);
+  s.apply([{ type: "Sent", Key: "fm/kit", Seen: 41 }]);
+  assert.deepEqual(s.state.sent, { key: "fm/kit", seen: 41, n: 2 });
+});

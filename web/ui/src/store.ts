@@ -105,11 +105,13 @@ export interface State {
   opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
   notifyOffer?: boolean; // the status line offers to allow notifications (notify.ts)
   reset?: () => Promise<void>; // /reset: wipe what the browser saved and reload (boot.ts)
+  sent?: { key: string; seen: number; n: number }; // the last line sent, and how many so far (the scrollback goes to the end)
 }
 
-// fresh is a state holding nothing of Go's: only the page's own.
-const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer, reset }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer" | "reset">): State => ({
-  phase, progress, saving, onUseHere, act, typing, notifyOffer, reset,
+// fresh is a state holding nothing of Go's: only the page's own (and the
+// count of sends, which the scrollback goes by).
+const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer, reset, sent }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer" | "reset" | "sent">): State => ({
+  phase, progress, saving, onUseHere, act, typing, notifyOffer, reset, sent,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, logView: {}, drafts: {}, parked: {},
 });
 
@@ -304,6 +306,7 @@ export class Store {
         const v = s.logView[k] ?? { goN: 0 };
         return { ...s, logView: { ...s.logView, [k]: { ...v, at: e.Seq, goN: v.goN + 1 } } };
       }
+      case "Sent": return { ...s, sent: { key: k, seen: e.Seen, n: (s.sent?.n ?? 0) + 1 } };
       case "ExportName": {
         const v = s.logView[k] ?? { goN: 0 };
         return { ...s, logView: { ...s.logView, [k]: { ...v, prompt: { kind: "filename", value: e.Name, format: e.Format } } } };

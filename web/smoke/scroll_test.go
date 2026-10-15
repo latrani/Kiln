@@ -94,6 +94,13 @@ func TestScrollbackMoves(t *testing.T) {
 	pressKey(t, ws, "Escape", 27)
 	waitFor(t, ev, `atEnd() && pillN() === -1`, "Esc going to the end")
 
+	// Enter sends, an empty line too, and goes to the end, as the TUI's.
+	say("spam 80", 2011)
+	waitFor(t, ev, `!atEnd() && pillN() > 0`, "the pager stopping again")
+	ev(`document.querySelector(".bottom textarea").focus()`)
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `atEnd() && pillN() === -1`, "Enter going to the end")
+
 	// Live, the pane narrows: the lines rewrap, and the view stays at the
 	// end. The MUCK is told the scroller's width in characters.
 	// Checked two frames later, before the page's resize could reach Go and
@@ -131,7 +138,7 @@ func TestScrollbackMoves(t *testing.T) {
 
 	// Lines come while you're on another character: switching back stops
 	// at the first of them.
-	say("later 60", 2011)
+	say("later 60", 2012)
 	ev(`click("Second")`)
 	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Char" && e.Key === "fake/tester").at(-1).Unread >= 60`, "the lines coming in the background")
 	ev(`click("Tester")`)
@@ -139,6 +146,11 @@ func TestScrollbackMoves(t *testing.T) {
 
 	// Reading mid-history, you switch away and lines come: switching back,
 	// the line you were reading is where it was, and the pill counts them.
+	// (Sent first, since sending goes to the end, and taken in before
+	// scrolling up; the lines come well after the switch away.)
+	sends := ev(`kilnPage.events.filter(e => e.type === "Sent").length`)
+	say("later 30 after 3000", 2013)
+	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Sent").length > `+sends+` && atEnd()`, "the send taken in")
 	ev(`sc().scrollTop = (sc().scrollHeight - sc().clientHeight) / 2`)
 	time.Sleep(300 * time.Millisecond)
 	before := ev(`JSON.stringify({ seq: firstShown().dataset.seq, top: firstShown().getBoundingClientRect().top, n: pillN() })`)
@@ -148,7 +160,6 @@ func TestScrollbackMoves(t *testing.T) {
 		N   int
 	}
 	json.Unmarshal([]byte(mustUnquote(t, before)), &was)
-	say("later 30", 2012)
 	ev(`click("Second")`)
 	waitFor(t, ev, `kilnPage.events.filter(e => e.type === "Char" && e.Key === "fake/tester").at(-1).Unread >= 30`, "more lines in the background")
 	ev(`click("Tester")`)
@@ -173,7 +184,7 @@ func TestScrollbackMoves(t *testing.T) {
 
 	// In a world's overview, a link opens; it doesn't switch characters.
 	ev(`click("Tester")`)
-	say("https://example.test/x", 2013)
+	say("https://example.test/x", 2014)
 	waitFor(t, ev, `sc().querySelector('a[href="https://example.test/x"]')`, "the link drawn")
 	ev(`kilnPage.act({Do: "switch", Key: "=fake"})`)
 	waitFor(t, ev, `document.querySelector('main a[href="https://example.test/x"]')`, "the link in the overview")

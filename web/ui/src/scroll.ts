@@ -41,3 +41,18 @@ export function settle(v: View | undefined, epoch: number, lines: LineData[], sh
   const i = lines.findIndex((l) => l.Seq > v.seen);
   return [next, i < 0 ? { to: "end" } : { to: "end", pauseFrom: i }];
 }
+
+// sent is v after you send a line, as the TUI's ToBottomKeeping: live,
+// at the end, with every line up to seen seen (Go's Sent says which: an
+// echoed line stays unseen). Lines after seen count as new, so if the
+// echo and what comes after it fill the pane, the pager stops with your
+// line at the top.
+export function sent(v: View, seen: number): View {
+  return { ...v, live: true, unseen: 0, seen, last: seen, anchor: undefined };
+}
+
+// switchedAway is v when you switch to another character: a live view
+// has seen everything it has, as the TUI's MarkSeen.
+export function switchedAway(v: View, lines: LineData[]): View {
+  return v.live ? { ...v, seen: lines.at(-1)?.Seq ?? v.seen } : v;
+}

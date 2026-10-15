@@ -95,8 +95,12 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 				a.ClearStatus() // typing again dismisses what was said before
 			}
 		case "submit": //str:ok
-			_, effs = a.Submit()
+			var res app.SubmitResult
+			res, effs = a.Submit()
 			effs = l.reset(l.backup(effs), armed)
+			if c := a.Char(k); res.Sent && c != nil {
+				extra = append(extra, Sent{Key: k, Seen: seenAfterSend(c.Lines, res.Echoed)})
+			}
 			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
@@ -156,6 +160,28 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	}
 	return extra, effs, all
+}
+
+// Sent says a line went out for Key: the page shows the end, as the
+// TUI's scrollback does on Enter (ToBottomKeeping), with every line up
+// to Seen seen. An echoed line is left unseen, so if what comes next
+// fills the pane the pager stops with it at the top.
+type Sent struct {
+	Key  string
+	Seen int
+}
+
+// seenAfterSend is the Seq of the last line seen after a send: the
+// newest, or with echoed the one before it; -1 for none.
+func seenAfterSend(ls []*app.Line, echoed bool) int {
+	n := len(ls)
+	if echoed {
+		n--
+	}
+	if n <= 0 {
+		return -1
+	}
+	return ls[n-1].Seq
 }
 
 // backup does /backup when Run was given a way to: the page gets the

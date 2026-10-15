@@ -408,10 +408,16 @@ func fakeMuck(t *testing.T) int {
 					if l != "" {
 						fmt.Fprintf(c, "You say, %q\r\n", l)
 					}
-					// "spam N" sends N long lines now; "later N", in a second.
-					var n int
+					// "spam N" sends N long lines now; "later N", in a second;
+					// "later N after MS", in MS milliseconds.
+					var n, ms int
 					if _, err := fmt.Sscanf(l, "spam %d", &n); err == nil {
 						lines(c, "spam", n)
+					} else if _, err := fmt.Sscanf(l, "later %d after %d", &n, &ms); err == nil {
+						go func() {
+							time.Sleep(time.Duration(ms) * time.Millisecond)
+							lines(c, "late", n)
+						}()
 					} else if _, err := fmt.Sscanf(l, "later %d", &n); err == nil {
 						go func() {
 							time.Sleep(time.Second)
