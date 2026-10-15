@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -255,7 +257,7 @@ func TestLayersOverTheme(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	th, err := base.With(world, char)
+	th, err := base.Stack(nil, []Layer{world, char})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +270,7 @@ func TestLayersOverTheme(t *testing.T) {
 	if _, _, ok := base.Tag("highlight"); ok {
 		t.Error("With changed the base theme")
 	}
-	if same, _ := base.With(); same != base {
+	if same, _ := base.Stack(nil, nil); same != base {
 		t.Error("With() should return the theme itself")
 	}
 }
@@ -281,7 +283,7 @@ func TestLayerErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Builtin().With(l); err == nil || err.Error() != str.ThemeBadColor("worlds/fm.toml", str.ThemeTagEntry("page"), "nowhere") {
+	if _, err := Builtin().Stack(nil, []Layer{l}); err == nil || err.Error() != str.ThemeBadColor("worlds/fm.toml", str.ThemeTagEntry("page"), "nowhere") {
 		t.Errorf("unknown color: err = %v", err)
 	}
 }
@@ -360,7 +362,7 @@ func TestLayersFollowAppearance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	th, err := base.With(l)
+	th, err := base.Stack(nil, []Layer{l})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,5 +407,100 @@ self = { scope = "match", underline = true }`)
 	}
 	if len(roles) != len(Roles) {
 		t.Errorf("%d roles, want %d", len(roles), len(Roles))
+	}
+}
+
+// layer is a Layer from TOML tables, as a world or pack file gives them.
+func layer(t *testing.T, where, src string) Layer {
+	t.Helper()
+	var raw map[string]any
+	if _, err := toml.Decode(src, &raw); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := raw["palette"].(map[string]any)
+	tg, _ := raw["tags"].(map[string]any)
+	l, err := ParseLayer(where, p, tg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
+}
+
+func tagSGR(t *testing.T, th *Theme, tag string) string {
+	t.Helper()
+	_, ts, _ := th.Tag(tag)
+	return ts.Style.SGR()
+}
+
+// Packs go under the theme, worlds over it; palette names resolve
+// across all of them, the theme's beating a pack's. (say: a tag the
+// built-in theme doesn't style.)
+func TestStackOrder(t *testing.T) {
+	pack := layer(t, "packs/p.toml", "[palette]\nsea = \"#111111\"\n[tags]\nooc = { fg = \"sea\", bold = true }\nsay = { fg = \"#222222\" }\n")
+	world := layer(t, "worlds/fm.toml", "[tags]\nsay = { fg = \"#333333\" }\n")
+	base, err := FromTOML("[palette]\nsea = \"#444444\"\n[tags]\nsay = { fg = \"#555555\", italic = true }\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err := base.Stack([]Layer{pack}, []Layer{world})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tagSGR(t, th, "ooc"); got != "\x1b[1;38;2;68;68;68m" {
+		t.Errorf("ooc = %q: the pack's tag, in the theme's sea", got)
+	}
+	if got := tagSGR(t, th, "say"); got != "\x1b[3;38;2;51;51;51m" {
+		t.Errorf("say = %q: the world's color over the theme's italic", got)
+	}
+	th, err = base.Stack([]Layer{pack}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tagSGR(t, th, "say"); got != "\x1b[3;38;2;85;85;85m" {
+		t.Errorf("say = %q: the theme's beats the pack's", got)
+	}
+}
+
+func TestStackTwoPacksLaterWins(t *testing.T) {
+	a := layer(t, "packs/a.toml", "[tags]\nooc = { fg = \"#111111\", bold = true }\n")
+	b := layer(t, "packs/b.toml", "[tags]\nooc = { fg = \"#222222\" }\n")
+	th, err := Builtin().Stack([]Layer{a, b}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tagSGR(t, th, "ooc"); got != "\x1b[1;38;2;34;34;34m" {
+		t.Errorf("ooc = %q: b's color, a's bold", got)
+	}
+}
+
+// A pack's [palette.light] applies on a light background.
+func TestStackPackLightPalette(t *testing.T) {
+	pack := layer(t, "packs/p.toml", "[palette]\nsea = \"#111111\"\n[palette.light]\nsea = \"#0a0b0c\"\n[tags]\nooc = { fg = \"sea\" }\n")
+	th, err := BuiltinFor(Light).Stack([]Layer{pack}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tagSGR(t, th, "ooc"); got != "\x1b[38;2;10;11;12m" {
+		t.Errorf("light ooc = %q", got)
+	}
+}
+
+// Best keeps the most that resolves: everything, else the packs' looks,
+// else the theme alone; the error says what didn't.
+func TestBestFallsBack(t *testing.T) {
+	good := layer(t, "packs/p.toml", "[tags]\nooc = { fg = \"#111111\" }\n")
+	badPack := layer(t, "packs/q.toml", "[tags]\nooc = { fg = \"nowhere\" }\n")
+	badWorld := layer(t, "worlds/fm.toml", "[tags]\npage = { fg = \"nowhere\" }\n")
+	b := Builtin()
+	th, err := b.Best([]Layer{good}, []Layer{badWorld})
+	if err == nil || tagSGR(t, th, "ooc") != "\x1b[38;2;17;17;17m" {
+		t.Errorf("a bad world look: err %v, ooc %q; want the pack's looks kept and an error", err, tagSGR(t, th, "ooc"))
+	}
+	th, err = b.Best([]Layer{badPack}, nil)
+	if err == nil || th != b {
+		t.Errorf("a bad pack look: err %v; want the theme itself and an error", err)
+	}
+	if th, err := b.Best(nil, nil); err != nil || th != b {
+		t.Error("no layers should be the theme itself")
 	}
 }

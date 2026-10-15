@@ -75,8 +75,8 @@ func (lk *looks) load(dir string, cfg *config.Config, chars []config.Character) 
 		if len(ch.Looks) == 0 {
 			continue
 		}
-		d, derr := lk.dark.With(ch.Looks...)
-		l, lerr := lk.light.With(ch.Looks...)
+		d, derr := lk.dark.Stack(nil, ch.Looks)
+		l, lerr := lk.light.Stack(nil, ch.Looks)
 		if derr != nil || lerr != nil {
 			lk.lookErrs[k] = firstErr(derr, lerr)
 			continue

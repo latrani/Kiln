@@ -207,8 +207,9 @@ type Theme struct {
 	ap      Appearance       // which palettes it was built with
 }
 
-// Layer is a world's or character's own [palette] and [tags], drawn over
-// the theme it uses (see Theme.With).
+// Layer is a pack's, world's or character's own [palette] and [tags]:
+// a pack's go under the theme it's used with, a world's and character's
+// over it (see Theme.Stack).
 type Layer struct{ f file }
 
 // ParseLayer reads a layer's tables, as a world or character file gives
@@ -226,16 +227,38 @@ func ParseLayer(where string, palette, tags map[string]any) (Layer, error) {
 	return Layer{f}, err
 }
 
-// With is t with layers on top, in order, merged field by field.
-func (t *Theme) With(layers ...Layer) (*Theme, error) {
-	if len(layers) == 0 {
+// Stack is t with below under it and above on top, each in order,
+// merged field by field: the packs' looks under a theme, a world's and
+// a character's over it. Palette names resolve across all of them.
+func (t *Theme) Stack(below, above []Layer) (*Theme, error) {
+	if len(below) == 0 && len(above) == 0 {
 		return t, nil
 	}
-	chain := slices.Clone(t.chain)
-	for _, l := range layers {
+	chain := make([]file, 0, len(below)+len(t.chain)+len(above))
+	for _, l := range below {
+		chain = append(chain, l.f)
+	}
+	chain = append(chain, t.chain...)
+	for _, l := range above {
 		chain = append(chain, l.f)
 	}
 	return build(chain, t.ap)
+}
+
+// Best is Stack, or where that doesn't resolve (a color nobody
+// defines), t with below alone, or t itself: the most that does. err
+// says why the whole stack didn't.
+func (t *Theme) Best(below, above []Layer) (*Theme, error) {
+	th, err := t.Stack(below, above)
+	if err == nil {
+		return th, nil
+	}
+	if len(above) > 0 {
+		if th, berr := t.Stack(below, nil); berr == nil {
+			return th, err
+		}
+	}
+	return t, err
 }
 
 // Tag is how a line tag is drawn: the style of the most specific styled

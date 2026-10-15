@@ -56,7 +56,7 @@ func TestLookThemeReportsBadLook(t *testing.T) {
 	ch := config.Character{World: "fm", ID: "kit", Looks: []theme.Layer{l}}
 	var out strings.Builder
 	th := lookTheme(ch, &out)
-	_, lookErr := theme.Active().With(l)
+	_, lookErr := theme.Active().Stack(nil, []theme.Layer{l})
 	if want := theme.Paint(theme.StatusError, "* "+str.StatusCharError("fm/kit", lookErr)) + "\n"; out.String() != want {
 		t.Errorf("reported %q, want %q", out.String(), want)
 	}

@@ -35,7 +35,7 @@ func render(e logstore.Entry, runs []style.Run, priority bool) string {
 // lookTheme is the active theme with ch's own looks on top. Looks that
 // don't resolve are reported to w, and the theme's own tag styles stand in.
 func lookTheme(ch config.Character, w io.Writer) *theme.Theme {
-	th, err := theme.Active().With(ch.Looks...)
+	th, err := theme.Active().Stack(nil, ch.Looks)
 	if err != nil {
 		fmt.Fprintln(w, theme.Paint(theme.StatusError, "* "+str.StatusCharError(ch.World+"/"+ch.ID, err)))
 		return theme.Active()

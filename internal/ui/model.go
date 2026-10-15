@@ -319,7 +319,7 @@ func styleInputs(ch config.Character) any {
 // defines) leave the theme's own tag styles in use; either way the error
 // is returned for the caller to show.
 func (cs *charState) compileLook() error {
-	th, err := theme.Active().With(cs.Ch.Looks...)
+	th, err := theme.Active().Stack(nil, cs.Ch.Looks)
 	if err != nil {
 		th = theme.Active()
 	}

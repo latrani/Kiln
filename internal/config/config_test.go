@@ -615,7 +615,7 @@ name = "Rook"
 	if len(kit.Looks) != 2 || len(rook.Looks) != 1 {
 		t.Fatalf("looks: kit %d, rook %d; want 2 and 1", len(kit.Looks), len(rook.Looks))
 	}
-	th, err := theme.Builtin().With(kit.Looks...)
+	th, err := theme.Builtin().Stack(nil, kit.Looks)
 	if err != nil {
 		t.Fatal(err)
 	}
