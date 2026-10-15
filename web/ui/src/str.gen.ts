@@ -1043,6 +1043,9 @@ export function webTitleUnread(n: number): string { return `(${n}) Kiln`; }
 /** web.use_here: Use here */
 export function webUseHere(): string { return `Use here`; }
 
+/** web.use_here_warning: This will disconnect your existing session. */
+export function webUseHereWarning(): string { return `This will disconnect your existing session.`; }
+
 /** The glyphs Kiln draws (internal/glyph). */
 export const glyph = {
   echo: "›",

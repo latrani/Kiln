@@ -6,7 +6,8 @@ import { Store } from "../store.ts";
 import type { Event, State } from "../store.ts";
 import { loadingText } from "../boot.ts";
 import { sidebarCSS } from "../layout.ts";
-import { roleClass } from "../theme.ts";
+import { latte, roleClass } from "../theme.ts";
+import type { ThemeEvent } from "../types.ts";
 import * as str from "../str.gen.ts";
 
 const page = (patch: Partial<State> = {}, batch: Event[] = []) => {
@@ -33,10 +34,29 @@ test("loading shows progress in the status line", () => {
   assert.ok(page({ phase: "loading", progress: { got: 2_100_000, total: 6_400_000 } }).includes(loadingText(2_100_000, 6_400_000)));
 });
 
-test("another tab: the message and Use here, in the scrollback", () => {
-  const html = page({ phase: "locked" });
-  assert.ok(html.includes(str.webOtherTab()));
-  assert.ok(html.includes(`>${str.webUseHere()}</button>`));
+test("another tab: the splash, not the five areas, with what Use here costs", () => {
+  const html = page({ phase: "locked", onUseHere: () => {} });
+  assert.match(html, /<main class="splash">/);
+  assert.ok(html.includes(`>${str.webTitle()}</h1>`) && html.includes(str.webOtherTab()));
+  assert.match(html, new RegExp(`<p id="([^"]+)"[^>]*>${str.webUseHereWarning()}</p>`));
+  const id = /<p id="([^"]+)"/.exec(html)![1];
+  assert.match(html, new RegExp(`<button[^>]*aria-describedby="${id}"[^>]*>${str.webUseHere()}</button>`));
+  for (const area of ["<nav", "<header", 'class="bottom', 'class="status ']) assert.ok(!html.includes(area), area);
+});
+
+test("before Go's theme, the page draws with the last one it sent", () => {
+  const old = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const light: ThemeEvent = { type: "Theme", Appearance: "light", Dark: { Roles: {}, Tags: {} }, Light: { Roles: {}, Tags: {} } };
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: () => JSON.stringify(light), setItem() {}, removeItem() {} } });
+  try {
+    for (const phase of ["locked", "loading"] as const) {
+      const html = page({ phase });
+      assert.ok(html.includes(`--term-bg:${latte.bg}`) && !html.includes("@media"), phase);
+    }
+  } finally {
+    if (old) Object.defineProperty(globalThis, "localStorage", old);
+    else delete (globalThis as any).localStorage;
+  }
 });
 
 test("stopped: Reload", () => {

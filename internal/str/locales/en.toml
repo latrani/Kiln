@@ -386,6 +386,9 @@ flag_preset = "serve these files at /kiln/preset/ for the page to preload (confi
 [web]
 other_tab = "Kiln's open in another tab."
 use_here = "Use here"
+# Under Use here: taking Kiln over reloads the other tab, which drops
+# its connections (#187 would keep them).
+use_here_warning = "This will disconnect your existing session."
 not_saving = "this browser isn't saving Kiln's configuration"
 needs_js = "Kiln needs JavaScript."
 # The status line while the page downloads Kiln, in megabytes.

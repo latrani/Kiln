@@ -196,12 +196,6 @@ export function Scrollback({ state }: { state: State }) {
   return (
     <main class="body">
       <div class={state.picker ? `scroll dim ${roleClass("scrollback.inactive")}` : "scroll"} ref={el} onScroll={onScroll} onWheel={scrolled.current} onTouchMove={scrolled.current} key={mount}>
-        {state.phase === "locked" && (
-          <div class="lock">
-            <p>{str.webOtherTab()}</p>
-            <button class={roleClass("form.button")} onClick={state.onUseHere} disabled={!state.onUseHere}>{str.webUseHere()}</button>
-          </div>
-        )}
         {key.startsWith("=") && <Overview state={state} world={key.slice(1)} />}
         {!key && state.phase === "running" && state.worlds.every((w) => !w.Characters?.length) && (
           <div class={"line " + roleClass("scrollback.empty")}>{str.viewNoCharacters()}</div>
