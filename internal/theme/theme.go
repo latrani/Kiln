@@ -511,9 +511,9 @@ func readTags(name string, tbl map[string]any, out map[string]tagFileStyle) erro
 func build(chain []file, ap Appearance) (*Theme, error) {
 	palette := map[string]color{}
 	merged := map[Role]fileStyle{}
-	origin := map[Role]string{} // which file set a role last, for messages
+	origin := map[Role]colorOrigin{} // which files set a role's colors, for messages
 	mergedTags := map[string]tagFileStyle{}
-	tagOrigin := map[string]string{}
+	tagOrigin := map[string]colorOrigin{}
 	for _, f := range chain {
 		for _, entries := range []map[string]string{f.palette, f.appearance[ap]} {
 			if err := addPalette(f.name, entries, palette); err != nil {
@@ -525,7 +525,7 @@ func build(chain []file, ap Appearance) (*Theme, error) {
 				return nil, errors.New(str.ThemeUnknownRole(f.name, string(r)))
 			}
 			merged[r] = overlay(merged[r], s)
-			origin[r] = f.name
+			origin[r] = origin[r].set(f.name, s)
 		}
 		for tag, s := range f.tags {
 			m := mergedTags[tag]
@@ -533,7 +533,7 @@ func build(chain []file, ap Appearance) (*Theme, error) {
 			if s.scope != nil {
 				m.scope = s.scope
 			}
-			mergedTags[tag], tagOrigin[tag] = m, f.name
+			mergedTags[tag], tagOrigin[tag] = m, tagOrigin[tag].set(f.name, s.fileStyle)
 		}
 	}
 	t := &Theme{styles: map[Role]style{}, sgr: map[Role]string{}, tags: map[string]TagStyle{}, palette: palette, chain: chain, ap: ap}
@@ -582,13 +582,15 @@ func addPalette(name string, entries map[string]string, palette map[string]color
 }
 
 // resolveStyle is fs's fields over base, with its colors resolved in
-// palette. origin and where say where fs came from, for messages.
-func resolveStyle(base style, fs fileStyle, palette map[string]color, origin, where string) (style, error) {
+// palette. origin says which files set its colors and where names the
+// role or tag, for messages.
+func resolveStyle(base style, fs fileStyle, palette map[string]color, origin colorOrigin, where string) (style, error) {
 	s := base
 	for _, c := range []struct {
-		src *string
-		dst **color
-	}{{fs.fg, &s.fg}, {fs.bg, &s.bg}} {
+		src  *string
+		dst  **color
+		file string
+	}{{fs.fg, &s.fg, origin.fg}, {fs.bg, &s.bg, origin.bg}} {
 		if c.src == nil {
 			continue
 		}
@@ -598,7 +600,7 @@ func resolveStyle(base style, fs fileStyle, palette map[string]color, origin, wh
 		}
 		col, ok := resolve(*c.src, palette)
 		if !ok {
-			return s, errors.New(str.ThemeBadColor(origin, where, *c.src))
+			return s, errors.New(str.ThemeBadColor(c.file, where, *c.src))
 		}
 		*c.dst = &col
 	}
@@ -611,6 +613,22 @@ func resolveStyle(base style, fs fileStyle, palette map[string]color, origin, wh
 		}
 	}
 	return s, nil
+}
+
+// colorOrigin is which file set a style's fg and bg, so a color that
+// doesn't resolve is blamed on its own file, not a later one that only
+// set the same style's other fields.
+type colorOrigin struct{ fg, bg string }
+
+// set is o after file sets s's fields.
+func (o colorOrigin) set(file string, s fileStyle) colorOrigin {
+	if s.fg != nil {
+		o.fg = file
+	}
+	if s.bg != nil {
+		o.bg = file
+	}
+	return o
 }
 
 // overlay is a with b's set fields on top.

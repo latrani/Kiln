@@ -510,3 +510,14 @@ func TestBestFallsBack(t *testing.T) {
 		t.Error("no layers should be the theme itself")
 	}
 }
+
+// A color that doesn't resolve is blamed on the file that set it, not
+// on a later one that only touched the same tag's other fields.
+func TestBadColorBlamesItsFile(t *testing.T) {
+	pack := layer(t, "packs/p.toml", "[tags]\nooc = { fg = \"nowhere\" }\n")
+	world := layer(t, "worlds/fm.toml", "[tags]\nooc = { bold = true }\n")
+	_, err := Builtin().Stack([]Layer{pack}, []Layer{world})
+	if want := str.ThemeBadColor("packs/p.toml", str.ThemeTagEntry("ooc"), "nowhere"); err == nil || err.Error() != want {
+		t.Errorf("err %v, want %q", err, want)
+	}
+}
