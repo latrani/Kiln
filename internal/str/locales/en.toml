@@ -368,14 +368,14 @@ allow_loaded = { one = "allowlist {path}: 1 world", other = "allowlist {path}: {
 allow_reload_failed = "allowlist not reloaded, keeping the old one: {err}"
 watch_failed = "watching the allowlist: {err}"
 listening = "kiln-relay listening on {addr}"
-dev_serving = "dev: open {url}"
+serving_page = "serving the page at {url}"
 need_allow = "kiln-relay needs -allow PATH (the allowlist file)"
-dev_needs_dirs = "-dev needs -web DIR and -preset DIR"
-flag_listen = "address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev)"
+bad_dir = "-{flag} {path}: {err}"
+manifest_failed = "listing the preset: {err}"
+flag_listen = "address to listen on (default 127.0.0.1:7801)"
 flag_allow = "allowlist file (TOML)"
-flag_dev = "also serve the web page and a preset, for local testing"
-flag_web = "with -dev: the built page (web/static)"
-flag_preset = "with -dev: the files to preload in the browser (config/… and known_hosts)"
+flag_web = "serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)"
+flag_preset = "serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)"
 
 # The web page's own text (like every entry, also in web/ui/src/str.gen.ts).
 [web]

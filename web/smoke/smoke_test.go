@@ -457,7 +457,8 @@ func config(t *testing.T, port int) (preset, allow string) {
 	return preset, allow
 }
 
-// startRelay runs kiln-relay -dev on a free port and returns the page's URL.
+// startRelay runs kiln-relay on a free port, serving the page and the
+// preset, and returns the page's URL.
 func startRelay(t *testing.T, root, static, preset, allow string) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -472,7 +473,7 @@ func startRelay(t *testing.T, root, static, preset, allow string) string {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building kiln-relay: %v\n%s", err, out)
 	}
-	relay := exec.Command(bin, "-dev", "-listen", addr, "-allow", allow, "-web", static, "-preset", preset)
+	relay := exec.Command(bin, "-listen", addr, "-allow", allow, "-web", static, "-preset", preset)
 	relay.Stdout, relay.Stderr = os.Stderr, os.Stderr
 	if err := relay.Start(); err != nil {
 		t.Fatal(err)

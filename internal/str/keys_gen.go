@@ -676,34 +676,35 @@ func RelayAllowUnknownKey(path, key any) string {
 	return get("relay.allow_unknown_key", map[string]any{"path": path, "key": key})
 }
 
+// RelayBadDir is relay.bad_dir: "-{flag} {path}: {err}"
+func RelayBadDir(flag, path any, err error) string {
+	return get("relay.bad_dir", map[string]any{"flag": flag, "path": path, "err": err})
+}
+
 // RelayClosed is relay.closed: "closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur}"
 func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
 }
 
-// RelayDevNeedsDirs is relay.dev_needs_dirs: "-dev needs -web DIR and -preset DIR"
-func RelayDevNeedsDirs() string { return get("relay.dev_needs_dirs", nil) }
-
-// RelayDevServing is relay.dev_serving: "dev: open {url}"
-func RelayDevServing(url any) string { return get("relay.dev_serving", map[string]any{"url": url}) }
-
 // RelayFlagAllow is relay.flag_allow: "allowlist file (TOML)"
 func RelayFlagAllow() string { return get("relay.flag_allow", nil) }
 
-// RelayFlagDev is relay.flag_dev: "also serve the web page and a preset, for local testing"
-func RelayFlagDev() string { return get("relay.flag_dev", nil) }
-
-// RelayFlagListen is relay.flag_listen: "address to listen on (default 127.0.0.1:7801, or localhost:8080 with -dev)"
+// RelayFlagListen is relay.flag_listen: "address to listen on (default 127.0.0.1:7801)"
 func RelayFlagListen() string { return get("relay.flag_listen", nil) }
 
-// RelayFlagPreset is relay.flag_preset: "with -dev: the files to preload in the browser (config/… and known_hosts)"
+// RelayFlagPreset is relay.flag_preset: "serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)"
 func RelayFlagPreset() string { return get("relay.flag_preset", nil) }
 
-// RelayFlagWeb is relay.flag_web: "with -dev: the built page (web/static)"
+// RelayFlagWeb is relay.flag_web: "serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)"
 func RelayFlagWeb() string { return get("relay.flag_web", nil) }
 
 // RelayListening is relay.listening: "kiln-relay listening on {addr}"
 func RelayListening(addr any) string { return get("relay.listening", map[string]any{"addr": addr}) }
+
+// RelayManifestFailed is relay.manifest_failed: "listing the preset: {err}"
+func RelayManifestFailed(err error) string {
+	return get("relay.manifest_failed", map[string]any{"err": err})
+}
 
 // RelayNeedAllow is relay.need_allow: "kiln-relay needs -allow PATH (the allowlist file)"
 func RelayNeedAllow() string { return get("relay.need_allow", nil) }
@@ -742,6 +743,9 @@ func RelayRefusedTooMany(ip, world any) string {
 func RelayRefusedUnreachable(ip, world any, err error) string {
 	return get("relay.refused_unreachable", map[string]any{"ip": ip, "world": world, "err": err})
 }
+
+// RelayServingPage is relay.serving_page: "serving the page at {url}"
+func RelayServingPage(url any) string { return get("relay.serving_page", map[string]any{"url": url}) }
 
 // RelayWatchFailed is relay.watch_failed: "watching the allowlist: {err}"
 func RelayWatchFailed(err error) string { return get("relay.watch_failed", map[string]any{"err": err}) }

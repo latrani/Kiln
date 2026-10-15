@@ -28,7 +28,6 @@ func run(args []string, logw io.Writer) error {
 	fs := flag.NewFlagSet("kiln-relay", flag.ContinueOnError) //str:ok
 	listen := fs.String("listen", "", str.RelayFlagListen())  //str:ok
 	allow := fs.String("allow", "", str.RelayFlagAllow())     //str:ok
-	dev := fs.Bool("dev", false, str.RelayFlagDev())          //str:ok
 	web := fs.String("web", "", str.RelayFlagWeb())           //str:ok
 	preset := fs.String("preset", "", str.RelayFlagPreset())  //str:ok
 	if err := fs.Parse(args); err != nil {
@@ -37,15 +36,16 @@ func run(args []string, logw io.Writer) error {
 	if *allow == "" {
 		return errors.New(str.RelayNeedAllow())
 	}
-	if *dev && (*web == "" || *preset == "") {
-		return errors.New(str.RelayDevNeedsDirs())
+	for _, d := range []struct{ flag, dir string }{{"web", *web}, {"preset", *preset}} { //str:ok
+		if d.dir != "" {
+			if err := checkDir(d.flag, d.dir); err != nil {
+				return err
+			}
+		}
 	}
 	addr := *listen
 	if addr == "" {
 		addr = "127.0.0.1:7801"
-		if *dev {
-			addr = "localhost:8080" //str:ok
-		}
 	}
 	logf := func(line string) { fmt.Fprintln(logw, time.Now().Format(time.DateTime), line) }
 	s := &relay.Server{Log: logf}
@@ -56,9 +56,9 @@ func run(args []string, logw io.Writer) error {
 	defer w.Close()
 	mux := http.NewServeMux()
 	mux.Handle("/kiln/relay", s) //str:ok
-	if *dev {
-		devRoutes(mux, *web, *preset)
-		logf(str.RelayDevServing("http://" + addr + "/kiln/")) //str:ok
+	if *web != "" {
+		webRoutes(mux, *web, *preset, logf)
+		logf(str.RelayServingPage("http://" + addr + "/kiln/")) //str:ok
 	}
 	logf(str.RelayListening(addr))
 	// No WriteTimeout: relayed connections are long-lived WebSockets.
