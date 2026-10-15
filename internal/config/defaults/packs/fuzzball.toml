@@ -53,5 +53,5 @@ pattern = '<OOC>|\[OOC\]|\(OOC\)'
 # character can restyle any of them; a tag inherits up its slashes, so
 # page/in starts from page.
 [tags]
-"page"    = { fg = "ember", bold = true }
-"whisper" = { fg = "lavender", italic = true }
+"page"    = { fg = "catppuccin.peach", bold = true }
+"whisper" = { fg = "catppuccin.mauve", italic = true }

@@ -36,7 +36,7 @@ func TestBuiltinLook(t *testing.T) {
 		{StatusError, "\x1b[31m"},
 		{LinkHover, "\x1b[4;94m"},
 		{InputOverLimit, "\x1b[38;2;217;38;38;48;2;42;9;9m"},
-		{SidebarPriority, "\x1b[1;38;2;255;209;102m"},
+		{SidebarPriority, "\x1b[1;38;2;238;212;159m"},
 		{Scrollback, ""},
 	} {
 		if got := b.SGR(c.role); got != c.want {
@@ -48,7 +48,7 @@ func TestBuiltinLook(t *testing.T) {
 		match     bool
 	}{
 		{"self", "\x1b[1m", false},
-		{"highlight", "\x1b[1;38;2;255;209;102m", true},
+		{"highlight", "\x1b[1;38;2;238;212;159m", true},
 	} {
 		if _, ts, _ := b.Tag(c.tag); ts.Style.SGR() != c.want || ts.Match != c.match {
 			t.Errorf("builtin tag %s = %q, match %v; want %q, match %v", c.tag, ts.Style.SGR(), ts.Match, c.want, c.match)
@@ -60,8 +60,8 @@ func TestBuiltinLook(t *testing.T) {
 		}
 	}
 	// It names the colors packs use: the fuzzball pack's pages and
-	// whispers are ember and lavender.
-	for _, c := range []string{"ember", "lavender"} {
+	// whispers are catppuccin.peach and catppuccin.mauve.
+	for _, c := range []string{"catppuccin.peach", "catppuccin.mauve"} {
 		if _, err := FromTOML("[tags]\nx = { fg = \"" + c + "\" }\n"); err != nil {
 			t.Errorf("a theme on the built-in can't name %s: %v", c, err)
 		}
@@ -197,7 +197,7 @@ func TestBuiltinLightLook(t *testing.T) {
 		{SidebarAdd, "\x1b[1;38;2;18;84;82;48;2;188;230;228m"},
 		{RuleInput, "\x1b[38;2;180;162;116m"},
 		{InputOverLimit, "\x1b[38;2;165;29;29;48;2;249;220;220m"},
-		{SidebarPriority, "\x1b[1;38;2;164;116;4m"},
+		{SidebarPriority, "\x1b[1;38;2;223;142;29m"},
 	} {
 		if got := b.SGR(c.role); got != c.want {
 			t.Errorf("light %s = %q, want %q", c.role, got, c.want)
@@ -205,5 +205,68 @@ func TestBuiltinLightLook(t *testing.T) {
 	}
 	if Builtin().SGR(InputOverLimit) != "\x1b[38;2;217;38;38;48;2;42;9;9m" {
 		t.Error("the dark over-limit changed")
+	}
+}
+
+// Every theme has the color names, dark and light, even one that
+// extends nothing.
+func TestEveryThemeHasTheNames(t *testing.T) {
+	dir := t.TempDir()
+	writeTheme(t, dir, "bare", "[tags]\na = { fg = \"catppuccin.mauve\" }\nb = { fg = \"glaze.celadon-ink\" }\nc = { fg = \"red\" }\n")
+	for _, c := range []struct {
+		ap      Appearance
+		mauve   string
+		celadon string
+	}{{Dark, "\x1b[38;2;198;160;246m", "\x1b[38;2;160;227;225m"}, {Light, "\x1b[38;2;136;57;239m", "\x1b[38;2;29;114;111m"}} {
+		th, err := Load(dir, "bare", c.ap)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ts, _ := th.Tag("a"); ts.Style.SGR() != c.mauve {
+			t.Errorf("%v mauve = %q, want %q", c.ap, ts.Style.SGR(), c.mauve)
+		}
+		if _, ts, _ := th.Tag("b"); ts.Style.SGR() != c.celadon {
+			t.Errorf("%v celadon-ink = %q, want %q", c.ap, ts.Style.SGR(), c.celadon)
+		}
+		if _, ts, _ := th.Tag("c"); ts.Style.SGR() != "\x1b[31m" {
+			t.Errorf("%v red = %q, want the terminal's", c.ap, ts.Style.SGR())
+		}
+	}
+}
+
+// A later layer redefines a base name, and stacking a theme again
+// doesn't put the bases back over it.
+func TestBaseNamesRedefinable(t *testing.T) {
+	th, err := FromTOML("[palette]\n\"catppuccin.mauve\" = \"#010203\"\n[tags]\na = { fg = \"catppuccin.mauve\" }\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ts, _ := th.Tag("a"); ts.Style.SGR() != "\x1b[38;2;1;2;3m" {
+		t.Errorf("theme's mauve = %q", ts.Style.SGR())
+	}
+	world := layer(t, "worlds/fm.toml", "[palette]\n\"catppuccin.mauve\" = \"#040506\"\n")
+	st, err := th.Stack(nil, []Layer{world})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ts, _ := st.Tag("a"); ts.Style.SGR() != "\x1b[38;2;4;5;6m" {
+		t.Errorf("world's mauve = %q", ts.Style.SGR())
+	}
+}
+
+// ember, lavender and beacon are gone, and the glazes are namespaced:
+// naming them bare is an error.
+func TestRetiredNamesAreGone(t *testing.T) {
+	for _, n := range []string{"ember", "lavender", "beacon", "celadon-ink", "alarm", "mauve"} {
+		if _, err := FromTOML("[tags]\na = { fg = \"" + n + "\" }\n"); err == nil {
+			t.Errorf("%s still resolves", n)
+		}
+	}
+	th, err := FromTOML("[tags]\na = { fg = \"catppuccin.lavender\" }\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ts, _ := th.Tag("a"); ts.Style.SGR() != "\x1b[38;2;183;189;248m" {
+		t.Errorf("catppuccin.lavender = %q", ts.Style.SGR())
 	}
 }

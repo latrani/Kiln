@@ -505,16 +505,17 @@ func readTags(name string, tbl map[string]any, out map[string]tagFileStyle) erro
 	return nil
 }
 
-// build resolves a chain of files, base first, for ap: each file adds its
-// palette and then ap's; later files override earlier ones field by
-// field, then roles inherit down their dots.
+// build resolves a chain of files, base first, for ap, over the bases
+// (the color names every theme has): each file adds its palette and
+// then ap's; later files override earlier ones field by field, then
+// roles inherit down their dots.
 func build(chain []file, ap Appearance) (*Theme, error) {
 	palette := map[string]color{}
 	merged := map[Role]fileStyle{}
 	origin := map[Role]colorOrigin{} // which files set a role's colors, for messages
 	mergedTags := map[string]tagFileStyle{}
 	tagOrigin := map[string]colorOrigin{}
-	for _, f := range chain {
+	for _, f := range append(slices.Clone(bases), chain...) {
 		for _, entries := range []map[string]string{f.palette, f.appearance[ap]} {
 			if err := addPalette(f.name, entries, palette); err != nil {
 				return nil, err

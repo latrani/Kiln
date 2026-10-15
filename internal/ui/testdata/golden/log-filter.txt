@@ -31,7 +31,7 @@
                 │21:01   Sable waves a paw.                                     
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint
                 │21:02   Mira pages: you around?                                
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint; @25-47 bold,fg=#ff9f43
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint; @25-47 bold,fg=#f5a97f
                 │21:03   ›:grins.                                               
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-21 faint; @25-32 faint
                 │21:05   Rook says, "The lighthouse is dark."                   

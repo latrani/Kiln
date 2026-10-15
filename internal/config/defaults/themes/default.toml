@@ -17,7 +17,7 @@ extends = "kiln"
 
 # [ui]
 # "sidebar"      = { bg = "#1d2021" }
-# "status.error" = { fg = "alarm", bold = true }
+# "status.error" = { fg = "glaze.alarm", bold = true }
 
 # [tags]
-# "page" = { fg = "beacon", bold = true, scope = "match" }
+# "page" = { fg = "catppuccin.yellow", bold = true, scope = "match" }

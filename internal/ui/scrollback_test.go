@@ -237,7 +237,7 @@ func TestRuleChangeRestylesScrollback(t *testing.T) {
 		if !strings.Contains(strings.ToLower(ansi.Strip(l.text)), "lighthouse") {
 			continue
 		}
-		if !strings.Contains(l.text, "\x1b[1;38;2;255;209;102m") {
+		if !strings.Contains(l.text, "\x1b[1;38;2;238;212;159m") {
 			t.Errorf("line not restyled: %q", l.text)
 		}
 		styled++
