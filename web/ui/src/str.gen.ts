@@ -896,11 +896,11 @@ export function viewFilterButton(): string { return `Filter`; }
 /** view.history_button: History */
 export function viewHistoryButton(): string { return `History`; }
 
-/** view.history_no_match: nothing sent matches */
-export function viewHistoryNoMatch(): string { return `nothing sent matches`; }
+/** view.history_no_match: no match in history */
+export function viewHistoryNoMatch(): string { return `no match in history`; }
 
-/** view.history_none: nothing sent yet */
-export function viewHistoryNone(): string { return `nothing sent yet`; }
+/** view.history_none: no history yet */
+export function viewHistoryNone(): string { return `no history yet`; }
 
 /** view.log_button: Log */
 export function viewLogButton(): string { return `Log`; }
