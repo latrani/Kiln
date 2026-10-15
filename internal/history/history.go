@@ -70,3 +70,8 @@ func (r *Reader) readNext() error {
 
 // Exhausted reports whether every day has been loaded.
 func (r *Reader) Exhausted() bool { return r.next < 0 && len(r.buf) == 0 }
+
+// Clone returns a Reader that goes on from where r is, independently.
+func (r *Reader) Clone() *Reader {
+	return &Reader{files: r.files, next: r.next, buf: slices.Clone(r.buf)}
+}

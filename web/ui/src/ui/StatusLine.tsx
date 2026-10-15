@@ -1,7 +1,7 @@
 import { loadingText } from "../boot.ts";
 import type { LogState } from "../log.ts";
 import { ask, dismiss } from "../notify.ts";
-import { logShows } from "../store.ts";
+import { historyShows, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -18,7 +18,9 @@ function stateName(s: number): string {
 // A new status replaces the region's text node (keyed by Gen), so the
 // same words said again are read again. Download progress isn't live:
 // read chunk by chunk it would be a flood. While the browser won't show
-// notifications, a button asks it to, with a × to stop offering.
+// notifications, a button asks it to, with a × to stop offering. The
+// History chip, at the right while there's an input to recall into, as
+// the TUI's, opens and closes the history panel; lit while it's up.
 export function StatusLine({ state, store }: { state: State; store: Store }) {
   const err = roleClass("status.error");
   let polite = "", urgent = "", gen = 0;
@@ -37,8 +39,14 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
   const conn = state.phase === "running" && !state.status?.Text && c
     ? (g ? str.viewSelected(g.Selected) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
     : "";
+  const chip = state.phase === "running" && !state.picker && !state.active.startsWith("=") && !g && !state.inputs[state.active]?.NeedPW;
+  const on = historyShows(state);
   return (
     <div class={`status ${roleClass("status")}`}>
+      {chip && (
+        <button class={`chip ${roleClass(on ? "status.history.on" : "status.history")}`} aria-pressed={on}
+          onMouseDown={(e) => e.preventDefault()} onClick={() => state.act?.({ Do: "history_toggle" })}>{str.viewHistoryButton()}</button>
+      )}
       {loading && <span>{loadingText(state.progress!.got, state.progress!.total)}</span>}
       {conn && <span>{conn}{polite && str.separator()}</span>}
       <span role="status" class={!state.saving && !state.status?.Text ? err : undefined}><span key={gen}>{polite}</span></span>

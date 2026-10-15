@@ -196,19 +196,40 @@ func TestClosingTheLastCharacterUnconfirms(t *testing.T) {
 	}
 }
 
-func TestHistoryRecallOnTheActiveInput(t *testing.T) {
-	a, _, _ := submitApp(t, fmWorld)
+func TestHistoryPanelOnTheActiveInput(t *testing.T) {
+	a, c, _ := submitApp(t, fmWorld)
 	a.SetInput("/notify off") // a command goes in history too
 	a.Submit()
+	a.SetInput("say hi")
+	a.Submit()
+	a.SetInput("no")
+	a.HistoryOpen()
+	if h := a.History(); !h.IsOpen() || h.Query() != "no" || !slices.Equal(texts(h.Shown()), []string{"/notify off"}) {
+		t.Fatalf("open %v, query %q, shown %q; the draft is the query", h.IsOpen(), h.Query(), texts(h.Shown()))
+	}
+	a.SetInput("") // typing changes the query
+	if got := texts(a.History().Shown()); !slices.Equal(got, []string{"/notify off", "say hi"}) {
+		t.Errorf("shown %q", got)
+	}
+	if s := a.History().Shown()[1]; !s.At.Equal(now) {
+		t.Errorf("sent at %v, want the clock's", s.At)
+	}
+	a.HistoryMove(-1)
+	a.Submit() // Enter on the panel takes the line to edit; nothing's sent
+	if a.History().IsOpen() || a.Text() != "/notify off" || len(c.Sent()) != 1 {
+		t.Errorf("after Enter: open %v, text %q, sent %q", a.History().IsOpen(), a.Text(), c.Sent())
+	}
 	a.SetInput("draft")
-	if !a.HistoryOlder("draft") || a.Text() != "/notify off" {
-		t.Fatalf("older: %q", a.Text())
+	a.HistoryToggle()
+	a.HistoryMove(1) // down past the newest
+	if a.History().IsOpen() || a.Text() != "draft" {
+		t.Errorf("down past the newest: open %v, text %q", a.History().IsOpen(), a.Text())
 	}
-	if a.HistoryOlder("/notify off") {
-		t.Error("older past the oldest")
-	}
-	if !a.HistoryNewer() || a.Text() != "draft" {
-		t.Errorf("newer: %q; want the draft back", a.Text())
+	a.HistoryOpen()
+	a.SetInput("x")
+	a.HistoryClose()
+	if a.Text() != "draft" {
+		t.Errorf("closed with text %q; want the draft back", a.Text())
 	}
 }
 

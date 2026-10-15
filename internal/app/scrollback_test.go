@@ -94,6 +94,40 @@ func TestPagingOlderHistory(t *testing.T) {
 	}
 }
 
+// The input's history starts with what the logs say was sent, but
+// logins; older days are read as its panel needs them.
+func TestHistoryFromTheLogs(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	writeLog(t, a, day23.Add(-24*time.Hour), "> ancient")
+	lines := []string{"> connect Kit ***", "> sent"}
+	for range HistoryLines {
+		lines = append(lines, "line")
+	}
+	writeLog(t, a, day23, lines...)
+	openAll(t, a, "fm/kit")
+	kit := a.Char("fm/kit")
+	if got := kit.History.Lines(); !slices.Equal(got, []string{"sent"}) {
+		t.Fatalf("history %q; want the preloaded day's sent line, not the login", got)
+	}
+	effs := a.HistoryOpen()
+	if len(effs) != 1 || a.HistoryOpen() != nil {
+		t.Fatalf("HistoryOpen = %v; want one read, and no second while it's in flight", effs)
+	}
+	msg := effs[0].(Run).Func().(SentOlderMsg)
+	if more := a.HandleSentOlder(msg); more != nil {
+		t.Errorf("read on past the oldest day: %v", more)
+	}
+	if got := texts(kit.History.Shown()); !slices.Equal(got, []string{"ancient", "sent"}) {
+		t.Errorf("shown %q", got)
+	}
+	if s := kit.History.Shown()[0]; !s.At.Equal(day23.Add(-24 * time.Hour)) {
+		t.Errorf("ancient sent at %v; want its logged time", s.At)
+	}
+	if a.HandleSentOlder(msg); len(kit.History.Lines()) != 2 {
+		t.Error("took a day from a reader that's done")
+	}
+}
+
 // A page read under rules that have since changed is made again under
 // the current ones when it arrives.
 func TestOlderPageAfterARulesChange(t *testing.T) {

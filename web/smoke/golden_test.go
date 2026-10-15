@@ -468,3 +468,26 @@ func TestGoldenLogFilter(t *testing.T) {
 	s.shoot("log-filter")
 	s.done()
 }
+
+func TestGoldenHistory(t *testing.T) {
+	s := goldenScene(t, nil, func(s *scene) {
+		kilntest.WriteLog(s.t, logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}, kilntest.HistoryDay, kilntest.HistoryLogged...)
+	})
+	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
+	for _, line := range kilntest.HistorySent { // sent as the TUI's, a minute apart
+		s.l.Call(func(a *app.App) {
+			a.SetInput(line)
+			a.Submit()
+			if a.Confirming() { // over max_line_bytes: Enter again sends it anyway
+				a.Submit()
+			}
+			s.clock.Advance(time.Minute) // in the loop's turn: the next send waits for it
+		})
+	}
+	last := kilntest.HistorySent[len(kilntest.HistorySent)-1]
+	waitFor(t, s.ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes(`+jsString(last)+`))`, "the last echo")
+	pressKey(t, s.ws, "ArrowUp", 38)
+	waitFor(t, s.ev, `document.querySelector(".history [aria-selected=true]")?.textContent.includes(`+jsString(last)+`)`, "the panel, the newest selected")
+	s.shoot("history")
+	s.done()
+}

@@ -1088,6 +1088,15 @@ func ViewDisconnected() string { return get("view.disconnected", nil) }
 // ViewFilterButton is view.filter_button: "Filter"
 func ViewFilterButton() string { return get("view.filter_button", nil) }
 
+// ViewHistoryButton is view.history_button: "History"
+func ViewHistoryButton() string { return get("view.history_button", nil) }
+
+// ViewHistoryNoMatch is view.history_no_match: "nothing sent matches"
+func ViewHistoryNoMatch() string { return get("view.history_no_match", nil) }
+
+// ViewHistoryNone is view.history_none: "nothing sent yet"
+func ViewHistoryNone() string { return get("view.history_none", nil) }
+
 // ViewLogButton is view.log_button: "Log"
 func ViewLogButton() string { return get("view.log_button", nil) }
 

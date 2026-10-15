@@ -1,8 +1,9 @@
 import { targetKey } from "../editor.ts";
-import { logShows } from "../store.ts";
+import { historyShows, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import { EditorForm } from "./EditorForm.tsx";
+import { HistoryPanel } from "./HistoryPanel.tsx";
 import { Input } from "./Input.tsx";
 import { LogBar } from "./LogBar.tsx";
 import { PasswordForm } from "./PasswordForm.tsx";
@@ -12,7 +13,8 @@ import { PickerForm } from "./PickerForm.tsx";
 // or with the picker open its filter or an editor over it (in the form's
 // area, even on a world's overview); in log mode its hints or prompt
 // (LogBar). A world's overview otherwise has none, as in the TUI: the
-// overview has the pane.
+// overview has the pane. With the history panel up, the pane takes its
+// most, the panel over the input.
 // Each character gets a password form of its own, so what's typed in one
 // never goes to another's server.
 export function BottomPane({ state, store }: { state: State; store: Store }) {
@@ -32,8 +34,10 @@ export function BottomPane({ state, store }: { state: State; store: Store }) {
       </div>
     );
   }
+  const history = historyShows(state);
   return (
-    <div class={`bottom ${roleClass("input")}`}>
+    <div class={`bottom ${roleClass("input")}` + (history ? " histories" : "")}>
+      {history && <HistoryPanel state={state} />}
       {!overview && state.phase !== "locked" && (password ? <PasswordForm key={state.active} state={state} /> : <Input state={state} store={store} />)}
     </div>
   );

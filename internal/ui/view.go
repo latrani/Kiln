@@ -32,6 +32,7 @@ type layout struct {
 	curRow int  // cursor row within inRows
 	curCol int
 	pillW  int
+	hist   []int // with the history panel up, the Shown index each of inRows' first rows draws (-1: none)
 }
 
 // SidebarWidth is the sidebar's width on a screen w columns wide: a
@@ -73,6 +74,11 @@ func (m *Model) layout() layout {
 		}
 		l.inRows = rows[top:min(len(rows), top+maxIn)]
 		l.inTop, l.curRow, l.curCol = top, r-top, c
+		if m.a.History().IsOpen() { // the panel takes the rest of the input's most, over the query
+			hist, idx := m.historyRows(l.rw, max(1, maxIn-len(l.inRows)))
+			l.inRows, l.hist = append(hist, l.inRows...), idx
+			l.curRow += len(hist)
+		}
 	}
 	l.sbH = max(1, m.height-l.top-len(l.inRows)-3) // top bar and rule; two rules + statusline
 	if cs != nil && cs.sb.Scrolled() {
@@ -106,6 +112,8 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		}
 		rows, row, col := f.rows()
 		return rows, row, col, true
+	case m.a.History().IsOpen() && (cs == nil || !cs.NeedPW): // the panel, over its query
+		return nil, 0, 0, false
 	case cs == nil && m.idle.Empty():
 		return hint(str.ViewNothingOpen())
 	case cs == nil:
@@ -160,7 +168,10 @@ func fit(s string, w int) string {
 // (log mode's included; see takeLogStatus), else in log mode how many
 // lines are selected, else the connection. Nothing in it changes by the
 // minute.
-func (m *Model) statusLine(w int) string {
+func (m *Model) statusLine(w int) string { return fitName(m.statusMsg(), w) }
+
+// statusMsg is what statusLine says, unfitted.
+func (m *Model) statusMsg() string {
 	cs := m.cur()
 	msg, isErr := m.a.Status().Text, m.a.Status().Err
 	switch {
@@ -175,7 +186,31 @@ func (m *Model) statusLine(w int) string {
 	default:
 		msg = stateName(cs.State)
 	}
-	return fitName(msg, w)
+	return msg
+}
+
+// statusBar is the bottom bar: statusLine, and the History chip pinned
+// right while there's an input to recall into. It says which columns
+// the chip takes, [from, to); zero when it isn't drawn.
+func (m *Model) statusBar(w int) (line string, histChip [2]int) {
+	msg := m.statusLine(w)
+	cs := m.cur()
+	if m.overviewing() || m.modal() || cs != nil && (cs.browse != nil || cs.NeedPW) {
+		return msg, histChip
+	}
+	if _, _, asking := m.a.PendingSave(); asking {
+		return msg, histChip
+	}
+	role := theme.StatusHistory
+	if m.a.History().IsOpen() {
+		role = theme.StatusHistoryOn
+	}
+	c := chip(role, str.ViewHistoryButton())
+	cw := xansi.StringWidth(c)
+	if w-cw < 2 { // no room beside the message
+		return msg, histChip
+	}
+	return fitName(m.statusMsg(), w-cw-1) + " " + c, [2]int{w - cw, w}
 }
 
 // topH is the rows above the body: the top bar and its rule.
@@ -350,7 +385,8 @@ func (m *Model) View() tea.View {
 		for _, r := range l.inRows {
 			right = append(right, theme.Fill(area, r, l.rw))
 		}
-		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
+		bar, _ := m.statusBar(l.rw)
+		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, bar, l.rw))
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 

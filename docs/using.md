@@ -8,7 +8,7 @@
 |---|---|
 | `Enter` | Send (on an empty input, connect a disconnected character) |
 | `Shift+Enter` (or `Alt+Enter`) | New line in the input box |
-| `↑` / `↓` | Move between rows, or recall input history from the top or bottom row |
+| `↑` / `↓` | Move between rows; `↑` on the top row opens the [history panel](#history) |
 | `Ctrl+←` / `Ctrl+→` (or `Alt`/`Option`) | Move by word |
 | `Home` / `End` (or `Ctrl+A` / `Ctrl+E`) | Start or end of the line |
 | `Ctrl+W` (or `Alt+Backspace`) / `Alt+Delete` | Delete the word before or after the cursor |
@@ -30,6 +30,10 @@ Links (`http://` or `https://`) in the scrollback are underlined and turn blue u
 The sidebar lists the characters you have open. Click one to switch to it, double-click a disconnected one to reconnect, or click its `×` to close it. Connected characters have no mark; `…` means connecting and `×` disconnected. On the right, a number counts unread lines, and `●` means one of them is a priority line (a page or whisper, by default).
 
 Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: each of its open characters, when their last line came, and their last five lines, with a line between characters. Click a character's part to switch to it. The overview has the whole pane, with no input box; `PgUp`/`PgDn` and the mouse wheel scroll it when the characters don't all fit, and `Enter`, `Ctrl+O` and `Ctrl+T` work as usual.
+
+## History
+
+`↑` on the input's top row, or the `History` button at the right of the bottom bar, opens the history panel: the input box grows to its full height and lists what you've sent from it, newest at the bottom and already selected, each line cut to fit with when it was sent on the right (just the time if it was today, the day too if not). It goes back past this session through your logs, reading older days as you move up; login lines never show. What you'd typed becomes a search: the list shows only what contains it, and typing changes it. `↑`/`↓` (`PgUp`/`PgDn` a page) move the selection; while you're scrolled up off the newest, a `▼ more` badge sits at the bottom right. `Enter`, or clicking a line, puts it in the input box to edit; `Enter` again sends it. `Esc`, `↓` past the newest, or the `History` button again close the panel and put back what you'd typed. Each character, and the input with nothing open, has its own history.
 
 ## Commands
 

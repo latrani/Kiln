@@ -66,6 +66,8 @@ type Char struct {
 	cancel      context.CancelFunc
 	hist        *history.Reader  // pages older log days in; only an in-flight RequestOlder read touches it
 	leftover    []logstore.Entry // the preload's unshown start of its oldest day
+	sentHist    *history.Reader  // pages older log days in for History; nil once they're all read
+	sentLoading bool             // a moreSent read is in flight
 	rulesGen    int              // bumped whenever Rules changes, so a page read under older ones is made again
 	relines     int              // bumped whenever Lines are made again under new rules
 	sentGen     int              // App.hereGen when the last notification went out; -1: none yet

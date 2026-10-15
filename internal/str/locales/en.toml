@@ -139,6 +139,11 @@ pill_more = "▼ more"
 selected = "{n} selected"
 log_button = "Log"
 filter_button = "Filter"
+# The history panel: its button in the statusline, and what it says
+# when it has nothing to list.
+history_button = "History"
+history_none = "nothing sent yet"
+history_no_match = "nothing sent matches"
 # The presence chip in the top bar: here, away, or no focus event seen yet.
 presence_here = "● here"
 presence_away = "○ away"

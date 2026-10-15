@@ -893,6 +893,15 @@ export function viewDisconnected(): string { return `Disconnected · Enter to co
 /** view.filter_button: Filter */
 export function viewFilterButton(): string { return `Filter`; }
 
+/** view.history_button: History */
+export function viewHistoryButton(): string { return `History`; }
+
+/** view.history_no_match: nothing sent matches */
+export function viewHistoryNoMatch(): string { return `nothing sent matches`; }
+
+/** view.history_none: nothing sent yet */
+export function viewHistoryNone(): string { return `nothing sent yet`; }
+
 /** view.log_button: Log */
 export function viewLogButton(): string { return `Log`; }
 

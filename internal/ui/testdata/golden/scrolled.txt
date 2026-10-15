@@ -44,5 +44,5 @@ fm              │fm · Kit                                       ? focus  ·  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │Connected since 21:14                                          
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3
+                │Connected since 21:14                                  History 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-70 fg=#a0b7e3; @71-79 bold,fg=#c0cfed,bg=#0b1b3d

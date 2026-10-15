@@ -149,6 +149,7 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 		evs = append(evs, Closed{Key: k})
 	}
 	put(idInput, f.input(""))
+	put("history", history(a))
 	put("presence", Presence{State: a.Presence()})
 	put("active", Active{Key: a.Active()})
 	st := a.Status()
@@ -358,4 +359,22 @@ func logState(k string, g *app.Log, format string) Log {
 		l.Matches = append(l.Matches, m.Seq)
 	}
 	return l
+}
+
+// history is the active input's history panel.
+func history(a *app.App) History {
+	k := a.Active()
+	if a.Char(k) == nil {
+		k = "" // a world's overview, or nothing open: the idle input
+	}
+	h := a.History()
+	if !h.IsOpen() {
+		return History{Key: k, Sel: -1}
+	}
+	shown, now := h.Shown(), a.Now()
+	rows := make([]HistoryRow, len(shown))
+	for i, s := range shown {
+		rows[i] = HistoryRow{Text: s.Text, Clock: app.Clock(s.At, now)}
+	}
+	return History{Key: k, Open: true, Query: h.Query(), Rows: rows, Sel: h.Sel()}
 }

@@ -284,6 +284,8 @@ func (l *Loop) step(msg any) (extra []any, effs []app.Effect, all bool) {
 		l.a.HandleOlder(m)
 	case app.LogOlderMsg:
 		return nil, l.a.HandleLogOlder(m), false
+	case app.SentOlderMsg:
+		return nil, l.a.HandleSentOlder(m), false
 	case call:
 		m(l.a)
 	case say:

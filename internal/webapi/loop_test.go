@@ -168,9 +168,27 @@ func TestOpenSubmitAndInput(t *testing.T) {
 	if !cleared {
 		t.Errorf("submit should clear the input: %v", b)
 	}
-	b = h.act(`{"Do":"older","Key":"fm/kit","Text":"draft","N":3}`)
+	b = h.act(`{"Do":"older","Key":"fm/kit","Text":"notify","N":3}`) // ↑ on the first row: the panel, the text its query
+	hist := event(b, "History")
+	if hist == nil || hist["Open"] != true || hist["Query"] != "notify" || hist["Sel"] != 0.0 {
+		t.Fatalf("history: %v", b)
+	}
+	if rows := hist["Rows"].([]any); len(rows) != 1 || rows[0].(map[string]any)["Text"] != "/notify off" || rows[0].(map[string]any)["Clock"] == "" {
+		t.Errorf("rows: %v", rows)
+	}
+	b = h.act(`{"Do":"history_pick","N":-1}`)
 	if in := event(b, "Input"); in == nil || in["Text"] != "/notify off" {
-		t.Errorf("history: %v", b)
+		t.Errorf("picked: %v", b)
+	}
+	if hist := event(b, "History"); hist == nil || hist["Open"] != false {
+		t.Errorf("the panel stayed up: %v", hist)
+	}
+	h.act(`{"Do":"input","Key":"fm/kit","Text":"draft","N":4}`)
+	h.act(`{"Do":"history_toggle"}`)
+	h.act(`{"Do":"input","Key":"fm/kit","Text":"no","N":5}`)
+	b = h.act(`{"Do":"history_close"}`)
+	if in := event(b, "Input"); in == nil || in["Text"] != "draft" {
+		t.Errorf("closed: %v; want the draft back", b)
 	}
 }
 
@@ -446,9 +464,9 @@ func TestInputAcksThePage(t *testing.T) {
 	if in := event(second, "Input"); in != nil {
 		t.Errorf("input came back: %v", in)
 	}
-	b := h.act(`{"Do":"newer","Key":"fm/kit","Text":"x","N":3}`) // nothing to recall: still answered
+	b := h.act(`{"Do":"older","Key":"fm/kit","Text":"x","N":3}`) // the text doesn't change: still answered
 	if in := event(b, "Input"); in == nil || in["Ack"] != 3.0 {
-		t.Errorf("newer with nothing newer: %v", in)
+		t.Errorf("older: %v", in)
 	}
 }
 

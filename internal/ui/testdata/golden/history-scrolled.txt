@@ -1,0 +1,48 @@
+fm              │fm · Kit                                       ? focus  ·  Log 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+ Kit            │───────────────────────────────────────────────────────────────
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │›home                                                          
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 faint
+ + Connection   │›say I'll be at the lighthouse.                                
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-47 faint
+                │─── history ends Wed Sep 23 22:05 ───                          
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-53 faint
+                │* connected to muck.test:8888                                  
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
+                │›page Rook = around?                                           
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-36 faint
+                │›:waves.                                                       
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-24 faint
+                │›say The lighthouse is dark tonight, and the tide is coming in 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 faint
+                │ fast.                                                         
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @18-22 faint
+                │›+where                                                        
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-23 faint
+                │›look                                                          
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 faint
+                │›say Evening, Ash.                                             
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-34 faint
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#cdc1a2
+                │›home                                          Wed Sep 23 22:04
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 bold,fg=#e3d0a0; @63-63 fg=#e3d0a0; @64-79 reverse,fg=#e3d0a0
+                │ say I'll be at the lighthouse.                Wed Sep 23 22:05
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-63 fg=#e3d0a0; @64-79 faint,fg=#e3d0a0
+                │ page Rook = around?                                      21:15
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#e3d0a0; @75-79 faint,fg=#e3d0a0
+                │ :waves.                                                  21:16
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#e3d0a0; @75-79 faint,fg=#e3d0a0
+                │ say The lighthouse is dark tonight, and the tide is com… 21:17
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#e3d0a0; @75-79 faint,fg=#e3d0a0
+                │ +where                                                   21:18
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#e3d0a0; @75-79 faint,fg=#e3d0a0
+                │ look                                                   ▼ more 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-71 fg=#e3d0a0; @72-79 reverse,fg=#e3d0a0
+                │›                                                              
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │Connected since 21:14                                  History 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-70 fg=#a0b7e3; @71-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d

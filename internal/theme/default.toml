@@ -51,12 +51,18 @@
 "input.hint"       = { fg = "glaze.gold-mid" }
 "input.over_limit" = { fg = "glaze.alarm", bg = "glaze.alarm-deep" }
 "input.selection"  = { reverse = true }
+"input.history.selected" = { bold = true }
+"input.history.time"     = { faint = true }
+"input.history.cursor"   = { reverse = true }
+"input.history.more"     = { reverse = true }
 
 "status"           = { fg = "glaze.cobalt-ink" }
 "status.log"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.log.on"    = { reverse = true }
 "status.filter"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.filter.on" = { reverse = true }
+"status.history"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
+"status.history.on" = { reverse = true }
 "status.error"     = { fg = "red" }
 
 "status.presence"         = { fg = "glaze.cobalt-ink" }

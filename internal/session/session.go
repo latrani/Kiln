@@ -550,3 +550,9 @@ func (s *Session) emit(ev Event) {
 	case <-s.done:
 	}
 }
+
+// IsLogin returns a test for ch's login line: whether a line, as typed
+// or as logged, carries a password, or did before it was redacted.
+func IsLogin(ch config.Character) func(line string) bool {
+	return loginPattern(ch.Login).MatchString
+}

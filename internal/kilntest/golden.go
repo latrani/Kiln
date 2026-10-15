@@ -63,6 +63,25 @@ var (
 		"Rook yawns.",
 	}
 
+	// HistoryDay is the day before the scenarios, when Kit's log for the
+	// history scenario starts.
+	HistoryDay = time.Date(2026, 9, 23, 22, 0, 0, 0, time.Local)
+
+	// HistoryLogged is Kit's log for the history scenario: what was sent
+	// the day before, a login among it.
+	HistoryLogged = []string{"Welcome to fm.", "> connect Kit ***", "> look", "> +finger Rook", "> home", "> say I'll be at the lighthouse."}
+
+	// HistorySent is what Kit sends in the history scenario, a minute
+	// apart, before opening the panel.
+	HistorySent = []string{
+		"page Rook = around?",
+		":waves.",
+		"say The lighthouse is dark tonight, and the tide is coming in fast.",
+		"+where",
+		"look",
+		"say Evening, Ash.",
+	}
+
 	// MainLines are what Kit hears in main.
 	MainLines = []string{"Rook says, \"Evening, Kit.\"", "See https://kiln.test/map for the way"}
 )

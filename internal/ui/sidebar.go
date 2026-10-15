@@ -32,7 +32,6 @@ func (m *Model) open(k string) *charState {
 		return nil
 	}
 	cs := &charState{Char: c, in: NewInput()}
-	cs.in.hist = &c.History // the core keeps what's been sent
 	if err == nil {
 		err = cs.compileLook()
 	}

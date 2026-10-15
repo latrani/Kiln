@@ -92,6 +92,20 @@ a.s { text-decoration: underline; }
 .logbar input { flex: 1; min-width: 1ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
 .bottom.form { border-top-color: var(--role-rule-form-fg); }
+/* The history panel, as the TUI's: the bottom pane at its most, the list
+   over the input, a line a row with its time at the right, the selected
+   one's › in the gutter; the "more" badge at the list's bottom right
+   while it's scrolled up off the newest. */
+.bottom.histories { height: 50dvh; display: flex; flex-direction: column; overflow: hidden; }
+.history { flex: 1; min-height: 0; position: relative; }
+.history .list { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+.history .list > :first-child { margin-top: auto; }
+.hrow { display: flex; white-space: pre; margin-left: 1ch; position: relative; cursor: pointer; }
+.hrow .htext { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hrow > :last-child { margin-left: 1ch; }
+.hrow[data-mark]::before { content: attr(data-mark); position: absolute; right: 100%; }
+.history > .list > div:not(.hrow) { margin-left: 1ch; }
+.history .more { position: absolute; right: 0; bottom: 0; white-space: pre; }
 /* A one-field form, as the TUI's: the label, the field as wide as what's
    typed, then the hint. */
 .pick-row { display: flex; white-space: pre; }
@@ -115,8 +129,9 @@ a.s { text-decoration: underline; }
 .editor summary::-webkit-details-marker { display: none; }
 .editor .buttons .row { display: flex; white-space: pre; }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
-/* The offer to allow notifications (notify.ts), at the right. */
-.status .offer { float: right; }
+/* The offer to allow notifications (notify.ts), and the History chip,
+   at the right. */
+.status .offer, .status .chip { float: right; }
 .lock { padding: 1lh 1ch; }
 /* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }
