@@ -72,12 +72,38 @@ function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
 const none: Looks = { Roles: {}, Tags: {} };
 
 // themeCSS is t as a stylesheet: dark unless the setting, or with auto
-// the system, says light. Before Go's first theme (loading, another tab
-// has Kiln) it's the terminal's colors alone, following the system.
+// the system, says light. With no theme at all (a first visit, before
+// Go's first) it's the terminal's colors alone, following the system.
 export function themeCSS(t: ThemeEvent | undefined): string {
   if (t?.Appearance === "light") return sheet(t.Light, latte, "light");
   if (t?.Appearance === "dark") return sheet(t.Dark, macchiato, "dark");
   return sheet(t?.Dark ?? none, macchiato, "dark") + `@media (prefers-color-scheme: light){${sheet(t?.Light ?? none, latte, "light")}}`;
+}
+
+// The last theme Go sent, kept in localStorage so the page looks like
+// Kiln before Go sends one: while it loads, and while another tab has it
+// (that tab keeps it up to date). Best effort: without storage, those
+// follow the system.
+const themeKey = "kiln.theme"; // str:ok
+export function rememberTheme(t: ThemeEvent): void {
+  try {
+    globalThis.localStorage?.setItem(themeKey, JSON.stringify(t));
+  } catch {}
+}
+export function recallTheme(): ThemeEvent | undefined {
+  try {
+    const t = JSON.parse(globalThis.localStorage?.getItem(themeKey) ?? "null");
+    return t?.Dark?.Roles && t?.Light?.Roles ? t : undefined;
+  } catch {
+    return undefined;
+  }
+}
+// forgetTheme is /reset's: the next load follows the system again until
+// Go says otherwise.
+export function forgetTheme(): void {
+  try {
+    globalThis.localStorage?.removeItem(themeKey);
+  } catch {}
 }
 
 // fold is a span's look: the server's style, then each named tag's style

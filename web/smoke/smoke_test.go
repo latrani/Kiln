@@ -272,9 +272,14 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `window.kilnGlyphs === ""`, "every glyph one cell wide")
 
 	// A second tab finds Kiln open in the first and says so, with Use
-	// here; taking over leaves the first tab saying so in turn.
+	// here and what it costs, drawn in the first tab's theme; taking over
+	// leaves the first tab saying so in turn.
 	ev2 := evaluator(t, another())
 	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab offering to take over")
+	waitFor(t, ev2, `document.querySelector("main.splash").textContent.includes(`+jsString(str.WebUseHereWarning())+`)`, "the second tab warning what taking over costs")
+	if bg, bg2 := ev(`getComputedStyle(document.body).backgroundColor`), ev2(`getComputedStyle(document.body).backgroundColor`); bg != bg2 {
+		t.Errorf("the second tab's background is %s, not the first tab's %s", bg2, bg)
+	}
 	ev2(`[...document.querySelectorAll("main button")].find(b => b.textContent === ` + jsString(str.WebUseHere()) + `).click()`)
 	waitFor(t, ev2, `kilnPage && document.querySelector("main button") === null`, "the second tab taking over")
 	waitFor(t, ev, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the first tab, taken over, offering it back")

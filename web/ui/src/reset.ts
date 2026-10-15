@@ -6,8 +6,8 @@ export function resetter(o: { wipe: () => Promise<void>; forget: () => void; rel
   let wiping: Promise<void> | undefined;
   let leaving = false;
   return {
-    // reset wipes what the browser saved, forgets the notifications
-    // offer's answer, and reloads; it rejects, reloading nothing, if the
+    // reset wipes what the browser saved, forgets what's kept beside it
+    // (the notifications offer's answer, the last theme), and reloads; it rejects, reloading nothing, if the
     // wipe fails.
     async reset(): Promise<void> {
       if (leaving) return;

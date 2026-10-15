@@ -112,9 +112,11 @@ What you've typed but not sent is saved when you leave the tab (another
 tab or app, or the phone locking), so it's still there if the browser
 closes the tab in the background.
 
-One tab runs Kiln at a time. A second tab offers **Use here**, which
-moves Kiln over; the first tab saves, disconnects, and shows the same
-offer.
+One tab runs Kiln at a time. A second tab shows a splash in the theme
+Kiln last drew with, offering **Use here**, which moves Kiln over; the
+first tab saves, disconnects its characters (the splash warns of this),
+and shows the same offer. Keeping the connections across the move is
+#187.
 
 A preset is laid out like a `/backup` zip: `config/…` is the config
 dir, and `known_hosts` holds TLS pins. Preset files are written only

@@ -10,6 +10,7 @@ import { forgetAsked } from "./notify.ts";
 import { resetter } from "./reset.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
+import { forgetTheme } from "./theme.ts";
 
 const HOME = "/home/kiln";
 const CONFIG = `${HOME}/.config/kiln`;
@@ -199,7 +200,7 @@ export async function boot(store: Store): Promise<void> {
   // seeds a first visit's files. Saving stops first, so nothing written on
   // the way out (drafts, at pagehide) comes back. A handoff to another
   // tab waits out the wipe (reset.ts).
-  const resets = resetter({ wipe: async () => { await persist?.wipe(); }, forget: forgetAsked, reload: () => location.reload() });
+  const resets = resetter({ wipe: async () => { await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
   store.set({ reset: resets.reset });
   g.kilnPage = record ? { act, events, sent } : { act };
 

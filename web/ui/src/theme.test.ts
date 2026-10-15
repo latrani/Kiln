@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fixture from "./testdata/fold.json" with { type: "json" };
-import { color, fold, latte, lookCSS, macchiato, roleClass, themeCSS } from "./theme.ts";
+import { color, fold, forgetTheme, latte, lookCSS, macchiato, recallTheme, rememberTheme, roleClass, themeCSS } from "./theme.ts";
 import type { Span, TagLook, ThemeEvent } from "./types.ts";
 import * as str from "./str.gen.ts";
 
@@ -96,4 +96,52 @@ test("a link under the pointer takes link.hover", () => {
 
 test("a form's fill is a variable, for covering the browser's autofill", () => {
   assert.ok(themeCSS(ev("dark")).includes(`--role-form-bg:${macchiato.bg}`), "unset, the terminal's");
+});
+
+// withStorage runs f with a localStorage of its own.
+function withStorage(f: () => void): void {
+  const m = new Map<string, string>();
+  const old = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) },
+  });
+  try {
+    f();
+  } finally {
+    if (old) Object.defineProperty(globalThis, "localStorage", old);
+    else delete (globalThis as any).localStorage;
+  }
+}
+
+test("the last theme is kept for the next load, until /reset forgets it", () => {
+  withStorage(() => {
+    assert.equal(recallTheme(), undefined);
+    rememberTheme(ev("light"));
+    assert.deepEqual(recallTheme(), ev("light"));
+    forgetTheme();
+    assert.equal(recallTheme(), undefined);
+  });
+});
+
+test("a kept theme that isn't one is ignored", () => {
+  withStorage(() => {
+    for (const bad of ["{", "null", "{}", '{"Dark":{}}']) {
+      globalThis.localStorage.setItem("kiln.theme", bad);
+      assert.equal(recallTheme(), undefined, bad);
+    }
+  });
+});
+
+test("with no storage, nothing's kept and nothing breaks", () => {
+  const old = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("denied"); } });
+  try {
+    rememberTheme(ev("light"));
+    assert.equal(recallTheme(), undefined);
+    forgetTheme();
+  } finally {
+    if (old) Object.defineProperty(globalThis, "localStorage", old);
+    else delete (globalThis as any).localStorage;
+  }
 });
