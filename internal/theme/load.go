@@ -16,6 +16,8 @@ import (
 //go:embed default.toml
 var builtinSrc []byte
 
+//go:generate go run ./gen
+
 //go:embed catppuccin.toml
 var catppuccinSrc []byte
 

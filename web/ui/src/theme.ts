@@ -1,6 +1,7 @@
 // The theme on the page: a Theme event as a stylesheet, and the fold that
 // draws a span (see internal/webapi's Span).
 import * as str from "./str.gen.ts";
+import { terminalDark, terminalLight } from "./terminal.gen.ts";
 import type { Color, Look, Looks, Span, TagLook, ThemeEvent } from "./types.ts";
 
 // Palette is the terminal's own colors: its foreground and background,
@@ -12,20 +13,9 @@ export interface Palette {
 }
 
 // The terminal's colors on the web: Catppuccin Macchiato (dark) and Latte
-// (light), from Catppuccin's own terminal ports. Normal and bright differ
-// only in black and white.
-export const macchiato: Palette = {
-  fg: "#cad3f5",
-  bg: "#24273a",
-  ansi: ["#494d64", "#ed8796", "#a6da95", "#eed49f", "#8aadf4", "#f5bde6", "#8bd5ca", "#b8c0e0",
-    "#5b6078", "#ed8796", "#a6da95", "#eed49f", "#8aadf4", "#f5bde6", "#8bd5ca", "#a5adcb"],
-};
-export const latte: Palette = {
-  fg: "#4c4f69",
-  bg: "#eff1f5",
-  ansi: ["#bcc0cc", "#d20f39", "#40a02b", "#df8e1d", "#1e66f5", "#ea76cb", "#179299", "#5c5f77",
-    "#acb0be", "#d20f39", "#40a02b", "#df8e1d", "#1e66f5", "#ea76cb", "#179299", "#6c6f85"],
-};
+// (light), generated from internal/theme/catppuccin.toml.
+export const macchiato: Palette = terminalDark;
+export const latte: Palette = terminalLight;
 
 // color is c as a CSS color under p; undefined for none.
 export function color(c: Color | undefined, p: Palette): string | undefined {
