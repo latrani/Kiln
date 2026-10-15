@@ -59,6 +59,13 @@ func TestBuiltinLook(t *testing.T) {
 			t.Errorf("the built-in theme styles %s: that's the fuzzball pack's", tag)
 		}
 	}
+	// It names the colors packs use: the fuzzball pack's pages and
+	// whispers are ember and lavender.
+	for _, c := range []string{"ember", "lavender"} {
+		if _, err := FromTOML("[tags]\nx = { fg = \"" + c + "\" }\n"); err != nil {
+			t.Errorf("a theme on the built-in can't name %s: %v", c, err)
+		}
+	}
 }
 
 func TestLoadWithoutAFileIsBuiltin(t *testing.T) {

@@ -47,7 +47,7 @@ name = "Kit"
 
 A tag style takes the same settings as a theme role, plus `scope`. By default it styles the whole line; with `scope = "match"` it styles only the text the tag's classify rules matched, so a server that prefixes pages with `PAGE:` can color just the prefix. A tag inherits from the one up its slashes, the way a role does up its dots: `page/in` starts from `page` and changes only what it sets, and `fg = "default"` clears a color it would inherit. When a line has several tags, whole-line styles go first and match styles on top; later colors win and attributes add up.
 
-A pack can give its tags a look too, with `[palette]` (and `[palette.light]`, `[palette.dark]`) and `[tags]` as a world file has them; the fuzzball pack colors pages and whispers that way. A pack's looks go under everything else: your theme, then the world, then the character can each restyle a pack's tag, and a palette name your theme defines beats the pack's.
+A pack can give its tags a look too, with `[palette]` (and `[palette.light]`, `[palette.dark]`) and `[tags]` as a world file has them; the fuzzball pack colors pages and whispers that way, in the built-in theme's `ember` and `lavender`. A pack's looks go under everything else: your theme, then the world, then the character can each restyle a pack's tag, and a palette name your theme defines beats the pack's. A theme with no `extends` has to define the colors a pack names, or that pack's tags go unstyled (Kiln says which).
 
 `/highlight <text>` adds a classify rule to the world's file that gives every line containing *text* the tag `highlight`. The theme styles that tag once for all your highlights: by default, just the matching text, in bold yellow.
 

@@ -34,7 +34,9 @@ kaki-line   = "#cdb5a2"
 kaki-ink    = "#e3bda0"
 kaki-bright = "#edd3c0"
 
-beacon = "#ffd166"
+ember    = "#ff9f43"
+lavender = "#c39bd3"
+beacon   = "#ffd166"
 
 alarm      = "#d92626"
 alarm-deep = "#2a0909"
@@ -64,7 +66,9 @@ kaki-line   = "#b49074"
 kaki-ink    = "#72421d"
 kaki-bright = "#542f12"
 
-beacon = "#a47404"
+ember    = "#c25a0a"
+lavender = "#814096"
+beacon   = "#a47404"
 
 alarm      = "#a51d1d"
 alarm-deep = "#f9dcdc"
@@ -151,9 +155,10 @@ alarm-deep = "#f9dcdc"
 
 # How lines with Kiln's own tags are drawn: self (lines that mention
 # you) and highlight (/highlight). A pack styles the tags it gives lines
-# (see packs/fuzzball.toml); a theme can restyle any tag. A tag inherits
-# up its slashes, as a role does up its dots. scope = "match" styles
-# only the text the tag's pattern matched.
+# (see packs/fuzzball.toml), naming colors from here (ember, lavender);
+# a theme can restyle any tag. A tag inherits up its slashes, as a role
+# does up its dots. scope = "match" styles only the text the tag's
+# pattern matched.
 [tags]
 "self"       = { bold = true }
 "highlight"  = { fg = "beacon", bold = true, scope = "match" }

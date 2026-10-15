@@ -486,7 +486,8 @@ func TestStackPackLightPalette(t *testing.T) {
 }
 
 // Best keeps the most that resolves: everything, else the packs' looks,
-// else the theme alone; the error says what didn't.
+// else the world's and character's, else the theme alone; the error says
+// what didn't.
 func TestBestFallsBack(t *testing.T) {
 	good := layer(t, "packs/p.toml", "[tags]\nooc = { fg = \"#111111\" }\n")
 	badPack := layer(t, "packs/q.toml", "[tags]\nooc = { fg = \"nowhere\" }\n")
@@ -499,6 +500,11 @@ func TestBestFallsBack(t *testing.T) {
 	th, err = b.Best([]Layer{badPack}, nil)
 	if err == nil || th != b {
 		t.Errorf("a bad pack look: err %v; want the theme itself and an error", err)
+	}
+	goodWorld := layer(t, "worlds/fm.toml", "[tags]\nsay = { fg = \"#222222\" }\n")
+	th, err = b.Best([]Layer{badPack}, []Layer{goodWorld})
+	if err == nil || tagSGR(t, th, "say") != "\x1b[38;2;34;34;34m" {
+		t.Errorf("a bad pack look: err %v, say %q; want the world's looks kept and an error", err, tagSGR(t, th, "say"))
 	}
 	if th, err := b.Best(nil, nil); err != nil || th != b {
 		t.Error("no layers should be the theme itself")

@@ -246,15 +246,19 @@ func (t *Theme) Stack(below, above []Layer) (*Theme, error) {
 }
 
 // Best is Stack, or where that doesn't resolve (a color nobody
-// defines), t with below alone, or t itself: the most that does. err
-// says why the whole stack didn't.
+// defines), the most that does: t with below alone, else with above
+// alone, else t itself. A typo in one file costs only that file's
+// looks. err says why the whole stack didn't.
 func (t *Theme) Best(below, above []Layer) (*Theme, error) {
 	th, err := t.Stack(below, above)
 	if err == nil {
 		return th, nil
 	}
-	if len(above) > 0 {
-		if th, berr := t.Stack(below, nil); berr == nil {
+	for _, try := range [][2][]Layer{{below, nil}, {nil, above}} {
+		if len(try[0])+len(try[1]) == 0 {
+			continue
+		}
+		if th, terr := t.Stack(try[0], try[1]); terr == nil {
 			return th, err
 		}
 	}

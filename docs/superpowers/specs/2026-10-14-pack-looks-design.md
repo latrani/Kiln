@@ -21,20 +21,20 @@ no server tags every theme can count on.
   world and character looks already do. So a person's theme can still
   restyle `page` once for every world, and a world or character file
   can still restyle it for itself.
-- **Palette names merge in the same order.** A pack's `ember` is used
-  unless the theme, world or character defines `ember` too; then
-  theirs wins. A theme that redefines a name a pack uses is restyling
-  that pack, on purpose or not.
-- **The fuzzball pack gets the looks** the built-in theme has now:
-  `page` (`ember`, bold), `whisper` (`lavender`, italic), with `ember`
-  and `lavender` in its `[palette]` and their light variants in
-  `[palette.light]`. Lines look the same as before, so the TUI
-  goldens don't change.
+- **Palette names merge in the same order.** A pack's own palette
+  name is used unless the theme, world or character defines it too;
+  then theirs wins.
+- **Colors stay the theme's.** The fuzzball pack gets the tag looks the
+  built-in theme has now, `page` (`ember`, bold) and `whisper`
+  (`lavender`, italic), naming the built-in's colors: `ember` and
+  `lavender` (and their light variants) stay in the built-in theme's
+  palette. A pack names the theme's colors; a set of color names every
+  theme defines is a later spec. Lines look the same as before, so the
+  TUI goldens don't change.
 - **`watchfor` gets a look in the fuzzball pack.** Indi picks it.
 - **The built-in theme keeps only Kiln's own tags**: `self` (bold) and
   `highlight` (`beacon`, bold, match). Kiln emits these itself, so the
-  theme is the right home. `page`, `whisper`, `ember` and `lavender`
-  leave it.
+  theme is the right home. `page` and `whisper` leave it.
 
 ## Where it lands
 
@@ -64,11 +64,10 @@ and whispers lose their color. They get it back by deleting the old
 pack (Kiln writes the new one) or, on the web, with `/reset`. The
 release notes say so.
 
-A person's theme that names `ember` or `lavender` without defining them
-no longer loads: those names left the built-in palette, and a theme is
-loaded before any pack's looks go under it. The starter theme's
-examples name only the built-in's colors. The release notes say this
-too.
+A theme with no `extends` doesn't have the built-in's palette, so
+unless it defines `ember` and `lavender` the fuzzball pack's pages and
+whispers lose their color there (Kiln says why). `Best` keeps the
+world's and character's looks when only a pack's don't resolve.
 
 ## Not changing
 
