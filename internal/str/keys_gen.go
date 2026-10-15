@@ -1229,7 +1229,7 @@ func WebPicker() string { return get("web.picker", nil) }
 // WebReload is web.reload: "Reload"
 func WebReload() string { return get("web.reload", nil) }
 
-// WebResetFailed is web.reset_failed: "couldn't wipe what this browser saved · reload and try again"
+// WebResetFailed is web.reset_failed: "failed to wipe · reload and try again"
 func WebResetFailed() string { return get("web.reset_failed", nil) }
 
 // WebStopped is web.stopped: "Kiln stopped."

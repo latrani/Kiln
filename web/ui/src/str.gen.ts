@@ -1020,8 +1020,8 @@ export function webPicker(): string { return `Open a connection`; }
 /** web.reload: Reload */
 export function webReload(): string { return `Reload`; }
 
-/** web.reset_failed: couldn't wipe what this browser saved · reload and try again */
-export function webResetFailed(): string { return `couldn't wipe what this browser saved · reload and try again`; }
+/** web.reset_failed: failed to wipe · reload and try again */
+export function webResetFailed(): string { return `failed to wipe · reload and try again`; }
 
 /** web.stopped: Kiln stopped. */
 export function webStopped(): string { return `Kiln stopped.`; }
