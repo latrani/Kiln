@@ -156,16 +156,20 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "hello"')))`, "the echo")
 	waitFor(t, ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes('You say, "hello"'))`, "the echo on the page")
 	waitFor(t, ev, `document.querySelector(".bottom textarea").value === ""`, "the input cleared")
+	// ↑ on the input's top row opens the history panel, the newest line
+	// selected; Enter takes it to the input to edit.
 	pressKey(t, ws, "ArrowUp", 38)
-	waitFor(t, ev, `document.querySelector(".bottom textarea").value === "hello"`, "history recalled")
+	waitFor(t, ev, `[...document.querySelectorAll(".bottom .history [role=option][aria-selected=true]")].some(o => o.textContent.includes("hello"))`, "the history panel, the line sent selected")
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `!document.querySelector(".bottom .history") && document.querySelector(".bottom textarea").value === "hello"`, "the line taken from history")
 	// ↑ in a long line wrapped over several rows moves the caret up a row,
-	// as the TUI's; only on the first row does it recall history.
+	// as the TUI's; only on the first row does it open the history panel.
 	long := strings.Repeat("a long pose wraps ", 30)
 	ev(`document.querySelector(".bottom textarea").select()`)
 	devtools(t, ws, "Input.insertText", map[string]any{"text": long})
 	pressKey(t, ws, "ArrowUp", 38)
-	time.Sleep(500 * time.Millisecond) // long enough for history to come back, were it asked
-	if got := ev(`(() => { const t = document.querySelector(".bottom textarea"); return t.value === ` + jsString(long) + ` && t.selectionStart < t.value.length; })()`); got != "true" {
+	time.Sleep(500 * time.Millisecond) // long enough for the panel to open, were it asked
+	if got := ev(`(() => { const t = document.querySelector(".bottom textarea"); return t.value === ` + jsString(long) + ` && t.selectionStart < t.value.length && !document.querySelector(".bottom .history"); })()`); got != "true" {
 		t.Error("↑ on a wrapped line's last row didn't move the caret up a row")
 	}
 	// Each line sent on its own has its ›, beside the row it starts on in
