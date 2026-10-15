@@ -842,6 +842,34 @@ func TestResetAsksFirst(t *testing.T) {
 	}
 }
 
+// The /reset arm lasts one step: editing the text, or another command,
+// in between asks again. What the page sends on its own (presence,
+// focus, size) doesn't.
+func TestResetArmIsOneShot(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		between []string
+		resets  bool
+	}{
+		{"an edit taken back", []string{`{"Do":"input","Key":"","Text":"/rese","N":2}`, `{"Do":"input","Key":"","Text":"/reset","N":3}`}, false},
+		{"another command", []string{`{"Do":"submit","Key":"","Text":"/away","N":2}`, `{"Do":"input","Key":"","Text":"/reset","N":3}`}, false},
+		{"the page's own", []string{`{"Do":"here"}`, `{"Do":"focus","In":true}`, `{"Do":"resize","Cols":80,"Rows":24}`, `{"Do":"input","Key":"","Text":"/reset","N":3}`}, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			a, dir := newApp(t)
+			h := startWith(t, a, dir, Options{})
+			h.act(`{"Do":"submit","Key":"","Text":"/reset","N":1}`)
+			for _, b := range c.between {
+				h.act(b)
+			}
+			b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":4}`)
+			if got := event(b, "Effect") != nil; got != c.resets {
+				t.Errorf("reset %v, want %v", got, c.resets)
+			}
+		})
+	}
+}
+
 func TestRestoreTakesTheFile(t *testing.T) {
 	a, dir := newApp(t)
 	var got []byte

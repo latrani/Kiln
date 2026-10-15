@@ -117,21 +117,8 @@ func (a *App) IdleHistory() *History { return &a.idleHist }
 // over-limit line asks again.
 func (a *App) Unconfirm() { a.confirm = "" }
 
-// Confirm is a front end's confirm for line, in the over-limit's slot:
-// false the first time, arming it, and true on the next ask for the same
-// line, disarming it. Esc (Unconfirm), switching, or another line in
-// between asks again.
-func (a *App) Confirm(line string) bool {
-	if a.confirm == line {
-		a.confirm = ""
-		return true
-	}
-	a.confirm = line
-	return false
-}
-
-// Confirming reports whether an over-limit line, or a front end's
-// Confirm, is waiting for Enter again.
+// Confirming reports whether an over-limit line is waiting for Enter
+// again.
 func (a *App) Confirming() bool { return a.confirm != "" }
 
 // SkipLogin takes down the active character's password prompt, if it's

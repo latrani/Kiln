@@ -84,27 +84,6 @@ func TestOverLimitConfirmIsKeyedToTheText(t *testing.T) {
 	}
 }
 
-// Confirm is a front end's own confirm for a command, in the same slot
-// as the over-limit's: Esc drops it, and a different line asks again.
-func TestConfirmIsTheOverLimitsSlot(t *testing.T) {
-	a, _, _ := submitApp(t, fmWorld)
-	if a.Confirm("/reset") || !a.Confirming() {
-		t.Fatal("the first ask should arm, not confirm")
-	}
-	if !a.Confirm("/reset") || a.Confirming() {
-		t.Error("the second ask should confirm and disarm")
-	}
-	a.Confirm("/reset")
-	a.Unconfirm() // Esc
-	if a.Confirm("/reset") {
-		t.Error("Esc should drop the confirmation")
-	}
-	a.Confirm("/other")
-	if a.Confirm("/reset") {
-		t.Error("another line's confirm shouldn't confirm this one")
-	}
-}
-
 func TestOverLimitIsExported(t *testing.T) {
 	ch := config.Character{MaxLineBytes: 5, NewlineMode: "batch"}
 	if OverLimit("12345", ch) || !OverLimit("123456", ch) || OverLimit("123\n456", ch) {

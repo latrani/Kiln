@@ -42,6 +42,7 @@ type Loop struct {
 	opts          Options           // as Run was given them
 	drafts        map[string]string // saved drafts not yet restored, by key ("" for the idle input)
 	onDisk        map[string]string // the drafts last written
+	resetArmed    bool              // /reset asked; Enter on it next goes ahead (reset)
 	lk            looks             // the theme as last sent
 	landed        []any             // LogAt events waiting for the turn's batch; see land
 	logStatus     int               // the status Gen log mode's message became; see takeLogStatus

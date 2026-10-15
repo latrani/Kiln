@@ -31,6 +31,13 @@ type Action struct {
 // do carries out act. See step for what it returns.
 func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 	a := l.a
+	// /reset's arm lasts one step of the person's: anything they do but
+	// Enter on it again (an edit, another command, Esc) asks again. What
+	// the page sends by itself doesn't count.
+	armed := l.resetArmed
+	if !pageOwn(act, a.Text()) {
+		l.resetArmed = false
+	}
 	switch act.Do {
 	case "open": //str:ok
 		l.open(act.Key)
@@ -89,7 +96,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 			}
 		case "submit": //str:ok
 			_, effs = a.Submit()
-			effs = l.reset(l.backup(effs))
+			effs = l.reset(l.backup(effs), armed)
 			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
@@ -173,12 +180,13 @@ func (l *Loop) backup(effs []app.Effect) []app.Effect {
 }
 
 // reset passes /reset on to the page (which wipes what it saved and
-// reloads) only on Enter again: the first keeps /reset in the input and
-// says what it does.
-func (l *Loop) reset(effs []app.Effect) []app.Effect {
+// reloads) only on Enter again, armed: the first keeps /reset in the
+// input and says what it does.
+func (l *Loop) reset(effs []app.Effect, armed bool) []app.Effect {
 	out := effs[:0:0]
 	for _, e := range effs {
-		if d, ok := e.(app.Do); ok && d.Cmd == "/reset" && !l.a.Confirm(d.Cmd) { //str:ok
+		if d, ok := e.(app.Do); ok && d.Cmd == "/reset" && !armed { //str:ok
+			l.resetArmed = true
 			l.a.SetInput(d.Cmd)
 			l.a.SetStatus(true, str.StatusResetConfirm())
 			continue
@@ -186,6 +194,19 @@ func (l *Loop) reset(effs []app.Effect) []app.Effect {
 		out = append(out, e)
 	}
 	return out
+}
+
+// pageOwn reports whether act is one the page sends by itself, not the
+// person: presence, focus, size, scrolling, catching up, and an input
+// that changes nothing (text is the input's now).
+func pageOwn(act Action, text string) bool {
+	switch act.Do {
+	case "here", "away", "focus", "resize", "scrolled", "since", "all", "page": //str:ok
+		return true
+	case "input": //str:ok
+		return act.Text == text
+	}
+	return false
 }
 
 // restore puts back the backup the page read for /restore, then reads
