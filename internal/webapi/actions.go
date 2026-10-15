@@ -95,8 +95,12 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 				a.ClearStatus() // typing again dismisses what was said before
 			}
 		case "submit": //str:ok
-			_, effs = a.Submit()
+			var res app.SubmitResult
+			res, effs = a.Submit()
 			effs = l.reset(l.backup(effs), armed)
+			if res.Sent {
+				extra = append(extra, Sent{Key: k, Echoed: res.Echoed})
+			}
 			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
@@ -156,6 +160,14 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		}
 	}
 	return extra, effs, all
+}
+
+// Sent says a line went out for Key: the page shows the end, as the
+// TUI's scrollback does on Enter. Echoed says the line was echoed, so
+// the echo is the newest line, and the pager can stop with it at the top.
+type Sent struct {
+	Key    string
+	Echoed bool
 }
 
 // backup does /backup when Run was given a way to: the page gets the

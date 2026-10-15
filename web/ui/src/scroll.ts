@@ -41,3 +41,13 @@ export function settle(v: View | undefined, epoch: number, lines: LineData[], sh
   const i = lines.findIndex((l) => l.Seq > v.seen);
   return [next, i < 0 ? { to: "end" } : { to: "end", pauseFrom: i }];
 }
+
+// sent is v after you send a line, as the TUI's ToBottomKeeping: live,
+// at the end, with everything seen; except that a line echoed (the
+// newest) stays unseen, so if what comes next fills the pane the pager
+// stops with your line at the top.
+export function sent(v: View, lines: LineData[], echoed: boolean): View {
+  const last = lines.at(-1)?.Seq ?? -1;
+  const seen = echoed ? (lines.at(-2)?.Seq ?? -1) : last;
+  return { ...v, live: true, unseen: 0, seen, last, anchor: undefined };
+}

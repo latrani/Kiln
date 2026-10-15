@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { settle } from "./scroll.ts";
+import { sent, settle } from "./scroll.ts";
 import type { View } from "./scroll.ts";
 import type { LineData } from "./store.ts";
 
@@ -52,4 +52,21 @@ test("older history above doesn't move a live view off the end, nor count", () =
 test("a live view takes new lines at the end, unless they overflow (the pager decides)", () => {
   const was: View = { epoch: 1, live: true, seen: 20, last: 20, unseen: 0 };
   assert.deepEqual(settle(was, 1, upTo(22), false)[1], { to: "end", pauseFrom: 20 });
+});
+
+test("sending goes to the end, everything seen: then what comes is live", () => {
+  const was: View = { epoch: 1, live: false, seen: 5, last: 40, unseen: 35, anchor: { seq: 4, off: 3 } };
+  const v = sent(was, upTo(41), false);
+  assert.equal(v.live, true);
+  assert.equal(v.unseen, 0);
+  assert.equal(v.seen, 41);
+  assert.deepEqual(settle(v, 1, upTo(41), false)[1], { to: "end" });
+});
+
+test("sending a line that's echoed leaves the echo unseen, so the pager can stop with it at the top", () => {
+  const was: View = { epoch: 1, live: false, seen: 5, last: 41, unseen: 36 };
+  const v = sent(was, upTo(41), true);
+  assert.equal(v.seen, 40, "line 41 is the echo");
+  // Lines after it that more than fill the pane stop the view at the echo.
+  assert.deepEqual(settle(v, 1, upTo(120), false)[1], { to: "end", pauseFrom: 40 });
 });

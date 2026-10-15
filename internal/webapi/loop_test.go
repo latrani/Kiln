@@ -204,6 +204,54 @@ func TestRunWorkComesBackOnTheLoop(t *testing.T) {
 	}
 }
 
+// connectKit opens Kit and waits until it's connected.
+func connectKit(t *testing.T, h *harness) {
+	t.Helper()
+	h.act(`{"Do":"open","Key":"fm/kit"}`)
+	h.act(`{"Do":"submit","Key":"fm/kit","Text":"","N":1}`)
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case b := <-h.batches:
+			if c := event(b, "Char"); c != nil && c["State"] == float64(session.Connected) {
+				return
+			}
+		case <-deadline:
+			t.Fatal("never connected")
+		}
+	}
+}
+
+// A line that goes out tells the page, which then shows the end, as the
+// TUI does: an empty one too (it's sent); a command doesn't.
+func TestSentTellsThePage(t *testing.T) {
+	a, dir := newApp(t)
+	// No login, so what's typed goes to the server, not a password prompt.
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(fmWorld, "use = [\"fuzzball\"]\n", "use = [\"fuzzball\"]\nlogin = \"\"\n", 1))
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	h := startWith(t, a, dir, Options{})
+	connectKit(t, h)
+	for i, c := range []struct {
+		text string
+		sent bool
+	}{{"hello", true}, {"", true}, {"/notify off", false}} {
+		for quiet := false; !quiet; { // the connection's own batches first
+			select {
+			case <-h.batches:
+			case <-time.After(100 * time.Millisecond):
+				quiet = true
+			}
+		}
+		b := h.act(fmt.Sprintf(`{"Do":"submit","Key":"fm/kit","Text":%q,"N":%d}`, c.text, i+2))
+		e := event(b, "Sent")
+		if (e != nil) != c.sent || e != nil && (e["Key"] != "fm/kit" || e["Echoed"] == true) {
+			t.Errorf("%q: Sent %v, want sent %v", c.text, e, c.sent)
+		}
+	}
+}
+
 func TestQuitEndsTheLoop(t *testing.T) {
 	a, _ := newApp(t)
 	got := make(chan []map[string]any, 10)

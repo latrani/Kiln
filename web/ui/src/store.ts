@@ -105,6 +105,7 @@ export interface State {
   opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
   notifyOffer?: boolean; // the status line offers to allow notifications (notify.ts)
   reset?: () => Promise<void>; // /reset: wipe what the browser saved and reload (boot.ts)
+  sent?: { key: string; echoed: boolean; n: number }; // the last line sent, and how many so far (the scrollback goes to the end)
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
@@ -304,6 +305,7 @@ export class Store {
         const v = s.logView[k] ?? { goN: 0 };
         return { ...s, logView: { ...s.logView, [k]: { ...v, at: e.Seq, goN: v.goN + 1 } } };
       }
+      case "Sent": return { ...s, sent: { key: k, echoed: !!e.Echoed, n: (s.sent?.n ?? 0) + 1 } };
       case "ExportName": {
         const v = s.logView[k] ?? { goN: 0 };
         return { ...s, logView: { ...s.logView, [k]: { ...v, prompt: { kind: "filename", value: e.Name, format: e.Format } } } };
