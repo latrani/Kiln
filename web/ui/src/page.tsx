@@ -32,9 +32,12 @@ export const effect = (store: Store) => (e: Event): void => {
     pickFile(".zip,application/zip", (globalThis as any).kiln.maxBackup, (bytes) => store.state.act?.({ Do: "restore", Data: toBase64(bytes) }));
   } else if (e.effect === "Do" && e.Cmd === "/reset") {
     // Go asked first (Enter again). A browser that won't clear what it
-    // saved has still stopped saving: say so, and to reload.
+    // saved has still stopped saving: show that, as when saving fails,
+    // and say to reload (after, so it's what the status line shows).
     store.state.reset?.().catch((err) => {
       console.error("reset", err);
+      store.set({ saving: false });
+      (globalThis as any).kiln?.storageFailed?.();
       store.state.act?.({ Do: "say", Text: str.webResetFailed(), Err: true });
     });
   } else if (e.effect === "Do" && e.Cmd === "/log") {

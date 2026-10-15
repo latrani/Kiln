@@ -48,4 +48,5 @@ test("a reset the browser refuses says so on the status line", async () => {
     console.error = was;
   }
   assert.deepEqual(sent.at(-1), { Do: "say", Text: str.webResetFailed(), Err: true });
+  assert.equal(s.state.saving, false, "saving has stopped, so the page says it isn't");
 });
