@@ -838,10 +838,12 @@ export function themeParse(file: unknown, err: unknown): string { return `${file
 /** theme.role_not_table: {file}: {role} needs a table of settings, like {role} = {{ fg = … }} */
 export function themeRoleNotTable(file: unknown, role: unknown): string { return `${file}: ${role} needs a table of settings, like ${role} = { fg = … }`; }
 
-/** theme.show_merged: {name}, with the themes it extends merged in. It looks the same saved
-as a file of its own. A role inherits from the one before its last dot. */
-export function themeShowMerged(name: unknown): string { return `${name}, with the themes it extends merged in. It looks the same saved
-as a file of its own. A role inherits from the one before its last dot.`; }
+/** theme.show_merged: {name}, with the themes it extends and the color names every theme has
+merged in. It looks the same saved as a file of its own. A role
+inherits from the one before its last dot. */
+export function themeShowMerged(name: unknown): string { return `${name}, with the themes it extends and the color names every theme has
+merged in. It looks the same saved as a file of its own. A role
+inherits from the one before its last dot.`; }
 
 /** theme.swatch_sample: Sample */
 export function themeSwatchSample(): string { return `Sample`; }

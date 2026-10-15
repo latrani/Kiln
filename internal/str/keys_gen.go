@@ -1021,7 +1021,7 @@ func ThemeRoleNotTable(file, role any) string {
 	return get("theme.role_not_table", map[string]any{"file": file, "role": role})
 }
 
-// ThemeShowMerged is theme.show_merged: "{name}, with the themes it extends merged in. It looks the same saved\nas a file of its own. A role inherits from the one before its last dot."
+// ThemeShowMerged is theme.show_merged: "{name}, with the themes it extends and the color names every theme has\nmerged in. It looks the same saved as a file of its own. A role\ninherits from the one before its last dot."
 func ThemeShowMerged(name any) string { return get("theme.show_merged", map[string]any{"name": name}) }
 
 // ThemeSwatchSample is theme.swatch_sample: "Sample"

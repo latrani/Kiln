@@ -123,8 +123,10 @@ there.
 Pre-1.0, a clean break:
 
 - A file naming `ember`, `lavender`, `beacon`, or a glaze or `alarm`
-  without `glaze.`, gets the usual "isn't a color" error; `Best` keeps
-  everything else that resolves.
+  without `glaze.`, gets the usual "isn't a color" error. In a pack,
+  world or character file `Best` keeps everything else that resolves;
+  a theme file that does it fails to load as a whole, and the built-in
+  stands in, as for any broken theme.
 - An existing `packs/fuzzball.toml` names `ember` and `lavender`: its
   pages and whispers lose their color until it's
   deleted (Kiln writes the new one) or, on the web, `/reset`.
