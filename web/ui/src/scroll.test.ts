@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sent, settle } from "./scroll.ts";
+import { sent, settle, switchedAway } from "./scroll.ts";
 import type { View } from "./scroll.ts";
 import type { LineData } from "./store.ts";
 
@@ -54,19 +54,30 @@ test("a live view takes new lines at the end, unless they overflow (the pager de
   assert.deepEqual(settle(was, 1, upTo(22), false)[1], { to: "end", pauseFrom: 20 });
 });
 
-test("sending goes to the end, everything seen: then what comes is live", () => {
+test("sending goes to the end, everything up to Seen seen: then what comes is live", () => {
   const was: View = { epoch: 1, live: false, seen: 5, last: 40, unseen: 35, anchor: { seq: 4, off: 3 } };
-  const v = sent(was, upTo(41), false);
+  const v = sent(was, 41);
   assert.equal(v.live, true);
   assert.equal(v.unseen, 0);
   assert.equal(v.seen, 41);
   assert.deepEqual(settle(v, 1, upTo(41), false)[1], { to: "end" });
 });
 
-test("sending a line that's echoed leaves the echo unseen, so the pager can stop with it at the top", () => {
+test("an echoed line left unseen lets the pager stop with it at the top", () => {
   const was: View = { epoch: 1, live: false, seen: 5, last: 41, unseen: 36 };
-  const v = sent(was, upTo(41), true);
-  assert.equal(v.seen, 40, "line 41 is the echo");
-  // Lines after it that more than fill the pane stop the view at the echo.
+  const v = sent(was, 40); // line 41 is the echo
   assert.deepEqual(settle(v, 1, upTo(120), false)[1], { to: "end", pauseFrom: 40 });
+});
+
+test("replies drawn in the same render as the send still count as new", () => {
+  // The echo (41) and a reply that fills the pane arrive before the page draws.
+  const was: View = { epoch: 1, live: false, seen: 5, last: 40, unseen: 35 };
+  assert.deepEqual(settle(sent(was, 40), 1, upTo(120), false)[1], { to: "end", pauseFrom: 40 });
+});
+
+test("switching away from a live view sees everything it has, a send's echo too", () => {
+  const v = switchedAway(sent({ epoch: 1, live: false, seen: 5, last: 40, unseen: 0 }, 40), upTo(41));
+  assert.equal(v.seen, 41);
+  const up: View = { epoch: 1, live: false, seen: 5, last: 40, unseen: 3 };
+  assert.equal(switchedAway(up, upTo(43)).seen, 5, "scrolled up, nothing more is seen");
 });

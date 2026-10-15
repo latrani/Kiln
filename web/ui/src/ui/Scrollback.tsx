@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { tagsFor } from "../look.ts";
 import { below, pause } from "../pager.ts";
 import { throttle } from "../presence.ts";
-import { sent, settle } from "../scroll.ts";
+import { sent, settle, switchedAway } from "../scroll.ts";
 import type { View } from "../scroll.ts";
 import type { LineData, State } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -111,10 +111,21 @@ export function Scrollback({ state }: { state: State }) {
     const prev = shown.current;
     shown.current = { key, epoch: ls?.epoch };
     for (const k of views.current.keys()) if (!state.chars[k]) views.current.delete(k); // closed
+    // A line sent goes to the end, as the TUI's Enter: after a scroll you
+    // made before it, and before a switch that came after it (which then
+    // sees the rest), as the TUI's order. Those two never meet: a pending
+    // scroll is only taken in when the character didn't change.
+    const takeSent = () => {
+      if (!state.sent || state.sent.n === sends.current) return;
+      sends.current = state.sent.n;
+      const sv = views.current.get(state.sent.key);
+      if (sv) views.current.set(state.sent.key, sent(sv, state.sent.seen));
+    };
     if (prev.key !== key) {
+      takeSent();
       // Switching away counts as seeing what was showing, if it was live.
       const pv = views.current.get(prev.key);
-      if (pv?.live) pv.seen = pv.last;
+      if (pv) views.current.set(prev.key, switchedAway(pv, state.lines[prev.key]?.lines ?? []));
     }
     if (!e) return;
     if (!ls) {
@@ -124,12 +135,7 @@ export function Scrollback({ state }: { state: State }) {
     // A scroll whose event hasn't come yet is taken in first, or this draw
     // would undo it.
     if (prev.key === key && prev.epoch === ls.epoch && left.current !== undefined && Math.abs(e.scrollTop - left.current) >= 1) took(e);
-    // A line sent goes to the end, as the TUI's Enter (scroll.ts's sent).
-    if (state.sent && state.sent.n !== sends.current) {
-      sends.current = state.sent.n;
-      const sv = views.current.get(state.sent.key);
-      if (sv) views.current.set(state.sent.key, sent(sv, state.lines[state.sent.key]?.lines ?? [], state.sent.echoed));
-    }
+    takeSent();
     const [v, move] = settle(views.current.get(key), ls.epoch, lines, prev.key !== key || prev.epoch !== ls.epoch);
     views.current.set(key, v);
     if (move.to === "anchor") restore(e, v);

@@ -222,33 +222,82 @@ func connectKit(t *testing.T, h *harness) {
 	}
 }
 
-// A line that goes out tells the page, which then shows the end, as the
-// TUI does: an empty one too (it's sent); a command doesn't.
-func TestSentTellsThePage(t *testing.T) {
+// sendingKit is a harness with Kit connected and no login, so what's
+// typed goes to the server, not a password prompt; extra is more world
+// settings.
+func sendingKit(t *testing.T, extra string) *harness {
+	t.Helper()
 	a, dir := newApp(t)
-	// No login, so what's typed goes to the server, not a password prompt.
-	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(fmWorld, "use = [\"fuzzball\"]\n", "use = [\"fuzzball\"]\nlogin = \"\"\n", 1))
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(fmWorld, "use = [\"fuzzball\"]\n", "use = [\"fuzzball\"]\nlogin = \"\"\n"+extra, 1))
 	if _, ok := a.Reload(); !ok {
 		t.Fatal(a.Status().Text)
 	}
 	h := startWith(t, a, dir, Options{})
 	connectKit(t, h)
+	return h
+}
+
+// drain takes the batches the connection sends by itself.
+func drain(h *harness) {
+	for {
+		select {
+		case <-h.batches:
+		case <-time.After(100 * time.Millisecond):
+			return
+		}
+	}
+}
+
+// lastSeq is the Seq of Kit's line n from the end (1 is the newest).
+func lastSeq(h *harness, n int) float64 {
+	ls := h.a.Char("fm/kit").Lines
+	return float64(ls[len(ls)-n].Seq)
+}
+
+// A line that goes out tells the page, which then shows the end, as the
+// TUI does: an empty one too (it's sent); a command doesn't. Seen is the
+// newest line: nothing was echoed.
+func TestSentTellsThePage(t *testing.T) {
+	h := sendingKit(t, "")
 	for i, c := range []struct {
 		text string
 		sent bool
 	}{{"hello", true}, {"", true}, {"/notify off", false}} {
-		for quiet := false; !quiet; { // the connection's own batches first
-			select {
-			case <-h.batches:
-			case <-time.After(100 * time.Millisecond):
-				quiet = true
-			}
-		}
+		drain(h)
 		b := h.act(fmt.Sprintf(`{"Do":"submit","Key":"fm/kit","Text":%q,"N":%d}`, c.text, i+2))
 		e := event(b, "Sent")
-		if (e != nil) != c.sent || e != nil && (e["Key"] != "fm/kit" || e["Echoed"] == true) {
-			t.Errorf("%q: Sent %v, want sent %v", c.text, e, c.sent)
+		if (e != nil) != c.sent || e != nil && (e["Key"] != "fm/kit" || e["Seen"] != lastSeq(h, 1)) {
+			t.Errorf("%q: Sent %v, want sent %v, seen %v", c.text, e, c.sent, lastSeq(h, 1))
 		}
+	}
+}
+
+// With local echo, the echo is the newest line and stays unseen: Seen
+// is the line before it, so the pager can stop with the echo at the top.
+func TestSentLeavesTheEchoUnseen(t *testing.T) {
+	h := sendingKit(t, "local_echo = true\n")
+	drain(h)
+	e := event(h.act(`{"Do":"submit","Key":"fm/kit","Text":"hello","N":2}`), "Sent")
+	if e == nil || e["Seen"] != lastSeq(h, 2) {
+		t.Errorf("Sent %v, want seen %v (the echo is %v)", e, lastSeq(h, 2), lastSeq(h, 1))
+	}
+}
+
+// The password form's answer isn't a line sent: it doesn't go to the end.
+func TestPasswordIsNotSent(t *testing.T) {
+	h := start(t)
+	connectKit(t, h)
+	deadline := time.After(2 * time.Second)
+	for !h.a.Char("fm/kit").NeedPW {
+		select {
+		case <-h.batches:
+		case <-deadline:
+			t.Fatal("no password prompt")
+		}
+	}
+	drain(h)
+	if b := h.act(`{"Do":"password","Key":"fm/kit","Text":"hunter2","N":2}`); event(b, "Sent") != nil {
+		t.Error("the password was taken as a line sent")
 	}
 }
 
