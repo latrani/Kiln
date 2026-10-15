@@ -345,18 +345,23 @@ test("a world's overview has no input, but the picker's filter shows there", () 
   assert.match(bottom(render(<App store={s} />)), /role="combobox"/);
 });
 
-test("adding a character: the TUI's one-row name form; a problem replaces the hint", () => {
+test("adding a character: the name in the sidebar, in + Character's place; a problem under it; the keys in the form's area", () => {
   const s = new Store();
   s.set({ phase: "running" });
-  s.apply(three);
+  s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
   s.openPicker();
-  s.setPicker({ adding: "fm", name: "A B", error: "no spaces" });
-  const html = bottom(render(<App store={s} />));
-  assert.match(html, new RegExp(`<label[^>]*>${str.pickerName()}: </label>`));
-  assert.match(html, /aria-invalid="true"/);
-  assert.ok(html.includes("no spaces") && html.includes(roleClass("form.error")) && !html.includes(str.pickerAddCharHint()));
+  s.setPicker({ sel: "+fm", adding: "fm", name: "A B", error: "no spaces" });
+  const html = render(<App store={s} />);
+  const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+  assert.ok(!nav.includes(str.pickerAddCharacter()), "the field takes + Character's place");
+  assert.match(nav, new RegExp(`id="pick-\\+fm"[^>]*><span class="name-field ${roleClass("picker.add")}"><input id="kiln-name"`));
+  assert.match(nav, new RegExp(`aria-label="${str.pickerName()}"`));
+  assert.match(nav, /aria-invalid="true"/);
+  assert.match(nav, new RegExp(`class="name-note ${roleClass("picker.error")}">no spaces<`));
+  const pane = bottom(html);
+  assert.ok(pane.includes(str.pickerAddCharHint()) && !pane.includes("<input"), "the keys stay in the form's area");
   s.setPicker({ error: undefined });
-  assert.ok(bottom(render(<App store={s} />)).includes(str.pickerAddCharHint()), "no problem: the hint");
+  assert.doesNotMatch(render(<App store={s} />), /aria-invalid/, "no problem");
 });
 
 test("behind the picker, the scrollback is dimmed in scrollback.inactive; the overview too", () => {

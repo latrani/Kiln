@@ -26,6 +26,7 @@ const (
 	PickerWorldSelected Role = "picker.world.selected"
 	PickerSelected      Role = "picker.selected"
 	PickerAdd           Role = "picker.add"
+	PickerError         Role = "picker.error" // under a name being added: why it won't do
 
 	Divider    Role = "divider"
 	Rule       Role = "rule"
@@ -109,7 +110,7 @@ const (
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore,
-	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd,
+	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError,
 	Divider, Rule, RuleInput, RuleForm, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,

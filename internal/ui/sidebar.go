@@ -75,18 +75,20 @@ func (m *Model) closed(k, prev string) {
 type rowKind int
 
 const (
-	rowWorld    rowKind = iota // a world header
-	rowChar                    // a character
-	rowGap                     // the blank row above rowAdd
-	rowAdd                     // "+ Connection"
-	rowAddChar                 // the picker's "+ Character", ending a world
-	rowAddWorld                // the picker's "+ World", ending the list
+	rowWorld        rowKind = iota // a world header
+	rowChar                        // a character
+	rowGap                         // the blank row above rowAdd
+	rowAdd                         // "+ Connection"
+	rowAddChar                     // the picker's "+ Character", ending a world; the name field while adding one
+	rowAddCharError                // a row of why that name won't do, under the field
+	rowAddWorld                    // the picker's "+ World", ending the list
 )
 
 type sidebarRow struct {
 	kind  rowKind
 	world string
 	char  string // character key, for rowChar
+	text  string // the row's text, for rowAddCharError
 }
 
 // addLabel is the sidebar's last row.
@@ -152,8 +154,13 @@ func (sv sideView) at(y int) (*sidebarRow, int) {
 // position the mouse wheel left.
 func (m *Model) sidebarView() sideView {
 	rows, focus := m.sidebarRows(), m.a.Active()
+	shown := focus // scrolled into view when it changes
 	if m.listing() {
 		rows, focus = m.pickerRows(), m.picker.sel
+		shown = focus
+		if e := m.addingChar(); e != nil {
+			shown += "\x00" + e.form.reject // a new error under the name comes into view too
+		}
 	}
 	sv := sideView{rows: rows}
 	h := max(1, m.height)
@@ -178,15 +185,19 @@ func (m *Model) sidebarView() sideView {
 		return v
 	}
 	sv = fit(m.sideTop)
-	if focus != m.sideShown {
-		m.sideShown = focus
+	if shown != m.sideShown {
+		m.sideShown = shown
 		if a := slices.IndexFunc(sv.rows, func(r sidebarRow) bool {
 			return r.kind == rowChar && r.char == focus || (m.listing() || r.kind == rowWorld) && selKey(r) == focus
 		}); a >= 0 {
 			if a < sv.top {
 				sv = fit(a - 1) // show the row above too (often its world header)
 			}
-			for a >= sv.top+sv.avail {
+			end := a // and the error rows under a name being added
+			for end+1 < total && sv.rows[end+1].kind == rowAddCharError && end+1-a < sv.avail {
+				end++
+			}
+			for end >= sv.top+sv.avail {
 				sv = fit(sv.top + 1)
 			}
 		}

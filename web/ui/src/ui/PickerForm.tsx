@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { composing } from "../input.ts";
 import { answered, choose, movePick, pagePick, pickerRows } from "../picker.ts";
 import type { State, Store } from "../store.ts";
@@ -34,13 +34,21 @@ function useKeys(ref: { current: HTMLInputElement | null }, onKeyDown: (e: Keybo
 }
 
 // PickerForm is the picker's part of the bottom pane, a TUI one-field
-// form: the filter, or while adding a character its name. The filter is
-// a combobox for the picker's list in the
+// form: the filter, or while adding a character the keys for its name,
+// which is typed in the sidebar (NameField). The filter is a combobox
+// for the picker's list in the
 // sidebar (↑/↓ and PgUp/PgDn move the highlight, Enter chooses, Esc
 // closes). It takes focus when it opens; closing gives the input its
 // place back, and the input takes focus as it comes.
 export function PickerForm({ state, store }: { state: State; store: Store }) {
-  return state.picker!.adding !== undefined ? <NameForm key={state.picker!.adding} state={state} store={store} /> : <FilterForm state={state} store={store} />;
+  if (state.picker!.adding !== undefined) {
+    return (
+      <div class="pick-row">
+        <span id="kiln-name-hint" class={roleClass("form.hint")}>{str.pickerAddCharHint()}</span>
+      </div>
+    );
+  }
+  return <FilterForm state={state} store={store} />;
 }
 
 function FilterForm({ state, store }: { state: State; store: Store }) {
@@ -85,11 +93,13 @@ function FilterForm({ state, store }: { state: State; store: Store }) {
   );
 }
 
-// NameForm asks for a new character's name, as the TUI's: Enter adds it
-// to the world and connects it; Esc goes back to the filter. As you type,
-// Go's check says what won't do, in place of the hint; Enter still
-// tries (Go's save has the last word, and says why in the same place).
-function NameForm({ state, store }: { state: State; store: Store }) {
+// NameField asks for a new character's name, as the TUI's: in the
+// sidebar, in place of its world's "+ Character" and in its colors, why
+// a name won't do under it in picker.error. Enter adds it to the world
+// and connects it; Esc goes back to the filter. As you type, Go's check
+// says what won't do; Enter still tries (Go's save has the last word,
+// and says why in the same place).
+export function NameField({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
   const ref = useRef<HTMLInputElement>(null);
   const seen = useRef(state.answer?.n ?? 0);
@@ -101,6 +111,10 @@ function NameForm({ state, store }: { state: State; store: Store }) {
       answered(store, a);
     }
   }, [state.answer]);
+  // A problem comes into view with the name, as the TUI's.
+  useLayoutEffect(() => {
+    if (p.error) ref.current?.closest("li")?.scrollIntoView?.({ block: "nearest" });
+  }, [p.error]);
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.defaultPrevented || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.key === "Enter" && !composing(e)) {
@@ -118,12 +132,13 @@ function NameForm({ state, store }: { state: State; store: Store }) {
     store.setPicker({ name, error: (check && check("name", name)) || undefined });
   };
   return (
-    <div class="pick-row">
-      <label for="kiln-name" class={roleClass("form.label")}>{str.pickerName()}: </label>
-      <input id="kiln-name" ref={ref} value={p.name ?? ""} autocomplete="off" spellcheck={false} disabled={state.phase === "stopped"}
-        aria-invalid={p.error ? "true" : undefined} aria-describedby="kiln-name-note" onKeyDown={onKeyDown} onInput={onInput} />
-      <span class={roleClass("form.hint")}>{str.separator()}</span>
-      <span id="kiln-name-note" aria-live="polite" class={roleClass(p.error ? "form.error" : "form.hint")}>{p.error ?? str.pickerAddCharHint()}</span>
-    </div>
+    <>
+      <span class={"name-field " + roleClass("picker.add")}>
+        <input id="kiln-name" ref={ref} value={p.name ?? ""} aria-label={str.pickerName()} autocomplete="off" spellcheck={false}
+          disabled={state.phase === "stopped"} aria-invalid={p.error ? "true" : undefined} aria-describedby="kiln-name-note kiln-name-hint"
+          onKeyDown={onKeyDown} onInput={onInput} />
+      </span>
+      <span id="kiln-name-note" aria-live="polite" class={"name-note " + roleClass("picker.error")}>{p.error ?? ""}</span>
+    </>
   );
 }

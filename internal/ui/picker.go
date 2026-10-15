@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
@@ -122,9 +123,26 @@ func (m *Model) pickerRows() []sidebarRow {
 		}
 		if len(wr) > 1 || strings.Contains(strings.ToLower(w), f) {
 			rows = append(append(rows, wr...), sidebarRow{kind: rowAddChar, world: w})
+			if e := m.addingChar(); e != nil && e.world == w && e.form.reject != "" {
+				// One space in, as the field; wrapped, since the sidebar
+				// is narrow.
+				wrapped := xansi.Wrap(e.form.reject, max(1, SidebarWidth(m.width)-1), "")
+				for _, l := range strings.Split(wrapped, "\n") {
+					rows = append(rows, sidebarRow{kind: rowAddCharError, world: w, text: l})
+				}
+			}
 		}
 	}
 	return append(rows, sidebarRow{kind: rowAddWorld})
+}
+
+// addingChar is the editor naming a new character, which the picker
+// draws in place of its world's "+ Character"; nil when there's none.
+func (m *Model) addingChar() *editor {
+	if m.picker == nil || m.picker.edit == nil || m.picker.edit.kind != addChar {
+		return nil
+	}
+	return m.picker.edit
 }
 
 // worldIDs is every configured world, in sidebar order.
@@ -271,6 +289,18 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
+// nameField draws the name being added, in place of "+ Character" and
+// in its colors: one space in, filling the row, scrolled to keep the
+// cursor in view. It returns the cursor's column too.
+func nameField(f *form, w int) (line string, col int) {
+	in := f.fields[0].in
+	rows, _, c := in.Render(1<<20, 0, false, false)
+	text, c := strings.TrimPrefix(rows[0], gutterMark), c-gutterWidth
+	tw := max(1, w-2) // the text's columns, between the chip's leading space and the row's end
+	off := max(0, c-tw+1)
+	return fit(" "+theme.Paint(theme.PickerAdd, fit(" "+xansi.Cut(text, off, off+tw), w-1)), w), 2 + c - off
+}
+
 // pickerLine draws one picker row: a world, a character or an add row
 // indented under it, or the add-world row; highlighted when selected.
 func (m *Model) pickerLine(r sidebarRow, w int) string {
@@ -281,7 +311,13 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 			return theme.Paint(theme.PickerWorldSelected, fitName(r.world, w))
 		}
 		return theme.Paint(theme.PickerWorld, fitName(r.world, w))
+	case rowAddCharError:
+		return fit(" "+theme.Paint(theme.PickerError, r.text), w)
 	case rowAddChar, rowAddWorld:
+		if e := m.addingChar(); e != nil && r.kind == rowAddChar && e.world == r.world {
+			line, _ := nameField(e.form, w)
+			return line
+		}
 		label, role, indent := addWorldLabel, theme.PickerAdd, ""
 		if r.kind == rowAddChar {
 			label, indent = addCharLabel, " "

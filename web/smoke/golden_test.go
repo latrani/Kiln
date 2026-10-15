@@ -355,6 +355,20 @@ func TestGoldenPicker(t *testing.T) {
 	s.done()
 }
 
+func TestGoldenPickerAdd(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	s.show(kilntest.MainLines[0])
+	ctrlO(t, s.ws)
+	waitFor(t, s.ev, `document.activeElement === document.querySelector('.bottom input[role="combobox"]')`, "the picker")
+	pressKey(t, s.ws, "ArrowDown", 40) // Rook, then fm's add row, as the TUI's
+	pressKey(t, s.ws, "Enter", 13)
+	waitFor(t, s.ev, `document.activeElement === document.querySelector("#kiln-name")`, "the name field")
+	s.typeIn("Ash ") // the space won't do: the problem shows under the name
+	waitFor(t, s.ev, `document.querySelector("#kiln-name-note").textContent !== ""`, "the name's problem")
+	s.shoot("picker-add")
+	s.done()
+}
+
 func TestGoldenEditor(t *testing.T) {
 	s := goldenScene(t, nil, nil)
 	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
