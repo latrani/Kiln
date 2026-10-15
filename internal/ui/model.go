@@ -453,7 +453,10 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.a.ClearStatus()
 		}
 	case reloadMsg:
-		if m.reloadNow() {
+		// A character's look that didn't resolve keeps the status line:
+		// "config reloaded" would hide it.
+		gen := m.a.Status().Gen
+		if m.reloadNow() && !(m.a.Status().Err && m.a.Status().Gen != gen) {
 			m.setStatus(false, str.StatusConfigReloaded())
 		}
 		return m, tea.Batch(m.watch(), m.askBackground())

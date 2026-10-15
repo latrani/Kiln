@@ -897,3 +897,19 @@ func TestBadWorldLookKeepsPackLooks(t *testing.T) {
 		t.Error("the pack's ooc look should stay when the world's doesn't resolve")
 	}
 }
+
+// A reload that finds a look that doesn't resolve says so, rather than
+// "config reloaded" over it.
+func TestReloadKeepsLookError(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	broken := fmWorld + "\n[tags]\n\"page/in\" = { fg = \"nowhere\" }\n"
+	if err := os.WriteFile(filepath.Join(h.dir, "worlds", "fm.toml"), []byte(broken), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.m.Update(reloadMsg{})
+	if st := h.m.a.Status(); !st.Err || !strings.Contains(st.Text, str.ThemeBadColor(filepath.Join("worlds", "fm.toml"), str.ThemeTagEntry("page/in"), "nowhere")) {
+		t.Errorf("status = %+v, want the bad color", st)
+	}
+}
