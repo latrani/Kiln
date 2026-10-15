@@ -89,7 +89,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 			}
 		case "submit": //str:ok
 			_, effs = a.Submit()
-			effs = l.backup(effs)
+			effs = l.reset(l.backup(effs))
 			if _, ok := l.onDisk[k]; ok && a.Draft(k) == "" {
 				l.saveDrafts() // sent: it mustn't come back as a draft
 			}
@@ -166,6 +166,22 @@ func (l *Loop) backup(effs []app.Effect) []app.Effect {
 				continue
 			}
 			e = app.SaveFile{Name: str.BackupFileName(l.a.Now().Format("2006-01-02")), Data: data} //str:ok
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// reset passes /reset on to the page (which wipes what it saved and
+// reloads) only on Enter again: the first keeps /reset in the input and
+// says what it does.
+func (l *Loop) reset(effs []app.Effect) []app.Effect {
+	out := effs[:0:0]
+	for _, e := range effs {
+		if d, ok := e.(app.Do); ok && d.Cmd == "/reset" && !l.a.Confirm(d.Cmd) { //str:ok
+			l.a.SetInput(d.Cmd)
+			l.a.SetStatus(true, str.StatusResetConfirm())
+			continue
 		}
 		out = append(out, e)
 	}

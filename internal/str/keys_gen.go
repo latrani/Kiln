@@ -923,6 +923,9 @@ func StatusPasswordSaved() string { return get("status.password_saved", nil) }
 // StatusQuitHint is status.quit_hint: "Press Ctrl+{key} again to quit"
 func StatusQuitHint(key any) string { return get("status.quit_hint", map[string]any{"key": key}) }
 
+// StatusResetConfirm is status.reset_confirm: "wipes everything saved in this browser: worlds, pins, logs · /backup first · Enter again to reset"
+func StatusResetConfirm() string { return get("status.reset_confirm", nil) }
+
 // StatusRestoreFailed is status.restore_failed: "couldn't restore: {err}"
 func StatusRestoreFailed(err error) string {
 	return get("status.restore_failed", map[string]any{"err": err})

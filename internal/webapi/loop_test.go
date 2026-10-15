@@ -816,6 +816,32 @@ func TestBackupFailingSaysSo(t *testing.T) {
 	}
 }
 
+// /reset asks first: the first Enter keeps /reset in the input and warns,
+// the second goes to the page. Esc in between asks again.
+func TestResetAsksFirst(t *testing.T) {
+	a, dir := newApp(t)
+	h := startWith(t, a, dir, Options{})
+	b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":1}`)
+	if event(b, "Effect") != nil {
+		t.Fatal("the first Enter reset")
+	}
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusResetConfirm() || st["Err"] != true {
+		t.Errorf("status %v", st)
+	}
+	if in := event(b, "Input"); in == nil || in["Text"] != "/reset" {
+		t.Errorf("input %v", in)
+	}
+	b = h.act(`{"Do":"submit","Key":"","Text":"/reset","N":2}`)
+	if e := event(b, "Effect"); e == nil || e["effect"] != "Do" || e["Cmd"] != "/reset" {
+		t.Errorf("the second Enter: effect %v", e)
+	}
+	h.act(`{"Do":"submit","Key":"","Text":"/reset","N":3}`)
+	h.act(`{"Do":"cancel"}`)
+	if b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":4}`); event(b, "Effect") != nil {
+		t.Error("Esc should make /reset ask again")
+	}
+}
+
 func TestRestoreTakesTheFile(t *testing.T) {
 	a, dir := newApp(t)
 	var got []byte

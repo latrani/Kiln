@@ -767,6 +767,9 @@ export function statusPasswordSaved(): string { return `password saved`; }
 /** status.quit_hint: Press Ctrl+{key} again to quit */
 export function statusQuitHint(key: unknown): string { return `Press Ctrl+${key} again to quit`; }
 
+/** status.reset_confirm: wipes everything saved in this browser: worlds, pins, logs · /backup first · Enter again to reset */
+export function statusResetConfirm(): string { return `wipes everything saved in this browser: worlds, pins, logs · /backup first · Enter again to reset`; }
+
 /** status.restore_failed: couldn't restore: {err} */
 export function statusRestoreFailed(err: unknown): string { return `couldn't restore: ${e(err)}`; }
 
