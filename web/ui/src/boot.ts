@@ -6,6 +6,7 @@
 import { createFS } from "../../static/memfs.mjs";
 import { createPersist, idbStore } from "../../static/persist.mjs";
 import { createTabLock } from "../../static/tablock.mjs";
+import { forgetAsked } from "./notify.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
@@ -193,6 +194,16 @@ export async function boot(store: Store): Promise<void> {
   const typing = store.state.typing!;
   const act = (o: object) => typing.act(o);
   store.set({ act });
+  // /reset: wipe what this browser saved, then reload, where the preset
+  // seeds a first visit's files. Saving stops first, so nothing written on
+  // the way out (drafts, at pagehide) comes back.
+  store.set({
+    reset: async () => {
+      await persist?.wipe();
+      forgetAsked();
+      location.reload();
+    },
+  });
   g.kilnPage = record ? { act, events, sent } : { act };
 
   const saveDrafts = () => act({ Do: "save_drafts" });

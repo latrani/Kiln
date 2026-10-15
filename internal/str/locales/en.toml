@@ -386,6 +386,8 @@ needs_js = "Kiln needs JavaScript."
 # The status line while the page downloads Kiln, in megabytes.
 loading = "loading Kiln… {got} MB"
 loading_size = "loading Kiln… {got}/{total} MB"
+# /reset couldn't clear what the browser saved; saving has stopped.
+reset_failed = "couldn't wipe what this browser saved · reload and try again"
 stopped = "Kiln stopped."
 reload = "Reload"
 # The sidebar's name for screen readers.

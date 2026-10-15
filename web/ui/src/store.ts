@@ -104,11 +104,12 @@ export interface State {
   parked: Record<string, Editor>; // editors opened from the main view, by the item they were left on
   opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
   notifyOffer?: boolean; // the status line offers to allow notifications (notify.ts)
+  reset?: () => Promise<void>; // /reset: wipe what the browser saved and reload (boot.ts)
 }
 
 // fresh is a state holding nothing of Go's: only the page's own.
-const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer">): State => ({
-  phase, progress, saving, onUseHere, act, typing, notifyOffer,
+const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer, reset }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer" | "reset">): State => ({
+  phase, progress, saving, onUseHere, act, typing, notifyOffer, reset,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, logView: {}, drafts: {}, parked: {},
 });
 
