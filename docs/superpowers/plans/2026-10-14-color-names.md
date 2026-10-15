@@ -34,6 +34,8 @@
 
 ### Task 1: The base layers, and the retired names
 
+> **Revised (Indi, mid-run):** shipped names are namespaced by file: `catppuccin.mauve`, `glaze.celadon-ink`, `glaze.alarm`. `parseBase` prefixes each palette key with the file's namespace; `[terminal]` names accents in full (`catppuccin.red`); the built-in theme's colors gain `glaze.`, `beacon` → `catppuccin.yellow`, the pack's `page`/`whisper` → `catppuccin.peach`/`catppuccin.mauve`. Tests below name the namespaced forms. See the spec's Names section.
+
 **Files:**
 - Create: `internal/theme/catppuccin.toml`, `internal/theme/catppuccin.LICENSE`, `internal/theme/glaze.toml`
 - Modify: `internal/theme/load.go` (embed and parse the bases), `internal/theme/theme.go` (`build` puts the bases under every chain; `parseTables` callers), `internal/theme/default.toml` (palette out; `beacon` → `yellow`), `internal/config/defaults/packs/fuzzball.toml` (`ember` → `peach`, `lavender` → `mauve`)

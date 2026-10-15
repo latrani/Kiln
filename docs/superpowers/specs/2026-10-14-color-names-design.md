@@ -9,10 +9,23 @@ theme with no `extends` loses Kiln's names and every pack color that
 used them. And Kiln's names are its own: nobody outside Kiln knows what
 `ember` looks like.
 
-So: a person can write `mauve` or `sky` in any theme, world or pack and
-get Catppuccin's color, Macchiato on a dark background and Latte on a
-light one. Kiln's chrome keeps its own colors, the glazes, and those
-names are always there too.
+So: a person can write `catppuccin.mauve` or `catppuccin.sky` in any
+theme, world or pack and get Catppuccin's color, Macchiato on a dark
+background and Latte on a light one. Kiln's chrome keeps its own
+colors, the glazes, and those names (`glaze.celadon-ink`) are always
+there too.
+
+## Names
+
+Shipped palettes are namespaced by their file: `catppuccin.toml` writes
+`mauve` and it loads as `catppuccin.mauve`; `glaze.toml`'s
+`celadon-ink` is `glaze.celadon-ink`. Bare names are the terminal's
+sixteen (`red`, `bright-blue`) and whatever a theme, pack, world or
+character defines itself. Namespaces keep Catppuccin's `red`, `green`,
+`yellow` and `blue` from colliding with the terminal's, and leave room
+for more shipped palettes. A file can still redefine a namespaced name
+(`"catppuccin.mauve" = "#…"`, quoted, since a bare dotted key is a TOML
+table), but restyling a tag is the usual way.
 
 ## Layers
 
@@ -35,7 +48,7 @@ styles but keeps every color name.
 - `[palette]` is Macchiato's accents and `[palette.light]` Latte's,
   from catppuccin/palette's `palette.json`: `rosewater`, `flamingo`,
   `pink`, `mauve`, `red`, `maroon`, `peach`, `yellow`, `green`, `teal`,
-  `sky`, `sapphire`, `blue`, `lavender`. Only the accents: Catppuccin's
+  `sky`, `sapphire`, `blue`, `lavender`, each `catppuccin.` once loaded. Only the accents: Catppuccin's
   text, surface and base shades assume its own background, and in the
   terminal server text sits on the terminal's.
 - `[terminal]` (and `[terminal.light]`) is the web's stand-in for a
@@ -50,12 +63,12 @@ styles but keeps every color name.
   white = "#b8c0e0"         # subtext1
   bright-black = "#5b6078"  # surface2
   bright-white = "#a5adcb"  # subtext0
-  red = "red"
-  green = "green"
-  yellow = "yellow"
-  blue = "blue"
-  magenta = "pink"
-  cyan = "teal"
+  red = "catppuccin.red"
+  green = "catppuccin.green"
+  yellow = "catppuccin.yellow"
+  blue = "catppuccin.blue"
+  magenta = "catppuccin.pink"
+  cyan = "catppuccin.teal"
   ```
 
   The brights 9–14 are the normals again, as in Catppuccin's own
@@ -78,8 +91,10 @@ dark and light, moved out of `internal/theme/default.toml` unchanged.
 - `ember`, `lavender` and `beacon` are gone (Catppuccin's `lavender` is
   a periwinkle; ours was a purple).
 - `highlight`, `sidebar.priority` and `status.presence.away`: `beacon`
-  → `yellow`.
-- The fuzzball pack: `page` → `peach`, `whisper` → `mauve`.
+  → `catppuccin.yellow`.
+- The fuzzball pack: `page` → `catppuccin.peach`, `whisper` →
+  `catppuccin.mauve`.
+- Every glaze and `alarm` it names gains `glaze.`.
 
 The look changes a little on purpose (Indi recolors the defaults soon
 anyway); the TUI goldens are updated, with the change named in the
@@ -106,11 +121,11 @@ there.
 
 Pre-1.0, a clean break:
 
-- A file naming `ember`, `lavender` (meaning ours) or `beacon` gets the
-  usual "isn't a color" error; `Best` keeps everything else that
-  resolves.
+- A file naming `ember`, `lavender`, `beacon`, or a glaze or `alarm`
+  without `glaze.`, gets the usual "isn't a color" error; `Best` keeps
+  everything else that resolves.
 - An existing `packs/fuzzball.toml` names `ember` and `lavender`: its
-  pages lose their color, and whispers turn periwinkle, until it's
+  pages and whispers lose their color until it's
   deleted (Kiln writes the new one) or, on the web, `/reset`.
 - A theme with no `extends` now has every color name; nothing it
   defined itself changes.
@@ -118,9 +133,10 @@ Pre-1.0, a clean break:
 ## Testing
 
 - Every theme, including one with no `extends`, resolves all fourteen
-  names and the glazes, dark and light, to the files' values.
-- A theme, pack, world or character can redefine `mauve`; the
-  later layer wins.
+  `catppuccin.` names and the `glaze.` names, dark and light, to the
+  files' values; bare `red` is still the terminal's.
+- A theme, pack, world or character can redefine `catppuccin.mauve`;
+  the later layer wins.
 - `[terminal]`: the generated file matches the TOML (accents resolved,
   brights equal to normals), and `go generate` leaves no diff.
 - `kiln theme show` lists the base names.
