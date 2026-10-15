@@ -42,6 +42,12 @@ function setAsked(): void {
     globalThis.localStorage?.setItem(askedKey, "1");
   } catch {}
 }
+// forgetAsked offers again, as on a first visit: /reset.
+export function forgetAsked(): void {
+  try {
+    globalThis.localStorage?.removeItem(askedKey);
+  } catch {}
+}
 
 // offer is whether the status line offers to allow notifications: the
 // browser won't show them yet and the offer hasn't been taken or turned

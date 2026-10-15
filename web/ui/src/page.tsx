@@ -15,7 +15,7 @@ import { App } from "./ui/App.tsx";
 
 // effect does what Go asks of the page: a file to download (an export,
 // a backup), for /restore a backup to pick, for /open the picker, for
-// /edit an editor, for /log log mode, Copy to the clipboard (saying so
+// /edit an editor, for /log log mode, for /reset a wipe, Copy to the clipboard (saying so
 // when the browser refuses), and Notify as a desktop notification, best
 // effort (spec).
 export const effect = (store: Store) => (e: Event): void => {
@@ -30,6 +30,16 @@ export const effect = (store: Store) => (e: Event): void => {
     store.openEditor(e.Args?.[0] === "world" ? { kind: "world", world } : { kind: "char", world, char }, true);
   } else if (e.effect === "Do" && e.Cmd === "/restore") {
     pickFile(".zip,application/zip", (globalThis as any).kiln.maxBackup, (bytes) => store.state.act?.({ Do: "restore", Data: toBase64(bytes) }));
+  } else if (e.effect === "Do" && e.Cmd === "/reset") {
+    // Go asked first (Enter again). A browser that won't clear what it
+    // saved has still stopped saving: show that, as when saving fails,
+    // and say to reload (after, so it's what the status line shows).
+    store.state.reset?.().catch((err) => {
+      console.error("reset", err);
+      store.set({ saving: false });
+      (globalThis as any).kiln?.storageFailed?.();
+      store.state.act?.({ Do: "say", Text: str.webResetFailed(), Err: true });
+    });
   } else if (e.effect === "Do" && e.Cmd === "/log") {
     toggleLog(store);
   } else if (e.effect === "Copy") {

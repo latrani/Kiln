@@ -6,6 +6,8 @@
 import { createFS } from "../../static/memfs.mjs";
 import { createPersist, idbStore } from "../../static/persist.mjs";
 import { createTabLock } from "../../static/tablock.mjs";
+import { forgetAsked } from "./notify.ts";
+import { resetter } from "./reset.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
@@ -193,12 +195,18 @@ export async function boot(store: Store): Promise<void> {
   const typing = store.state.typing!;
   const act = (o: object) => typing.act(o);
   store.set({ act });
+  // /reset: wipe what this browser saved, then reload, where the preset
+  // seeds a first visit's files. Saving stops first, so nothing written on
+  // the way out (drafts, at pagehide) comes back. A handoff to another
+  // tab waits out the wipe (reset.ts).
+  const resets = resetter({ wipe: async () => { await persist?.wipe(); }, forget: forgetAsked, reload: () => location.reload() });
+  store.set({ reset: resets.reset });
   g.kilnPage = record ? { act, events, sent } : { act };
 
   const saveDrafts = () => act({ Do: "save_drafts" });
   // Another tab taking over: save drafts first (Go writes and syncs the
   // file before kiln.act returns), then hand the files over.
-  lock?.serve(async () => { saveDrafts(); await persist?.handOff(); }, () => location.reload());
+  lock?.serve(async () => { await resets.leave(); saveDrafts(); await persist?.handOff(); }, () => location.reload());
 
   // Leaving the tab (another tab or app, the phone locking): save drafts,
   // so iOS killing the tab in the background loses nothing typed. Like

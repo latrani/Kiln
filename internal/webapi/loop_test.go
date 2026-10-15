@@ -816,6 +816,60 @@ func TestBackupFailingSaysSo(t *testing.T) {
 	}
 }
 
+// /reset asks first: the first Enter keeps /reset in the input and warns,
+// the second goes to the page. Esc in between asks again.
+func TestResetAsksFirst(t *testing.T) {
+	a, dir := newApp(t)
+	h := startWith(t, a, dir, Options{})
+	b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":1}`)
+	if event(b, "Effect") != nil {
+		t.Fatal("the first Enter reset")
+	}
+	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusResetConfirm() || st["Err"] != true {
+		t.Errorf("status %v", st)
+	}
+	if in := event(b, "Input"); in == nil || in["Text"] != "/reset" {
+		t.Errorf("input %v", in)
+	}
+	b = h.act(`{"Do":"submit","Key":"","Text":"/reset","N":2}`)
+	if e := event(b, "Effect"); e == nil || e["effect"] != "Do" || e["Cmd"] != "/reset" {
+		t.Errorf("the second Enter: effect %v", e)
+	}
+	h.act(`{"Do":"submit","Key":"","Text":"/reset","N":3}`)
+	h.act(`{"Do":"cancel"}`)
+	if b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":4}`); event(b, "Effect") != nil {
+		t.Error("Esc should make /reset ask again")
+	}
+}
+
+// The /reset arm lasts one step: editing the text, or another command,
+// in between asks again. What the page sends on its own (presence,
+// focus, size) doesn't.
+func TestResetArmIsOneShot(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		between []string
+		resets  bool
+	}{
+		{"an edit taken back", []string{`{"Do":"input","Key":"","Text":"/rese","N":2}`, `{"Do":"input","Key":"","Text":"/reset","N":3}`}, false},
+		{"another command", []string{`{"Do":"submit","Key":"","Text":"/away","N":2}`, `{"Do":"input","Key":"","Text":"/reset","N":3}`}, false},
+		{"the page's own", []string{`{"Do":"here"}`, `{"Do":"focus","In":true}`, `{"Do":"resize","Cols":80,"Rows":24}`, `{"Do":"input","Key":"","Text":"/reset","N":3}`}, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			a, dir := newApp(t)
+			h := startWith(t, a, dir, Options{})
+			h.act(`{"Do":"submit","Key":"","Text":"/reset","N":1}`)
+			for _, b := range c.between {
+				h.act(b)
+			}
+			b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":4}`)
+			if got := event(b, "Effect") != nil; got != c.resets {
+				t.Errorf("reset %v, want %v", got, c.resets)
+			}
+		})
+	}
+}
+
 func TestRestoreTakesTheFile(t *testing.T) {
 	a, dir := newApp(t)
 	var got []byte

@@ -1232,11 +1232,11 @@ func TestClosingAWorldsLastCharacterHidesItsEditor(t *testing.T) {
 	}
 }
 
-// /backup and /restore were the xterm web build's; the terminal doesn't
+// /backup, /restore and /reset are the web page's; the terminal doesn't
 // know them.
 func TestBackupCommandsUnknown(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	for _, c := range []string{"/backup", "/restore"} {
+	for _, c := range []string{"/backup", "/restore", "/reset"} {
 		h.typeText(c)
 		h.enter()
 		if h.m.a.Status().Text != str.StatusUnknownCommand(c) {

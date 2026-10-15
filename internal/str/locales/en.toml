@@ -218,6 +218,7 @@ skipped_login = "skipped login"
 backup_failed = "couldn't back up: {err}"
 restore_failed = "couldn't restore: {err}"
 restored = { one = "restored 1 file", other = "restored {n} files" }
+reset_confirm = "wipes everything saved in this browser: worlds, pins, logs · /backup first · Enter again to reset"
 quit_hint = "Press Ctrl+{key} again to quit"
 nothing_open = "nothing open to send to"
 login_not_sent = "login not sent: {err}"
@@ -385,6 +386,8 @@ needs_js = "Kiln needs JavaScript."
 # The status line while the page downloads Kiln, in megabytes.
 loading = "loading Kiln… {got} MB"
 loading_size = "loading Kiln… {got}/{total} MB"
+# /reset couldn't clear what the browser saved; saving has stopped.
+reset_failed = "failed to wipe · reload and try again"
 stopped = "Kiln stopped."
 reload = "Reload"
 # The sidebar's name for screen readers.

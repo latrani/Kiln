@@ -23,6 +23,7 @@ function fakeStore(initial = []) {
       for (const [k, v] of puts) recs.set(k, v);
       for (const k of dels) recs.delete(k);
     },
+    async clear() { recs.clear(); },
   };
   return s;
 }
@@ -153,6 +154,20 @@ test("handOff gives up on a store that keeps failing", async () => {
   await p.handOff();
   assert.equal(store.applies, 3); // tries three times, then gives up
   assert.equal(errors.length, 1);
+});
+
+test("wipe waits out a flush already running, clears, and saves nothing after", async () => {
+  const { store, fs, p } = setup([["/home/kiln/old", { bytes: enc("0") }]]);
+  write(fs, "/home/kiln/a", "1");
+  let wiping;
+  store.during = () => { wiping = p.wipe(); }; // /reset lands mid-flush
+  const flushing = p.flush();
+  await wiping;
+  await flushing;
+  assert.equal(store.recs.size, 0);
+  write(fs, "/home/kiln/b", "2"); // drafts saved on the way out
+  await p.flush();
+  assert.equal(store.recs.size, 0);
 });
 
 test("direct flush after failed timer flush saves failed paths", async () => {

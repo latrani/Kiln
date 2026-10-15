@@ -899,7 +899,7 @@ func (m *Model) syncLines(cs *charState) {
 func (m *Model) do(d app.Do) tea.Cmd {
 	cs := m.chars[d.Key]
 	switch d.Cmd {
-	case "/backup", "/restore":
+	case "/backup", "/restore", "/reset":
 		m.setStatus(true, str.StatusUnknownCommand(d.Cmd)) // the web page's, so unknown here
 	case "/open":
 		m.openPicker() // says why not

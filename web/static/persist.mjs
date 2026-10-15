@@ -7,7 +7,7 @@
 const DB = "kiln";
 const STORE = "files";
 
-// idbStore adapts an IDBFactory (globalThis.indexedDB) to the three calls
+// idbStore adapts an IDBFactory (globalThis.indexedDB) to the calls
 // createPersist needs.
 export function idbStore(idb, { setTimer = setTimeout, clearTimer = clearTimeout, openTimeout = 5000 } = {}) {
   const req = (r) => new Promise((ok, fail) => { r.onsuccess = () => ok(r.result); r.onerror = () => fail(r.error); });
@@ -40,6 +40,14 @@ export function idbStore(idb, { setTimer = setTimeout, clearTimer = clearTimeout
       const s = db.transaction(STORE, "readonly").objectStore(STORE);
       const [keys, vals] = await Promise.all([req(s.getAllKeys()), req(s.getAll())]);
       return keys.map((k, i) => [k, vals[i]]);
+    },
+    clear() {
+      return new Promise((ok, fail) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).clear();
+        tx.oncomplete = () => ok();
+        tx.onerror = tx.onabort = () => fail(tx.error);
+      });
     },
     apply(puts, dels) {
       return new Promise((ok, fail) => {
@@ -115,6 +123,13 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
     },
     // stop ends saving for good: another tab owns Kiln now.
     stop() { stopped = true; clearTimer(timer); },
+    // wipe stops saving, waits out a flush already running, then deletes
+    // every record: /reset, before the page reloads.
+    async wipe() {
+      persist.stop();
+      await chain;
+      await store.clear();
+    },
   };
   return persist;
 }

@@ -104,7 +104,9 @@ visit: config edits, worlds, TLS pins and logs. That's best effort:
 clearing site data, a private window, or a browser that evicts storage
 loses them. Safari clears a site's storage after 7 days of Safari use
 without visiting it. `/backup` downloads everything as a zip, and
-`/restore` puts one back.
+`/restore` puts one back. `/reset` wipes everything this browser saved
+and reloads, as on a first visit, with the preset seeded again; it asks
+first, and Enter again goes ahead.
 
 What you've typed but not sent is saved when you leave the tab (another
 tab or app, or the phone locking), so it's still there if the browser

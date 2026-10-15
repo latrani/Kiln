@@ -291,7 +291,7 @@ func (a *App) command(c *Char, text string) []Effect {
 	}
 	do := func() []Effect { return []Effect{Do{Cmd: args[0], Args: args[1:], Key: key}} }
 	switch args[0] {
-	case "/backup", "/restore": // need no character; the front end knows whether it has them
+	case "/backup", "/restore", "/reset": // need no character; the front end knows whether it has them
 		return do()
 	case "/away":
 		a.SetAway()
