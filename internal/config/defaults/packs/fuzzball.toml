@@ -1,7 +1,8 @@
 # Starter rules for Fuzzball MUCKs (built-in commands plus the stock
 # cmd-page, cmd-whisper and cmd-watchfor programs). Servers customize
-# these heavily; edit freely. The pack says what lines are and which
-# ones are a priority; how they look is up to the theme's [tags].
+# these heavily; edit freely. The pack says what lines are, which ones
+# are a priority, and how they look ([tags] at the end); a theme, world
+# or character can restyle any of them.
 
 priority = ["page/in", "whisper/in", "watchfor/connect", "self"]
 
