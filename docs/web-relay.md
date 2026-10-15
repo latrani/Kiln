@@ -91,13 +91,14 @@ A preset is laid out like a `/backup` zip, in a folder of its own, say
 
 ```
 /etc/kiln-relay/preset/
-  config/worlds/PFMuck.toml
+  config/worlds/fm.toml
   known_hosts            # pins for self-signed worlds (above)
 ```
 
 `config/` is Kiln's config folder: worlds, and any other config file you
 want players to start with. The relay lists the folder for the page on
-each request, so adding or editing a file needs no restart. A preset
+each request, so adding or editing a file needs no restart. It leaves
+out dotfiles (`.DS_Store`, `.git`) and won't serve them. A preset
 file is written into a player's browser only where nothing is saved
 yet, so a player's own edits win (see `docs/web-dev.md`).
 
@@ -115,6 +116,9 @@ map $http_upgrade $connection_upgrade {
 }
 
 # In the https server {}:
+location = /kiln {
+    return 301 /kiln/;
+}
 location /kiln/ {
     proxy_pass http://127.0.0.1:7801;
     proxy_http_version 1.1;
@@ -150,7 +154,10 @@ WantedBy=multi-user.target
 Write your own `brew --prefix` in place of `/home/linuxbrew/.linuxbrew`:
 systemd doesn't expand it. With `DynamicUser`, the relay runs as a user
 made up for it, so `/etc/kiln-relay` and what's in it must be readable
-by anyone (the usual 755 and 644).
+by anyone (the usual 755 and 644), and so must the page under brew's
+prefix. If the prefix is in a home folder that others can't enter (newer
+Ubuntu makes them 750), let them through it: `sudo chmod o+x
+/home/linuxbrew`.
 
 ## Local testing
 

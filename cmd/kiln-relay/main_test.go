@@ -148,3 +148,26 @@ func TestNoCache(t *testing.T) {
 		}
 	}
 }
+
+// Dotfiles in a preset (a Mac's .DS_Store, a .git) are neither listed
+// for the page nor served.
+func TestPresetSkipsDotfiles(t *testing.T) {
+	web, preset := t.TempDir(), t.TempDir()
+	os.MkdirAll(filepath.Join(preset, "config", "worlds"), 0o755)
+	os.MkdirAll(filepath.Join(preset, ".git"), 0o755)
+	os.WriteFile(filepath.Join(preset, "config", "worlds", "fm.toml"), []byte("host"), 0o644)
+	os.WriteFile(filepath.Join(preset, "config", "worlds", ".DS_Store"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(preset, ".git", "HEAD"), []byte("ref"), 0o644)
+	mux := http.NewServeMux()
+	webRoutes(mux, web, preset, func(string) {})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	if _, body := get(t, srv.URL+"/kiln/preset/manifest.json"); strings.TrimSpace(body) != `["config/worlds/fm.toml"]` {
+		t.Errorf("manifest %s", body)
+	}
+	for _, p := range []string{"/kiln/preset/config/worlds/.DS_Store", "/kiln/preset/.git/HEAD"} {
+		if code, _ := get(t, srv.URL+p); code != 404 {
+			t.Errorf("%s: %d, want 404", p, code)
+		}
+	}
+}
