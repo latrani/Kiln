@@ -4,8 +4,12 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
+	"syscall"
+
+	"github.com/latrani/Kiln/internal/str"
 )
 
 // webRoutes serves the built page at /kiln/ and a preset at
@@ -13,24 +17,49 @@ import (
 // request, so it never drifts from the folder; with no preset the
 // manifest is empty and the page starts with nothing preloaded. nginx
 // proxies all of /kiln/ here. A preset is laid out like a backup:
-// config/… and known_hosts.
-func webRoutes(mux *http.ServeMux, web, preset string) {
-	mux.Handle("/kiln/", http.StripPrefix("/kiln/", http.FileServer(http.Dir(web))))            //str:ok
-	mux.HandleFunc("/kiln/preset/manifest.json", func(w http.ResponseWriter, r *http.Request) { //str:ok
+// config/… and known_hosts. Everything is no-cache: browsers check
+// again on each load, so a new release reaches players once the relay
+// restarts. logf hears why a manifest failed; the browser only that it
+// did.
+func webRoutes(mux *http.ServeMux, web, preset string, logf func(string)) {
+	mux.Handle("/kiln/", noCache(http.StripPrefix("/kiln/", http.FileServer(http.Dir(web)))))                        //str:ok
+	mux.Handle("/kiln/preset/manifest.json", noCache(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //str:ok
 		m := []string{}
 		if preset != "" {
 			var err error
 			if m, err = manifest(preset); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				logf(str.RelayManifestFailed(err))
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 		}
 		w.Header().Set("Content-Type", "application/json") //str:ok
 		json.NewEncoder(w).Encode(m)
-	})
+	})))
 	if preset != "" {
-		mux.Handle("/kiln/preset/", http.StripPrefix("/kiln/preset/", http.FileServer(http.Dir(preset)))) //str:ok
+		mux.Handle("/kiln/preset/", noCache(http.StripPrefix("/kiln/preset/", http.FileServer(http.Dir(preset))))) //str:ok
 	}
+}
+
+// noCache has browsers check h's files again on every load (a cheap 304
+// when they haven't changed).
+func noCache(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache") //str:ok
+		h.ServeHTTP(w, r)
+	})
+}
+
+// checkDir says why dir can't be served for -flag, or nil.
+func checkDir(flag, dir string) error {
+	fi, err := os.Stat(dir)
+	if err == nil && !fi.IsDir() {
+		err = &fs.PathError{Op: "stat", Path: dir, Err: syscall.ENOTDIR} //str:ok
+	}
+	if err != nil {
+		return str.Wrap(str.RelayBadDir(flag, dir, err), err)
+	}
+	return nil
 }
 
 // manifest lists the files under dir as sorted slash paths relative to

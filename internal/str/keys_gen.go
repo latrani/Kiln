@@ -676,6 +676,11 @@ func RelayAllowUnknownKey(path, key any) string {
 	return get("relay.allow_unknown_key", map[string]any{"path": path, "key": key})
 }
 
+// RelayBadDir is relay.bad_dir: "-{flag} {path}: {err}"
+func RelayBadDir(flag, path any, err error) string {
+	return get("relay.bad_dir", map[string]any{"flag": flag, "path": path, "err": err})
+}
+
 // RelayClosed is relay.closed: "closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur}"
 func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
@@ -695,6 +700,11 @@ func RelayFlagWeb() string { return get("relay.flag_web", nil) }
 
 // RelayListening is relay.listening: "kiln-relay listening on {addr}"
 func RelayListening(addr any) string { return get("relay.listening", map[string]any{"addr": addr}) }
+
+// RelayManifestFailed is relay.manifest_failed: "listing the preset: {err}"
+func RelayManifestFailed(err error) string {
+	return get("relay.manifest_failed", map[string]any{"err": err})
+}
 
 // RelayNeedAllow is relay.need_allow: "kiln-relay needs -allow PATH (the allowlist file)"
 func RelayNeedAllow() string { return get("relay.need_allow", nil) }

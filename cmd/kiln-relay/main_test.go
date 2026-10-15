@@ -45,7 +45,7 @@ func webMux(t *testing.T, preset bool) *httptest.Server {
 		os.WriteFile(filepath.Join(dir, "config", "worlds", "fm.toml"), []byte("host"), 0o644)
 	}
 	mux := http.NewServeMux()
-	webRoutes(mux, web, dir)
+	webRoutes(mux, web, dir, func(string) {})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv
@@ -81,7 +81,7 @@ func TestWebStaysInItsDirectories(t *testing.T) {
 	web := t.TempDir()
 	os.WriteFile(filepath.Join(filepath.Dir(web), "secret"), []byte("secret"), 0o644)
 	mux := http.NewServeMux()
-	webRoutes(mux, web, "")
+	webRoutes(mux, web, "", func(string) {})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	for _, p := range []string{"/kiln/../secret", "/kiln/%2e%2e/secret", "/kiln/preset/../../secret"} {
@@ -103,5 +103,48 @@ func TestWebWithoutPreset(t *testing.T) {
 func TestDevIsGone(t *testing.T) {
 	if err := run([]string{"-allow", "x.toml", "-dev"}, io.Discard); err == nil || !strings.Contains(err.Error(), "-dev") {
 		t.Errorf("err = %v, want an unknown flag", err)
+	}
+}
+
+// A -web or -preset that isn't a folder stops the relay at start, rather
+// than serving a page that can't boot.
+func TestBadDirsStopTheStart(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "nope")
+	for _, flag := range []string{"web", "preset"} {
+		_, statErr := os.Stat(missing)
+		err := run([]string{"-allow", "x.toml", "-" + flag, missing}, io.Discard)
+		if err == nil || err.Error() != str.RelayBadDir(flag, missing, statErr) {
+			t.Errorf("-%s %s: err = %v", flag, missing, err)
+		}
+	}
+}
+
+// A preset that can't be listed is a server error that doesn't show
+// where the server keeps its files.
+func TestManifestErrorHidesThePath(t *testing.T) {
+	web, preset := t.TempDir(), t.TempDir()
+	mux := http.NewServeMux()
+	webRoutes(mux, web, preset, func(string) {})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	os.RemoveAll(preset)
+	if code, body := get(t, srv.URL+"/kiln/preset/manifest.json"); code != 500 || strings.Contains(body, preset) {
+		t.Errorf("%d %q", code, body)
+	}
+}
+
+// The page and preset are checked again on each load (no-cache), so a
+// new release reaches players as soon as the relay restarts.
+func TestNoCache(t *testing.T) {
+	srv := webMux(t, true)
+	for _, p := range []string{"/kiln/index.html", "/kiln/preset/manifest.json", "/kiln/preset/config/worlds/fm.toml"} {
+		res, err := http.Get(srv.URL + p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if got := res.Header.Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("%s: Cache-Control %q", p, got)
+		}
 	}
 }

@@ -36,6 +36,13 @@ func run(args []string, logw io.Writer) error {
 	if *allow == "" {
 		return errors.New(str.RelayNeedAllow())
 	}
+	for _, d := range []struct{ flag, dir string }{{"web", *web}, {"preset", *preset}} { //str:ok
+		if d.dir != "" {
+			if err := checkDir(d.flag, d.dir); err != nil {
+				return err
+			}
+		}
+	}
 	addr := *listen
 	if addr == "" {
 		addr = "127.0.0.1:7801"
@@ -50,7 +57,7 @@ func run(args []string, logw io.Writer) error {
 	mux := http.NewServeMux()
 	mux.Handle("/kiln/relay", s) //str:ok
 	if *web != "" {
-		webRoutes(mux, *web, *preset)
+		webRoutes(mux, *web, *preset, logf)
 		logf(str.RelayServingPage("http://" + addr + "/kiln/")) //str:ok
 	}
 	logf(str.RelayListening(addr))

@@ -578,6 +578,9 @@ export function relayAllowReloadFailed(err: unknown): string { return `allowlist
 /** relay.allow_unknown_key: allowlist {path}: unknown setting {key:%q} */
 export function relayAllowUnknownKey(path: unknown, key: unknown): string { return `allowlist ${path}: unknown setting ${q(key)}`; }
 
+/** relay.bad_dir: -{flag} {path}: {err} */
+export function relayBadDir(flag: unknown, path: unknown, err: unknown): string { return `-${flag} ${path}: ${e(err)}`; }
+
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
@@ -595,6 +598,9 @@ export function relayFlagWeb(): string { return `serve the built page at /kiln/ 
 
 /** relay.listening: kiln-relay listening on {addr} */
 export function relayListening(addr: unknown): string { return `kiln-relay listening on ${addr}`; }
+
+/** relay.manifest_failed: listing the preset: {err} */
+export function relayManifestFailed(err: unknown): string { return `listing the preset: ${e(err)}`; }
 
 /** relay.need_allow: kiln-relay needs -allow PATH (the allowlist file) */
 export function relayNeedAllow(): string { return `kiln-relay needs -allow PATH (the allowlist file)`; }
