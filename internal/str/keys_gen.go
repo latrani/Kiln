@@ -957,11 +957,6 @@ func StatusUnknownCommand(command any) string {
 	return get("status.unknown_command", map[string]any{"command": command})
 }
 
-// ThemeBadAppearancePalette is theme.bad_appearance_palette: "{file}: [palette.{name}] isn't an appearance (a palette can have [palette.light] and [palette.dark])"
-func ThemeBadAppearancePalette(file, name any) string {
-	return get("theme.bad_appearance_palette", map[string]any{"file": file, "name": name})
-}
-
 // ThemeBadColor is theme.bad_color: "{file}: {where}: {color:%q} isn't a color (use #rrggbb, a palette name, a terminal color like bright-blue, or default)"
 func ThemeBadColor(file, where, color any) string {
 	return get("theme.bad_color", map[string]any{"file": file, "where": where, "color": color})
@@ -1026,7 +1021,7 @@ func ThemeRoleNotTable(file, role any) string {
 	return get("theme.role_not_table", map[string]any{"file": file, "role": role})
 }
 
-// ThemeShowMerged is theme.show_merged: "{name}, with the themes it extends merged in. It looks the same saved\nas a file of its own. A role inherits from the one before its last dot."
+// ThemeShowMerged is theme.show_merged: "{name}, with the themes it extends and the color names every theme has\nmerged in. It looks the same saved as a file of its own. A role\ninherits from the one before its last dot."
 func ThemeShowMerged(name any) string { return get("theme.show_merged", map[string]any{"name": name}) }
 
 // ThemeSwatchSample is theme.swatch_sample: "Sample"

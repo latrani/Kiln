@@ -2,7 +2,7 @@
 
 > **AI-generated.** Claude wrote this page from Kiln's code and earlier README. If something here is wrong, please [open an issue](https://github.com/latrani/Kiln/issues).
 
-Kiln's colors come from a theme. Kiln makes `themes/default.toml` in its config folder on first run, saying `extends = "kiln"`: it starts as the built-in theme, `kiln`, and changes only what you set. Kiln picks up changes as you save. `kiln theme show kiln` prints everything the built-in sets, and `kiln theme show <name>` prints any theme with what it extends merged in. To keep several themes, give each its own file in `themes/` and pick one with `theme = "name"` in `config.toml`.
+Kiln's colors come from a theme. Kiln makes `themes/default.toml` in its config folder on first run, saying `extends = "kiln"`: it starts as the built-in theme, `kiln`, and changes only what you set. Kiln picks up changes as you save. `kiln theme show kiln` prints everything the built-in sets, and `kiln theme show <name>` prints any theme with what it extends merged in, along with every [color name](#color-names) it can use. To keep several themes, give each its own file in `themes/` and pick one with `theme = "name"` in `config.toml`.
 
     extends = "kiln"
 
@@ -24,10 +24,39 @@ Kiln's colors come from a theme. Kiln makes `themes/default.toml` in its config 
 A theme can give different colors for light and dark terminals: `[palette.light]` and `[palette.dark]` replace entries of `[palette]`, and everything that names them follows along.
 
     [palette]
-    ember = "#ff9f43"
+    orange = "#ff9f43"
 
     [palette.light]
-    ember = "#b35900"        # darker, to read on a light background
+    orange = "#b35900"       # darker, to read on a light background
+
+## Color names
+
+Every theme can name these, whatever it extends (even nothing), and so can packs, worlds and characters. Each switches with the background: the first value on a dark one, the second on a light one.
+
+Catppuccin's accents, from its Macchiato (dark) and Latte (light) flavors:
+
+| Name | Dark | Light |
+|---|---|---|
+| `catppuccin.rosewater` | `#f4dbd6` | `#dc8a78` |
+| `catppuccin.flamingo` | `#f0c6c6` | `#dd7878` |
+| `catppuccin.pink` | `#f5bde6` | `#ea76cb` |
+| `catppuccin.mauve` | `#c6a0f6` | `#8839ef` |
+| `catppuccin.red` | `#ed8796` | `#d20f39` |
+| `catppuccin.maroon` | `#ee99a0` | `#e64553` |
+| `catppuccin.peach` | `#f5a97f` | `#fe640b` |
+| `catppuccin.yellow` | `#eed49f` | `#df8e1d` |
+| `catppuccin.green` | `#a6da95` | `#40a02b` |
+| `catppuccin.teal` | `#8bd5ca` | `#179299` |
+| `catppuccin.sky` | `#91d7e3` | `#04a5e5` |
+| `catppuccin.sapphire` | `#7dc4e4` | `#209fb5` |
+| `catppuccin.blue` | `#8aadf4` | `#1e66f5` |
+| `catppuccin.lavender` | `#b7bdf8` | `#7287fd` |
+
+Kiln's glazes, which its own parts of the screen use: `glaze.celadon-*` (the sidebar), `glaze.cobalt-*` (the status bars), `glaze.gold-*` (the input) and `glaze.kaki-*` (forms), each in `-deep`, `-mid`, `-line`, `-ink` and `-bright` (gold has `-mid`, `-line` and `-ink`), and `glaze.alarm` and `glaze.alarm-deep` for errors. `kiln theme show kiln` prints their values.
+
+Names without a dot are the terminal's own sixteen (`red`, `bright-blue`) and whatever you define in a `[palette]`. You can redefine a shipped name too: `catppuccin.mauve = "#b48ead"` in a `[palette]`.
+
+Catppuccin's colors are MIT licensed ([catppuccin/palette](https://github.com/catppuccin/palette)).
 
 With `appearance = "auto"` (the default), Kiln asks the terminal what its background is when it starts and whenever its window comes back into focus, and assumes dark until it hears back. The built-in theme has a light palette of its own. Over mosh the terminal can't be asked (eternal terminal and tmux pass the question on), so on a light terminal set `appearance = "light"`.
 

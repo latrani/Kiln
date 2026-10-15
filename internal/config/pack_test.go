@@ -73,9 +73,9 @@ func TestStarterPackPages(t *testing.T) {
 		th        *theme.Theme
 		tag, want string
 	}{
-		{th, "page/in", "\x1b[1;38;2;255;159;67m"},
-		{th, "whisper/in", "\x1b[3;38;2;195;155;211m"},
-		{light, "page/in", "\x1b[1;38;2;194;90;10m"},
+		{th, "page/in", "\x1b[1;38;2;245;169;127m"},
+		{th, "whisper/in", "\x1b[3;38;2;198;160;246m"},
+		{light, "page/in", "\x1b[1;38;2;254;100;11m"},
 	} {
 		if _, ts, _ := c.th.Tag(c.tag); ts.Style.SGR() != c.want {
 			t.Errorf("%s = %q, want %q", c.tag, ts.Style.SGR(), c.want)

@@ -7,93 +7,31 @@
 # Styles take fg, bg, bold, faint, italic, underline and reverse. A role
 # inherits from the role before its last dot: link.hover starts from link.
 #
-# Each part of the screen has a glaze: celadon for the sidebar, cobalt
-# for the statusline, gold for the input and kaki for forms. Its lines
-# and text are pale tints of it; its buttons sit on a deep one.
-
-[palette]
-celadon-deep   = "#0b3d3b"
-celadon-mid    = "#8bb1b0"
-celadon-line   = "#a2cdcc"
-celadon-ink    = "#a0e3e1"
-celadon-bright = "#c0edeb"
-
-cobalt-deep   = "#0b1b3d"
-cobalt-mid    = "#8b98b1"
-cobalt-line   = "#a2b0cd"
-cobalt-ink    = "#a0b7e3"
-cobalt-bright = "#c0cfed"
-
-gold-mid  = "#b1a68b"
-gold-line = "#cdc1a2"
-gold-ink  = "#e3d0a0"
-
-kaki-deep   = "#3d200b"
-kaki-mid    = "#b19c8b"
-kaki-line   = "#cdb5a2"
-kaki-ink    = "#e3bda0"
-kaki-bright = "#edd3c0"
-
-ember    = "#ff9f43"
-lavender = "#c39bd3"
-beacon   = "#ffd166"
-
-alarm      = "#d92626"
-alarm-deep = "#2a0909"
-
-# The same glazes for a light terminal: dark inks for text and lines,
-# pale tints under chips, and tag colors dark enough for paper.
-[palette.light]
-celadon-deep   = "#bce6e4"
-celadon-mid    = "#629391"
-celadon-line   = "#74b4b2"
-celadon-ink    = "#1d726f"
-celadon-bright = "#125452"
-
-cobalt-deep   = "#bccae6"
-cobalt-mid    = "#627293"
-cobalt-line   = "#7489b4"
-cobalt-ink    = "#1d3972"
-cobalt-bright = "#122854"
-
-gold-mid  = "#938562"
-gold-line = "#b4a274"
-gold-ink  = "#725a1d"
-
-kaki-deep   = "#e6cebc"
-kaki-mid    = "#937762"
-kaki-line   = "#b49074"
-kaki-ink    = "#72421d"
-kaki-bright = "#542f12"
-
-ember    = "#c25a0a"
-lavender = "#814096"
-beacon   = "#a47404"
-
-alarm      = "#a51d1d"
-alarm-deep = "#f9dcdc"
+# The color names it uses are every theme's: Catppuccin's accents
+# (catppuccin.toml, catppuccin.mauve) and Kiln's glazes (glaze.toml,
+# glaze.celadon-ink).
 
 [ui]
-"sidebar"              = { fg = "celadon-ink" }
+"sidebar"              = { fg = "glaze.celadon-ink" }
 "sidebar.char"         = { bold = true }
 "sidebar.connecting"   = { bold = true }
 "sidebar.disconnected" = { bold = true }
 "sidebar.active"       = { reverse = true, bold = true }
-"sidebar.priority"     = { fg = "beacon", bold = true }
-"sidebar.add"          = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
-"sidebar.action"       = { fg = "celadon-bright", bg = "celadon-deep", bold = true }
-"sidebar.more"         = { fg = "celadon-mid" }
+"sidebar.priority"     = { fg = "catppuccin.yellow", bold = true }
+"sidebar.add"          = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
+"sidebar.action"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
+"sidebar.more"         = { fg = "glaze.celadon-mid" }
 
-"picker"                = { fg = "kaki-ink" }
+"picker"                = { fg = "glaze.kaki-ink" }
 "picker.world"          = { bold = true }
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
-"picker.add"            = { fg = "kaki-bright", bg = "kaki-deep" }
+"picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
 
-"divider"     = { fg = "celadon-line" }
-"rule.input"  = { fg = "gold-line" }
-"rule.form"   = { fg = "kaki-line" }
-"rule.status" = { fg = "cobalt-line" }
+"divider"     = { fg = "glaze.celadon-line" }
+"rule.input"  = { fg = "glaze.gold-line" }
+"rule.form"   = { fg = "glaze.kaki-line" }
+"rule.status" = { fg = "glaze.cobalt-line" }
 
 "scrollback.day"         = { faint = true }
 "scrollback.history_end" = { faint = true }
@@ -109,30 +47,30 @@ alarm-deep = "#f9dcdc"
 "link"                   = { underline = true }
 "link.hover"             = { fg = "bright-blue" }
 
-"input"            = { fg = "gold-ink" }
-"input.hint"       = { fg = "gold-mid" }
-"input.over_limit" = { fg = "alarm", bg = "alarm-deep" }
+"input"            = { fg = "glaze.gold-ink" }
+"input.hint"       = { fg = "glaze.gold-mid" }
+"input.over_limit" = { fg = "glaze.alarm", bg = "glaze.alarm-deep" }
 "input.selection"  = { reverse = true }
 
-"status"           = { fg = "cobalt-ink" }
-"status.log"       = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
+"status"           = { fg = "glaze.cobalt-ink" }
+"status.log"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.log.on"    = { reverse = true }
-"status.filter"    = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
+"status.filter"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.filter.on" = { reverse = true }
 "status.error"     = { fg = "red" }
 
-"status.presence"         = { fg = "cobalt-ink" }
-"status.presence.here"    = { fg = "cobalt-mid" }
-"status.presence.away"    = { fg = "beacon", bold = true }
+"status.presence"         = { fg = "glaze.cobalt-ink" }
+"status.presence.here"    = { fg = "glaze.cobalt-mid" }
+"status.presence.away"    = { fg = "catppuccin.yellow", bold = true }
 "status.presence.unknown" = { italic = true }
 
-"form"        = { fg = "kaki-ink" }
-"form.label"  = { fg = "kaki-mid" }
-"form.hint"   = { fg = "kaki-mid" }
+"form"        = { fg = "glaze.kaki-ink" }
+"form.label"  = { fg = "glaze.kaki-mid" }
+"form.hint"   = { fg = "glaze.kaki-mid" }
 "form.error"  = { fg = "red" }
 "form.focus"  = { reverse = true }
 "form.title"  = { bold = true }
-"form.button"           = { fg = "kaki-bright", bg = "kaki-deep", bold = true }
+"form.button"           = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep", bold = true }
 "form.button.secondary" = { bold = false }
 
 "log.time"           = { faint = true }
@@ -140,25 +78,25 @@ alarm-deep = "#f9dcdc"
 "log.find"           = { reverse = true }
 "log.day"            = { faint = true }
 "log.loading"        = { faint = true }
-"log.bar"            = { fg = "gold-ink" }
-"log.bar.hints"      = { fg = "gold-mid" }
+"log.bar"            = { fg = "glaze.gold-ink" }
+"log.bar.hints"      = { fg = "glaze.gold-mid" }
 
-"filter"           = { fg = "cobalt-ink" }
+"filter"           = { fg = "glaze.cobalt-ink" }
 "filter.item"      = { bold = true }
 "filter.selected"  = { reverse = true }
-"filter.button"    = { fg = "cobalt-mid" }
-"filter.button.on" = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
-"filter.add"       = { fg = "cobalt-bright", bg = "cobalt-deep", bold = true }
-"filter.more"      = { fg = "cobalt-mid" }
+"filter.button"    = { fg = "glaze.cobalt-mid" }
+"filter.button.on" = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
+"filter.add"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
+"filter.more"      = { fg = "glaze.cobalt-mid" }
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
 
 # How lines with Kiln's own tags are drawn: self (lines that mention
 # you) and highlight (/highlight). A pack styles the tags it gives lines
-# (see packs/fuzzball.toml), naming colors from here (ember, lavender);
-# a theme can restyle any tag. A tag inherits up its slashes, as a role
-# does up its dots. scope = "match" styles only the text the tag's
-# pattern matched.
+# (see packs/fuzzball.toml), naming colors every theme has
+# (catppuccin.peach, catppuccin.mauve); a theme can restyle any tag. A
+# tag inherits up its slashes, as a role does up its dots. scope =
+# "match" styles only the text the tag's pattern matched.
 [tags]
 "self"       = { bold = true }
-"highlight"  = { fg = "beacon", bold = true, scope = "match" }
+"highlight"  = { fg = "catppuccin.yellow", bold = true, scope = "match" }

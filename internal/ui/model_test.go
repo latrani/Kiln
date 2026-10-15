@@ -316,7 +316,7 @@ func TestIncomingLinesHighlightAndBadges(t *testing.T) {
 	if !strings.Contains(s, "Mira pages: you around?") || strings.Contains(h.m.View().Content, "pwned") {
 		t.Errorf("page not shown sanitized:\n%s", s)
 	}
-	if !strings.Contains(h.m.View().Content, "\x1b[1;38;2;255;159;67mMira pages") {
+	if !strings.Contains(h.m.View().Content, "\x1b[1;38;2;245;169;127mMira pages") {
 		t.Error("page not styled by the fuzzball pack")
 	}
 }

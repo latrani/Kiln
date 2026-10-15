@@ -1,0 +1,64 @@
+# Catppuccin's accents, color names every theme has as catppuccin.mauve
+# and so on: Macchiato for a dark background, Latte for a light one.
+# From catppuccin/palette (palette.json); MIT licensed, see
+# catppuccin.LICENSE beside this file.
+# Only the accents: Catppuccin's text and surface shades assume its own
+# background, and server text sits on the terminal's.
+
+[palette]
+rosewater = "#f4dbd6"
+flamingo  = "#f0c6c6"
+pink      = "#f5bde6"
+mauve     = "#c6a0f6"
+red       = "#ed8796"
+maroon    = "#ee99a0"
+peach     = "#f5a97f"
+yellow    = "#eed49f"
+green     = "#a6da95"
+teal      = "#8bd5ca"
+sky       = "#91d7e3"
+sapphire  = "#7dc4e4"
+blue      = "#8aadf4"
+lavender  = "#b7bdf8"
+
+[palette.light]
+rosewater = "#dc8a78"
+flamingo  = "#dd7878"
+pink      = "#ea76cb"
+mauve     = "#8839ef"
+red       = "#d20f39"
+maroon    = "#e64553"
+peach     = "#fe640b"
+yellow    = "#df8e1d"
+green     = "#40a02b"
+teal      = "#179299"
+sky       = "#04a5e5"
+sapphire  = "#209fb5"
+blue      = "#1e66f5"
+lavender  = "#7287fd"
+
+# The web's stand-in for a terminal's own colors, which a browser
+# doesn't have (Catppuccin's terminal ports). Not palette names: only
+# what isn't an accent is written out; the rest name accents, in full,
+# and the brights repeat the normals.
+[terminal]
+fg           = "#cad3f5" # text
+bg           = "#24273a" # base
+black        = "#494d64" # surface1
+white        = "#b8c0e0" # subtext1
+bright-black = "#5b6078" # surface2
+bright-white = "#a5adcb" # subtext0
+red          = "catppuccin.red"
+green        = "catppuccin.green"
+yellow       = "catppuccin.yellow"
+blue         = "catppuccin.blue"
+magenta      = "catppuccin.pink"
+cyan         = "catppuccin.teal"
+
+[terminal.light]
+fg           = "#4c4f69" # text
+bg           = "#eff1f5" # base
+black        = "#bcc0cc" # surface1
+white        = "#5c5f77" # subtext1
+bright-black = "#acb0be" # surface2
+bright-white = "#6c6f85" # subtext0

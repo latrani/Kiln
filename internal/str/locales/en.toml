@@ -337,14 +337,14 @@ bad_extends = "{file}: extends {name:%q} isn't a theme name"
 tag_not_table = "{file}: tag {tag:%q} needs a table of settings, like {{ fg = … }}"
 bad_scope = '{file}: tag {tag:%q}: scope must be "line" or "match"'
 tag_entry = "tag {name}"
-bad_appearance_palette = "{file}: [palette.{name}] isn't an appearance (a palette can have [palette.light] and [palette.dark])"
 bad_name = "theme {name:%q} isn't a theme name"
 palette_not_color = '{file}: palette {name:%q} must be a color written in quotes, like "#rrggbb"'
 builtin = "the built-in theme"
 swatch_sample = "Sample"
 show_merged = """
-{name}, with the themes it extends merged in. It looks the same saved
-as a file of its own. A role inherits from the one before its last dot."""
+{name}, with the themes it extends and the color names every theme has
+merged in. It looks the same saved as a file of its own. A role
+inherits from the one before its last dot."""
 
 [relay]
 allow_reading = "reading allowlist {path}: {err}"

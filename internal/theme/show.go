@@ -12,10 +12,9 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// Show is theme name as one file: a theme that extends nothing as it's
-// written, and otherwise the files it's built from merged into one that
-// looks the same on either appearance. A theme that doesn't load is an
-// error.
+// Show is theme name as one file: the color names every theme has, then
+// the files it's built from, merged into one that looks the same on
+// either appearance. A theme that doesn't load is an error.
 func Show(dir, name string) (string, error) {
 	if !validName(name) {
 		return "", errors.New(str.ThemeBadName(name))
@@ -29,10 +28,7 @@ func Show(dir, name string) (string, error) {
 			return "", err
 		}
 	}
-	if len(chain) == 1 {
-		return string(chain[0].src), nil
-	}
-	return merged(name, chain), nil
+	return merged(name, append(slices.Clone(bases), chain...)), nil
 }
 
 // merged writes chain as one theme file.

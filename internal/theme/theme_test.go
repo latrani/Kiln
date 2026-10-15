@@ -302,8 +302,8 @@ func TestPaletteValueNotAString(t *testing.T) {
 	if _, err := parse("t.toml", []byte("[palette]\nx = 1\n")); err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x") {
 		t.Errorf("a number: err = %v", err)
 	}
-	// A table is read as a palette for an appearance.
-	if _, err := parse("t.toml", []byte("[palette]\nx = { a = 1 }\n")); err == nil || err.Error() != str.ThemeBadAppearancePalette("t.toml", "x") {
+	// A table is a dotted name written unquoted: x.a.
+	if _, err := parse("t.toml", []byte("[palette]\nx = { a = 1 }\n")); err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x.a") {
 		t.Errorf("a table: err = %v", err)
 	}
 }
@@ -371,16 +371,15 @@ func TestLayersFollowAppearance(t *testing.T) {
 	}
 }
 
-func TestPaletteSubTableErrors(t *testing.T) {
-	for _, body := range []string{"[palette.dusk]\nx = \"#000000\"\n", "[palette.light]\nx = 1\n"} {
-		_, err := parse("t.toml", []byte(body))
-		want := str.ThemeBadAppearancePalette("t.toml", "dusk")
-		if strings.Contains(body, "light") {
-			want = str.ThemePaletteNotColor("t.toml", "x")
-		}
-		if err == nil || err.Error() != want {
-			t.Errorf("%q: err = %v, want %q", body, err, want)
-		}
+// [palette.light] and [palette.dark] are appearances; any other table
+// is a namespace, so [palette.dusk] x is the color dusk.x.
+func TestPaletteSubTables(t *testing.T) {
+	f, err := parse("t.toml", []byte("[palette.dusk]\nx = \"#000000\"\n"))
+	if err != nil || f.palette["dusk.x"] != "#000000" {
+		t.Errorf("[palette.dusk]: %v, palette %v", err, f.palette)
+	}
+	if _, err := parse("t.toml", []byte("[palette.light]\nx = 1\n")); err == nil || err.Error() != str.ThemePaletteNotColor("t.toml", "x") {
+		t.Errorf("[palette.light] x = 1: err = %v", err)
 	}
 }
 

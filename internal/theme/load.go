@@ -8,11 +8,63 @@ import (
 	"slices"
 	"sync/atomic"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/latrani/Kiln/internal/str"
 )
 
 //go:embed default.toml
 var builtinSrc []byte
+
+//go:generate go run ./gen
+
+//go:embed catppuccin.toml
+var catppuccinSrc []byte
+
+//go:embed glaze.toml
+var glazeSrc []byte
+
+// bases are the color names every theme has, under whatever it's built
+// from: Catppuccin's accents (catppuccin.mauve), then Kiln's glazes
+// (glaze.celadon-ink). terminalRaw is catppuccin.toml's [terminal]
+// table, for Terminal.
+var bases, terminalRaw = func() ([]file, map[string]any) {
+	ctp, term, err := parseBase("catppuccin", catppuccinSrc) //str:ok: a namespace
+	if err != nil {
+		panic(err)
+	}
+	glaze, _, err := parseBase("glaze", glazeSrc) //str:ok: a namespace
+	if err != nil {
+		panic(err)
+	}
+	return []file{ctp, glaze}, term
+}()
+
+// parseBase reads base file ns.toml: a palette whose names it gives
+// as ns.name, and catppuccin.toml's [terminal] table, returned as it's
+// written.
+func parseBase(ns string, data []byte) (file, map[string]any, error) {
+	name := ns + ".toml" //str:ok: a path
+	var raw map[string]any
+	if err := toml.Unmarshal(data, &raw); err != nil {
+		return file{name: name}, nil, err
+	}
+	term, _ := raw["terminal"].(map[string]any)
+	delete(raw, "terminal")
+	f, err := parseTables(name, raw)
+	prefix := func(m map[string]string) map[string]string {
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			out[ns+"."+k] = v
+		}
+		return out
+	}
+	f.palette = prefix(f.palette)
+	for ap, m := range f.appearance {
+		f.appearance[ap] = prefix(m)
+	}
+	return f, term, err
+}
 
 // builtinName is the name a theme extends to build on the built-in.
 const builtinName = "kiln" //str:ok: theme vocabulary

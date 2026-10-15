@@ -25,19 +25,30 @@ func sameLook(t *testing.T, a, b *Theme, tags ...string) {
 	}
 }
 
-func TestShowKilnIsTheSource(t *testing.T) {
-	got, err := Show(t.TempDir(), "kiln")
-	if err != nil || got != string(builtinSrc) {
-		t.Errorf("Show(kiln) = %.60q…, %v", got, err)
-	}
-}
-
-func TestShowOneFileIsTheFile(t *testing.T) {
+// Show prints every theme merged with the bases under it, so the color
+// names every theme has are listed; the result loads and looks the same.
+func TestShowListsTheBaseNames(t *testing.T) {
 	dir := t.TempDir()
-	body := "# mine\n[ui]\n\"status\" = { fg = \"red\" }\n"
-	writeTheme(t, dir, "plain", body)
-	if got, err := Show(dir, "plain"); err != nil || got != body {
-		t.Errorf("Show(plain) = %q, %v", got, err)
+	writeTheme(t, dir, "plain", "[ui]\n\"status\" = { fg = \"red\" }\n")
+	for _, name := range []string{"kiln", "plain"} {
+		got, err := Show(dir, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, n := range []string{"catppuccin.mauve", "glaze.celadon-ink", "glaze.alarm"} {
+			if !strings.Contains(got, "\n"+tomlString(n)+" ") {
+				t.Errorf("Show(%s) doesn't list %s:\n%.300s", name, n, got)
+			}
+		}
+		writeTheme(t, dir, "flat-"+name, got)
+		for _, ap := range []Appearance{Dark, Light} {
+			want, _ := Load(dir, name, ap)
+			flat, err := Load(dir, "flat-"+name, ap)
+			if err != nil {
+				t.Fatalf("%v\n%s", err, got)
+			}
+			sameLook(t, flat, want, "self", "highlight")
+		}
 	}
 }
 
