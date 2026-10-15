@@ -34,9 +34,7 @@ kaki-line   = "#cdb5a2"
 kaki-ink    = "#e3bda0"
 kaki-bright = "#edd3c0"
 
-ember    = "#ff9f43"
-lavender = "#c39bd3"
-beacon   = "#ffd166"
+beacon = "#ffd166"
 
 alarm      = "#d92626"
 alarm-deep = "#2a0909"
@@ -66,9 +64,7 @@ kaki-line   = "#b49074"
 kaki-ink    = "#72421d"
 kaki-bright = "#542f12"
 
-ember    = "#c25a0a"
-lavender = "#814096"
-beacon   = "#a47404"
+beacon = "#a47404"
 
 alarm      = "#a51d1d"
 alarm-deep = "#f9dcdc"
@@ -153,13 +149,11 @@ alarm-deep = "#f9dcdc"
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
 
-# How lines with classify tags are drawn. A tag inherits up its slashes,
-# as a role does up its dots: whisper/in starts from whisper. This theme
-# styles only top-level tags, so a theme that extends it can restyle page
-# without page/in or page/out keeping the old look.
-# scope = "match" styles only the text the tag's pattern matched.
+# How lines with Kiln's own tags are drawn: self (lines that mention
+# you) and highlight (/highlight). A pack styles the tags it gives lines
+# (see packs/fuzzball.toml); a theme can restyle any tag. A tag inherits
+# up its slashes, as a role does up its dots. scope = "match" styles
+# only the text the tag's pattern matched.
 [tags]
-"page"       = { fg = "ember", bold = true }
-"whisper"    = { fg = "lavender", italic = true }
 "self"       = { bold = true }
 "highlight"  = { fg = "beacon", bold = true, scope = "match" }

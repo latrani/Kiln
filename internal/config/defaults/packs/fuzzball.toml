@@ -48,3 +48,18 @@ pattern = '^##'
 [[classify]]
 tag = "ooc"
 pattern = '<OOC>|\[OOC\]|\(OOC\)'
+
+# How these lines look. A theme, world or character can restyle any of
+# them; a tag inherits up its slashes, so page/in starts from page.
+[palette]
+ember    = "#ff9f43"
+lavender = "#c39bd3"
+
+# Darker, for a light background.
+[palette.light]
+ember    = "#c25a0a"
+lavender = "#814096"
+
+[tags]
+"page"    = { fg = "ember", bold = true }
+"whisper" = { fg = "lavender", italic = true }

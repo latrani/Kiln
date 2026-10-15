@@ -699,7 +699,7 @@ func TestLayerLightPaletteFollowsAnswer(t *testing.T) {
 	h.m.Update(reloadMsg{})
 	h.m.Update(lightBG)
 	text, _ := h.m.chars["fm/kit"].render(logstore.Entry{Dir: logstore.In, Text: "Mira pages: hi"})
-	if !strings.Contains(text, "\x1b[38;2;17;17;17m") {
+	if !strings.Contains(text, ";38;2;17;17;17m") { // after the fuzzball pack's bold
 		t.Errorf("the world's light palette wasn't used: %q", text)
 	}
 }

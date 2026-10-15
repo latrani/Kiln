@@ -31,7 +31,11 @@ func TestStarterPackPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hl := rules.New(theme.Builtin())
+	th, err := theme.Builtin().Stack(kit.PackLooks, kit.Looks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hl := rules.New(th)
 	judge := rules.Judge{Priority: kit.Rules.Priority, Quiet: kit.Rules.Quiet}
 	for _, c := range []struct {
 		line string
@@ -59,6 +63,26 @@ func TestStarterPackPages(t *testing.T) {
 		if priority != c.in || runs == nil {
 			t.Errorf("%q: priority %v, styled %v; want priority %v, styled", c.line, priority, runs != nil, c.in)
 		}
+	}
+	// The pack's looks, as the built-in theme had them: dark, then light.
+	light, err := theme.BuiltinFor(theme.Light).Stack(kit.PackLooks, kit.Looks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		th        *theme.Theme
+		tag, want string
+	}{
+		{th, "page/in", "\x1b[1;38;2;255;159;67m"},
+		{th, "whisper/in", "\x1b[3;38;2;195;155;211m"},
+		{light, "page/in", "\x1b[1;38;2;194;90;10m"},
+	} {
+		if _, ts, _ := c.th.Tag(c.tag); ts.Style.SGR() != c.want {
+			t.Errorf("%s = %q, want %q", c.tag, ts.Style.SGR(), c.want)
+		}
+	}
+	if len(kit.PackLooks) == 0 {
+		t.Error("the starter fuzzball pack has no looks")
 	}
 }
 
