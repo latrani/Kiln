@@ -25,10 +25,10 @@ func BackupTooBig(mb any) string { return get("backup.too_big", map[string]any{"
 //   - other: "copied {n} lines"
 func BrowseCopied(n int) string { return count("browse.copied", n, map[string]any{"n": n}) }
 
-// BrowseDateFormat is browse.date_format: "dates look like 2026-09-24"
+// BrowseDateFormat is browse.date_format: "times look like 2026-09-24 21:04 (or just the day)"
 func BrowseDateFormat() string { return get("browse.date_format", nil) }
 
-// BrowseDatePrompt is browse.date_prompt: "go to date (YYYY-MM-DD): "
+// BrowseDatePrompt is browse.date_prompt: "go to (YYYY-MM-DD HH:MM): "
 func BrowseDatePrompt() string { return get("browse.date_prompt", nil) }
 
 // BrowseExcludeNeedsRange is browse.exclude_needs_range: "exclude works inside a marked range"

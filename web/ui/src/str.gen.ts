@@ -31,11 +31,11 @@ export function browseCopied(n: number): string {
   }
 }
 
-/** browse.date_format: dates look like 2026-09-24 */
-export function browseDateFormat(): string { return `dates look like 2026-09-24`; }
+/** browse.date_format: times look like 2026-09-24 21:04 (or just the day) */
+export function browseDateFormat(): string { return `times look like 2026-09-24 21:04 (or just the day)`; }
 
-/** browse.date_prompt: go to date (YYYY-MM-DD):  */
-export function browseDatePrompt(): string { return `go to date (YYYY-MM-DD): `; }
+/** browse.date_prompt: go to (YYYY-MM-DD HH:MM):  */
+export function browseDatePrompt(): string { return `go to (YYYY-MM-DD HH:MM): `; }
 
 /** browse.exclude_needs_range: exclude works inside a marked range */
 export function browseExcludeNeedsRange(): string { return `exclude works inside a marked range`; }

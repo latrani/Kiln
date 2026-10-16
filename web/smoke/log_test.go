@@ -251,7 +251,7 @@ func TestLogPlace(t *testing.T) {
 // TestLogCursor moves log mode's cursor the way a person does: it starts
 // on the newest line; ↑, k, ↓ and j move it a line, scrolling it into
 // view; scrolling the view drags it along at the edge it would leave
-// by; a click puts it on a line.
+// by; a click puts it on a line; go-to starts from it.
 func TestLogCursor(t *testing.T) {
 	many := make([]string, 80)
 	for i := range many {
@@ -294,4 +294,19 @@ func TestLogCursor(t *testing.T) {
 	// A click puts it on the line clicked.
 	click(t, s.ws, s.ev, `[...document.querySelectorAll(".lrow")].at(-3)`)
 	waitFor(t, s.ev, cursor+` === 77`, "the line clicked")
+
+	// g: go-to, starting from the cursor's day and time, the caret at the
+	// end; a time edited in goes to its line.
+	clock := func(i int) string {
+		return mustUnquote(t, s.ev(fmt.Sprintf(`document.querySelectorAll(".lrow")[%d].querySelector("span").textContent`, i)))
+	}
+	day := kilntest.LogDay.Format("2006-01-02")
+	ev := s.ev
+	letter("g")
+	prompt := `document.querySelector("#kiln-logprompt")`
+	waitFor(t, ev, `document.activeElement === `+prompt+` && `+prompt+`.value === `+jsString(day+" "+clock(77))+` && `+prompt+`.selectionStart === `+prompt+`.value.length`, "go-to at the cursor's day and time, the caret at the end")
+	ev(prompt + `.select()`)
+	devtools(t, s.ws, "Input.insertText", map[string]any{"text": day + " " + clock(10)})
+	pressKey(t, s.ws, "Enter", 13)
+	waitFor(t, ev, cursor+` === 10`, "the line at that time")
 }

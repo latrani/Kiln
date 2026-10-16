@@ -126,9 +126,12 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		return b.run(b.FindOlder(false)), false
 	case actPrevMatch:
 		b.FindNewer()
-	case actDate:
+	case actDate: // starting from the cursor's line, to edit
 		b.prompt = promptDate
 		b.pin.SetValue("")
+		if b.Cursor != nil {
+			b.pin.SetValue(app.WhenOf(b.Cursor))
+		}
 	case actExport:
 		if !b.ExportReady() {
 			break
@@ -182,7 +185,7 @@ func (b *browse) promptKey(k tea.KeyPressMsg) tea.Cmd {
 		case promptFind:
 			return b.run(b.SetFind(v))
 		case promptDate:
-			return b.run(b.GotoDate(v))
+			return b.run(b.GotoTime(v))
 		case promptFilename:
 			return b.save(v)
 		case promptFilterText:

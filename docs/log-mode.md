@@ -8,7 +8,7 @@
 |---|---|
 | `↑`/`↓` (`k`/`j`), `PgUp`/`PgDn`, `Home`/`End` | Move; moving past the top loads older days |
 | Mouse wheel | Scroll a line at a time; the cursor stays put until it would scroll out of sight, then rides along at the edge |
-| `g` | Go to a date (`2026-09-24`) |
+| `g` | Go to a day and time (`2026-09-24 21:04`): the last line in or before that minute. The prompt starts with the current line's, for you to edit. A day alone (`2026-09-24`) goes to its first line |
 | `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. `n` goes on to the next older match, `N` back to the next newer one; neither wraps around. The count in the top bar starts from the newest match, with a `+` while older history isn't loaded yet. While it reads older days the top bar says how far back it's got; any key cancels it, and `Esc` only cancels it, staying in log mode |
 | `f`, or click ` Filter ` | Open the filter panel (see below) |
 | `t` | Show the current line's tags, and whose style each one takes |

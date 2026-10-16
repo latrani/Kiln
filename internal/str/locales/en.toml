@@ -266,7 +266,7 @@ no_newer_matches = "no newer matches for {find:%q}"
 searching = "find: {find} · searching back to {day}… esc to stop"
 # Esc (or any key) stopped a find reading older days.
 search_cancelled = "search cancelled"
-date_format = "dates look like 2026-09-24"
+date_format = "times look like 2026-09-24 21:04 (or just the day)"
 no_logs_after = "no logs on or after {day}"
 no_file_name = "no file name given"
 no_export_dir = "no export_dir configured · give a full path"
@@ -277,7 +277,7 @@ mark_range = "mark a range with m (only received lines export)"
 copied = { one = "copied 1 line", other = "copied {n} lines" }
 nothing_left = "nothing left to export"
 find_prompt = "find: "
-date_prompt = "go to date (YYYY-MM-DD): "
+date_prompt = "go to (YYYY-MM-DD HH:MM): "
 # The letters in parentheses are the keys; they stay p, a and h.
 format_prompt = "export as (p)lain · (a)nsi · (h)tml   esc cancel"
 format_prompt_default = "export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel"

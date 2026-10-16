@@ -84,8 +84,8 @@ func (b *browse) FindNewer() {
 // FindStatus is the find term and the cursor's match, for the top bar.
 func (b *browse) FindStatus() string { return b.Log.FindStatus(b.Cursor) }
 
-// GotoDate goes to day's first shown line and puts it at the top of the
-// body.
-func (b *browse) GotoDate(day string) []app.Effect {
-	return b.Log.GotoDate(day, func(l *app.LogLine) { b.Cursor, b.top = l, l })
+// GotoTime goes to when's line (see app.Log.GotoTime) and puts it at
+// the top of the body.
+func (b *browse) GotoTime(when string) []app.Effect {
+	return b.Log.GotoTime(when, func(l *app.LogLine) { b.Cursor, b.top = l, l })
 }
