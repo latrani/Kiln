@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
 import { composing } from "../input.ts";
-import { filterPromptEnter, formatKey } from "../log.ts";
+import { cursorOf, filterPromptEnter, formatKey } from "../log.ts";
 import type { LogState } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -21,7 +21,7 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
   const formatRef = useRef<HTMLDivElement>(null);
   useEffect(() => (p?.kind === "format" ? formatRef.current : ref.current)?.focus(), [p?.kind]);
   const lines = state.logLines[k]?.lines ?? [];
-  const here = v.at ?? v.clicked ?? lines.at(-1)?.Seq ?? -1;
+  const here = cursorOf(g, v, lines) ?? -1;
   const act = state.act ?? (() => {});
   const back = () => {
     if (p?.kind === "filter") {

@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
-import { logAct, logClick, toggleLog } from "./log.ts";
+import { cursorOf, logAct, logClick, toggleLog } from "./log.ts";
+import type { LogState } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import type { LineData } from "./store.ts";
@@ -384,16 +385,41 @@ const logged = (log: object = {}) => {
   return { s, sent };
 };
 
-test("a click moves where you are: t and n go from the line clicked, not where find last landed", () => {
+test("the cursor: the newest line at first; a click, find landing or ↑/↓ moves it; t and n go from it", () => {
   const { s, sent } = logged({ Find: "l" });
+  const cur = () => cursorOf(s.state.logs["fm/kit"] as LogState, s.state.logView["fm/kit"], s.state.logLines["fm/kit"].lines);
+  assert.equal(cur(), 3, "the newest line, as the TUI's");
   s.apply([{ type: "LogAt", Key: "fm/kit", Seq: 1 }]);
+  assert.equal(cur(), 1, "where find landed");
   logClick(s, 3, {});
   assert.deepEqual(sent.at(-1), { Do: "range", Key: "fm/kit", Start: 3, End: 3 });
-  assert.equal(s.state.logView["fm/kit"].at, undefined, "the time's highlight leaves the found line");
+  assert.equal(cur(), 3, "the line clicked");
   logAct(s, "tags");
   assert.deepEqual(sent.at(-1), { Do: "tags", Key: "fm/kit", Seq: 3 });
   logAct(s, "older");
   assert.deepEqual(sent.at(-1), { Do: "find_older", Key: "fm/kit", Seq: 3 });
+  logAct(s, "up");
+  assert.deepEqual([cur(), s.state.logView["fm/kit"].follow], [2, true], "↑ moves it a line, into view");
+  logAct(s, "down");
+  logAct(s, "down");
+  assert.equal(cur(), 3, "↓ stops at the newest");
+  const n = sent.length;
+  logAct(s, "up");
+  logAct(s, "up");
+  logAct(s, "up");
+  assert.equal(cur(), 1, "↑ stops at the oldest loaded");
+  assert.deepEqual(sent.slice(n), [{ Do: "log_older", Key: "fm/kit" }], "and asks for older history");
+});
+
+test("the cursor skips lines the filter hides; on one it hides, it goes to the next shown", () => {
+  const { s } = logged({ Hidden: [2] });
+  const cur = () => cursorOf(s.state.logs["fm/kit"] as LogState, s.state.logView["fm/kit"], s.state.logLines["fm/kit"].lines);
+  logAct(s, "up");
+  assert.equal(cur(), 1);
+  s.setLogView("fm/kit", { cursor: 2 });
+  assert.equal(cur(), 3);
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0, Hidden: [2, 3] }]);
+  assert.equal(cur(), 1, "nothing shown after it: the last shown before");
 });
 
 test("a click, or hiding log mode, stops a search reading older days, as the TUI's", () => {
@@ -430,7 +456,7 @@ test("a click while a prompt is open changes nothing, as the TUI's: the prompt k
   s.setLogView("fm/kit", { prompt: { kind: "find", value: "x" } });
   logClick(s, 3, {});
   assert.equal(sent.length, 0);
-  assert.equal(s.state.logView["fm/kit"].clicked, undefined);
+  assert.equal(s.state.logView["fm/kit"].cursor, undefined);
 });
 
 // filtered is logged with a Filter: Untagged, a tag page with a child

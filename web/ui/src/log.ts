@@ -3,7 +3,7 @@
 // their number (Seq); one Go names that the page doesn't hold (not yet
 // loaded) is nothing.
 import { closePanel, togglePanel } from "./filter.ts";
-import type { LineData, Store } from "./store.ts";
+import type { LineData, LogView, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
 // LogState is Go's Log event (feed.Log).
@@ -71,13 +71,43 @@ export function segments(text: string, term: string): { text: string; match: boo
   return out;
 }
 
+// cursorOf is the cursor's line, as the TUI's: the line clicked, or the
+// one find, go-to-date or a key moved it to; with none yet, the newest
+// line shown. One the filter now hides gives way to the nearest shown
+// line after it, else before it, as the TUI's Refilter.
+export function cursorOf(g: LogState, v: LogView | undefined, lines: LineData[]): number | undefined {
+  const hidden = new Set(g.Hidden ?? []);
+  const shown = lines.filter((l) => !hidden.has(l.Seq));
+  if (v?.cursor === undefined || !lines.some((l) => l.Seq === v.cursor)) return shown.at(-1)?.Seq;
+  return (shown.find((l) => l.Seq >= v.cursor!) ?? shown.at(-1))?.Seq;
+}
+
+// dragCursor is where the cursor goes when the view scrolls, as the
+// TUI's wheel: it stays put until it would leave the view, then rides
+// along at the top or bottom edge, on the first or last line wholly in
+// view. undefined: it stays where it is.
+export function dragCursor(rows: { seq: number; top: number; height: number }[], top: number, height: number, cursor: number | undefined): number | undefined {
+  const at = rows.find((r) => r.seq === cursor);
+  const whole = rows.filter((r) => r.top >= top && r.top + r.height <= top + height);
+  if (!at || !whole.length) return undefined;
+  if (at.top < top) return whole[0].seq;
+  if (at.top + at.height > top + height) return whole.at(-1)!.seq;
+  return undefined;
+}
+
 // LogKey is what a key does in log mode.
-export type LogKey = "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "tags" | "back";
+export type LogKey = "up" | "down" | "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "tags" | "back";
 
-const letters: Record<string, LogKey> = { "/": "find", n: "older", N: "newer", g: "date", f: "filter", e: "export", c: "copy", t: "tags", Escape: "back" };
+const letters: Record<string, LogKey> = {
+  ArrowUp: "up", k: "up", ArrowDown: "down", j: "down",
+  "/": "find", n: "older", N: "newer", g: "date", f: "filter", e: "export", c: "copy", t: "tags", Escape: "back",
+};
 
-// logKey is a key in log mode, as the TUI's browseKeys less its cursor
-// keys (spec). Ctrl+A and Cmd+A stay the browser's select-all.
+// logKey is a key in log mode, as the TUI's browseKeys: ↑/↓ and j/k move
+// the cursor; PgUp, PgDn, Home and End stay the browser's scrolling, the
+// cursor riding along (dragCursor). Mark and exclude (m, Space) are the
+// mouse's on the web (spec). Ctrl+A and Cmd+A stay the browser's
+// select-all.
 export function logKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }): LogKey | undefined {
   if (e.ctrlKey || e.altKey || e.metaKey) return undefined;
   return letters[e.key];
@@ -102,17 +132,29 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
   return !g.Loading && !g.HistDone && (v.scrollTop < v.clientHeight || v.scrollHeight <= v.clientHeight);
 }
 
-// logAct does what a log-mode key asks, as the TUI's browse.key: a
-// prompt for find, a date or export's format; n and N step find from
-// where it last landed (else the line last clicked, else the newest); c
-// copies; t says the tags of that same line; f opens or closes the
-// filter panel; Esc stops a search, else closes the panel, else log mode.
+// logAct does what a log-mode key asks, as the TUI's browse.key: ↑/↓
+// move the cursor a shown line (up from the oldest asks for older
+// history); a prompt for find, a date or export's format; n and N step
+// find from the cursor; c copies; t says the cursor line's tags; f
+// opens or closes the filter panel; Esc stops a search, else closes the
+// panel, else log mode.
 export function logAct(store: Store, does: LogKey): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
   const lines = s.logLines[k]?.lines ?? [];
-  const here = v.at ?? v.clicked ?? lines.at(-1)?.Seq ?? -1;
+  const here = cursorOf(g, v, lines) ?? -1;
   const act = s.act ?? (() => {});
   switch (does) {
+    case "up":
+    case "down": {
+      if (g.Searching) act({ Do: "stop_search", Key: k }); // you've moved on, as the TUI's
+      const hidden = new Set(g.Hidden ?? []);
+      const shown = lines.filter((l) => !hidden.has(l.Seq));
+      const i = shown.findIndex((l) => l.Seq === here) + (does === "up" ? -1 : 1);
+      if (i < 0 && !g.HistDone && !g.Loading) act({ Do: "log_older", Key: k });
+      const to = shown[Math.min(Math.max(0, i), shown.length - 1)];
+      if (to) store.setLogView(k, { cursor: to.Seq, follow: true });
+      break;
+    }
     case "find": store.setLogView(k, { prompt: { kind: "find", value: g.Find } }); break;
     case "date": store.setLogView(k, { prompt: { kind: "date", value: "" } }); break;
     case "export":
@@ -167,9 +209,8 @@ export function toggleLog(store: Store): void {
 // reading older days; a click takes the line; Shift+click inside the
 // range takes it out (or back in), elsewhere extends the range; a click
 // on the gutter of a line in the range takes it out. With a prompt open
-// it changes nothing, as the TUI's. The line clicked is
-// where you are now: find's steps and t go from it, not from where find
-// last landed.
+// it changes nothing, as the TUI's. The cursor goes to the line clicked:
+// find's steps and t go from it.
 export function logClick(store: Store, seq: number, how: { shift?: boolean; gutter?: boolean; inRange?: boolean }): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState;
   const act = s.act ?? (() => {});
@@ -179,7 +220,7 @@ export function logClick(store: Store, seq: number, how: { shift?: boolean; gutt
   else if (how.shift && g.Start != null) act({ Do: "extend", Key: k, Seq: seq });
   else if (how.gutter && how.inRange && g.End != null) act({ Do: "exclude", Key: k, Seq: seq });
   else act({ Do: "range", Key: k, Start: seq, End: seq });
-  store.setLogView(k, { clicked: seq, at: undefined });
+  store.setLogView(k, { cursor: seq });
 }
 
 // Place is where the view is: the first row showing, and how far its top

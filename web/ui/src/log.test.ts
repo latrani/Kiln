@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportFormats, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, openAt, segments, topFor, wantsOlder } from "./log.ts";
+import { dragCursor, exportFormats, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, openAt, segments, topFor, wantsOlder } from "./log.ts";
 import type { LogState } from "./log.ts";
 import type { LineData } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -44,7 +44,9 @@ test("segments mark every case-insensitive, literal match", () => {
 
 test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => logKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
-  assert.deepEqual(["/", "n", "N", "g", "f", "e", "c", "t", "Escape"].map((x) => k(x)), ["find", "older", "newer", "date", "filter", "export", "copy", "tags", "back"]);
+  assert.deepEqual(["ArrowUp", "k", "ArrowDown", "j", "/", "n", "N", "g", "f", "e", "c", "t", "Escape"].map((x) => k(x)),
+    ["up", "up", "down", "down", "find", "older", "newer", "date", "filter", "export", "copy", "tags", "back"]);
+  assert.deepEqual(["PageUp", "PageDown", "Home", "End"].map((x) => k(x)), [undefined, undefined, undefined, undefined], "the browser's scrolling");
   assert.equal(k("a", { ctrlKey: true }), undefined, "Ctrl+A stays the browser's");
   assert.equal(k("a", { metaKey: true }), undefined, "and Cmd+A");
   assert.equal(k("n", { ctrlKey: true }), undefined);
@@ -101,4 +103,12 @@ test("showing a character's log: a landing made while away, else where you were,
   assert.deepEqual(openAt(p, 2, 2, 9), { to: "place", place: p }, "nothing new: where you were");
   assert.deepEqual(openAt(undefined, 2, 2, 9), { to: "newest" });
   assert.deepEqual(openAt(undefined, undefined, 0, undefined), { to: "newest" }, "first shown");
+});
+
+test("dragCursor: the cursor stays put in view, and rides the edge it would leave by", () => {
+  const rows = [1, 2, 3, 4, 5].map((seq, i) => ({ seq, top: i * 10, height: 10 }));
+  assert.equal(dragCursor(rows, 10, 30, 3), undefined, "in view: put");
+  assert.equal(dragCursor(rows, 15, 30, 2), 3, "scrolled off the top: the first line wholly in view");
+  assert.equal(dragCursor(rows, 0, 25, 4), 2, "off the bottom: the last line wholly in view");
+  assert.equal(dragCursor(rows, 0, 30, 9), undefined, "not drawn: put");
 });

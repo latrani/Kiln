@@ -1,5 +1,5 @@
 import { togglePanel } from "../filter.ts";
-import { findStatus, toggleLog } from "../log.ts";
+import { cursorOf, findStatus, toggleLog } from "../log.ts";
 import type { LogState } from "../log.ts";
 import { logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
@@ -20,7 +20,8 @@ export function TopBar({ state, store }: { state: State; store: Store }) {
   const c = state.chars[state.active];
   const where = c ? c.World + str.separator() + c.Name : state.active.startsWith("=") ? state.active.slice(1) : "";
   const shows = !!c && logShows(state, state.active);
-  const find = shows ? findStatus(state.logs[state.active] as LogState, state.logView[state.active]?.at, state.logLines[state.active]?.lines ?? []) : "";
+  const g = state.logs[state.active] as LogState, lines = state.logLines[state.active]?.lines ?? [];
+  const find = shows ? findStatus(g, cursorOf(g, state.logView[state.active], lines), lines) : "";
   const [label, role] = state.presence === here ? [str.viewPresenceHere(), "status.presence.here"]
     : state.presence === away ? [str.viewPresenceAway(), "status.presence.away"]
     : [str.viewPresenceUnknown(), "status.presence.unknown"];
