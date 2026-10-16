@@ -180,7 +180,7 @@ func TestEditKeepsSidebar(t *testing.T) {
 			t.Errorf("sidebar row %d = %q, want %q:\n%s", y, got, w, h.screen())
 		}
 	}
-	h.m.Update(tea.MouseClickMsg{X: 4, Y: 2, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + 2, Button: tea.MouseLeft})
 	if h.m.picker != nil || h.m.a.Active() != "fm/rook" {
 		t.Errorf("click on Rook: picker open %v, active %s", h.m.picker != nil, h.m.a.Active())
 	}
@@ -416,7 +416,7 @@ func TestEditorStaysOnItsItem(t *testing.T) {
 	h.press('t', tea.ModCtrl)
 	h.focusOn(aliasesLabel)
 	h.typeText("kitty")
-	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // fm's row
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: sideTitleH, Button: tea.MouseLeft}) // fm's row
 	if h.m.a.Active() != worldSel("fm") || edit() != nil {
 		t.Fatalf("clicking fm should show its overview:\n%s", h.screen())
 	}
@@ -430,7 +430,7 @@ func TestEditorStaysOnItsItem(t *testing.T) {
 	if e := edit(); e == nil || e.kind != editWorld {
 		t.Fatalf("Ctrl+T on fm should edit it:\n%s", h.screen())
 	}
-	h.m.Update(tea.MouseClickMsg{X: 6, Y: 1, Button: tea.MouseLeft}) // Kit's row
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: sideTitleH + 1, Button: tea.MouseLeft}) // Kit's row
 	if e := edit(); e == nil || e.kind != editChar || aliases() != "kittycat" {
 		t.Fatalf("back on Kit, its editor:\n%s", h.screen())
 	}
@@ -453,7 +453,7 @@ func TestPickerClickKeepsDraft(t *testing.T) {
 	h.press('t', tea.ModCtrl)
 	h.focusOn(aliasesLabel)
 	h.typeText("kitty")
-	h.m.Update(tea.MouseClickMsg{X: 6, Y: 0, Button: tea.MouseLeft}) // the picker's fm row: its editor
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: sideTitleH, Button: tea.MouseLeft}) // the picker's fm row: its editor
 	if e := h.m.picker.edit; e == nil || e.kind != editWorld {
 		t.Fatalf("the click should open fm's editor:\n%s", h.screen())
 	}

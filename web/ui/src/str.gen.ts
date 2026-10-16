@@ -58,14 +58,23 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints_none: s select · / find · g date · f filter · esc back */
-export function browseHintsNone(): string { return `s select · / find · g date · f filter · esc back`; }
+/** browse.hints_none: s select · / find · g date · f filters */
+export function browseHintsNone(): string { return `s select · / find · g date · f filters`; }
 
-/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filter · esc back */
-export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filter · esc back`; }
+/** browse.hints_none_away: s select · / find · g date */
+export function browseHintsNoneAway(): string { return `s select · / find · g date`; }
 
-/** browse.hints_selecting: space exclude · s done · c copy · e export · esc drop */
-export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export · esc drop`; }
+/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filters */
+export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filters`; }
+
+/** browse.hints_selected_away: s select · c copy · e export · / find · g date */
+export function browseHintsSelectedAway(): string { return `s select · c copy · e export · / find · g date`; }
+
+/** browse.hints_selecting: space exclude · s done · c copy · e export */
+export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export`; }
+
+/** browse.hints_selecting_away: s done · c copy · e export */
+export function browseHintsSelectingAway(): string { return `s done · c copy · e export`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -462,8 +471,26 @@ export function filterAddText(): string { return `+ Text`; }
 /** filter.hide: Hide */
 export function filterHide(): string { return `Hide`; }
 
-/** filter.hints: h hide · o only · space ←→ fold · enter add · x remove · f close */
-export function filterHints(): string { return `h hide · o only · space ←→ fold · enter add · x remove · f close`; }
+/** filter.key_add: enter add */
+export function filterKeyAdd(): string { return `enter add`; }
+
+/** filter.key_fold: space ←→ fold */
+export function filterKeyFold(): string { return `space ←→ fold`; }
+
+/** filter.key_fold_away: ←→ fold */
+export function filterKeyFoldAway(): string { return `←→ fold`; }
+
+/** filter.key_hide: h hide */
+export function filterKeyHide(): string { return `h hide`; }
+
+/** filter.key_log: f log */
+export function filterKeyLog(): string { return `f log`; }
+
+/** filter.key_only: o only */
+export function filterKeyOnly(): string { return `o only`; }
+
+/** filter.key_remove: x remove */
+export function filterKeyRemove(): string { return `x remove`; }
 
 /** filter.only: Only */
 export function filterOnly(): string { return `Only`; }
@@ -473,6 +500,9 @@ export function filterPrompt(): string { return `filter text: `; }
 
 /** filter.text_item: "{term}" */
 export function filterTextItem(term: unknown): string { return `"${term}"`; }
+
+/** filter.title: Filters */
+export function filterTitle(): string { return `Filters`; }
 
 /** filter.untagged: Untagged */
 export function filterUntagged(): string { return `Untagged`; }
@@ -545,6 +575,9 @@ export function pickerHint(): string { return `Enter to connect · Esc to close`
 
 /** picker.name: Name */
 export function pickerName(): string { return `Name`; }
+
+/** picker.title: All connections */
+export function pickerTitle(): string { return `All connections`; }
 
 /** relay.allow_bad_limit: allowlist {path}: {key} must be 1 or more */
 export function relayAllowBadLimit(path: unknown, key: unknown): string { return `allowlist ${path}: ${key} must be 1 or more`; }
@@ -893,11 +926,11 @@ export function viewConnectedSinceDay(day: unknown, time: unknown): string { ret
 /** view.connecting: Connecting… */
 export function viewConnecting(): string { return `Connecting…`; }
 
+/** view.connections_title: Connections */
+export function viewConnectionsTitle(): string { return `Connections`; }
+
 /** view.disconnected: Disconnected · Enter to connect */
 export function viewDisconnected(): string { return `Disconnected · Enter to connect`; }
-
-/** view.filter_button: Filter */
-export function viewFilterButton(): string { return `Filter`; }
 
 /** view.history_button: History */
 export function viewHistoryButton(): string { return `History`; }

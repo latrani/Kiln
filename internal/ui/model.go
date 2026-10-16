@@ -642,18 +642,23 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
+	logMode := cs != nil && cs.browse != nil // a place you go into and out of: switching keys do nothing there
 	switch k.String() {
 	case "ctrl+up":
-		m.switchBy(-1)
-		return nil
+		if !logMode {
+			m.switchBy(-1)
+			return nil
+		}
 	case "ctrl+down":
-		m.switchBy(1)
-		return nil
+		if !logMode {
+			m.switchBy(1)
+			return nil
+		}
 	case "tab", "shift+tab":
-		if m.picker == nil && m.historyShows() && (cs == nil || cs.browse == nil) { // the panel's scope
+		if m.picker == nil && m.historyShows() && !logMode { // the panel's scope
 			return m.historyScope(m.a.SwapHistoryScope())
 		}
-		if m.picker == nil { // the picker's forms move between fields with Tab
+		if m.picker == nil && !logMode { // the picker's forms move between fields with Tab
 			m.switchToUnread(map[string]int{"tab": 1, "shift+tab": -1}[k.String()])
 			return nil
 		}
@@ -941,6 +946,7 @@ func (m *Model) openBrowse(cs *charState) {
 	cs.browse.SetCursor(g.LastVisible())
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
 	cs.browse.cfg = m.a.Config
+	cs.browse.newPanel()
 	m.a.ClearStatus()
 }
 
@@ -1010,9 +1016,9 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 			switch msg.Button {
 			case tea.MouseWheelUp:
-				cs.browse.panelScroll(-3, m.height)
+				cs.browse.panelScroll(-3, m.height-sideTitleH)
 			case tea.MouseWheelDown:
-				cs.browse.panelScroll(3, m.height)
+				cs.browse.panelScroll(3, m.height-sideTitleH)
 			}
 			return nil
 		}
@@ -1062,12 +1068,18 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
+		if msg.Y < sideTitleH { // the title: the panel's side, in log mode
+			if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.prompt == promptNone {
+				cs.browse.panelFocus = true
+			}
+			return nil
+		}
 		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-			cs.browse.panelClick(msg.X, msg.Y, m.height)
+			cs.browse.panelClick(msg.X, msg.Y-sideTitleH, m.height-sideTitleH)
 			return nil
 		}
 		sv := m.sidebarView()
-		r, hint := sv.at(msg.Y)
+		r, hint := sv.at(msg.Y - sideTitleH)
 		switch {
 		case hint != 0:
 			m.scrollSidebar(hint * max(1, sv.avail-1))

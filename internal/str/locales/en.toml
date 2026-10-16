@@ -125,6 +125,8 @@ connected = "connected"
 failed = "failed"
 
 [view]
+# The connection sidebar's title, its first row.
+connections_title = "Connections"
 nothing_open = "Hit Enter or Ctrl+O to choose a connection"
 no_characters = ""
 save_password = "Save password for {name} in {store}? [Y/n]"
@@ -140,7 +142,6 @@ pill_new = "▼ {n} new"
 pill_more = "▼ more"
 selected = "{n} selected"
 log_button = "Log"
-filter_button = "Filter"
 # The history panel: its button in the statusline, and what it says
 # when it has nothing to list.
 history_button = "History"
@@ -300,10 +301,17 @@ find_status = "find: {find} {i}/{n} · n/N"
 # As find_status, while older history not yet loaded may hold more.
 find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
-# The action bar's keys, by state: nothing selected, selecting, a range selected.
-hints_none = "s select · / find · g date · f filter · esc back"
-hints_selecting = "space exclude · s done · c copy · e export · esc drop"
-hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
+# The action bar's keys, by state: nothing selected, selecting, a range
+# selected. These are while the log has focus; f moves it to the filters.
+# Esc backs out everywhere, so no hint says so.
+hints_none = "s select · / find · g date · f filters"
+hints_selecting = "space exclude · s done · c copy · e export"
+hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filters"
+# The same while the filters have focus: only the keys that still reach
+# the log from there.
+hints_none_away = "s select · / find · g date"
+hints_selecting_away = "s done · c copy · e export"
+hints_selected_away = "s select · c copy · e export · / find · g date"
 # In the statusline: the cursor line's tags, and for one with no style
 # of its own, the tag up its slashes whose style it takes. Nothing shows
 # for a line with none.
@@ -313,6 +321,8 @@ tag_unstyled = "{tag} (unstyled)"
 
 # Log mode's filter panel, in the sidebar.
 [filter]
+# Log mode's filter panel's title, its first row.
+title = "Filters"
 hide = "Hide"
 only = "Only"
 add_text = "+ Text"
@@ -320,11 +330,24 @@ add_text = "+ Text"
 untagged = "Untagged"
 # A text row's name in the panel.
 text_item = "\"{term}\""
-hints = "h hide · o only · space ←→ fold · enter add · x remove · f close"
+# The filter panel's footer: the keys that work on the highlighted row,
+# joined with the separator. Hide and Only on any but + Text; fold on a
+# tag with tags under it (Space only while the panel has focus); add on
+# + Text, and remove on a text, while it has focus; then f, giving the
+# log focus.
+key_hide = "h hide"
+key_only = "o only"
+key_fold = "space ←→ fold"
+key_fold_away = "←→ fold"
+key_add = "enter add"
+key_remove = "x remove"
+key_log = "f log"
 prompt = "filter text: "
 
 # The open-connection picker.
 [picker]
+# The picker's list's title, the sidebar's first row while it's open.
+title = "All connections"
 hint = "Enter to connect · Esc to close"
 add_char_hint = "Enter to connect · Esc to cancel"
 add_character = "+ Character"

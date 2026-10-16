@@ -60,14 +60,23 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHintsNone is browse.hints_none: "s select · / find · g date · f filter · esc back"
+// BrowseHintsNone is browse.hints_none: "s select · / find · g date · f filters"
 func BrowseHintsNone() string { return get("browse.hints_none", nil) }
 
-// BrowseHintsSelected is browse.hints_selected: "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
+// BrowseHintsNoneAway is browse.hints_none_away: "s select · / find · g date"
+func BrowseHintsNoneAway() string { return get("browse.hints_none_away", nil) }
+
+// BrowseHintsSelected is browse.hints_selected: "s select · space exclude · c copy · e export · / find · g date · f filters"
 func BrowseHintsSelected() string { return get("browse.hints_selected", nil) }
 
-// BrowseHintsSelecting is browse.hints_selecting: "space exclude · s done · c copy · e export · esc drop"
+// BrowseHintsSelectedAway is browse.hints_selected_away: "s select · c copy · e export · / find · g date"
+func BrowseHintsSelectedAway() string { return get("browse.hints_selected_away", nil) }
+
+// BrowseHintsSelecting is browse.hints_selecting: "space exclude · s done · c copy · e export"
 func BrowseHintsSelecting() string { return get("browse.hints_selecting", nil) }
+
+// BrowseHintsSelectingAway is browse.hints_selecting_away: "s done · c copy · e export"
+func BrowseHintsSelectingAway() string { return get("browse.hints_selecting_away", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
 func BrowseLineTags(tags any) string { return get("browse.line_tags", map[string]any{"tags": tags}) }
@@ -527,8 +536,26 @@ func FilterAddText() string { return get("filter.add_text", nil) }
 // FilterHide is filter.hide: "Hide"
 func FilterHide() string { return get("filter.hide", nil) }
 
-// FilterHints is filter.hints: "h hide · o only · space ←→ fold · enter add · x remove · f close"
-func FilterHints() string { return get("filter.hints", nil) }
+// FilterKeyAdd is filter.key_add: "enter add"
+func FilterKeyAdd() string { return get("filter.key_add", nil) }
+
+// FilterKeyFold is filter.key_fold: "space ←→ fold"
+func FilterKeyFold() string { return get("filter.key_fold", nil) }
+
+// FilterKeyFoldAway is filter.key_fold_away: "←→ fold"
+func FilterKeyFoldAway() string { return get("filter.key_fold_away", nil) }
+
+// FilterKeyHide is filter.key_hide: "h hide"
+func FilterKeyHide() string { return get("filter.key_hide", nil) }
+
+// FilterKeyLog is filter.key_log: "f log"
+func FilterKeyLog() string { return get("filter.key_log", nil) }
+
+// FilterKeyOnly is filter.key_only: "o only"
+func FilterKeyOnly() string { return get("filter.key_only", nil) }
+
+// FilterKeyRemove is filter.key_remove: "x remove"
+func FilterKeyRemove() string { return get("filter.key_remove", nil) }
 
 // FilterOnly is filter.only: "Only"
 func FilterOnly() string { return get("filter.only", nil) }
@@ -538,6 +565,9 @@ func FilterPrompt() string { return get("filter.prompt", nil) }
 
 // FilterTextItem is filter.text_item: "\"{term}\""
 func FilterTextItem(term any) string { return get("filter.text_item", map[string]any{"term": term}) }
+
+// FilterTitle is filter.title: "Filters"
+func FilterTitle() string { return get("filter.title", nil) }
 
 // FilterUntagged is filter.untagged: "Untagged"
 func FilterUntagged() string { return get("filter.untagged", nil) }
@@ -624,6 +654,9 @@ func PickerHint() string { return get("picker.hint", nil) }
 
 // PickerName is picker.name: "Name"
 func PickerName() string { return get("picker.name", nil) }
+
+// PickerTitle is picker.title: "All connections"
+func PickerTitle() string { return get("picker.title", nil) }
 
 // RelayAllowBadLimit is relay.allow_bad_limit: "allowlist {path}: {key} must be 1 or more"
 func RelayAllowBadLimit(path, key any) string {
@@ -1088,11 +1121,11 @@ func ViewConnectedSinceDay(day, time any) string {
 // ViewConnecting is view.connecting: "Connecting…"
 func ViewConnecting() string { return get("view.connecting", nil) }
 
+// ViewConnectionsTitle is view.connections_title: "Connections"
+func ViewConnectionsTitle() string { return get("view.connections_title", nil) }
+
 // ViewDisconnected is view.disconnected: "Disconnected · Enter to connect"
 func ViewDisconnected() string { return get("view.disconnected", nil) }
-
-// ViewFilterButton is view.filter_button: "Filter"
-func ViewFilterButton() string { return get("view.filter_button", nil) }
 
 // ViewHistoryButton is view.history_button: "History"
 func ViewHistoryButton() string { return get("view.history_button", nil) }

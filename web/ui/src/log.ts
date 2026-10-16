@@ -2,7 +2,7 @@
 // shows, find's status and marks, and its keys. Lines are addressed by
 // their number (Seq); one Go names that the page doesn't hold (not yet
 // loaded) is nothing.
-import { closePanel, togglePanel } from "./filter.ts";
+import { focusPanel } from "./filter.ts";
 import type { LineData, LogView, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
@@ -153,8 +153,9 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
 // move the cursor a shown line (up from the oldest asks for older
 // history); a prompt for find, go-to (starting from the cursor's day and
 // time) or export's format; n and N step
-// find from the cursor; c copies; f opens or closes the filter panel; Esc stops a search, else closes the
-// panel, else turns find off, else closes log mode.
+// find from the cursor; c copies; f gives the filter panel focus; Esc
+// stops a search, else ends selecting, else turns find off, else closes
+// log mode.
 export function logAct(store: Store, does: LogKey): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
   const lines = s.logLines[k]?.lines ?? [];
@@ -195,10 +196,9 @@ export function logAct(store: Store, does: LogKey): void {
     case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
-    case "filter": togglePanel(store); break;
-    case "back": // one thing at a time: a search, the panel, selecting, find, then log mode
+    case "filter": focusPanel(store); break;
+    case "back": // one thing at a time: a search, selecting, find, then log mode
       if (g.Searching) act({ Do: "stop_search", Key: k });
-      else if (v.panel) closePanel(store);
       else if (g.Marking) {
         act({ Do: "end_mark", Key: k });
         selecting(store, false);

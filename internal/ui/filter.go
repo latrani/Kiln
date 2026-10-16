@@ -7,6 +7,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
@@ -25,6 +26,7 @@ type filterPanel struct {
 	Sel    filterSel // the highlighted entry
 	top    int       // first row drawn
 	follow bool      // scroll the highlight into view on the next draw
+	listH  int       // the list's rows, above the footer, at the last draw
 }
 
 // panelEntry is a row the panel lists: one of the core's entries, or
@@ -67,14 +69,19 @@ func (b *browse) entriesOf(items []scene.Item) []panelEntry {
 // entries is entriesOf the items as they are now.
 func (b *browse) entries() []panelEntry { return b.entriesOf(b.Items()) }
 
-// togglePanel opens the filter panel on its first entry, scrolled to it,
-// or closes it.
-func (b *browse) togglePanel() {
-	if b.Panel != nil {
-		b.Panel = nil
-		return
+// newPanel puts the filter panel on its first entry, scrolled to it,
+// with the log focused: log mode as it starts.
+func (b *browse) newPanel() {
+	b.Panel, b.panelFocus = &filterPanel{Sel: b.entries()[0].sel(), follow: true}, false
+}
+
+// focusPanel gives the panel the keys, or (false) the log; the
+// highlight comes into view.
+func (b *browse) focusPanel(on bool) {
+	b.panelFocus = on
+	if on {
+		b.Panel.follow = true
 	}
-	b.Panel = &filterPanel{Sel: b.entries()[0].sel(), follow: true}
 }
 
 // movePanel moves the highlight by delta entries, stopping at the ends.
@@ -164,12 +171,35 @@ func (b *browse) panelRows(w int) []panelRow {
 	return rows
 }
 
-// panelView draws the panel into a column w wide and h tall, scrolled so
-// the selected entry's rows show; "▲ N more" / "▼ N more" replace the
-// edge rows when it overflows, as in the sidebar.
+// panelView draws the panel into a column w wide and h tall: its list,
+// scrolled so the selected entry's rows show ("▲ N more" / "▼ N more"
+// replace the edge rows when it overflows, as in the sidebar), then a
+// rule and its footer.
 func (b *browse) panelView(w, h int) []string {
+	foot := b.panelFooter(w, h)
+	listH := h
+	if len(foot) > 0 {
+		listH -= len(foot) + 1
+	}
+	out := b.panelList(w, listH)
+	if len(foot) > 0 {
+		out = append(out, theme.Paint(theme.RuleFilter, strings.Repeat(glyph.Rule, w)))
+		role := theme.FilterHints
+		if !b.panelFocus { // the keys aren't the panel's: faded
+			role = theme.FilterHintsAway
+		}
+		for _, r := range foot {
+			out = append(out, theme.Paint(role, fit(r, w)))
+		}
+	}
+	return out
+}
+
+// panelList draws the panel's list, h rows.
+func (b *browse) panelList(w, h int) []string {
 	rows := b.panelRows(w)
 	p := b.Panel
+	p.listH = h
 	selRow := -1 // keep the scroll where the wheel left it
 	if p.follow {
 		p.follow = false
@@ -232,12 +262,13 @@ func (b *browse) panelWindow(total, h, sel int) (top int, above, below bool, ava
 	return top, above, below, avail
 }
 
-// panelKey handles a key while the filter panel is open.
+// panelKey handles a key for the filter panel: one only it uses, from
+// either side, or a shared one while it has focus.
 func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 	sel := b.Panel.Sel
 	switch k.String() {
-	case "esc", "ctrl+c", openFilterKey: // as they back out of log mode
-		b.togglePanel() // it's open: this closes it
+	case "esc", "ctrl+c": // one step back: to the log
+		b.focusPanel(false)
 		return nil
 	case "up", "k":
 		b.movePanel(-1)
@@ -280,6 +311,13 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 // removes it, a name selects.
 func (b *browse) panelClick(x, y, h int) {
 	if b.prompt != promptNone {
+		return
+	}
+	b.panelFocus = true // not focusPanel: the panel stays where the click found it
+	if b.Panel.listH > 0 {
+		h = min(h, b.Panel.listH) // the footer's rows below do nothing
+	}
+	if y >= h {
 		return
 	}
 	rows := b.panelRows(0)
@@ -337,6 +375,98 @@ func (b *browse) panelClick(x, y, h int) {
 
 // panelScroll moves the panel's view by delta rows.
 func (b *browse) panelScroll(delta, h int) {
+	if b.Panel.listH > 0 {
+		h = min(h, b.Panel.listH)
+	}
 	rows := b.panelRows(0)
 	b.Panel.top = min(max(0, b.Panel.top+delta), max(0, len(rows)-h+1))
 }
+
+// footerRows lays hints out in rows w wide, breaking only between the
+// keys the separator parts; a key too wide for a row is cut.
+func footerRows(hints string, w int) []string {
+	sep := str.Separator()
+	var rows []string
+	for _, k := range strings.Split(hints, sep) {
+		k = xansi.Truncate(k, w, "…")
+		if n := len(rows); n > 0 && xansi.StringWidth(rows[n-1]+sep+k) <= w {
+			rows[n-1] += sep + k
+			continue
+		}
+		rows = append(rows, k)
+	}
+	return rows
+}
+
+// footKind is what a panel row is, for the keys that work on it.
+type footKind int
+
+const (
+	footLeaf   footKind = iota // a tag with none under it, or Untagged
+	footParent                 // a tag with tags under it: it folds
+	footText                   // a text: it's removed
+	footAdd                    // + Text: it adds
+)
+
+// panelKeys is the footer's keys for a row of kind k: those that work on
+// it from the side that has focus (focus: the panel), then f while the
+// panel has it.
+func panelKeys(k footKind, focus bool) []string {
+	var keys []string
+	if k != footAdd {
+		keys = append(keys, str.FilterKeyHide(), str.FilterKeyOnly())
+	}
+	switch {
+	case k == footParent && focus:
+		keys = append(keys, str.FilterKeyFold())
+	case k == footParent:
+		keys = append(keys, str.FilterKeyFoldAway())
+	case k == footText:
+		keys = append(keys, str.FilterKeyRemove())
+	case k == footAdd && focus:
+		keys = append(keys, str.FilterKeyAdd())
+	}
+	if focus {
+		keys = append(keys, str.FilterKeyLog())
+	}
+	return keys
+}
+
+// selKind is footKind for the highlighted row.
+func (b *browse) selKind() footKind {
+	sel := b.Panel.Sel
+	switch {
+	case sel.Add:
+		return footAdd
+	case sel.Item.Text:
+		return footText
+	}
+	for _, e := range b.entries() {
+		if e.sel() == sel && e.Parent {
+			return footParent
+		}
+	}
+	return footLeaf
+}
+
+// panelFooter is the footer's rows for a column w wide and h tall: the
+// keys for the highlighted row, in as many rows as the most any row
+// needs, so the list doesn't change height as the highlight moves; at
+// most a third of the column, and never so many the list gets fewer
+// than minPanelList rows (the last keys go first).
+func (b *browse) panelFooter(w, h int) []string {
+	sep := str.Separator()
+	need := 0
+	for k := footLeaf; k <= footAdd; k++ {
+		need = max(need, len(footerRows(strings.Join(panelKeys(k, b.panelFocus), sep), w)))
+	}
+	rows := footerRows(strings.Join(panelKeys(b.selKind(), b.panelFocus), sep), w)
+	n := min(need, h/3, h-1-minPanelList) // the rule takes a row
+	for len(rows) < n {
+		rows = append(rows, "")
+	}
+	return rows[:max(0, n)]
+}
+
+// minPanelList is the fewest rows the panel's list keeps for itself.
+const minPanelList = 3

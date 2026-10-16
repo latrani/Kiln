@@ -61,8 +61,17 @@ var browseKeys = map[string]browseAction{
 	"c":      actCopy,
 }
 
-// openFilterKey opens and closes log mode's filter panel.
+// openFilterKey moves log mode's keys between the log and its filter
+// panel.
 const openFilterKey = "f"
+
+// sharedKeys are the keys both the log and the filter panel use; they go
+// to whichever has focus. panelOnlyKeys are the panel's that the log
+// doesn't use: they work from either side, as the log's own do.
+var (
+	sharedKeys    = map[string]bool{"up": true, "down": true, "k": true, "j": true, "space": true, " ": true, "esc": true, "ctrl+c": true, "enter": true}
+	panelOnlyKeys = map[string]bool{"h": true, "o": true, "left": true, "right": true, "x": true, "delete": true}
+)
 
 // Filter panel glyphs: a parent's disclosure, the mark on a collapsed
 // parent with a filter set under it, and the × that removes a text row.

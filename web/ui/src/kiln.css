@@ -19,6 +19,14 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
 }
 .side { grid-area: side; overflow-y: auto; }
+/* Each sidebar list's title, as the TUI's: its first row, underlined
+   across the column. */
+.side .stitle { font: inherit; margin: 0 0 calc(.5lh - .5px); padding-bottom: calc(.5lh - .5px); border-bottom: 1px solid var(--rule); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.filter-panel { display: flex; flex-direction: column; }
+.filter-panel ul { flex: 1 1 auto; }
+/* The panel's footer under a rule, wrapping between keys, as the TUI's. */
+.filter-panel .ffoot { border-top: 1px solid var(--role-rule-filter-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
+.filter-panel .ffoot span { display: inline-block; white-space: pre; }
 /* A sidebar row is one line: the name gives way (cut with …) to the
    badge and the activity, as the TUI's fitName does. */
 .side ul { list-style: none; margin: 0; padding: 0; }

@@ -35,18 +35,19 @@ const (
 // the core's log.
 type browse struct {
 	*app.Log
-	cs       *charState
-	Cursor   *app.LogLine            // the highlighted line; see logcursor.go
-	top      *app.LogLine            // first line drawn at the top of the body
-	scrolled bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
-	rowLines []*app.LogLine          // body row → line (nil for dividers), from the last draw
-	painted  map[*app.LogLine]string // each line as painted, once it's been needed; see text
-	prompt   promptKind
-	pin      *Input
-	Panel    *filterPanel // the filter panel, while it's open
-	format   string
-	run      func([]app.Effect) tea.Cmd // the model's run
-	cfg      func() *config.Config      // the config as it is now, for the export settings
+	cs         *charState
+	Cursor     *app.LogLine            // the highlighted line; see logcursor.go
+	top        *app.LogLine            // first line drawn at the top of the body
+	scrolled   bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
+	rowLines   []*app.LogLine          // body row → line (nil for dividers), from the last draw
+	painted    map[*app.LogLine]string // each line as painted, once it's been needed; see text
+	prompt     promptKind
+	pin        *Input
+	Panel      *filterPanel // the filter panel, always there in log mode
+	panelFocus bool         // keys go to the panel, not the log
+	format     string
+	run        func([]app.Effect) tea.Cmd // the model's run
+	cfg        func() *config.Config      // the config as it is now, for the export settings
 }
 
 // text is l painted, painting it the first time it's needed.
@@ -93,12 +94,12 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	if b.prompt != promptNone {
 		return b.promptKey(k), false
 	}
-	if b.Panel != nil {
-		return b.panelKey(k), false
-	}
-	if s == openFilterKey {
-		b.togglePanel()
+	switch {
+	case s == openFilterKey:
+		b.focusPanel(!b.panelFocus)
 		return nil, false
+	case panelOnlyKeys[s] || sharedKeys[s] && b.panelFocus:
+		return b.panelKey(k), false
 	}
 	b.ClearStatus()
 	switch browseKeys[s] {
@@ -173,15 +174,21 @@ func (b *browse) statusParts() string {
 }
 
 // hints is the action bar's keys for the state select mode is in:
-// nothing selected, selecting, or a range selected.
+// nothing selected, selecting, or a range selected; while the panel has
+// focus, only those that still reach the log.
 func (b *browse) hints() string {
+	away := b.panelFocus // only the keys that reach the log from the panel
 	switch {
-	case b.Panel != nil:
-		return str.FilterHints()
+	case b.Marking && away:
+		return str.BrowseHintsSelectingAway()
 	case b.Marking:
 		return str.BrowseHintsSelecting()
+	case b.Start != nil && away:
+		return str.BrowseHintsSelectedAway()
 	case b.Start != nil:
 		return str.BrowseHintsSelected()
+	case away:
+		return str.BrowseHintsNoneAway()
 	}
 	return str.BrowseHintsNone()
 }
@@ -449,7 +456,11 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		rows = append(rows, theme.Fill(theme.LogBar, label+text, w))
 		curX, curY, showCur = xansi.StringWidth(label)+x, h-2, true
 	default: // messages go to the bottom bar
-		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, b.hints()), w))
+		hints := theme.LogHints
+		if b.panelFocus { // the keys aren't the log's: faded
+			hints = theme.LogHintsAway
+		}
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(hints, b.hints()), w))
 	}
 	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat(glyph.Rule, w)))
 	return rows, curX, curY, showCur
@@ -492,6 +503,7 @@ func (b *browse) click(y int) {
 	if b.prompt != promptNone {
 		return
 	}
+	b.focusPanel(false)
 	row := y
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return

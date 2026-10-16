@@ -11,9 +11,11 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 func TestStartupOpensOnlyAutoconnect(t *testing.T) {
@@ -82,8 +84,12 @@ func TestLateEventFromClosedCharacterIgnored(t *testing.T) {
 	}
 }
 
-// sideRow is sidebar row y as plain text, untrimmed.
-func sideRow(h *harness, y int) string {
+// sideRow is the sidebar's list row y (under its title) as plain text,
+// untrimmed.
+func sideRow(h *harness, y int) string { return screenSide(h, y+sideTitleH) }
+
+// screenSide is screen row y's sidebar column as plain text, untrimmed.
+func screenSide(h *harness, y int) string {
 	return strings.SplitN(strings.Split(h.screen(), "\n")[y], "│", 2)[0]
 }
 
@@ -141,7 +147,7 @@ func TestClickXClosesAndNameDoesnt(t *testing.T) {
 	h.open("fm/rook")
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
+	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH + y, Button: tea.MouseLeft}) }
 	click(badgeX, 1) // kit is connected: no × to hit
 	if h.m.chars["fm/kit"] == nil {
 		t.Fatal("clicking a connected character's badge cell closed it")
@@ -225,12 +231,12 @@ func TestClosingLastCharacterShowsEmptyState(t *testing.T) {
 func TestClickingWorldHeaderShowsOverview(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	for _, x := range []int{badgeX, 6, badgeX, 6} { // badge column and name column, twice (a double-click)
-		h.m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
+		h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH, Button: tea.MouseLeft})
 	}
 	if h.m.a.Active() != worldSel("fm") || h.m.chars["fm/kit"] == nil {
 		t.Errorf("active = %q after clicking the world header", h.m.a.Active())
 	}
-	h.m.Update(tea.MouseClickMsg{X: 6, Y: 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: sideTitleH + 1, Button: tea.MouseLeft})
 	if h.m.a.Active() != "fm/kit" {
 		t.Errorf("active = %q after clicking Kit", h.m.a.Active())
 	}
@@ -428,5 +434,67 @@ func TestAddChipsFitNarrowSidebar(t *testing.T) {
 	h.press('o', tea.ModCtrl)
 	if s := h.screen(); !strings.Contains(s, "  "+addCharLabel+" ") {
 		t.Errorf("the %s chip is cut:\n%s", addCharLabel, s)
+	}
+}
+
+// sideRowOf is the screen row whose sidebar text, trimmed, ends with s; -1
+// for none.
+func sideRowOf(h *harness, s string) int {
+	for y, row := range strings.Split(h.screen(), "\n") {
+		if strings.HasSuffix(strings.TrimSpace(strings.SplitN(row, "│", 2)[0]), s) {
+			return y
+		}
+	}
+	return -1
+}
+
+func TestSidebarTitle(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	if got := strings.TrimSpace(screenSide(h, 0)); got != str.ViewConnectionsTitle() {
+		t.Errorf("row 0 = %q; want the title", got)
+	}
+	l := h.m.layout()
+	rows := strings.Split(h.m.View().Content, "\n")
+	if !strings.Contains(rows[0], theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw))) {
+		t.Errorf("row 0 %q; want the title", rows[0])
+	}
+	if !strings.Contains(rows[1], theme.Paint(theme.RuleSidebar, strings.Repeat(glyph.Rule, l.sw))) {
+		t.Errorf("row 1 %q; want a rule across the column under the title", rows[1])
+	}
+	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" {
+		t.Errorf("first list row = %q; want the first world", got)
+	}
+}
+
+func TestSidebarClickUnderTitle(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.open("fm/rook")
+	h.m.switchTo("fm/kit")
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
+	if h.m.a.Active() != "fm/kit" {
+		t.Fatalf("a click on the title switched to %s", h.m.a.Active())
+	}
+	y := sideRowOf(h, "Rook")
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: y, Button: tea.MouseLeft})
+	if h.m.a.Active() != "fm/rook" {
+		t.Errorf("clicked Rook's row %d: active %s", y, h.m.a.Active())
+	}
+}
+
+func TestPickerListTitle(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.m.openPicker()
+	if got := strings.TrimSpace(screenSide(h, 0)); got != str.PickerTitle() {
+		t.Errorf("row 0 = %q; want the picker's title", got)
+	}
+	if raw := strings.Split(h.m.View().Content, "\n"); !strings.Contains(raw[0], theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) ||
+		!strings.Contains(raw[1], theme.Paint(theme.RulePicker, strings.Repeat(glyph.Rule, h.m.layout().sw))) {
+		t.Errorf("rows 0-1 %q; want the picker's title and its rule", raw[:2])
+	}
+	y := sideRowOf(h, "sp")
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: y, Button: tea.MouseLeft})
+	if h.m.picker.sel != selKey(sidebarRow{kind: rowWorld, world: "sp"}) {
+		t.Errorf("clicked sp's row %d: sel %q", y, h.m.picker.sel)
 	}
 }

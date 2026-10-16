@@ -18,14 +18,15 @@ const connecting = 1, connected = 2;
 // name, cut with … when too long, and its unread count, after ● when a
 // line was a priority. The active row is lit across. Last, after a gap,
 // "+ Connection" opens the picker. With the picker open, it's the
-// picker's list instead; in log mode with the filter panel open (f), the
-// panel.
+// picker's list instead; in log mode, the filter panel. Each is titled,
+// as the TUI's.
 export function Sidebar({ state, store }: { state: State; store: Store }) {
-  if (logShows(state, state.active) && state.logView[state.active]?.panel) return <FilterPanel state={state} store={store} />;
+  if (logShows(state, state.active)) return <FilterPanel state={state} store={store} />;
   if (listing(state)) return <PickerList state={state} store={store} />;
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (
     <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>
+      <SideTitle role="sidebar.title" rule="rule.sidebar" label={str.viewConnectionsTitle()} />
       <ul>
         {sidebarRows(state.order, state.chars).map((r) => {
           if (r.kind === "gap") return <li key="gap" aria-hidden="true"> </li>;
@@ -88,6 +89,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   }, [p.sel]);
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
+      <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} />
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen
@@ -141,4 +143,14 @@ function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
     else if (r.kind !== "add_world") out.at(-1)?.rows.push(r);
   }
   return out;
+}
+
+// SideTitle is a sidebar list's title, as the TUI's: label over a rule
+// across the column in rule's color, in line with the top bar's. A press
+// on it does onPress (the filter panel's: focus to it).
+export function SideTitle({ role, rule, label, onPress }: { role: string; rule: string; label: string; onPress?: () => void }) {
+  return (
+    <h2 class={`stitle ${roleClass(role)}`} style={`--rule:var(--role-${rule.replaceAll(".", "-")}-fg)`}
+      onMouseDown={onPress && ((e) => { e.preventDefault(); onPress(); })}>{label}</h2>
+  );
 }

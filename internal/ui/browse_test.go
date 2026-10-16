@@ -655,11 +655,11 @@ func TestBrowseCommandAndSwitching(t *testing.T) {
 	if h.br() == nil || !strings.Contains(h.screen(), str.BrowseNoLogs()) {
 		t.Fatalf("screen:\n%s", h.screen())
 	}
-	h.press(tea.KeyDown, tea.ModCtrl) // switch to Rook: normal view
+	h.m.switchTo("fm/rook") // normal view
 	if h.m.chars["fm/rook"].browse != nil || strings.Contains(h.screen(), firstPart(str.BrowseHintsNone())) {
 		t.Error("rook should not be in browse mode")
 	}
-	h.press(tea.KeyUp, tea.ModCtrl)
+	h.press(tea.KeyUp, tea.ModCtrl) // from rook's normal view
 	if h.br() == nil || !strings.Contains(h.screen(), firstPart(str.BrowseHintsNone())) {
 		t.Error("kit's browse state was lost")
 	}
@@ -914,7 +914,7 @@ func TestFilterOutlastsLogMode(t *testing.T) {
 }
 
 // Ctrl+L (or the Log chip) hides log mode as you left it: back on the
-// next Ctrl+L with the filter panel, cursor and marks, even after
+// next Ctrl+L with the filter panel's focus and highlight, cursor and marks, even after
 // looking at another world, and caught up on what arrived meanwhile.
 // Esc closes it, and the next one starts fresh.
 func TestLogModeKeptAcrossToggle(t *testing.T) {
@@ -938,7 +938,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].Unread > 0 })
 	h.m.switchTo("fm/kit")
 	h.key("ctrl+l")
-	if h.br() != b || b.Panel == nil || b.Panel.Sel != sel || b.Cursor != cursor || b.Start == nil {
+	if h.br() != b || !b.panelFocus || b.Panel.Sel != sel || b.Cursor != cursor || b.Start == nil {
 		t.Fatalf("log mode not as left:\n%s", h.screen())
 	}
 	if b.Last().Entry.Text != "Brand new line" {
@@ -948,7 +948,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.key("esc") // marking
 	h.key("esc") // log mode
 	h.key("ctrl+l")
-	if h.br() == b || h.br().Panel != nil || h.br().Start != nil {
+	if h.br() == b || h.br().panelFocus || h.br().Panel.Sel != h.br().entries()[0].sel() || h.br().Start != nil {
 		t.Errorf("after Esc, log mode should start fresh:\n%s", h.screen())
 	}
 }
@@ -963,7 +963,7 @@ func TestLogModeKeptAcrossChipAndCommand(t *testing.T) {
 	h.key("f")
 	b := h.br()
 	l := h.m.layout()
-	_, logc, _, _ := h.m.topBar(l.rw)
+	_, logc, _ := h.m.topBar(l.rw)
 	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + logc[0] + 1, Y: 0, Button: tea.MouseLeft})
 	if h.br() != nil {
 		t.Fatalf("the Log chip should leave log mode:\n%s", h.screen())

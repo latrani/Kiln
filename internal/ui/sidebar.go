@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	xansi "github.com/charmbracelet/x/ansi"
 
@@ -163,7 +164,7 @@ func (m *Model) sidebarView() sideView {
 		}
 	}
 	sv := sideView{rows: rows}
-	h := max(1, m.height)
+	h := max(1, m.height-sideTitleH)
 	total := len(sv.rows)
 	if total <= h {
 		m.sideTop = 0
@@ -274,4 +275,18 @@ func fitName(s string, w int) string {
 		return ""
 	}
 	return fit(xansi.Truncate(s, w, "…"), w)
+}
+
+// sideTitleH is the rows above the sidebar's list: its title, which
+// names the list (open connections, the picker's, or log mode's
+// filters).
+const sideTitleH = 2
+
+// sideTitle draws the sidebar's title row y (0 or 1), w wide: label in
+// r, then a rule across the column in rule, as the top bar's beside it.
+func sideTitle(y int, r, rule theme.Role, label string, w int) string {
+	if y == 0 {
+		return theme.Paint(r, fit(label, w))
+	}
+	return theme.Paint(rule, strings.Repeat(glyph.Rule, w))
 }

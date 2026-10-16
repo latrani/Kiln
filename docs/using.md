@@ -13,8 +13,8 @@
 | `Home` / `End` (or `Ctrl+A` / `Ctrl+E`) | Start or end of the line |
 | `Ctrl+W` (or `Alt+Backspace`) / `Alt+Delete` | Delete the word before or after the cursor |
 | `Ctrl+U` / `Ctrl+K` | Delete to the start or end of the line |
-| `Ctrl+↑` / `Ctrl+↓` | Switch between open characters and their worlds' overviews |
-| `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before |
+| `Ctrl+↑` / `Ctrl+↓` | Switch between open characters and their worlds' overviews (not in [log mode](log-mode.md)) |
+| `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before (not in [log mode](log-mode.md)) |
 | `Ctrl+O` | Open a connection (same as `/open`): type to filter, `Enter` to connect, `Esc` to close |
 | `Ctrl+T` | Edit the active character (same as `/edit`), or on a world's overview the world; in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world does it too). Opened from the main view, the editor stays open on its character or world while you switch to others, like log mode. In the editor, `Ctrl+T` again hides it and keeps your edits for the next time you open it. Only `Esc` closes it and drops them |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back, or page through held output (see [Paging](#paging)) |

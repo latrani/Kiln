@@ -150,7 +150,7 @@ func TestFilter(t *testing.T) {
 	letter("f")
 	sel := `document.querySelector(".filter-panel .fsel")`
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterUntagged()), "the panel, Untagged focused")
-	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.FilterHints()), "the panel's hints")
+	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.BrowseHintsNoneAway())+` && document.querySelector(".ffoot").textContent === `+jsString(strings.Join([]string{str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyLog()}, str.Separator())), "the footers, the panel focused on Untagged")
 
 	// ↓ to + Text, Enter: the prompt. "fake muck", typed key by key there,
 	// has an f and no panel key reaches the panel; Enter adds it, the new
@@ -203,22 +203,36 @@ func TestFilter(t *testing.T) {
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.sent.some(a => a.Do === "hide" && a.Item.Name === "bb")`, "Enter pressed Hide")
 
-	// Esc closes the panel, the log focused; the chip opens it again, lit.
+	// Esc gives the log focus, the panel staying; its keys still reach
+	// the panel (h), and f gives the panel focus again.
 	pressKey(t, ws, "Escape", 27)
-	waitFor(t, ev, `!document.querySelector(".filter-panel") && document.activeElement === `+logEl, "closed, the log focused")
-	click(t, ws, ev, `[...document.querySelectorAll("header button")].find(b => b.textContent === `+jsString(str.ViewFilterButton())+`)`)
-	waitFor(t, ev, `document.querySelector(".filter-panel")`, "the chip opened it")
+	waitFor(t, ev, `document.querySelector(".filter-panel") && document.activeElement === `+logEl, "the log focused, the panel there")
+	waitFor(t, ev, `document.querySelector(".ffoot").textContent === `+jsString(strings.Join([]string{str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyRemove()}, str.Separator())), "the panel's footer for a text, the log focused")
+	n := ev(`String(kilnPage.sent.filter(a => a.Do === "hide").length)`)
+	letter("h")
+	waitFor(t, ev, `String(kilnPage.sent.filter(a => a.Do === "hide").length) !== `+jsString(n), "h from the log hid the highlight")
+	letter("f")
+	waitFor(t, ev, `document.activeElement === `+sel, "f: the panel focused")
 
 	// Ctrl+L hides log mode, panel and all; Ctrl+L again: both back.
 	ctrlL(t, ws)
 	waitFor(t, ev, `!document.querySelector(".log") && !document.querySelector(".filter-panel")`, "hidden, the characters back")
 	ctrlL(t, ws)
 	waitFor(t, ev, `document.querySelector(".log") && document.querySelector(".filter-panel")`, "back as it was")
+	waitFor(t, ev, `document.activeElement === `+sel, "back with the panel focused, as left")
 
-	// Esc in the log closes the panel, not log mode.
-	ev(logEl + `.focus()`)
+	// A prompt opened from the panel gives it focus back when it closes.
+	letter("/")
+	waitFor(t, ev, `document.activeElement === `+prompt, "find's prompt, from the panel")
 	pressKey(t, ws, "Escape", 27)
-	waitFor(t, ev, `!document.querySelector(".filter-panel") && document.querySelector(".log")`, "the panel closed, log mode stays")
+	waitFor(t, ev, `document.activeElement === `+sel, "the panel focused again")
+
+	// x from the log removes the highlighted text, the log keeping focus.
+	pressKey(t, ws, "Escape", 27)
+	waitFor(t, ev, `document.activeElement === `+logEl, "the log focused")
+	letter("x")
+	waitFor(t, ev, `!document.querySelector(".filter-panel").textContent.includes(`+jsString(str.FilterTextItem("bb"))+`)`, "bb removed from the log")
+	waitFor(t, ev, `document.activeElement === `+logEl, "the log still focused")
 }
 
 // TestLogPlace: log mode keeps each character's place across a switch
