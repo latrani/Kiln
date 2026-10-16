@@ -1,5 +1,5 @@
-Connections     │fm · Kit                                       ? focus  ·  Log 
-  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+Connections    ‹│fm · Kit                                       ? focus  ·  Log 
+  @0-14 bold,fg=#a0e3e1; @15-15 fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
 ────────────────│───────────────────────────────────────────────────────────────
   @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
 fm              │›home                                                          

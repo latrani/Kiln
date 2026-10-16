@@ -21,7 +21,8 @@ const (
 	ChoicePrev  = "◄" // a choice field's arrows, while it's focused
 	ChoiceNext  = "►"
 	Add         = "+" // before an add row
-	Menu        = "≡" // the web's sidebar menu
+	Menu        = "≡" // the collapsed sidebar, at the top bar's left: opens it
+	Collapse    = "‹" // collapses the sidebar, at its title's right
 	Connecting  = "…" // a character still connecting
 )
 
@@ -33,6 +34,6 @@ var All = [][2]string{
 	{"Echo", Echo}, {"Search", Search}, {"Sys", Sys}, {"Rule", Rule}, {"Open", Open}, {"Collapsed", Collapsed},
 	{"Filtered", Filtered}, {"Remove", Remove}, {"Selected", Selected}, {"Excluded", Excluded},
 	{"CursorAbove", CursorAbove}, {"CursorBelow", CursorBelow},
-	{"Priority", Priority}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu},
+	{"Priority", Priority}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu}, {"Collapse", Collapse},
 	{"Connecting", Connecting},
 }

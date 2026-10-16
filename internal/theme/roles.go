@@ -20,15 +20,17 @@ const (
 	SidebarAdd          Role = "sidebar.add"
 	SidebarAction       Role = "sidebar.action" // unused since the web build's sidebar footer went; kept so themes that set it still load
 	SidebarMore         Role = "sidebar.more"
-	SidebarTitle        Role = "sidebar.title" // its first row, "Connections"
+	SidebarTitle        Role = "sidebar.title"    // its first row, "Connections"
+	SidebarCollapse     Role = "sidebar.collapse" // the ‹ at its title's right
 
 	Picker              Role = "picker" // area, in place of sidebar while it's open
 	PickerWorld         Role = "picker.world"
 	PickerWorldSelected Role = "picker.world.selected"
 	PickerSelected      Role = "picker.selected"
 	PickerAdd           Role = "picker.add"
-	PickerError         Role = "picker.error" // under a name being added: why it won't do
-	PickerTitle         Role = "picker.title" // its list's first row
+	PickerError         Role = "picker.error"    // under a name being added: why it won't do
+	PickerTitle         Role = "picker.title"    // its list's first row
+	PickerCollapse      Role = "picker.collapse" // the ‹ at its title's right
 
 	Divider     Role = "divider"
 	Rule        Role = "rule"
@@ -69,6 +71,7 @@ const (
 	Status          Role = "status"     // area
 	StatusLog       Role = "status.log" // the Log chip
 	StatusLogOn     Role = "status.log.on"
+	StatusMenu      Role = "status.menu"    // the collapsed sidebar\'s ≡, at the top bar\'s left
 	StatusHistory   Role = "status.history" // the History chip, in the statusline
 	StatusHistoryOn Role = "status.history.on"
 	StatusScope     Role = "status.scope" // a half of the history panel's Session/Character switch, beside History
@@ -112,6 +115,7 @@ const (
 	FilterAdd       Role = "filter.add"
 	FilterMore      Role = "filter.more"
 	FilterTitle     Role = "filter.title"      // its first row
+	FilterCollapse  Role = "filter.collapse"   // the ‹ at its title\'s right
 	FilterHints     Role = "filter.hints"      // its footer's keys
 	FilterHintsAway Role = "filter.hints.away" // its footer's keys while the log has focus
 
@@ -121,18 +125,18 @@ const (
 // Roles is every role, each after its parent.
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
-	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle,
-	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle,
+	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle, SidebarCollapse,
+	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle, PickerCollapse,
 	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleSidebar, RulePicker, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,
-	Status, StatusLog, StatusLogOn, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
+	Status, StatusLog, StatusLogOn, StatusMenu, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogHintsAway,
-	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle, FilterHints, FilterHintsAway,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle, FilterCollapse, FilterHints, FilterHintsAway,
 	Export,
 }
 

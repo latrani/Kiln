@@ -212,6 +212,18 @@ func TestGoldenMain(t *testing.T) {
 	assertGolden(t, "main", h.drawn())
 }
 
+// The main screen with the sidebar collapsed: ≡ and the rows' activity
+// summed at the top bar's left.
+func TestGoldenCollapsed(t *testing.T) {
+	h := goldenHarness(t)
+	h.open("fm/rook")
+	h.show(kilntest.MainLines[0])
+	h.show(kilntest.MainLines[1])
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Priority = 3, true
+	h.key("ctrl+b")
+	assertGolden(t, "collapsed", h.drawn())
+}
+
 func TestGoldenPicker(t *testing.T) {
 	h := goldenHarness(t)
 	h.show(kilntest.MainLines[0]) // bold (self), so the backdrop shows

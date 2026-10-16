@@ -1,0 +1,34 @@
+≡ ●3 fm · Kit                                                   ? focus  ·  Log 
+  @0-0 bold,fg=#c0cfed,bg=#0b1b3d; @1-1 fg=#a0b7e3; @2-2 bold,fg=#eed49f; @3-3 fg=#a0e3e1; @4-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+────────────────────────────────────────────────────────────────────────────────
+  @0-79 fg=#a2b0cd
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+* connected to muck.test:8888                                                   
+  @0-28 faint
+›connect Kit ***                                                                
+  @0-15 faint
+Rook says, "Evening, Kit."                                                      
+  @0-25 bold
+See https://kiln.test/map for the way                                           
+  @4-24 underline
+────────────────────────────────────────────────────────────────────────────────
+  @0-79 fg=#cdc1a2
+›                                                                               
+  @0-79 fg=#e3d0a0
+────────────────────────────────────────────────────────────────────────────────
+  @0-79 fg=#a2b0cd
+Connected since 21:14                                                   History 
+  @0-70 fg=#a0b7e3; @71-79 bold,fg=#c0cfed,bg=#0b1b3d

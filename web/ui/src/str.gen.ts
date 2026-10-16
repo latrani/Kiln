@@ -1119,5 +1119,6 @@ export const glyph = {
   choiceNext: "►",
   add: "+",
   menu: "≡",
+  collapse: "‹",
   connecting: "…",
 } as const;

@@ -646,6 +646,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	logMode := cs != nil && cs.browse != nil // a place you go into and out of: switching keys do nothing there
 	switch k.String() {
+	case toggleSidebarKey:
+		m.toggleSidebar()
+		return nil
 	case "ctrl+up":
 		if !logMode {
 			m.switchBy(-1)
@@ -1067,6 +1070,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
+		if msg.Y == 0 && msg.X == l.sw-1 && !m.sideForced() { // ‹
+			m.toggleSidebar()
+			return nil
+		}
 		if msg.Y < sideTitleH { // the title: the panel's side, in log mode
 			if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.prompt == promptNone {
 				cs.browse.panelFocus = true
