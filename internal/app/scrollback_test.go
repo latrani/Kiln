@@ -252,3 +252,26 @@ func TestScrollbackNumbersFollowTheLines(t *testing.T) {
 		t.Errorf("a live line after: %d; want 2", l.Seq)
 	}
 }
+
+// In session scope the panel lists no logged lines, so it reads no
+// older days; back in character scope it reads on as it needs them.
+func TestSessionScopeReadsNoLogs(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	writeLog(t, a, day23.Add(-24*time.Hour), "> ancient")
+	lines := []string{"> sent"}
+	for range HistoryLines {
+		lines = append(lines, "line")
+	}
+	writeLog(t, a, day23, lines...)
+	openAll(t, a, "fm/kit")
+	a.SwapHistoryScope()
+	if effs := a.HistoryOpen(); effs != nil {
+		t.Errorf("HistoryOpen in session scope = %v; want no log read", effs)
+	}
+	if effs := a.HistoryMore(); effs != nil {
+		t.Errorf("HistoryMore in session scope = %v; want no log read", effs)
+	}
+	if effs := a.SwapHistoryScope(); len(effs) != 1 {
+		t.Errorf("back to character scope: %v; want a read", effs)
+	}
+}

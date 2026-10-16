@@ -199,10 +199,11 @@ func (a *App) moreSent() []Effect {
 
 // HistoryMore starts reading an older log day for the active character's
 // history panel, as moreSent but wherever its selection is: the page's
-// panel scrolled to its top.
+// panel scrolled to its top. In session scope the panel lists no logged
+// lines, so there's nothing to read.
 func (a *App) HistoryMore() []Effect {
 	c := a.chars[a.active]
-	if c == nil || !c.History.IsOpen() || c.sentHist == nil || c.sentLoading {
+	if c == nil || !c.History.IsOpen() || c.sentHist == nil || c.sentLoading || a.sent.scope == ScopeSession {
 		return nil
 	}
 	c.sentLoading = true
