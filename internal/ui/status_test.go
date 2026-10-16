@@ -163,15 +163,15 @@ func TestLogMessagesExpireAndClear(t *testing.T) {
 		t.Fatalf("bar = %q", got)
 	}
 	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(2), Button: tea.MouseLeft, Mod: tea.ModShift}) // leave line 2 out
-	if got, want := bar(), str.ViewSelected(len(b.Selection())); got != want {
+	if got, want := bar(), b.statusParts(); got != want || !strings.HasSuffix(got, str.ViewSelected(len(b.Selection()))) {
 		t.Errorf("after excluding a line the bar = %q, want %q", got, want)
 	}
 	h.key("c") // "copied N lines"
-	if bar() == str.ViewSelected(len(b.Selection())) {
+	if bar() == b.statusParts() {
 		t.Fatal("copy set no message")
 	}
 	h.m.Update(statusExpiredMsg(h.m.a.Status().Gen))
-	if got, want := bar(), str.ViewSelected(len(b.Selection())); got != want {
+	if got, want := bar(), b.statusParts(); got != want {
 		t.Errorf("after the message timed out the bar = %q, want %q", got, want)
 	}
 }

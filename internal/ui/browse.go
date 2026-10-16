@@ -143,23 +143,25 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		b.prompt = promptFormat
 	case actCopy:
 		return b.run(b.Copy()), false
-	case actTags:
-		if b.Cursor != nil {
-			b.SetStatus(false, b.lineTags(b.Cursor))
-		}
 	}
 	return nil, false
 }
 
 // statusParts is what log mode's statusline says with no message up:
-// find, while it's on, then how many lines are selected; most specific
-// first, so a narrow screen cuts the least.
+// find, while it's on, then the cursor line's tags (if it has any), then
+// how many lines are selected; most specific first, so a narrow screen
+// cuts the least.
 func (b *browse) statusParts() string {
-	parts := []string{str.ViewSelected(len(b.Selection()))}
+	var parts []string
 	if f := b.FindStatus(); f != "" {
-		parts = append([]string{f}, parts...)
+		parts = append(parts, f)
 	}
-	return strings.Join(parts, str.Separator())
+	if b.Cursor != nil {
+		if t := b.lineTags(b.Cursor); t != "" {
+			parts = append(parts, t)
+		}
+	}
+	return strings.Join(append(parts, str.ViewSelected(len(b.Selection()))), str.Separator())
 }
 
 // lineTags says which tags l has, and for each one without a style of

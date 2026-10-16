@@ -461,10 +461,11 @@ func FindRE(term string) *regexp.Regexp {
 
 // LineTags says which tags a line has and, for each one without a style
 // of its own, whose style it takes (styled is the character's
-// highlighter's Styled): what log mode's t shows.
+// highlighter's Styled): what log mode's statusline shows for the cursor
+// line. "" for a line with none.
 func LineTags(tags []string, styled func(tag string) (string, bool)) string {
 	if len(tags) == 0 {
-		return str.BrowseNoLineTags()
+		return ""
 	}
 	parts := make([]string, len(tags))
 	for i, tag := range tags {
@@ -477,7 +478,7 @@ func LineTags(tags []string, styled func(tag string) (string, bool)) string {
 			parts[i] = tag
 		}
 	}
-	return str.BrowseLineTags(strings.Join(parts, str.Separator()))
+	return str.BrowseLineTags(strings.Join(parts, str.ListSeparator()))
 }
 
 func (g *Log) shown(l *LogLine) string {

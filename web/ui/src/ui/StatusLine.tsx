@@ -14,12 +14,14 @@ function stateName(s: number): string {
 }
 
 // logStatus is log mode's status line with no news, as the TUI's
-// statusParts: find's status while it's on, then how many lines are
-// selected; most specific first.
+// statusParts: find's status while it's on, then the cursor line's tags
+// (Go's word on them, once it's come), then how many lines are selected;
+// most specific first.
 function logStatus(state: State, g: LogState): string {
-  const lines = state.logLines[state.active]?.lines ?? [];
-  const find = findStatus(g, cursorOf(g, state.logView[state.active], lines), lines);
-  return [find, str.viewSelected(g.Selected)].filter(Boolean).join(str.separator());
+  const v = state.logView[state.active], lines = state.logLines[state.active]?.lines ?? [];
+  const at = cursorOf(g, v, lines);
+  const tags = v?.tags && v.tags.seq === at ? v.tags.text : "";
+  return [findStatus(g, at, lines), tags, str.viewSelected(g.Selected)].filter(Boolean).join(str.separator());
 }
 
 // StatusLine is the bottom row. Two live regions are always there, so

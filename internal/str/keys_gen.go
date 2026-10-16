@@ -60,7 +60,7 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back"
+// BrowseHints is browse.hints: "m mark · space exclude · / find · g date · f filter · e export · c copy · esc back"
 func BrowseHints() string { return get("browse.hints", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
@@ -84,9 +84,6 @@ func BrowseNoExportDir() string { return get("browse.no_export_dir", nil) }
 
 // BrowseNoFileName is browse.no_file_name: "no file name given"
 func BrowseNoFileName() string { return get("browse.no_file_name", nil) }
-
-// BrowseNoLineTags is browse.no_line_tags: "no tags on this line"
-func BrowseNoLineTags() string { return get("browse.no_line_tags", nil) }
 
 // BrowseNoLogs is browse.no_logs: "no logs yet"
 func BrowseNoLogs() string { return get("browse.no_logs", nil) }
@@ -541,6 +538,9 @@ func FilterUntagged() string { return get("filter.untagged", nil) }
 
 // FormNextField is form.next_field: "Use enter or arrows to move between fields · {hint}"
 func FormNextField(hint any) string { return get("form.next_field", map[string]any{"hint": hint}) }
+
+// ListSeparator is list_separator: ", "
+func ListSeparator() string { return get("list_separator", nil) }
 
 // LogstoreBadDirection is logstore.bad_direction: "logstore: bad direction {dir:%q}"
 func LogstoreBadDirection(dir any) string {
@@ -1207,7 +1207,7 @@ func WebLoadingSize(got, total any) string {
 // WebLog is web.log: "Log"
 func WebLog() string { return get("web.log", nil) }
 
-// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back"
+// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back"
 func WebLogHints() string { return get("web.log_hints", nil) }
 
 // WebNeedsJs is web.needs_js: "Kiln needs JavaScript."

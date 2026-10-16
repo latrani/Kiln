@@ -14,6 +14,14 @@ type LogAt struct {
 // directory, since the browser decides where downloads go.
 type ExportName struct{ Key, Format, Name string }
 
+// LineTags is what log mode's status line says of line Seq's tags (see
+// app.LineTags), for the page's cursor; "" for none.
+type LineTags struct {
+	Key  string
+	Seq  int
+	Text string
+}
+
 // land is the callback for where k's log mode lands: it queues a LogAt
 // for the turn it happens in (see Run).
 func (l *Loop) land(k string) func(*app.LogLine) {

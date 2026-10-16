@@ -44,8 +44,9 @@ test("segments mark every case-insensitive, literal match", () => {
 
 test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => logKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
-  assert.deepEqual(["ArrowUp", "k", "ArrowDown", "j", "/", "n", "N", "g", "f", "e", "c", "t", "Escape"].map((x) => k(x)),
-    ["up", "up", "down", "down", "find", "older", "newer", "date", "filter", "export", "copy", "tags", "back"]);
+  assert.deepEqual(["ArrowUp", "k", "ArrowDown", "j", "/", "n", "N", "g", "f", "e", "c", "Escape"].map((x) => k(x)),
+    ["up", "up", "down", "down", "find", "older", "newer", "date", "filter", "export", "copy", "back"]);
+  assert.equal(k("t"), undefined, "the tags are always in the status line");
   assert.deepEqual(["PageUp", "PageDown", "Home", "End"].map((x) => k(x)), [undefined, undefined, undefined, undefined], "the browser's scrolling");
   assert.equal(k("a", { ctrlKey: true }), undefined, "Ctrl+A stays the browser's");
   assert.equal(k("a", { metaKey: true }), undefined, "and Cmd+A");

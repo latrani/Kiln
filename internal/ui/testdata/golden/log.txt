@@ -40,9 +40,9 @@ fm              │fm · Kit                            ? focus  ·  Filter  · 
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 reverse; @25-28 reverse
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │m mark · space exclude · / find · g date · f filter · t tags · 
+                │m mark · space exclude · / find · g date · f filter · e export 
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │find: Mira 1/1 · n/N · 0 selected                              
+                │find: Mira 1/1 · n/N · tags: page, page/in (styled as page) · …
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3

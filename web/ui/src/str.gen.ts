@@ -58,8 +58,8 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints: m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back */
-export function browseHints(): string { return `m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back`; }
+/** browse.hints: m mark · space exclude · / find · g date · f filter · e export · c copy · esc back */
+export function browseHints(): string { return `m mark · space exclude · / find · g date · f filter · e export · c copy · esc back`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -83,9 +83,6 @@ export function browseNoExportDir(): string { return `no export_dir configured �
 
 /** browse.no_file_name: no file name given */
 export function browseNoFileName(): string { return `no file name given`; }
-
-/** browse.no_line_tags: no tags on this line */
-export function browseNoLineTags(): string { return `no tags on this line`; }
 
 /** browse.no_logs: no logs yet */
 export function browseNoLogs(): string { return `no logs yet`; }
@@ -476,6 +473,9 @@ export function filterUntagged(): string { return `Untagged`; }
 
 /** form.next_field: Use enter or arrows to move between fields · {hint} */
 export function formNextField(hint: unknown): string { return `Use enter or arrows to move between fields · ${hint}`; }
+
+/** list_separator: ,  */
+export function listSeparator(): string { return `, `; }
 
 /** logstore.bad_direction: logstore: bad direction {dir:%q} */
 export function logstoreBadDirection(dir: unknown): string { return `logstore: bad direction ${q(dir)}`; }
@@ -998,8 +998,8 @@ export function webLoadingSize(got: unknown, total: unknown): string { return `l
 /** web.log: Log */
 export function webLog(): string { return `Log`; }
 
-/** web.log_hints: click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back */
-export function webLogHints(): string { return `click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back`; }
+/** web.log_hints: click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back */
+export function webLogHints(): string { return `click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back`; }
 
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }

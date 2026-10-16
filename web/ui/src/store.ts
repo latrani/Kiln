@@ -75,6 +75,7 @@ export interface LogView {
   goN: number;
   cursor?: number;
   follow?: boolean;
+  tags?: { seq: number; text: string }; // Go's word on a line's tags (LineTags), for the status line while it's the cursor's
   panel?: { sel: string; follow?: boolean }; // the filter panel, open, and its highlight (filter.ts)
 }
 
@@ -329,6 +330,10 @@ export class Store {
         return { ...s, logView: { ...s.logView, [k]: { ...v, at: e.Seq, cursor: e.Seq, goN: v.goN + 1 } } };
       }
       case "Sent": return { ...s, sent: { key: k, seen: e.Seen, n: (s.sent?.n ?? 0) + 1 } };
+      case "LineTags": {
+        const v = s.logView[k] ?? { goN: 0 };
+        return { ...s, logView: { ...s.logView, [k]: { ...v, tags: { seq: e.Seq, text: e.Text } } } };
+      }
       case "ExportName": {
         const v = s.logView[k] ?? { goN: 0 };
         return { ...s, logView: { ...s.logView, [k]: { ...v, prompt: { kind: "filename", value: e.Name, format: e.Format } } } };

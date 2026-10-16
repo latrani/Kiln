@@ -98,6 +98,11 @@ test("top bar: the Log chip, lit; status line: the log's status, else find's and
   assert.match(top, new RegExp(`<button class="${roleClass("status.log.on")}"[^>]*>${str.viewLogButton()}</button>`));
   assert.ok(html.slice(html.indexOf('class="status')).includes(str.browseFindStatus("apple", 1, 1) + str.separator() + str.viewSelected(3)),
     "find first, counted from the cursor (on the newest line)");
+  const fruit = str.browseLineTags("fruit");
+  const tagged = pageWith({ Find: "apple", Matches: [1], Selected: 3 }, { tags: { seq: 1, text: fruit } });
+  assert.ok(tagged.slice(tagged.indexOf('class="status')).includes([str.browseFindStatus("apple", 1, 1), fruit, str.viewSelected(3)].join(str.separator())),
+    "Go's word on the cursor line's tags, between find and how many are selected");
+  assert.ok(!pageWith({}, { tags: { seq: 9, text: fruit } }).includes(fruit), "not for a line that isn't the cursor's");
   const fs = str.browseFindStatus("", 0, 0), keys = fs.slice(fs.lastIndexOf(str.separator()) + str.separator().length);
   assert.ok(!pageWith({ Selected: 3 }).includes(keys), "find off: no find, and not its keys");
   // Log mode's messages come as the status (Go moves them there, as the

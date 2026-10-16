@@ -24,7 +24,6 @@ const (
 	actDate
 	actExport
 	actCopy
-	actTags
 )
 
 // openBrowseKey opens log mode (browse, in the code) from the normal view,
@@ -60,7 +59,6 @@ var browseKeys = map[string]browseAction{
 	"g":      actDate,
 	"e":      actExport,
 	"c":      actCopy,
-	"t":      actTags,
 }
 
 // openFilterKey opens and closes log mode's filter panel.

@@ -11,12 +11,13 @@
 | `g` | Go to a day and time (`2026-09-24 21:04`): the last line in or before that minute. The prompt starts with the current line's, for you to edit. A day alone (`2026-09-24`) goes to its first line |
 | `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. Find is a mode: while it's on, `n` goes on to the next older match and `N` back to the next newer one (neither wraps around), and the statusline shows the count, starting from the newest match, with a `+` while older history isn't loaded yet. While it reads older days the statusline says how far back it's got; any key cancels it, and `Esc` only cancels it. `Esc` turns find off, staying in log mode; `/` starts with the last term, so `/` then `Enter` brings it back, and an empty `Enter` turns it off too |
 | `f`, or click ` Filter ` | Open the filter panel (see below) |
-| `t` | Show the current line's tags, and whose style each one takes |
 | `m` | Mark the start of a range, then its end |
 | `Space` | Leave the current line out of the range |
 | Click, shift-click | Select a line; shift-click outside the range to extend it, or inside it to leave a line out (or bring it back) |
 | `e` | Export the range as plain text, ANSI or HTML |
 | `c` | Copy the range as plain text |
+
+The statusline at the bottom says, left to right: find's count while find is on, the current line's tags (and whose style each one takes; nothing for a line with none), and how many lines are selected. A message covers them until it times out or you act again, and a narrow window cuts them from the right.
 
 Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
 
