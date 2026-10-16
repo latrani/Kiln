@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, segments, topFor, wantsOlder } from "../log.ts";
+import { cursorOf, dragCursor, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, segments, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -30,6 +30,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const tags = tagsFor(state.theme, k);
   const el = useRef<HTMLDivElement>(null);
   const act = state.act ?? (() => {});
+  const cursor = cursorOf(g, v, lines);
 
   const place = useRef<{ k: string; first?: number; hidden: string; at?: Place }>({ k, hidden: "" });
   const rowsOf = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".lrow")].map((r) => ({ seq: Number(r.dataset.seq), top: r.offsetTop, height: r.offsetHeight }));
@@ -88,6 +89,12 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     if (was.k !== k || was.goN === v.goN || v.at === undefined) return;
     el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
   });
+  // A key moved the cursor: it comes into view, as the TUI's.
+  useLayoutEffect(() => {
+    if (!v.follow) return;
+    el.current?.querySelector(`[data-seq="${cursor}"]`)?.scrollIntoView({ block: "nearest" });
+    store.setLogView(k, { follow: false });
+  });
 
   // older asks for older history near the top, or when what's loaded
   // doesn't fill the view (so there's nothing to scroll): once per Log
@@ -106,6 +113,8 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     const e = el.current!;
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
     if (place.current.at) store.logPlaces.set(k, place.current.at);
+    const to = dragCursor(rowsOf(e), e.scrollTop, e.clientHeight, cursor);
+    if (to !== undefined) store.setLogView(k, { cursor: to });
     older(e);
   };
   const onClick = (e: MouseEvent) => {
@@ -128,7 +137,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     if (a !== undefined && b !== undefined) {
       if (g.Searching) act({ Do: "stop_search", Key: k });
       act({ Do: "range", Key: k, Start: a, End: b });
-      store.setLogView(k, { clicked: b, at: undefined });
+      store.setLogView(k, { cursor: b });
     }
   };
   const onKeyDown = (e: KeyboardEvent) => {
@@ -157,7 +166,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
             : <span class="ltext"><Line line={l} tags={tags} /></span>;
           return (
             <div key={l.Seq} class="lrow" data-seq={l.Seq}>
-              <span class={roleClass(l.Seq === v.at ? "log.cursor" : "log.time")}>{l.Clock ?? ""}</span> {gutter} {text}
+              <span class={roleClass(l.Seq === cursor ? "log.cursor" : "log.time")}>{l.Clock ?? ""}</span> {gutter} {text}
             </div>
           );
         })}

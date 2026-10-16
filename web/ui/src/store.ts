@@ -65,14 +65,16 @@ export type Prompt = { kind: "find" | "date" | "filename" | "filter"; value: str
 
 // LogView is the page's side of a character's log mode: hidden by Ctrl+L
 // (kept as it was), its prompt, the line find or go-to-date last landed
-// on (at; goN counts landings, so each moves the view once), the line
-// last clicked, and the filter panel, open with its highlight.
+// on (at; goN counts landings, so each moves the view once), the cursor
+// (see cursorOf; follow: scroll it into view on the next draw), and the
+// filter panel, open with its highlight.
 export interface LogView {
   hidden?: boolean;
   prompt?: Prompt;
   at?: number;
   goN: number;
-  clicked?: number;
+  cursor?: number;
+  follow?: boolean;
   panel?: { sel: string; follow?: boolean }; // the filter panel, open, and its highlight (filter.ts)
 }
 
@@ -324,7 +326,7 @@ export class Store {
       }
       case "LogAt": {
         const v = s.logView[k] ?? { goN: 0 };
-        return { ...s, logView: { ...s.logView, [k]: { ...v, at: e.Seq, goN: v.goN + 1 } } };
+        return { ...s, logView: { ...s.logView, [k]: { ...v, at: e.Seq, cursor: e.Seq, goN: v.goN + 1 } } };
       }
       case "Sent": return { ...s, sent: { key: k, seen: e.Seen, n: (s.sent?.n ?? 0) + 1 } };
       case "ExportName": {

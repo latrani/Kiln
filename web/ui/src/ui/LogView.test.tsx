@@ -36,6 +36,12 @@ test("rows: a rule per day, then each line's time, gutter and text", () => {
   assert.match(m, new RegExp(`data-seq="3"[^>]*>.*?<span class="gutter ${roleClass("log.excluded")}">${str.glyph.excluded}</span>`));
 });
 
+test("the cursor: the newest line's time in log.cursor until something moves it", () => {
+  const m = main(page({}));
+  assert.match(m, new RegExp(`data-seq="3"[^>]*><span class="${roleClass("log.cursor")}">`));
+  assert.equal(m.split(roleClass("log.cursor")).length, 2, "just one");
+});
+
 test("find: matches marked in log.find, the line landed on has its time in log.cursor", () => {
   const m = main(page({ Find: "apple", Matches: [1, 3] }, [{ type: "LogAt", Key: "fm/kit", Seq: 3 }]));
   assert.match(m, new RegExp(`<mark class="${roleClass("log.find")}">Apple</mark> pie`));
@@ -88,7 +94,7 @@ test("a prompt: find's label and field; the format prompt names the default", ()
 test("top bar: the find status and the Log chip, lit; status line: the log's status, else how many selected", () => {
   const html = pageWith({ Find: "apple", Matches: [1], Selected: 3 });
   const top = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
-  assert.ok(top.includes(str.browseFindStatus("apple", 0, 1)));
+  assert.ok(top.includes(str.browseFindStatus("apple", 1, 1)), "counted from the cursor, on the newest line");
   assert.match(top, new RegExp(`<button class="${roleClass("status.log.on")}"[^>]*>${str.viewLogButton()}</button>`));
   assert.ok(html.slice(html.indexOf('class="status')).includes(str.viewSelected(3)));
   // Log mode's messages come as the status (Go moves them there, as the

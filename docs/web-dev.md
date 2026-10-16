@@ -10,8 +10,10 @@ Enter with nothing open. Edit a world or character from the picker
 `/edit` and `/edit world`. In the editor Enter saves, Esc cancels, and
 Ctrl+T or Alt+T hides it, keeping the edits.
 Ctrl+L or the `Log` chip opens log mode for the character showing (and
-hides it again, as it was). Select lines with the mouse: a click takes
-a line, Shift+click extends the range, dragging selects a run. While
+hides it again, as it was). ↑/↓ or `j`/`k` move the cursor (the time
+in a different color), which starts on the newest line and rides along
+when you scroll. Select lines with the mouse: a click takes
+a line (the cursor going to it), Shift+click extends the range, dragging selects a run. While
 the log has focus, `/` finds, `n`/`N` step through matches, `g` goes
 to a date, `t` shows a line's tags, `c` copies and `e` exports (a
 download). `f` (or the `Filter` chip) opens the filter panel in the

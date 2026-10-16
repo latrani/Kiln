@@ -247,3 +247,51 @@ func TestLogPlace(t *testing.T) {
 	ctrlL(t, s.ws)
 	waitFor(t, s.ev, rows+` && `+atEnd, "reopened at the newest")
 }
+
+// TestLogCursor moves log mode's cursor the way a person does: it starts
+// on the newest line; ↑, k, ↓ and j move it a line, scrolling it into
+// view; scrolling the view drags it along at the edge it would leave
+// by; a click puts it on a line.
+func TestLogCursor(t *testing.T) {
+	many := make([]string, 80)
+	for i := range many {
+		many[i] = fmt.Sprintf("line %d", i)
+	}
+	s := goldenScene(t, nil, func(s *scene) {
+		kilntest.WriteLog(t, logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}, kilntest.LogDay, many...)
+	})
+	logEl := `document.querySelector(".log")`
+	cursor := `(() => { const r = document.querySelector(".lrow .r-log-cursor")?.closest(".lrow"); return r ? [...document.querySelectorAll(".lrow")].indexOf(r) : -1; })()`
+	inView := `(() => { const e = ` + logEl + `, r = document.querySelector(".lrow .r-log-cursor").closest(".lrow"); return r.offsetTop >= e.scrollTop && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; })()`
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, `document.querySelectorAll(".lrow").length === 80 && `+cursor+` === 79`, "the cursor on the newest line")
+	s.ev(logEl + `.focus()`)
+	letter := func(k string) {
+		devtools(t, s.ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": k, "text": k})
+		devtools(t, s.ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": k})
+	}
+	pressKey(t, s.ws, "ArrowUp", 38)
+	waitFor(t, s.ev, cursor+` === 78`, "↑ moved it up")
+	letter("k")
+	waitFor(t, s.ev, cursor+` === 77`, "k too")
+	pressKey(t, s.ws, "ArrowDown", 40)
+	letter("j")
+	waitFor(t, s.ev, cursor+` === 79`, "↓ and j moved it back down")
+	for range 40 {
+		letter("k")
+	}
+	waitFor(t, s.ev, cursor+` === 39 && `+inView, "forty lines up, still in view")
+
+	// Scrolled to the top, it leaves by the bottom, so it rides along on
+	// the last line wholly in view; scrolled back to the bottom, on the
+	// first.
+	whole := `[...document.querySelectorAll(".lrow")].map((r, i) => [r, i]).filter(([r]) => { const e = ` + logEl + `; return r.offsetTop >= e.scrollTop && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; }).map(([, i]) => i)`
+	s.ev(logEl + `.scrollTop = 0`)
+	waitFor(t, s.ev, cursor+` === `+whole+`.at(-1) && `+cursor+` < 39`, "dragged along at the bottom edge")
+	s.ev(logEl + `.scrollTop = ` + logEl + `.scrollHeight`)
+	waitFor(t, s.ev, cursor+` === `+whole+`[0] && `+cursor+` > 39`, "dragged along at the top edge")
+
+	// A click puts it on the line clicked.
+	click(t, s.ws, s.ev, `[...document.querySelectorAll(".lrow")].at(-3)`)
+	waitFor(t, s.ev, cursor+` === 77`, "the line clicked")
+}
