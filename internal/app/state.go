@@ -52,13 +52,33 @@ func (a *App) saveState() {
 	v, _ := json.Marshal(a.sidebarCollapsed)
 	a.state.fields[sidebarCollapsedKey] = v
 	b, _ := json.MarshalIndent(a.state.fields, "", "  ")
-	err := os.MkdirAll(filepath.Dir(a.d.StateFile), 0o700)
-	if err == nil {
-		err = os.WriteFile(a.d.StateFile, append(b, '\n'), 0o600)
-	}
-	if err != nil {
+	if err := writeWhole(a.d.StateFile, append(b, '\n')); err != nil {
 		a.SetStatus(true, str.StatusStateNotSaved(err))
 	}
+}
+
+// writeWhole writes b to path whole or not at all: a new file beside it,
+// renamed over it, as the config editor and the password file do.
+func writeWhole(path string, b []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, ".state-*") //str:ok a temp file's name
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(f.Name(), path)
+	}
+	if err != nil {
+		os.Remove(f.Name())
+	}
+	return err
 }
 
 // SidebarCollapsed reports whether the sidebar is collapsed in wide

@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "preact/hooks";
 import { choose, pickerRows, selKey } from "../picker.ts";
 import type { PickRow } from "../picker.ts";
-import { sideForced, sidebarRows, toggleSidebar } from "../sidebar.ts";
+import { canToggle, sideForced, sidebarRows, toggleSidebar } from "../sidebar.ts";
 import { listing, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -153,7 +153,7 @@ export function SideTitle({ role, rule, label, onPress, collapse }: { role: stri
     <div class={`stitle ${roleClass(role)}`} style={`--rule:var(--role-${rule.replaceAll(".", "-")}-fg)`}
       onMouseDown={onPress && ((e) => { e.preventDefault(); onPress(); })}>
       <h2 class="stext">{label}</h2>
-      {collapse && !sideForced(collapse.state) && (
+      {collapse && !sideForced(collapse.state) && canToggle(collapse.state) && (
         <button class={roleClass(collapse.role)} aria-label={str.webCollapseSidebar()} aria-expanded="true" onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggleSidebar(collapse.store)}>{str.glyph.collapse}</button>
       )}

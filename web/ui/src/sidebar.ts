@@ -40,6 +40,13 @@ export function sideShown(s: State): boolean {
   return !s.sidebar?.Collapsed || sideForced(s);
 }
 
+// canToggle reports whether the sidebar can collapse or come back now,
+// as the TUI's: not while the picker or an editor is up. ‹ and ≡ show
+// only when it can.
+export function canToggle(s: State): boolean {
+  return !s.picker;
+}
+
 // toggleSidebar is Ctrl+B, ‹ and ≡, as the TUI's: collapses the sidebar
 // or brings it back; not while the picker or an editor is up.
 // Collapsing while log mode's panel has focus gives the log focus.
@@ -47,7 +54,7 @@ export function sideShown(s: State): boolean {
 // keyboard keeps its place: from the sidebar to ≡, from ≡ to ‹.
 export function toggleSidebar(store: Store): void {
   const s = store.state;
-  if (s.picker) return;
+  if (!canToggle(s)) return;
   const shut = !s.sidebar?.Collapsed;
   const doc = globalThis.document;
   const was = doc?.activeElement;

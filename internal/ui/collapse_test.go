@@ -172,3 +172,33 @@ func TestCollapseReportsWidth(t *testing.T) {
 		t.Errorf("sizes after collapsing = %v; want the whole width last", got)
 	}
 }
+
+// ‹ and ≡ show only where they'd do something: not while the picker or
+// an editor is up.
+func TestToggleHiddenWhileModal(t *testing.T) {
+	h := collapseHarness(t)
+	h.key("ctrl+o") // expanded, the picker up
+	if strings.Contains(screenSide(h, 0), glyph.Collapse) {
+		t.Errorf("‹ with the picker up: %q", screenSide(h, 0))
+	}
+	h.key("esc")
+	h.key("ctrl+b")
+	h.key("ctrl+t") // collapsed, an editor up
+	if h.m.picker == nil {
+		t.Fatal("no editor")
+	}
+	if strings.HasPrefix(topLine(h), glyph.Menu) {
+		t.Errorf("≡ with an editor up: %q", topLine(h))
+	}
+}
+
+// The badge is part of ≡'s button: a click on it brings the sidebar back.
+func TestBadgeClick(t *testing.T) {
+	h := collapseHarness(t)
+	h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Priority = 2, true
+	h.key("ctrl+b")
+	h.click(2, 0) // the ●
+	if h.m.a.SidebarCollapsed() {
+		t.Error("a click on the badge didn't bring the sidebar back")
+	}
+}

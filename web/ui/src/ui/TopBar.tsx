@@ -1,5 +1,5 @@
 import { toggleLog } from "../log.ts";
-import { sideShown, toggleSidebar } from "../sidebar.ts";
+import { canToggle, sideShown, toggleSidebar } from "../sidebar.ts";
 import { logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -21,7 +21,7 @@ export function TopBar({ state, store }: { state: State; store: Store }) {
     : [str.viewPresenceUnknown(), "status.presence.unknown"];
   return (
     <header class={`top ${roleClass("status")}`}>
-      {!sideShown(state) && <Menu state={state} store={store} />}
+      {!sideShown(state) && canToggle(state) && <Menu state={state} store={store} />}
       <span class="where">{where}</span>
       {c && <button class={roleClass(role)} onClick={() => state.act?.({ Do: state.presence === away ? "here" : "away" })}>{label}</button>}
       {c && <span>{str.separator()}</span>}

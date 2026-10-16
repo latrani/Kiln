@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
-import { toggleSidebar } from "../sidebar.ts";
+import { canToggle, toggleSidebar } from "../sidebar.ts";
 import { Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
@@ -54,4 +54,14 @@ test("toggleSidebar sends the new state; collapsing with the panel focused gives
   toggleSidebar(s);
   assert.deepEqual(sent.at(-1), { Do: "sidebar", Shut: true });
   assert.equal(s.state.logView["fm/kit"].focus, undefined);
+});
+
+test("‹ and ≡ show only where they'd do something: not while the picker or an editor is up", () => {
+  const { s } = page({});
+  s.openPicker();
+  assert.ok(!html(s).includes(`aria-label="${str.webCollapseSidebar()}"`), "no ‹ with the picker up");
+  s.closePicker();
+  const c = page({ Collapsed: true }).s;
+  c.set({ picker: { filter: "", sel: "", edit: { closeAll: true } as any } }); // an editor from the main view: the sidebar stays collapsed
+  assert.ok(!canToggle(c.state), "an editor up: no toggling, so TopBar draws no ≡");
 });

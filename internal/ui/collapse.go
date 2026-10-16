@@ -3,6 +3,8 @@ package ui
 import (
 	"strconv"
 
+	xansi "github.com/charmbracelet/x/ansi"
+
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/theme"
 )
@@ -26,11 +28,15 @@ func (m *Model) sideForced() bool {
 	return m.listing() || cs != nil && cs.browse != nil && cs.browse.panelFocus
 }
 
+// canToggle reports whether the sidebar can collapse or come back now:
+// not while the picker or an editor is up. ‹ and ≡ show only when it can.
+func (m *Model) canToggle() bool { return m.picker == nil }
+
 // toggleSidebar collapses the sidebar or brings it back, as Ctrl+B, ‹ and
 // ≡ do; not while the picker or an editor is up. Collapsing while log
 // mode's panel has focus gives the log focus, or the panel would stay.
 func (m *Model) toggleSidebar() {
-	if m.picker != nil {
+	if !m.canToggle() {
 		return
 	}
 	shut := !m.a.SidebarCollapsed()
@@ -44,9 +50,10 @@ func (m *Model) toggleSidebar() {
 // then for the connections (not log mode's filters) the rows' activity
 // summed, as each row shows its own: ● if any has an unread priority
 // line, then their unread counts' total; then a space before the name.
-// menu is the columns the ≡ takes; zero when it isn't drawn.
+// menu is the columns ≡ and its badge take, the button they make; zero
+// when it isn't drawn (shown, or it can't toggle now).
 func (m *Model) menuPrefix() (s string, menu [2]int) {
-	if m.sidebarShown() {
+	if m.sidebarShown() || !m.canToggle() {
 		return "", menu
 	}
 	s = theme.Paint(theme.StatusMenu, glyph.Menu)
@@ -59,5 +66,5 @@ func (m *Model) menuPrefix() (s string, menu [2]int) {
 			s += theme.Paint(theme.SidebarUnread, strconv.Itoa(n))
 		}
 	}
-	return s + " ", [2]int{0, 1}
+	return s + " ", [2]int{0, xansi.StringWidth(s)}
 }

@@ -1086,7 +1086,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
-		if msg.Y == 0 && msg.X == l.sw-1 && !m.sideForced() { // ‹
+		if msg.Y == 0 && msg.X == l.sw-1 && !m.sideForced() && m.canToggle() { // ‹
 			m.toggleSidebar()
 			return nil
 		}

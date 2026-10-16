@@ -443,7 +443,7 @@ func (m *Model) View() tea.View {
 		side, title, titleRole, titleRule, chev = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker, theme.PickerCollapse
 	}
 	var panel []string
-	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
+	if cs != nil && cs.browse != nil && cs.browse.Panel != nil && l.sw > 0 { // collapsed: nothing to lay out
 		side, title, titleRole, titleRule, chev = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter, theme.FilterCollapse
 		panel = cs.browse.panelView(l.sw, m.height-sideTitleH)
 	}
@@ -460,7 +460,7 @@ func (m *Model) View() tea.View {
 			continue
 		}
 		if y < sideTitleH {
-			if y == 0 && !m.sideForced() { // ‹ at the title's right
+			if y == 0 && !m.sideForced() && m.canToggle() { // ‹ at the title's right
 				b.WriteString(theme.Fill(side, theme.Paint(titleRole, fit(title, l.sw-1))+theme.Paint(chev, glyph.Collapse), l.sw))
 			} else {
 				b.WriteString(theme.Fill(side, sideTitle(y, titleRole, titleRule, title, l.sw), l.sw))
