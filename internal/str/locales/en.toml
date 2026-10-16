@@ -151,7 +151,7 @@ history_button = "History"
 scope_session = "Session"
 scope_character = "Character"
 # The history panel's search line while nothing's typed.
-history_placeholder = "type to search · tab to change scope"
+history_placeholder = "type to search · ←→ change scope"
 # Log mode's chip for select mode, at the right of the statusline.
 select_button = "Select"
 history_none = "no history yet"

@@ -1136,7 +1136,7 @@ func ViewHistoryNoMatch() string { return get("view.history_no_match", nil) }
 // ViewHistoryNone is view.history_none: "no history yet"
 func ViewHistoryNone() string { return get("view.history_none", nil) }
 
-// ViewHistoryPlaceholder is view.history_placeholder: "type to search · tab to change scope"
+// ViewHistoryPlaceholder is view.history_placeholder: "type to search · ←→ change scope"
 func ViewHistoryPlaceholder() string { return get("view.history_placeholder", nil) }
 
 // ViewLogButton is view.log_button: "Log"

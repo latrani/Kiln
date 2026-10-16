@@ -125,8 +125,9 @@ export function Input({ state, store }: { state: State; store: Store }) {
       case "history_close":
         typing?.act({ Do: "history_close" });
         return;
-      case "history_scope":
-        typing?.act({ Do: "history_scope" });
+      case "scope_session":
+      case "scope_character":
+        typing?.act({ Do: "history_scope", Text: does === "scope_session" ? "session" : "character" });
         return;
       case "cancel":
         typing?.act({ Do: "cancel" });

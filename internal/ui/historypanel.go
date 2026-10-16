@@ -77,8 +77,8 @@ func historyRow(s app.Sent, selected bool, w int, now time.Time) string {
 }
 
 // historyKey handles k while the history panel is up: ↑ and ↓ (PgUp
-// and PgDn a page) move the selection, ↓ past the newest and Esc close
-// it, the draft back. Enter takes the selected line to edit, through
+// and PgDn a page) move the selection, ← and → pick the scope, ↓ past
+// the newest and Esc close it, the draft back. Enter takes the selected line to edit, through
 // submit. ok is false for keys the input gets: typing changes the
 // query.
 func (m *Model) historyKey(k tea.KeyPressMsg) (cmd tea.Cmd, ok bool) {
@@ -94,6 +94,10 @@ func (m *Model) historyKey(k tea.KeyPressMsg) (cmd tea.Cmd, ok bool) {
 		if m.a.History().Sel() < len(m.a.History().Shown())-1 { // a page never closes it
 			cmd = m.run(m.a.HistoryMove(min(page, len(m.a.History().Shown())-1-m.a.History().Sel())))
 		}
+	case "left": // the scope: Session on the left, Character on the right, no wrapping round
+		cmd = m.run(m.a.SetHistoryScope(app.ScopeSession))
+	case "right":
+		cmd = m.run(m.a.SetHistoryScope(app.ScopeCharacter))
 	case "esc":
 		m.a.HistoryClose()
 	default:
@@ -126,7 +130,7 @@ func (m *Model) historyToggle() tea.Cmd {
 }
 
 // historyScope runs effs, from setting the panel's scope (a click on a
-// half of the switch, or Tab), and brings the input up to date.
+// half of the switch), and brings the input up to date.
 func (m *Model) historyScope(effs []app.Effect) tea.Cmd {
 	cmd := m.run(effs)
 	m.pullInput(m.cur())

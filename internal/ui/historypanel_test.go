@@ -132,24 +132,24 @@ func TestHistoryScopeChips(t *testing.T) {
 	}
 }
 
-func TestHistoryScopeTab(t *testing.T) {
+func TestHistoryScopeArrows(t *testing.T) {
 	h := sent(t)
 	h.open("fm/rook")
 	h.m.switchTo("fm/kit")
 	h.m.chars["fm/rook"].Unread = 1
 	h.key("up")
-	h.press(tea.KeyTab, 0)
-	if h.m.a.HistoryScope() != app.ScopeSession || h.m.a.Active() != "fm/kit" {
-		t.Fatalf("Tab on the panel: scope %v, active %s; want session, still fm/kit", h.m.a.HistoryScope(), h.m.a.Active())
+	for _, step := range []struct {
+		key  string
+		want app.Scope
+	}{{"left", app.ScopeSession}, {"left", app.ScopeSession}, {"right", app.ScopeCharacter}, {"right", app.ScopeCharacter}} { // no looping
+		h.key(step.key)
+		if h.m.a.HistoryScope() != step.want || !h.m.a.History().IsOpen() {
+			t.Fatalf("%s: scope %v, open %v; want %v", step.key, h.m.a.HistoryScope(), h.m.a.History().IsOpen(), step.want)
+		}
 	}
-	h.press(tea.KeyTab, tea.ModShift)
-	if h.m.a.HistoryScope() != app.ScopeCharacter {
-		t.Errorf("Shift+Tab: scope %v", h.m.a.HistoryScope())
-	}
-	h.key("esc")
 	h.press(tea.KeyTab, 0)
-	if h.m.a.Active() != "fm/rook" {
-		t.Errorf("Tab with the panel down: active %s; want the unread one", h.m.a.Active())
+	if h.m.a.HistoryScope() != app.ScopeCharacter || h.m.a.Active() != "fm/rook" {
+		t.Errorf("Tab with the panel up: scope %v, active %s; want the unread one, scope as it was", h.m.a.HistoryScope(), h.m.a.Active())
 	}
 }
 
@@ -216,16 +216,16 @@ func TestHistoryChipNothingOpen(t *testing.T) {
 	}
 }
 
-func TestHistoryScopeTabElsewhere(t *testing.T) {
+func TestHistoryScopeArrowsElsewhere(t *testing.T) {
 	h := sent(t)
 	h.open("fm/rook")
 	h.m.switchTo("fm/kit")
 	h.m.chars["fm/rook"].Unread = 1
 	h.key("up")
 	h.key("ctrl+l") // log mode over the panel
-	h.press(tea.KeyTab, 0)
+	h.key("left")
 	if h.m.a.HistoryScope() != app.ScopeCharacter || h.m.a.Active() != "fm/kit" {
-		t.Errorf("Tab in log mode: scope %v, active %s; want both as they were", h.m.a.HistoryScope(), h.m.a.Active())
+		t.Errorf("← in log mode: scope %v, active %s; want both as they were", h.m.a.HistoryScope(), h.m.a.Active())
 	}
 	h.key("ctrl+l") // out of log mode, back to the panel
 	if !h.m.historyShows() {
@@ -235,8 +235,8 @@ func TestHistoryScopeTabElsewhere(t *testing.T) {
 	if h.m.picker == nil {
 		t.Fatal("no picker")
 	}
-	h.press(tea.KeyTab, 0)
+	h.key("left")
 	if h.m.a.HistoryScope() != app.ScopeCharacter {
-		t.Errorf("Tab in the picker: scope %v; the picker's fields have it", h.m.a.HistoryScope())
+		t.Errorf("← in the picker: scope %v; the picker's fields have it", h.m.a.HistoryScope())
 	}
 }
