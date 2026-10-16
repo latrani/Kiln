@@ -668,6 +668,9 @@ func RelayBadDir(flag, path any, err error) string {
 	return get("relay.bad_dir", map[string]any{"flag": flag, "path": path, "err": err})
 }
 
+// RelayCertNotPinned is relay.cert_not_pinned: "it doesn't match the pin in the relay's config"
+func RelayCertNotPinned() string { return get("relay.cert_not_pinned", nil) }
+
 // RelayClosed is relay.closed: "closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur}"
 func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})

@@ -148,6 +148,20 @@ func openAsking(t *testing.T, base, host string, port int, tls bool) *websocket.
 	return c
 }
 
+// closeWhy reads until the relay closes c and returns its code and reason.
+func closeWhy(t *testing.T, c *websocket.Conn) (websocket.StatusCode, string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for {
+		if _, _, err := c.Read(ctx); err != nil {
+			var ce websocket.CloseError
+			errors.As(err, &ce)
+			return ce.Code, ce.Reason
+		}
+	}
+}
+
 // closeCode reads until the relay closes c and returns its code.
 func closeCode(t *testing.T, c *websocket.Conn) websocket.StatusCode {
 	t.Helper()
@@ -252,8 +266,8 @@ func TestRelayDoesTLSWithoutClientAsking(t *testing.T) {
 func TestRelayPinMismatch(t *testing.T) {
 	port, _ := tlsGreeter(t)
 	_, base, logs := relay(t, world(port, testPin))
-	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeBadCert {
-		t.Errorf("code %d, want %d", code, CodeBadCert)
+	if code, why := closeWhy(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeBadCert || why != str.RelayCertNotPinned() {
+		t.Errorf("close %d %q, want %d %q", code, why, CodeBadCert, str.RelayCertNotPinned())
 	}
 	if !strings.HasPrefix(logs.first(), upTo(str.RelayRefusedBadCert(mark, mark, errMark{}))) {
 		t.Errorf("log %q", logs.first())
@@ -557,5 +571,13 @@ func selfSignedListener(t *testing.T) (net.Listener, *x509.Certificate) {
 func TestRelayGivesUpBeforeTheClient(t *testing.T) {
 	if margin := conn.DialTimeout - defaultHandshakeTimeout; margin < 3*time.Second {
 		t.Errorf("relay gives up %v before the client; want 3s or more", margin)
+	}
+}
+
+// A pinned world that sends no certificate can't be trusted on any retry,
+// so it's refused as a bad certificate.
+func TestNoCertificateIsACertError(t *testing.T) {
+	if !certErr(fmt.Errorf("handshake: %w", errNoCert)) {
+		t.Error("no certificate isn't a certificate error")
 	}
 }

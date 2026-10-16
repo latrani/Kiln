@@ -131,7 +131,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if certErr(err) {
 			dcancel()
 			s.logf(str.RelayRefusedBadCert(ip, addr, err))
-			c.Close(CodeBadCert, reason(err))
+			why := reason(err)
+			var pin *conn.PinMismatchError
+			if errors.As(err, &pin) {
+				why = str.RelayCertNotPinned() // the log has the fingerprints
+			}
+			c.Close(CodeBadCert, why)
 			return
 		}
 	}
@@ -161,7 +166,7 @@ func (s *Server) handshake(ctx context.Context, nc net.Conn, addr string, wl Wor
 		cfg.InsecureSkipVerify = true
 		cfg.VerifyConnection = func(cs tls.ConnectionState) error {
 			if len(cs.PeerCertificates) == 0 {
-				return errors.New(str.ConnNoCertificate())
+				return errNoCert
 			}
 			if got := conn.Fingerprint(cs.PeerCertificates[0]); got != wl.Pin {
 				return &conn.PinMismatchError{HostPort: addr, Pinned: wl.Pin, Got: got}
@@ -177,6 +182,9 @@ func (s *Server) handshake(ctx context.Context, nc net.Conn, addr string, wl Wor
 	return tc, nil
 }
 
+// errNoCert is a pinned world sending no certificate.
+var errNoCert = errors.New(str.ConnNoCertificate())
+
 // certErr reports whether err is the world's certificate failing its
 // check, rather than the handshake failing some other way.
 func certErr(err error) bool {
@@ -187,7 +195,7 @@ func certErr(err error) bool {
 		hostname x509.HostnameError
 		invalid  x509.CertificateInvalidError
 	)
-	return errors.As(err, &pin) || errors.As(err, &verify) ||
+	return errors.Is(err, errNoCert) || errors.As(err, &pin) || errors.As(err, &verify) ||
 		errors.As(err, &unknown) || errors.As(err, &hostname) || errors.As(err, &invalid)
 }
 

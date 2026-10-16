@@ -585,6 +585,9 @@ export function pickerTitle(): string { return `All connections`; }
 /** relay.bad_dir: -{flag} {path}: {err} */
 export function relayBadDir(flag: unknown, path: unknown, err: unknown): string { return `-${flag} ${path}: ${e(err)}`; }
 
+/** relay.cert_not_pinned: it doesn't match the pin in the relay's config */
+export function relayCertNotPinned(): string { return `it doesn't match the pin in the relay's config`; }
+
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
