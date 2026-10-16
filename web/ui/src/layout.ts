@@ -26,3 +26,7 @@ export function paneSize(el: HTMLElement): { cols: number; rows: number } {
   if (!width || !height) return { cols: 0, rows: 0 };
   return { cols: Math.floor(el.clientWidth / width), rows: Math.floor(el.clientHeight / height) };
 }
+
+// narrowWidth is the fewest characters across that keep the sidebar in
+// its own column, as the TUI's NarrowWidth; under it, narrow mode.
+export const narrowWidth = 64;

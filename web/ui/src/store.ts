@@ -123,6 +123,8 @@ export interface State {
   status?: { Text: string; Err: boolean; Gen: number };
   presence?: number;
   sidebar?: { Collapsed: boolean; Unread: number; Priority: boolean }; // Go's Sidebar event: the collapsed preference and the badge
+  narrow?: boolean; // the page is under 64 of its characters across: no sidebar column (App measures it)
+  narrowOpen?: boolean; // the narrow sidebar is open; never saved
   confirm?: boolean;
   history?: HistoryPanel; // the active input's history panel, as Go holds it
   saveQuestion?: any;
@@ -396,7 +398,14 @@ export class Store {
 
   // closePicker goes back to the open characters.
   closePicker(): void {
-    this.set({ picker: undefined, opening: undefined });
+    this.set({ picker: undefined, opening: undefined, narrowOpen: false }); // picked or escaped: the narrow sidebar closes
+  }
+
+  // pickFromSidebar is a click on a sidebar row: Go switches to it, and
+  // the narrow sidebar, picked from, closes.
+  pickFromSidebar(key: string): void {
+    this.state.act?.({ Do: "switch", Key: key });
+    this.set({ narrowOpen: false });
   }
 
   // setPicker changes the open picker, keeping its highlight on a row the
