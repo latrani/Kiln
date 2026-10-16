@@ -2,6 +2,9 @@ package relay
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -22,17 +26,22 @@ import (
 // (web/wsdial) turns them into messages.
 const (
 	CodeNotListed   websocket.StatusCode = 4403 // world not on the allowlist
-	CodeNeedsTLS    websocket.StatusCode = 4426 // TLS-only world, client didn't start TLS
+	CodeNoTLS       websocket.StatusCode = 4426 // client asked for TLS, world is plaintext here
 	CodeTooMany     websocket.StatusCode = 4429 // too many connections from this IP
 	CodeUnreachable websocket.StatusCode = 4502 // the dial failed; the reason says why
 	CodeBusy        websocket.StatusCode = 4503 // the relay is at max_conns
+	CodeBadCert     websocket.StatusCode = 4526 // the world's certificate failed its pin or CA check
 )
 
 // Server is the relay's HTTP handler. Set a config before serving.
 type Server struct {
-	Dial              func(ctx context.Context, network, addr string) (net.Conn, error) // nil: TCP
-	Log               func(line string)                                                 // nil: silent
-	FirstFrameTimeout time.Duration                                                     // 0: 15s
+	Dial func(ctx context.Context, network, addr string) (net.Conn, error) // nil: TCP
+	Log  func(line string)                                                 // nil: silent
+	// RootCAs are the CAs a tls_trust = "ca" world is checked against.
+	// nil: the system's.
+	RootCAs *x509.CertPool
+	// HandshakeTimeout bounds the dial and TLS handshake together. 0: 15s.
+	HandshakeTimeout time.Duration
 
 	// pingEvery is how often an open connection is pinged; one that
 	// doesn't answer within pingTimeout is closed, so a browser that
@@ -49,7 +58,9 @@ type Server struct {
 func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 
 // ServeHTTP upgrades to a WebSocket and, if the world in ?host=&port= is
-// allowed, pipes binary frames to and from it.
+// allowed, pipes binary frames to and from it, doing TLS with the world
+// itself unless it's plaintext. tls=1 says the client's world file asks
+// for TLS, which a plaintext world refuses.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a := s.cfg.Load()
 	if a == nil {
@@ -82,6 +93,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		c.Close(CodeNotListed, "")
 		return
 	}
+	if wl.Plaintext && r.URL.Query().Get("tls") == "1" {
+		s.logf(str.RelayRefusedNoTls(ip, addr))
+		c.Close(CodeNoTLS, "")
+		return
+	}
 	switch s.acquire(ip, a) {
 	case CodeTooMany:
 		s.logf(str.RelayRefusedTooMany(ip, addr))
@@ -96,36 +112,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	var first []byte
-	if !wl.Plaintext {
-		// A read deadline would make the library drop the connection without
-		// a close frame, so a timer sends the refusal instead.
-		var timedOut atomic.Bool
-		timer := time.AfterFunc(or(s.FirstFrameTimeout, 15*time.Second), func() {
-			timedOut.Store(true)
-			c.Close(CodeNeedsTLS, "")
-		})
-		typ, b, err := c.Read(ctx)
-		// Stop is false once the timer has fired: it's closing c, even if
-		// it hasn't set timedOut yet.
-		if !timer.Stop() || timedOut.Load() {
-			s.logf(str.RelayRefusedNotTls(ip, addr))
-			return
-		}
-		if err != nil {
-			return // the client went away
-		}
-		if typ != websocket.MessageBinary || len(b) == 0 || b[0] != 0x16 { // 0x16: TLS handshake record
-			s.logf(str.RelayRefusedNotTls(ip, addr))
-			c.Close(CodeNeedsTLS, "")
-			return
-		}
-		first = b
-	}
-
 	addr = net.JoinHostPort(wl.Host, strconv.Itoa(port))
-	dctx, dcancel := context.WithTimeout(ctx, 15*time.Second)
+	dctx, dcancel := context.WithTimeout(ctx, or(s.HandshakeTimeout, 15*time.Second))
 	tc, err := s.dial(dctx, addr)
+	if err == nil && !wl.Plaintext {
+		tc, err = s.handshake(dctx, tc, addr, wl)
+		if certErr(err) {
+			dcancel()
+			s.logf(str.RelayRefusedBadCert(ip, addr, err))
+			c.Close(CodeBadCert, reason(err))
+			return
+		}
+	}
 	dcancel()
 	if err != nil {
 		s.logf(str.RelayRefusedUnreachable(ip, addr, err))
@@ -133,16 +131,50 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tc.Close()
-	if len(first) > 0 {
-		if _, err := tc.Write(first); err != nil {
-			return
-		}
-	}
 	go s.keepAlive(ctx, c)
 	start := time.Now()
 	s.logf(str.RelayOpened(ip, addr))
 	up, down := pipe(websocket.NetConn(ctx, c, websocket.MessageBinary), tc)
-	s.logf(str.RelayClosed(ip, addr, up+int64(len(first)), down, time.Since(start).Round(time.Second)))
+	s.logf(str.RelayClosed(ip, addr, up, down, time.Since(start).Round(time.Second)))
+}
+
+// handshake runs TLS over nc with the world, trusting it as its config
+// says. On failure nc is closed.
+func (s *Server) handshake(ctx context.Context, nc net.Conn, addr string, wl World) (net.Conn, error) {
+	cfg := &tls.Config{ServerName: wl.Host, RootCAs: s.RootCAs}
+	if wl.Pin != "" {
+		// A pinned world is usually self-signed: the pin is the check.
+		cfg.InsecureSkipVerify = true
+		cfg.VerifyConnection = func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				return errors.New(str.ConnNoCertificate())
+			}
+			if got := conn.Fingerprint(cs.PeerCertificates[0]); got != wl.Pin {
+				return &conn.PinMismatchError{HostPort: addr, Pinned: wl.Pin, Got: got}
+			}
+			return nil
+		}
+	}
+	tc := tls.Client(nc, cfg)
+	if err := tc.HandshakeContext(ctx); err != nil {
+		nc.Close()
+		return nil, err
+	}
+	return tc, nil
+}
+
+// certErr reports whether err is the world's certificate failing its
+// check, rather than the handshake failing some other way.
+func certErr(err error) bool {
+	var (
+		pin      *conn.PinMismatchError
+		verify   *tls.CertificateVerificationError
+		unknown  x509.UnknownAuthorityError
+		hostname x509.HostnameError
+		invalid  x509.CertificateInvalidError
+	)
+	return errors.As(err, &pin) || errors.As(err, &verify) ||
+		errors.As(err, &unknown) || errors.As(err, &hostname) || errors.As(err, &invalid)
 }
 
 func (s *Server) dial(ctx context.Context, addr string) (net.Conn, error) {

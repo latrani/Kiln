@@ -662,17 +662,20 @@ export function relayNeedConfig(): string { return `kiln-relay needs -config PAT
 /** relay.opened: open {ip} → {world:%q} */
 export function relayOpened(ip: unknown, world: unknown): string { return `open ${ip} → ${q(world)}`; }
 
+/** relay.refused_bad_cert: refused {ip} → {world:%q}: certificate: {err} */
+export function relayRefusedBadCert(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: certificate: ${e(err)}`; }
+
 /** relay.refused_bad_peer: refused {peer:%q}: unreadable client address */
 export function relayRefusedBadPeer(peer: unknown): string { return `refused ${q(peer)}: unreadable client address`; }
 
 /** relay.refused_busy: refused {ip} → {world:%q}: relay full (max_conns) */
 export function relayRefusedBusy(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: relay full (max_conns)`; }
 
+/** relay.refused_no_tls: refused {ip} → {world:%q}: client asked for TLS, world is plaintext */
+export function relayRefusedNoTls(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: client asked for TLS, world is plaintext`; }
+
 /** relay.refused_not_listed: refused {ip} → {world:%q}: not on the allowlist */
 export function relayRefusedNotListed(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: not on the allowlist`; }
-
-/** relay.refused_not_tls: refused {ip} → {world:%q}: not TLS */
-export function relayRefusedNotTls(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: not TLS`; }
 
 /** relay.refused_too_many: refused {ip} → {world:%q}: too many connections */
 export function relayRefusedTooMany(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: too many connections`; }

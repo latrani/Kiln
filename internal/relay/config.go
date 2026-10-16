@@ -1,6 +1,6 @@
 // Package relay is kiln-relay's core: it carries a browser's WebSocket to
 // a MUCK's TCP port, for the worlds on an allowlist, so Kiln's web build
-// can reach MUCKs. TLS runs inside the browser; the relay passes bytes.
+// can reach MUCKs. The relay does TLS with each TLS world itself.
 package relay
 
 import (

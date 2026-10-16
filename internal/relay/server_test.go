@@ -11,13 +11,13 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -76,7 +76,7 @@ func relay(t *testing.T, allow string) (*Server, string, *logLines) {
 		t.Fatal(err)
 	}
 	logs := &logLines{}
-	s := &Server{Log: logs.add, FirstFrameTimeout: 300 * time.Millisecond}
+	s := &Server{Log: logs.add}
 	s.SetConfig(a)
 	hs := httptest.NewServer(s)
 	t.Cleanup(hs.Close)
@@ -129,7 +129,18 @@ func world(port int, trust string) string {
 
 func open(t *testing.T, base, host string, port int) *websocket.Conn {
 	t.Helper()
-	c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/?host=%s&port=%d", base, host, port), nil)
+	return openAsking(t, base, host, port, false)
+}
+
+// openAsking is open, asking for TLS (tls=1) when tls is true, as the
+// page does when its world file says tls.
+func openAsking(t *testing.T, base, host string, port int, tls bool) *websocket.Conn {
+	t.Helper()
+	u := fmt.Sprintf("%s/?host=%s&port=%d", base, host, port)
+	if tls {
+		u += "&tls=1"
+	}
+	c, _, err := websocket.Dial(context.Background(), u, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,62 +222,106 @@ func TestReasonKeepsWholeRunes(t *testing.T) {
 	}
 }
 
-func TestTLSOnlyRefusesPlainFirstFrame(t *testing.T) {
-	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, "ca"))
-	dialed := false
-	s.Dial = func(context.Context, string, string) (net.Conn, error) { dialed = true; return nil, net.ErrClosed }
-	c := open(t, base, "127.0.0.1", port)
-	c.Write(context.Background(), websocket.MessageBinary, []byte("connect kit hunter2\r\n"))
-	if code := closeCode(t, c); code != CodeNeedsTLS {
-		t.Errorf("code %d, want %d", code, CodeNeedsTLS)
-	}
-	if dialed {
-		t.Error("dialed with a plaintext first frame")
-	}
-}
-
-func TestTLSOnlyRefusesSilentClient(t *testing.T) {
-	port := serveEach(t, tcpListener(t), echoGreeter)
-	_, base, _ := relay(t, world(port, "ca"))
-	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeNeedsTLS {
-		t.Errorf("code %d, want %d", code, CodeNeedsTLS)
-	}
-}
-
-func TestTLSThroughRelayPins(t *testing.T) {
+// tlsGreeter is a TLS MUCK on 127.0.0.1 that says "secure hello". It
+// returns the port and the certificate.
+func tlsGreeter(t *testing.T) (int, *x509.Certificate) {
+	t.Helper()
 	ln, cert := selfSignedListener(t)
-	port := serveEach(t, ln, func(c net.Conn) { c.Write([]byte("secure hello\r\n")) })
-	_, base, logs := relay(t, world(port, "ca"))
-	kh := conn.KnownHosts{Path: filepath.Join(t.TempDir(), "known_hosts")}
-	viaRelay := func(ctx context.Context, _, addr string) (net.Conn, error) {
-		h, p, _ := net.SplitHostPort(addr)
-		c, _, err := websocket.Dial(ctx, base+"/?host="+h+"&port="+p, nil)
-		if err != nil {
-			return nil, err
-		}
-		return websocket.NetConn(context.Background(), c, websocket.MessageBinary), nil
-	}
-	c, err := conn.Dial(context.Background(), conn.Options{Host: "127.0.0.1", Port: port, TLS: true, TLSTrust: "pin",
-		KnownHosts: kh, DialContext: viaRelay})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Close()
-	select {
-	case line := <-c.Lines():
-		if line != "secure hello" {
-			t.Errorf("line %q", line)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no line")
-	}
-	if fp, ok, _ := kh.Lookup(net.JoinHostPort("127.0.0.1", strconv.Itoa(port))); !ok || fp != conn.Fingerprint(cert) {
-		t.Errorf("pinned %q", fp)
+	return serveEach(t, ln, func(c net.Conn) { c.Write([]byte("secure hello\r\n")) }), cert
+}
+
+func TestRelayDoesTLSWithPin(t *testing.T) {
+	port, cert := tlsGreeter(t)
+	_, base, logs := relay(t, world(port, conn.Fingerprint(cert)))
+	if l := readLine(t, openAsking(t, base, "127.0.0.1", port, true)); l != "secure hello\r\n" {
+		t.Errorf("line %q", l)
 	}
 	if !strings.HasPrefix(logs.first(), upTo(str.RelayOpened(mark, mark))) {
 		t.Errorf("log %q", logs.first())
 	}
+}
+
+func TestRelayDoesTLSWithoutClientAsking(t *testing.T) {
+	port, cert := tlsGreeter(t)
+	_, base, _ := relay(t, world(port, conn.Fingerprint(cert)))
+	if l := readLine(t, open(t, base, "127.0.0.1", port)); l != "secure hello\r\n" {
+		t.Errorf("line %q", l)
+	}
+}
+
+func TestRelayPinMismatch(t *testing.T) {
+	port, _ := tlsGreeter(t)
+	_, base, logs := relay(t, world(port, testPin))
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeBadCert {
+		t.Errorf("code %d, want %d", code, CodeBadCert)
+	}
+	if !strings.HasPrefix(logs.first(), upTo(str.RelayRefusedBadCert(mark, mark, errMark{}))) {
+		t.Errorf("log %q", logs.first())
+	}
+}
+
+func TestRelayCATrust(t *testing.T) {
+	port, cert := tlsGreeter(t)
+	s, base, _ := relay(t, world(port, "ca"))
+	s.RootCAs = x509.NewCertPool()
+	s.RootCAs.AddCert(cert)
+	if l := readLine(t, openAsking(t, base, "127.0.0.1", port, true)); l != "secure hello\r\n" {
+		t.Errorf("line %q", l)
+	}
+	s.RootCAs = x509.NewCertPool()
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeBadCert {
+		t.Errorf("unknown CA: code %d, want %d", code, CodeBadCert)
+	}
+}
+
+func TestRelayRefusesTLSForPlaintextWorld(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	s, base, logs := relay(t, world(port, ""))
+	dialed := false
+	s.Dial = func(context.Context, string, string) (net.Conn, error) { dialed = true; return nil, net.ErrClosed }
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeNoTLS {
+		t.Errorf("code %d, want %d", code, CodeNoTLS)
+	}
+	if dialed {
+		t.Error("dialed a plaintext world for a client that asked for TLS")
+	}
+	if !strings.HasPrefix(logs.first(), upTo(str.RelayRefusedNoTls(mark, mark))) {
+		t.Errorf("log %q", logs.first())
+	}
+}
+
+// silent accepts connections and never says anything: a plaintext port
+// listed as TLS, say.
+func silent(c net.Conn) { io.Copy(io.Discard, c) }
+
+func TestRelayHandshakeTimeout(t *testing.T) {
+	port := serveEach(t, tcpListener(t), silent)
+	s, base, _ := relay(t, world(port, testPin))
+	s.HandshakeTimeout = 300 * time.Millisecond
+	start := time.Now()
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeUnreachable {
+		t.Errorf("code %d, want %d", code, CodeUnreachable)
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Errorf("took %v", d)
+	}
+}
+
+func TestTLSRefusalsReleaseSlots(t *testing.T) {
+	plain := serveEach(t, tcpListener(t), echoGreeter)
+	pinned, _ := tlsGreeter(t)
+	quiet := serveEach(t, tcpListener(t), silent)
+	s, base, _ := relay(t, world(plain, "")+world(pinned, testPin)+world(quiet, testPin))
+	s.HandshakeTimeout = 300 * time.Millisecond
+	for _, c := range []struct {
+		port int
+		want websocket.StatusCode
+	}{{plain, CodeNoTLS}, {pinned, CodeBadCert}, {quiet, CodeUnreachable}} {
+		if code := closeCode(t, openAsking(t, base, "127.0.0.1", c.port, true)); code != c.want {
+			t.Fatalf("port %d: code %d, want %d", c.port, code, c.want)
+		}
+	}
+	eventually(t, "a refused connection kept its slot", func() bool { return s.inUse() == 0 })
 }
 
 func TestUnreachable(t *testing.T) {
@@ -400,20 +455,6 @@ func TestGlobalCap(t *testing.T) {
 	}
 	a.Close(websocket.StatusNormalClosure, "")
 	eventually(t, "slot never released", func() bool { return s.inUse() == 0 })
-}
-
-func TestTLSRefusalsReleaseSlots(t *testing.T) {
-	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, "ca"))
-	c := open(t, base, "127.0.0.1", port)
-	c.Write(context.Background(), websocket.MessageBinary, []byte("connect kit\r\n"))
-	if code := closeCode(t, c); code != CodeNeedsTLS {
-		t.Fatalf("plain: code %d, want %d", code, CodeNeedsTLS)
-	}
-	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeNeedsTLS {
-		t.Fatalf("silent: code %d, want %d", code, CodeNeedsTLS)
-	}
-	eventually(t, "a refused connection kept its slot", func() bool { return s.inUse() == 0 })
 }
 
 func TestPingsKeepLiveClients(t *testing.T) {

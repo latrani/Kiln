@@ -778,6 +778,11 @@ func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayRefusedBadCert is relay.refused_bad_cert: "refused {ip} → {world:%q}: certificate: {err}"
+func RelayRefusedBadCert(ip, world any, err error) string {
+	return get("relay.refused_bad_cert", map[string]any{"ip": ip, "world": world, "err": err})
+}
+
 // RelayRefusedBadPeer is relay.refused_bad_peer: "refused {peer:%q}: unreadable client address"
 func RelayRefusedBadPeer(peer any) string {
 	return get("relay.refused_bad_peer", map[string]any{"peer": peer})
@@ -788,14 +793,14 @@ func RelayRefusedBusy(ip, world any) string {
 	return get("relay.refused_busy", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayRefusedNoTls is relay.refused_no_tls: "refused {ip} → {world:%q}: client asked for TLS, world is plaintext"
+func RelayRefusedNoTls(ip, world any) string {
+	return get("relay.refused_no_tls", map[string]any{"ip": ip, "world": world})
+}
+
 // RelayRefusedNotListed is relay.refused_not_listed: "refused {ip} → {world:%q}: not on the allowlist"
 func RelayRefusedNotListed(ip, world any) string {
 	return get("relay.refused_not_listed", map[string]any{"ip": ip, "world": world})
-}
-
-// RelayRefusedNotTls is relay.refused_not_tls: "refused {ip} → {world:%q}: not TLS"
-func RelayRefusedNotTls(ip, world any) string {
-	return get("relay.refused_not_tls", map[string]any{"ip": ip, "world": world})
 }
 
 // RelayRefusedTooMany is relay.refused_too_many: "refused {ip} → {world:%q}: too many connections"
