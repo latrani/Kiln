@@ -55,8 +55,26 @@ func TestEditor(t *testing.T) {
 
 	// A choice: ↓ on the chosen radio picks the next (the browser's radio
 	// keys). Then the port put back, Enter: saved, back at the filter.
-	ev(`document.querySelector("details").open = true`)
-	waitFor(t, ev, `document.querySelector("details[open]")`, "the extras shown")
+	// More settings folds as the filter panel's tags do: a click off its
+	// glyph does nothing; ←/→ open and shut it; Enter toggles it; a click
+	// on the glyph toggles it.
+	summary := `document.querySelector("details summary")`
+	shown := `document.querySelector("details").open`
+	click(t, ws, ev, summary)
+	if got := ev(shown); got != "false" {
+		t.Error("a click on More settings' label opened it")
+	}
+	ev(summary + `.focus()`)
+	pressKey(t, ws, "ArrowRight", 39)
+	waitFor(t, ev, shown, "→ opened the extras")
+	pressKey(t, ws, "ArrowLeft", 37)
+	waitFor(t, ev, `!`+shown, "← shut them")
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, shown, "Enter opened them")
+	pressKey(t, ws, "Enter", 13)
+	waitFor(t, ev, `!`+shown, "Enter shut them")
+	click(t, ws, ev, `document.querySelector("summary .dglyph")`)
+	waitFor(t, ev, shown, "a click on the glyph opened them")
 	// With the mouse: a click on the shown value takes the next, and a
 	// click on the drawn box toggles it (twice, so TLS stays on).
 	click(t, ws, ev, `document.querySelector('[name="ed-reconnect"]:checked + span')`)

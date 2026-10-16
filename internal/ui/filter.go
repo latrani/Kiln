@@ -108,6 +108,9 @@ func (b *browse) fold(sel filterSel, shut bool) {
 	}
 }
 
+// toggleFold folds sel shut if it's open, or open if it's shut.
+func (b *browse) toggleFold(sel filterSel) { b.fold(sel, !b.cs.Collapsed[sel.Item.Name]) }
+
 // panelRows lays the panel out: per entry its name and its
 // Hide and Only buttons, a blank row after each top-level group (a tag
 // and its children, or a text row); + Text last.
@@ -153,7 +156,7 @@ func (b *browse) panelRows(w int) []panelRow {
 		}
 		rows = append(rows,
 			panelRow{text: indent + theme.Paint(role, name), entry: i, sel: e.sel(), kind: prName},
-			panelRow{text: indent + " " + theme.Paint(hide, str.FilterHide()) + " " + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
+			panelRow{text: indent + " " + theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
 		if next := es[i+1]; next.Depth == 0 { // a blank row ends a top-level group
 			rows = append(rows, panelRow{entry: i, kind: prBlank})
 		}
@@ -258,7 +261,11 @@ func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 		if sel.Add {
 			b.prompt = promptFilterText
 			b.pin.SetValue("")
+		} else {
+			b.toggleFold(sel)
 		}
+	case "space", " ":
+		b.toggleFold(sel)
 	case "x", "delete":
 		if b.removeText(sel) {
 			b.Panel.follow = true
@@ -311,14 +318,14 @@ func (b *browse) panelClick(x, y, h int) {
 			b.Refilter()
 			return
 		case e.Parent && onGlyph:
-			b.Fold(e.Item.Name, !b.cs.Collapsed[e.Item.Name])
+			b.toggleFold(e.sel())
 		}
 		b.Panel.Sel = e.sel()
 	case prButtons:
 		hx := indent + 1
-		ox := hx + xansi.StringWidth(str.FilterHide()) + 1
+		ox := hx + xansi.StringWidth(str.FilterHide()) + xansi.StringWidth(str.Separator())
 		switch {
-		case x >= hx && x < ox-1:
+		case x >= hx && x < hx+xansi.StringWidth(str.FilterHide()):
 			b.ToggleHide(e.Item)
 		case x >= ox && x < ox+xansi.StringWidth(str.FilterOnly()):
 			b.PressOnly(e.Item)

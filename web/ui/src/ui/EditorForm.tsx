@@ -65,8 +65,17 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
       <div class="fields">{main.map((f) => <Row key={f.key} f={f} ed={ed} store={store} focus={focus} off={off} />)}</div>
       {extra.length > 0 && (
         <details open={ed.more} onToggle={(e) => store.setEditor({ more: (e.currentTarget as HTMLDetailsElement).open })}>
-          <summary data-f="more" class={focus === "more" ? roleClass("form.focus") : undefined}>
-            <span aria-hidden="true">{ed.more ? str.glyph.open : str.glyph.collapsed}</span>{" " + str.editorExtra()}
+          {/* It folds as the filter panel's tags do: Enter and Space
+              toggle it, ←/→ shut and open it, and of the mouse's clicks
+              only one on its glyph does (a key's click has no detail). */}
+          <summary data-f="more" class={focus === "more" ? roleClass("form.focus") : undefined}
+            onClick={(e) => { if (e.detail && !(e.target as Element).closest(".dglyph")) e.preventDefault(); }}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              store.setEditor({ more: e.key === "ArrowRight" });
+            }}>
+            <span aria-hidden="true" class="dglyph">{ed.more ? str.glyph.open : str.glyph.collapsed}</span>{" " + str.editorExtra()}
           </summary>
           <div class="fields">{extra.map((f) => <Row key={f.key} f={f} ed={ed} store={store} focus={focus} off={off} />)}</div>
         </details>

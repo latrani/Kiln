@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/logstore"
@@ -32,7 +33,7 @@ func unfold(h *harness) {
 	clear(h.m.chars["fm/kit"].Collapsed)
 }
 
-func buttons() string { return str.FilterHide() + " " + str.FilterOnly() }
+func buttons() string { return str.FilterHide() + str.Separator() + str.FilterOnly() }
 
 func TestPanelOpensAndCloses(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
@@ -131,6 +132,29 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	}
 }
 
+// Enter and Space fold a tag as ←/→ do, toggling it; on a tag with no
+// children they do nothing.
+func TestPanelFoldToggles(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	collapsed := func() bool { return h.m.chars["fm/kit"].Collapsed["page"] }
+	h.key("down") // page, folded
+	for _, step := range []struct {
+		key  string
+		want bool
+	}{{"enter", false}, {"space", true}, {"right", false}, {"right", false}, {"space", true}} {
+		h.key(step.key)
+		if collapsed() != step.want {
+			t.Fatalf("after %s, page folded = %v:\n%s", step.key, collapsed(), h.screen())
+		}
+	}
+	if h.br().prompt != promptNone {
+		t.Errorf("Enter on a tag opened a prompt")
+	}
+}
+
 func TestPanelClicks(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
@@ -141,8 +165,8 @@ func TestPanelClicks(t *testing.T) {
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
 	// Rows: 0 Untagged, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
 	// 5 in, 6 buttons, 7 blank, 8 self, 9 buttons.
-	// Buttons for depth 0 start at column 2: "  Hide Only".
-	hideX, onlyX := 2, 2+len(str.FilterHide())+1
+	// Buttons for depth 0 start at column 2: "  Hide · Only".
+	hideX, onlyX := 2, 2+len(str.FilterHide())+xansi.StringWidth(str.Separator())
 	click(hideX, 9)
 	if !f.Hidden(scene.Item{Name: "self"}) {
 		t.Error("clicking self's Hide")

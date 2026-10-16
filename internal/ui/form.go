@@ -227,9 +227,18 @@ func (f *form) key(k tea.KeyPressMsg) bool {
 		}
 	}
 	fl := &f.fields[f.focus]
-	if fl.section && k.String() == "space" {
-		f.expanded = !f.expanded
-		return true
+	if fl.section { // as the filter panel's folds: Space toggles, ←/→ shut and open
+		switch k.String() {
+		case "space":
+			f.expanded = !f.expanded
+			return true
+		case "left":
+			f.expanded = false
+			return true
+		case "right":
+			f.expanded = true
+			return true
+		}
 	}
 	if fl.choices != nil {
 		switch k.String() {
@@ -252,6 +261,32 @@ func (f *form) key(k tea.KeyPressMsg) bool {
 		return false
 	}
 	return f.edit(func(in *Input) bool { return editKey(in, k) })
+}
+
+// click handles a click at column x of row, counted as rows draws them.
+// The section header's glyph shows or hides the extra fields, focusing
+// the header, as a fold's glyph does in the filter panel; nothing else
+// takes a click.
+func (f *form) click(x, row int) {
+	if len(f.fields) == 1 || x != 0 {
+		return
+	}
+	if f.title != "" {
+		row--
+	}
+	for i := range f.fields {
+		if !f.visible(i) {
+			continue
+		}
+		if row == 0 {
+			if f.fields[i].section {
+				f.focus = i
+				f.expanded = !f.expanded
+			}
+			return
+		}
+		row--
+	}
 }
 
 // paste inserts s into the focused field, as one line.

@@ -16,7 +16,7 @@ the log has focus, `/` finds, `n`/`N` step through matches, `g` goes
 to a date, `t` shows a line's tags, `c` copies and `e` exports (a
 download). `f` (or the `Filter` chip) opens the filter panel in the
 sidebar: ↑/↓ move, `h` hides and `o` shows only an entry, ←/→ fold a
-group, Enter on `+ Text` filters by a text, `x` removes one, Esc closes
+group (Space or Enter toggles it), Enter on `+ Text` filters by a text, `x` removes one, Esc closes
 it. Esc closes log mode.
 
 ```sh

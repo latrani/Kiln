@@ -52,11 +52,11 @@ export function moveSel(rows: PanelRow[], sel: string, delta: number): string {
 }
 
 // PanelKey is what a key does in the panel.
-export type PanelKey = "up" | "down" | "hide" | "only" | "shut" | "open" | "add" | "remove" | "close";
+export type PanelKey = "up" | "down" | "hide" | "only" | "shut" | "open" | "toggle" | "enter" | "remove" | "close";
 
 const panelKeys: Record<string, PanelKey> = {
   ArrowUp: "up", ArrowDown: "down", h: "hide", o: "only", ArrowLeft: "shut", ArrowRight: "open",
-  Enter: "add", x: "remove", Delete: "remove", Escape: "close", f: "close",
+  " ": "toggle", Enter: "enter", x: "remove", Delete: "remove", Escape: "close", f: "close",
 };
 
 // filterKey is a key in the panel, as the TUI's panelKey: arrows, not
@@ -88,7 +88,8 @@ export function closePanel(store: Store): void {
 
 // panelAct does what a panel key asks, as the TUI's panelKey: ↑/↓ move
 // the highlight (focus following); h and o hide or show only its entry;
-// ←/→ fold a tag shut or open; Enter on + Text asks for a text; x
+// ←/→ fold a tag shut or open, and Space or Enter toggle it; Enter on +
+// Text asks for a text; x
 // removes a text row, the highlight moving down first so one stays; Esc
 // and f close the panel.
 export function panelAct(store: Store, does: PanelKey): void {
@@ -110,8 +111,14 @@ export function panelAct(store: Store, does: PanelKey): void {
     case "open":
       if (r.kind === "entry" && !r.e.Item.Text) act({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: does === "shut" });
       break;
-    case "add":
-      if (r.kind === "add") store.setLogView(k, { prompt: { kind: "filter", value: "" } });
+    case "enter":
+      if (r.kind === "add") {
+        store.setLogView(k, { prompt: { kind: "filter", value: "" } });
+        break;
+      }
+    // falls through: Enter on a tag folds it, as Space does
+    case "toggle":
+      if (r.kind === "entry" && r.e.Parent) act({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: !r.e.Folded });
       break;
     case "remove":
       if (r.kind === "entry" && r.e.Item.Text) {

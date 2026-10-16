@@ -36,7 +36,7 @@ fm              │fm · Kit                                       ? focus  ·  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-22 fg=#b19c8b; @23-79 fg=#e3bda0
                 │TLS:  [x]                                                      
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-22 fg=#b19c8b; @23-79 fg=#e3bda0
-                │► More settings                                                
+                │> More settings                                                
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3bda0
                 │ Save                                                          
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-22 bold,fg=#edd3c0,bg=#3d200b; @23-79 fg=#e3bda0

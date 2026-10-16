@@ -1131,6 +1131,12 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		}
 		return nil
 	}
+	if y := msg.Y - l.sbH - 1; l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+		if f := m.shownForm(); f != nil {
+			f.click(msg.X-l.sw-1, l.inTop+y)
+		}
+		return nil
+	}
 	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
 		if y < len(l.hist) {
 			return m.historyClick(l.hist[y])
