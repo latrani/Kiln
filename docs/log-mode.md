@@ -13,7 +13,7 @@
 | `f`, or click ` Filter ` | Open the filter panel (see below) |
 | `m` | Start a range on the current line: its other end follows the cursor as you move (keys, paging, clicks) until `m` again locks it. `c` and `e` lock it too; `Esc` drops it |
 | `Space` | Leave the current line out of the range |
-| Click, shift-click | Select a line; shift-click outside the range to extend it, or inside it to leave a line out (or bring it back). While marking, any click just moves the range's end |
+| Click, shift-click | Select a line; shift-click outside the range to extend it, or inside it to leave a line out (or bring it back). While marking, every click acts as a shift-click: outside the range it grows the range to that line, inside it leaves the line out (or brings it back) |
 | `e` | Export the range as plain text, ANSI or HTML |
 | `c` | Copy the range as plain text |
 

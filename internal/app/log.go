@@ -355,6 +355,20 @@ func (g *Log) MarkTo(l *LogLine) {
 	}
 }
 
+// GrowTo takes l into a live range, as a click outside it while
+// marking: the end away from l becomes the anchor and l the far end, so
+// the range keeps what it had and the cursor moves on from l.
+func (g *Log) GrowTo(l *LogLine) {
+	if !g.Marking || l == nil {
+		return
+	}
+	g.anchor = g.Start
+	if g.Index(l) < g.Index(g.Start) {
+		g.anchor = g.End
+	}
+	g.MarkTo(l)
+}
+
 // EndMark drops a live range: Esc while marking.
 func (g *Log) EndMark() {
 	g.Start, g.End = nil, nil

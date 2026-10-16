@@ -432,3 +432,23 @@ func TestMarkToKeepsAHiddenAnchor(t *testing.T) {
 		t.Errorf("anchor shown %v, %d–%d, %d selected", g.Shows(g.Lines[0]), g.Index(g.Start), g.Index(g.End), len(g.Selection()))
 	}
 }
+
+func TestGrowToTakesALineInFromTheFarEnd(t *testing.T) {
+	a := logApp(t, 6)
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[2])
+	g.MarkTo(g.Lines[4])
+	g.ToggleExclude(g.Lines[3])
+	g.GrowTo(g.Lines[0])
+	if g.Index(g.Start) != 0 || g.Index(g.End) != 4 || !g.Excluded[g.Lines[3]] {
+		t.Fatalf("grown up: %d–%d, 3 excluded %v", g.Index(g.Start), g.Index(g.End), g.Excluded[g.Lines[3]])
+	}
+	g.MarkTo(g.Lines[1]) // 4 is the anchor now
+	if g.Index(g.Start) != 1 || g.Index(g.End) != 4 {
+		t.Errorf("then moved: %d–%d; want 1–4", g.Index(g.Start), g.Index(g.End))
+	}
+	g.GrowTo(g.Lines[5])
+	if g.Index(g.Start) != 1 || g.Index(g.End) != 5 {
+		t.Errorf("grown down: %d–%d; want 1–5", g.Index(g.Start), g.Index(g.End))
+	}
+}

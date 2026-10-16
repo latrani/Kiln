@@ -31,9 +31,14 @@ While the range is live:
 - `Space` leaves the cursor's line out, as now. When the range shrinks
   past an excluded line, that exclusion is forgotten, so growing back
   over the line doesn't bring it back excluded.
-- A click moves the cursor, and so the range's end. Shift-click and a
-  click in the gutter do the same: the live range is the one thing a
-  click does.
+- A click is a sticky shift-click (changed after trying it; see #191).
+  Inside the range it takes its line out, or puts it back, and leaves
+  the cursor (the range's end) where it is. Outside the range it grows
+  the range to take the line in: the end away from the click becomes
+  the anchor, and the cursor goes to the clicked line, so the keys move
+  on from there. Shift and the gutter change nothing while marking.
+  With the mouse alone a live range only grows; the keys or `Esc`
+  shrink it.
 
 Once locked, nothing changes from today: a click starts a new one-line
 range, shift-click extends the range or toggles a line in it, a gutter
@@ -54,6 +59,8 @@ doesn't follow it; the front end tells it:
   where it is.
 - `MarkTo(l)`, while marking: `Start`/`End` become anchor and `l` in
   order, and exclusions outside them are dropped.
+- `GrowTo(l)`, while marking: the anchor becomes the end away from
+  `l`, then `MarkTo(l)`.
 - `EndMark()`: drops the range (`Start`, `End` nil, exclusions cleared,
   `Marking` off).
 - `Copy` and `ExportReady` turn `Marking` off before they act.
@@ -69,7 +76,8 @@ lose their `End == nil` cases.
 `browse.SetCursor` and `MoveCursor`, and every other place the cursor
 moves, call `MarkTo` while marking. One hook in `SetCursor` covers them
 if every move goes through it; the plan checks that. `click` checks
-`Marking` first. `Esc` in `browseKey` ends marking before it ends find
+`Marking` first: inside the range `ToggleExclude`, outside `GrowTo`
+then `SetCursor`. `Esc` in `browseKey` ends marking before it ends find
 or leaves log mode.
 
 ## Web
@@ -81,7 +89,9 @@ the mouse). The TUI's keys copy over:
 - While `Marking` (in the log state the page gets), each cursor move,
   from keys, a click or `dragCursor` as the browser scrolls, sends a new
   `mark_to` action with the seq. `Esc` sends a new `end_mark`.
-- `logClick` checks `Marking` first, as the TUI's `click`.
+- `logClick` checks `Marking` first, as the TUI's `click`: inside the
+  range it sends `exclude`; outside, a new `grow` action, then moves
+  the cursor.
 - The statusline's marking part is the TUI's string.
 
 ## Strings

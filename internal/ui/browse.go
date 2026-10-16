@@ -450,10 +450,15 @@ func (b *browse) click(x, y int, shift bool) {
 	// Like selecting files in Finder: a click selects its line, a
 	// shift-click outside the range extends it, and one inside toggles
 	// that line out of (or back into) it. The gutter column toggles too.
-	// While marking, any click just moves the live range's end.
+	// While marking, every click is a shift-click: inside the range it
+	// toggles its line, leaving the cursor (the range's end) where it is;
+	// outside it grows the range to the line.
 	l := b.rowLines[row]
 	switch {
+	case b.Marking && b.InRange(l):
+		b.ToggleExclude(l)
 	case b.Marking:
+		b.GrowTo(l)
 		b.SetCursor(l)
 	case shift && b.Start != nil && b.End != nil && b.InRange(l):
 		b.ToggleExclude(l)

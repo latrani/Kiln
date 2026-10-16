@@ -475,7 +475,7 @@ git commit -m "Log mode: a live range follows the cursor, clicks included (#191)
 
 **Files:**
 - Modify: `internal/feed/events.go:133` (`Log` gains `Marking bool`), `internal/feed/feed.go:338` (`logState` sets it)
-- Modify: `internal/webapi/actions.go:301-330` (`mark_to`, `end_mark`)
+- Modify: `internal/webapi/actions.go:301-330` (`mark_to`, `grow`, `end_mark`)
 - Modify: `web/ui/src/log.ts` (`LogState.Marking`, `LogKey` `"mark"`, `letters.m`, `logAct` `mark` and `back`, `logClick`)
 - Modify: `web/ui/src/store.ts:482` (`setLogView` sends `mark_to`)
 - Modify: `web/ui/src/ui/StatusLine.tsx:20` (`logStatus` marking part)
@@ -484,7 +484,9 @@ git commit -m "Log mode: a live range follows the cursor, clicks included (#191)
 
 **Interfaces:**
 - Consumes: Task 1's core API.
-- Produces: actions `{"Do":"mark_to","Key":k,"Seq":n}` and `{"Do":"end_mark","Key":k}`; feed `Log.Marking`.
+- Produces: actions `{"Do":"mark_to","Key":k,"Seq":n}`, `{"Do":"grow","Key":k,"Seq":n}` and `{"Do":"end_mark","Key":k}`; feed `Log.Marking`.
+
+**Changed after Task 2 (Indi tried it):** a click while marking is a sticky shift-click. Inside the range: `exclude`, cursor unchanged. Outside: `grow` (core `GrowTo`), then the cursor moves to the line (which sends `mark_to`, a no-op after `grow`). This replaces the "a click while marking only moves the end" steps below.
 
 - [ ] **Step 1: Go side, failing test** in `internal/webapi/loop_test.go`, after the existing `mark`/`mark` pair (~line 397), make it a live range and check it:
 
@@ -507,6 +509,8 @@ Place it before the existing range checks so they still start from a known state
 ```go
 	case "mark_to": //str:ok
 		g.MarkTo(at(act.Seq))
+	case "grow": //str:ok
+		g.GrowTo(at(act.Seq))
 	case "end_mark": //str:ok
 		g.EndMark()
 ```
@@ -568,7 +572,11 @@ Update `logKey`'s comment: `m` is the TUI's; Space stays the mouse's (gutter or 
 
 ```ts
   if (s.logView[k]?.prompt) return;
-  if (g.Marking) { store.setLogView(k, { cursor: seq }); return; } // the live range's end follows; setLogView sends mark_to
+  if (g.Marking) { // a sticky shift-click, as the TUI's
+    if (how.inRange) act({ Do: "exclude", Key: k, Seq: seq });
+    else { act({ Do: "grow", Key: k, Seq: seq }); store.setLogView(k, { cursor: seq }); }
+    return;
+  }
 ```
 
 `store.ts` `setLogView`:

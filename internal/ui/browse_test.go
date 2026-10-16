@@ -1327,8 +1327,9 @@ func TestBrowseLiveRangePagesOlder(t *testing.T) {
 	}
 }
 
-// Click, m, click: the range runs between; a shift-click while marking
-// only moves the end.
+// Click, m, click: the range runs between. While marking a click is a
+// sticky shift-click: inside the range it takes a line out (or back in)
+// without moving the end; outside it grows the range to take the line in.
 func TestBrowseLiveRangeClicks(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
@@ -1351,19 +1352,33 @@ func TestBrowseLiveRangeClicks(t *testing.T) {
 		}
 		t.Fatalf("line %d not on screen", i)
 	}
-	click(1, false)
+	span := func() (int, int) { return b.Index(b.Start), b.Index(b.End) }
+	click(2, false)
 	h.key("m")
 	click(4, false)
-	if !b.Marking || b.Index(b.Start) != 1 || b.Index(b.End) != 4 {
-		t.Fatalf("click while marking: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
+	if s, e := span(); !b.Marking || s != 2 || e != 4 {
+		t.Fatalf("click below while marking: marking %v, %d–%d", b.Marking, s, e)
+	}
+	click(3, false)
+	if s, e := span(); !b.Excluded[b.Lines[3]] || s != 2 || e != 4 || b.Cursor != b.Lines[4] {
+		t.Errorf("click inside: excluded %v, %d–%d, cursor %d; want 3 out, the range and cursor kept", b.Excluded[b.Lines[3]], s, e, b.Index(b.Cursor))
 	}
 	click(3, true)
-	if b.Excluded[b.Lines[3]] || b.Index(b.End) != 3 {
-		t.Errorf("shift-click while marking: excluded %v, end %d; want just the end moved", b.Excluded[b.Lines[3]], b.Index(b.End))
+	if b.Excluded[b.Lines[3]] {
+		t.Error("shift-click inside while marking should bring it back, as a click does")
+	}
+	click(3, false)
+	click(1, false)
+	if s, e := span(); s != 1 || e != 4 || !b.Excluded[b.Lines[3]] || b.Cursor != b.Lines[1] {
+		t.Errorf("click above: %d–%d, 3 excluded %v, cursor %d; want it grown to 1–4, 3 still out, cursor on 1", s, e, b.Excluded[b.Lines[3]], b.Index(b.Cursor))
+	}
+	h.key("down") // the far end is the anchor now: keys move the 1 end
+	if s, e := span(); s != 2 || e != 4 {
+		t.Errorf("down after growing up: %d–%d; want 2–4", s, e)
 	}
 	h.key("m")
 	click(0, false)
-	if b.Index(b.Start) != 0 || b.Index(b.End) != 0 {
+	if s, e := span(); s != 0 || e != 0 {
 		t.Error("a click after locking should start a new one-line range")
 	}
 }
