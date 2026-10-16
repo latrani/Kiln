@@ -44,5 +44,5 @@
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │0 selected                                                     
-  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3
+                │                                                        Select 
+  @0-15 fg=#a0b7e3; @16-16 fg=#a2cdcc; @17-71 fg=#a0b7e3; @72-79 bold,fg=#c0cfed,bg=#0b1b3d

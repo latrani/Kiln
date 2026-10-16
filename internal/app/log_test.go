@@ -352,3 +352,102 @@ func TestLineTagsSaysWhoseStyleEachTakes(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestMarkFollowsAndLocks(t *testing.T) {
+	a := logApp(t, 6)
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[3])
+	if !g.Marking || g.Start != g.Lines[3] || g.End != g.Lines[3] || g.Status != str.BrowseRangeStart() {
+		t.Fatalf("m: marking %v, %v–%v, status %q", g.Marking, g.Start, g.End, g.Status)
+	}
+	g.MarkTo(g.Lines[5])
+	if g.Index(g.Start) != 3 || g.Index(g.End) != 5 {
+		t.Errorf("below the anchor: %d–%d", g.Index(g.Start), g.Index(g.End))
+	}
+	g.MarkTo(g.Lines[1])
+	if g.Index(g.Start) != 1 || g.Index(g.End) != 3 {
+		t.Errorf("above the anchor: %d–%d; the anchor stays an end", g.Index(g.Start), g.Index(g.End))
+	}
+	g.Mark(g.Lines[0])
+	if g.Marking || g.Index(g.Start) != 0 || g.Index(g.End) != 3 || g.Status != str.BrowseLinesInRange(4) {
+		t.Errorf("m again: marking %v, %d–%d, status %q", g.Marking, g.Index(g.Start), g.Index(g.End), g.Status)
+	}
+	g.MarkTo(g.Lines[5])
+	if g.Index(g.End) != 3 {
+		t.Error("a locked range moved")
+	}
+}
+
+func TestMarkToForgetsExclusionsItLeaves(t *testing.T) {
+	a := logApp(t, 6)
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[0])
+	g.MarkTo(g.Lines[4])
+	g.ToggleExclude(g.Lines[3])
+	g.ToggleExclude(g.Lines[1])
+	g.MarkTo(g.Lines[2])
+	g.MarkTo(g.Lines[4])
+	if g.Excluded[g.Lines[3]] || !g.Excluded[g.Lines[1]] {
+		t.Errorf("excluded 3 %v (left behind: want false), 1 %v (still inside: want true)", g.Excluded[g.Lines[3]], g.Excluded[g.Lines[1]])
+	}
+}
+
+func TestEndMarkDropsTheRange(t *testing.T) {
+	a := logApp(t, 3)
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[0])
+	g.MarkTo(g.Lines[2])
+	g.EndMark()
+	if g.Marking || g.Start != nil || g.End != nil || len(g.Selection()) != 0 {
+		t.Errorf("marking %v, %v–%v", g.Marking, g.Start, g.End)
+	}
+}
+
+func TestCopyExportAndOtherRangesLock(t *testing.T) {
+	a := logApp(t, 4)
+	g := a.OpenLog("fm/kit")
+	for name, lock := range map[string]func(){
+		"copy":     func() { g.Copy() },
+		"export":   func() { g.ExportReady() },
+		"newrange": func() { g.NewRange(g.Lines[0], g.Lines[1]) },
+	} {
+		g.Mark(g.Lines[1])
+		g.MarkTo(g.Lines[2])
+		lock()
+		if g.Marking {
+			t.Errorf("%s left the range live", name)
+		}
+		g.EndMark()
+	}
+}
+
+func TestMarkToKeepsAHiddenAnchor(t *testing.T) {
+	a := logApp(t, 1, 3) // 09-23 0, then 09-24 0..2
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[0])
+	g.AddText("09-24") // Only: the anchor's line is hidden
+	g.MarkTo(g.Lines[3])
+	if g.Shows(g.Lines[0]) || g.Start != g.Lines[0] || g.End != g.Lines[3] || len(g.Selection()) != 3 {
+		t.Errorf("anchor shown %v, %d–%d, %d selected", g.Shows(g.Lines[0]), g.Index(g.Start), g.Index(g.End), len(g.Selection()))
+	}
+}
+
+func TestGrowToTakesALineInFromTheFarEnd(t *testing.T) {
+	a := logApp(t, 6)
+	g := a.OpenLog("fm/kit")
+	g.Mark(g.Lines[2])
+	g.MarkTo(g.Lines[4])
+	g.ToggleExclude(g.Lines[3])
+	g.GrowTo(g.Lines[0])
+	if g.Index(g.Start) != 0 || g.Index(g.End) != 4 || !g.Excluded[g.Lines[3]] {
+		t.Fatalf("grown up: %d–%d, 3 excluded %v", g.Index(g.Start), g.Index(g.End), g.Excluded[g.Lines[3]])
+	}
+	g.MarkTo(g.Lines[1]) // 4 is the anchor now
+	if g.Index(g.Start) != 1 || g.Index(g.End) != 4 {
+		t.Errorf("then moved: %d–%d; want 1–4", g.Index(g.Start), g.Index(g.End))
+	}
+	g.GrowTo(g.Lines[5])
+	if g.Index(g.Start) != 1 || g.Index(g.End) != 5 {
+		t.Errorf("grown down: %d–%d; want 1–5", g.Index(g.Start), g.Index(g.End))
+	}
+}

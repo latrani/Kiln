@@ -393,6 +393,19 @@ func TestLogModeByNumber(t *testing.T) {
 	for _, x := range ll["Lines"].([]any) {
 		seqs = append(seqs, int(x.(map[string]any)["Seq"].(float64)))
 	}
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[1]))
+	b = h.act(fmt.Sprintf(`{"Do":"mark_to","Key":"fm/kit","Seq":%d}`, seqs[2]))
+	if lg := event(b, "Log"); lg == nil || lg["Marking"] != true || lg["Start"] != float64(seqs[1]) || lg["End"] != float64(seqs[2]) {
+		t.Errorf("mark_to: %v", lg)
+	}
+	b = h.act(fmt.Sprintf(`{"Do":"grow","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	if lg := event(b, "Log"); lg == nil || lg["Start"] != float64(seqs[0]) || lg["End"] != float64(seqs[2]) {
+		t.Errorf("grow: %v", lg)
+	}
+	b = h.act(`{"Do":"end_mark","Key":"fm/kit"}`)
+	if lg := event(b, "Log"); lg == nil || lg["Marking"] != false || lg["Start"] != nil {
+		t.Errorf("end_mark: %v", lg)
+	}
 	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[0]))
 	b = h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[2]))
 	lg := event(b, "Log")
@@ -436,7 +449,7 @@ func TestSettingsReportEveryProblemOrSaved(t *testing.T) {
 	}
 }
 
-func TestRangeUpwardDoesNotPanic(t *testing.T) {
+func TestMarkUpwardOrdersTheRange(t *testing.T) {
 	a, dir := newApp(t)
 	ch, _ := a.Find("fm/kit")
 	l, _ := a.LogLayout(ch)
@@ -444,7 +457,8 @@ func TestRangeUpwardDoesNotPanic(t *testing.T) {
 	h := startOn(t, a, dir)
 	h.act(`{"Do":"open","Key":"fm/kit"}`)
 	h.act(`{"Do":"log","Key":"fm/kit"}`)
-	b := h.act(`{"Do":"range","Key":"fm/kit","Start":-1,"End":-3}`) // dragged upward
+	h.act(`{"Do":"mark","Key":"fm/kit","Seq":-1}`)
+	b := h.act(`{"Do":"mark","Key":"fm/kit","Seq":-3}`) // selected upward
 	if lg := event(b, "Log"); lg == nil || lg["Start"] != -3.0 || lg["End"] != -1.0 {
 		t.Errorf("range: %v", lg)
 	}
@@ -1172,7 +1186,8 @@ func TestTagsExportNameAndSay(t *testing.T) {
 	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseMarkRange() || event(b, "ExportName") != nil {
 		t.Errorf("nothing marked: %v", types(b))
 	}
-	h.act(fmt.Sprintf(`{"Do":"range","Key":"fm/kit","Start":%d,"End":%d}`, seqs[0], seqs[1]))
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[1]))
 	b = h.act(`{"Do":"export_name","Key":"fm/kit","Format":"plain"}`)
 	if n := event(b, "ExportName"); n == nil || n["Format"] != "plain" || n["Name"] == "" || strings.Contains(n["Name"].(string), "/") {
 		t.Errorf("export name: %v (no directory: a download)", n)
@@ -1195,7 +1210,7 @@ func TestLogStatusIsTheStatusLinesUntilYouActAgain(t *testing.T) {
 	if lg := event(b, "Log"); lg != nil && lg["Status"] != "" {
 		t.Errorf("still log mode's own: %v", lg["Status"])
 	}
-	b = h.act(fmt.Sprintf(`{"Do":"extend","Key":"fm/kit","Seq":%d}`, seqs[0])) // nothing marked: does nothing, says nothing
+	b = h.act(fmt.Sprintf(`{"Do":"mark_to","Key":"fm/kit","Seq":%d}`, seqs[0])) // not selecting: does nothing, says nothing
 	if st := event(b, "Status"); st == nil || st["Text"] != "" {
 		t.Errorf("acting again leaves it: %v", st)
 	}
@@ -1237,5 +1252,16 @@ func TestSettingsThatCantBeReadSayProblems(t *testing.T) {
 	b := h.act(`{"Do":"settings","World":"nowhere","Char":""}`)
 	if p := event(b, "Problems"); p == nil || p["Op"] != "settings" || p["World"] != "nowhere" {
 		t.Errorf("batch = %v", types(b))
+	}
+}
+
+// While selecting, a find's landing moves the range's end, as the TUI's
+// found does: the cursor goes there.
+func TestALandingMovesALiveRange(t *testing.T) {
+	h, seqs := logWith(t, "one", "two", "three")
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[2]))
+	b := h.act(fmt.Sprintf(`{"Do":"find","Key":"fm/kit","Term":"one","Seq":%d}`, seqs[2]))
+	if lg := event(b, "Log"); lg == nil || lg["Start"] != float64(seqs[0]) || lg["End"] != float64(seqs[2]) || lg["Marking"] != true {
+		t.Errorf("after find landed on one: %v", lg)
 	}
 }

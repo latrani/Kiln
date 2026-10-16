@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dragCursor, exportFormats, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, openAt, segments, topFor, wantsOlder } from "./log.ts";
+import { dragCursor, exportFormats, scrolled, findStatus, formatKey, logKey, logRows, placeOf, keepsPlace, openAt, segments, topFor, wantsOlder } from "./log.ts";
 import type { LogState } from "./log.ts";
 import type { LineData } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -44,14 +44,14 @@ test("segments mark every case-insensitive, literal match", () => {
 
 test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => logKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
-  assert.deepEqual(["ArrowUp", "k", "ArrowDown", "j", "/", "n", "N", "g", "f", "e", "c", "Escape"].map((x) => k(x)),
-    ["up", "up", "down", "down", "find", "older", "newer", "date", "filter", "export", "copy", "back"]);
+  assert.deepEqual(["ArrowUp", "k", "ArrowDown", "j", "s", " ", "/", "n", "N", "g", "f", "e", "c", "Escape"].map((x) => k(x)),
+    ["up", "up", "down", "down", "mark", "exclude", "find", "older", "newer", "date", "filter", "export", "copy", "back"]);
   assert.equal(k("t"), undefined, "the tags are always in the status line");
   assert.deepEqual(["PageUp", "PageDown", "Home", "End"].map((x) => k(x)), [undefined, undefined, undefined, undefined], "the browser's scrolling");
   assert.equal(k("a", { ctrlKey: true }), undefined, "Ctrl+A stays the browser's");
   assert.equal(k("a", { metaKey: true }), undefined, "and Cmd+A");
   assert.equal(k("n", { ctrlKey: true }), undefined);
-  assert.equal(k("m"), undefined, "no cursor keys on the web (spec)");
+  assert.equal(k("m"), undefined, "s selects, as the TUI's");
   assert.deepEqual(exportFormats, { p: "plain", a: "ansi", h: "html" });
 });
 
@@ -104,6 +104,14 @@ test("showing a character's log: a landing made while away, else where you were,
   assert.deepEqual(openAt(p, 2, 2, 9), { to: "place", place: p }, "nothing new: where you were");
   assert.deepEqual(openAt(undefined, 2, 2, 9), { to: "newest" });
   assert.deepEqual(openAt(undefined, undefined, 0, undefined), { to: "newest" }, "first shown");
+});
+
+test("scrolling while selecting leaves the cursor, and says which way it went: by the first or last line wholly in view", () => {
+  const rows = [1, 2, 3, 4, 5].map((seq, i) => ({ seq, top: i * 10, height: 10 }));
+  assert.deepEqual(scrolled(true, rows, 15, 30, 1), { away: { seq: 3, dir: "above" } }, "above: the first line wholly in view");
+  assert.deepEqual(scrolled(true, rows, 0, 25, 5), { away: { seq: 2, dir: "below" } }, "below: the last");
+  assert.deepEqual(scrolled(true, rows, 10, 30, 3), {}, "in view: nothing");
+  assert.deepEqual(scrolled(false, rows, 15, 30, 1), { to: 3 }, "not selecting: dragged along, as before");
 });
 
 test("dragCursor: the cursor stays put in view, and rides the edge it would leave by", () => {

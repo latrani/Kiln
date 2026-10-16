@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
-import { cursorOf, logAct, logClick, toggleLog } from "./log.ts";
+import { cursorOf, logAct, logClick, selectChip, syncCursor, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -391,8 +391,9 @@ test("the cursor: the newest line at first; a click, find landing or ↑/↓ mov
   assert.equal(cur(), 3, "the newest line, as the TUI's");
   s.apply([{ type: "LogAt", Key: "fm/kit", Seq: 1 }]);
   assert.equal(cur(), 1, "where find landed");
+  const before = sent.length;
   logClick(s, 3, {});
-  assert.deepEqual(sent.at(-1), { Do: "range", Key: "fm/kit", Start: 3, End: 3 });
+  assert.deepEqual(sent.slice(before), [], "a click only moves the cursor");
   assert.equal(cur(), 3, "the line clicked");
   logAct(s, "older");
   assert.deepEqual(sent.at(-1), { Do: "find_older", Key: "fm/kit", Seq: 3 });
@@ -441,7 +442,7 @@ test("the cursor skips lines the filter hides; on one it hides, it goes to the n
 test("a click, or hiding log mode, stops a search reading older days, as the TUI's", () => {
   const { s, sent } = logged({ Find: "x", Searching: true });
   logClick(s, 2, {});
-  assert.deepEqual(sent.slice(-2), [{ Do: "stop_search", Key: "fm/kit" }, { Do: "range", Key: "fm/kit", Start: 2, End: 2 }]);
+  assert.deepEqual(sent.at(-1), { Do: "stop_search", Key: "fm/kit" });
   toggleLog(s);
   assert.deepEqual(sent.at(-1), { Do: "stop_search", Key: "fm/kit" });
   assert.equal(logShows(s.state, "fm/kit"), false);
@@ -473,6 +474,83 @@ test("a click while a prompt is open changes nothing, as the TUI's: the prompt k
   logClick(s, 3, {});
   assert.equal(sent.length, 0);
   assert.equal(s.state.logView["fm/kit"].cursor, undefined);
+});
+
+test("select mode: s starts at the cursor; moving it while selecting sends mark_to; Esc drops it before find", () => {
+  const { s, sent } = logged({ Find: "l" });
+  logAct(s, "mark");
+  assert.deepEqual(sent.at(-1), { Do: "mark", Key: "fm/kit", Seq: 3 });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "l", Selected: 1, Marking: true, Start: 3, End: 3 }]);
+  logAct(s, "up");
+  assert.deepEqual(sent.at(-1), { Do: "mark_to", Key: "fm/kit", Seq: 2 });
+  logAct(s, "exclude");
+  assert.deepEqual(sent.at(-1), { Do: "exclude", Key: "fm/kit", Seq: 2 });
+  logAct(s, "back");
+  assert.deepEqual(sent.at(-1), { Do: "end_mark", Key: "fm/kit" });
+});
+
+test("a click while selecting is a shift-click: inside, it takes the line out and leaves the cursor; outside, it grows to it", () => {
+  const { s, sent } = logged({ Marking: true, Start: 2, End: 3, Selected: 2 });
+  s.setLogView("fm/kit", { cursor: 3 });
+  const n = sent.length;
+  logClick(s, 2, { inRange: true });
+  assert.deepEqual(sent.slice(n), [{ Do: "exclude", Key: "fm/kit", Seq: 2 }]);
+  assert.equal(s.state.logView["fm/kit"].cursor, 3, "the cursor, the range's end, stays");
+  logClick(s, 1, { shift: true, gutter: true });
+  assert.deepEqual(sent.slice(n + 1), [{ Do: "grow", Key: "fm/kit", Seq: 1 }, { Do: "mark_to", Key: "fm/kit", Seq: 1 }], "shift and the gutter change nothing");
+  assert.equal(s.state.logView["fm/kit"].cursor, 1);
+});
+
+test("the Select chip is s, as the TUI's: it stops a search, and does nothing under a prompt", () => {
+  const { s, sent } = logged({ Find: "x", Searching: true });
+  s.setLogView("fm/kit", { prompt: { kind: "find", value: "x" } });
+  selectChip(s);
+  assert.deepEqual(sent, [{ Do: "stop_search", Key: "fm/kit" }]);
+  s.setLogView("fm/kit", { prompt: undefined });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "x", Selected: 0 }]);
+  selectChip(s);
+  assert.deepEqual(sent.at(-1), { Do: "mark", Key: "fm/kit", Seq: 3 });
+});
+
+test("s and Space stop a search reading older days, as the TUI's keys do", () => {
+  for (const does of ["mark", "exclude"] as const) {
+    const { s, sent } = logged({ Find: "x", Searching: true, Start: 3, End: 3, Selected: 1 });
+    logAct(s, does);
+    assert.deepEqual(sent[0], { Do: "stop_search", Key: "fm/kit" }, does);
+  }
+});
+
+test("s counts as selecting at once: a move before Go answers still moves the range's end", () => {
+  const { s, sent } = logged();
+  logAct(s, "mark");
+  logAct(s, "up");
+  assert.deepEqual(sent.slice(-2), [{ Do: "mark", Key: "fm/kit", Seq: 3 }, { Do: "mark_to", Key: "fm/kit", Seq: 2 }]);
+  logAct(s, "mark"); // and s again locks at once
+  logAct(s, "up");
+  assert.notEqual(sent.at(-1).Do, "mark_to");
+});
+
+test("starting or dropping a selection clears an arrow left from the last one", () => {
+  const { s } = logged();
+  s.setLogView("fm/kit", { away: { seq: 1, dir: "above" } });
+  logAct(s, "mark");
+  assert.equal(s.state.logView["fm/kit"].away, undefined, "s");
+  s.setLogView("fm/kit", { away: { seq: 1, dir: "above" } });
+  logAct(s, "back");
+  assert.equal(s.state.logView["fm/kit"].away, undefined, "Esc");
+});
+
+test("while selecting, the cursor the page shows is the range's end: a newest-line cursor is pinned, a hidden one moves to the nearest shown", () => {
+  const { s, sent } = logged({ Marking: true, Start: 3, End: 3, Selected: 1 });
+  syncCursor(s);
+  assert.equal(s.state.logView["fm/kit"].cursor, 3, "pinned where s was pressed");
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 1, Marking: true, Start: 3, End: 3, Hidden: [3] }]);
+  syncCursor(s);
+  assert.equal(s.state.logView["fm/kit"].cursor, 2);
+  assert.deepEqual(sent.at(-1), { Do: "mark_to", Key: "fm/kit", Seq: 2 });
+  const n = sent.length;
+  syncCursor(s);
+  assert.equal(sent.length, n, "nothing more once they agree");
 });
 
 // filtered is logged with a Filter: Untagged, a tag page with a child

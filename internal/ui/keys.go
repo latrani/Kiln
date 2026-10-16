@@ -16,7 +16,7 @@ const (
 	actPageDown
 	actTop
 	actBottom
-	actMark
+	actSelect
 	actExclude
 	actFind
 	actNextMatch
@@ -50,7 +50,7 @@ var browseKeys = map[string]browseAction{
 	"pgdown": actPageDown,
 	"home":   actTop,
 	"end":    actBottom,
-	"m":      actMark,
+	"s":      actSelect,
 	"space":  actExclude,
 	" ":      actExclude,
 	"/":      actFind,
@@ -80,4 +80,6 @@ var exportFormatKeys = map[string]string{"p": "plain", "a": "ansi", "h": "html"}
 const (
 	glyphSelected = glyph.Selected
 	glyphExcluded = glyph.Excluded
+	glyphAbove    = glyph.CursorAbove
+	glyphBelow    = glyph.CursorBelow
 )

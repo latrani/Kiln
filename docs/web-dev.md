@@ -11,10 +11,16 @@ Enter with nothing open. Edit a world or character from the picker
 Ctrl+T or Alt+T hides it, keeping the edits.
 Ctrl+L or the `Log` chip opens log mode for the character showing (and
 hides it again, as it was); the status line shows find's count, the
-cursor line's tags and how many lines are selected. ↑/↓ or `j`/`k` move the cursor (the time
+cursor line's tags and how many lines are selected, while any are. ↑/↓ or `j`/`k` move the cursor (the time
 in a different color), which starts on the newest line and rides along
-when you scroll. Select lines with the mouse: a click takes
-a line (the cursor going to it), Shift+click extends the range, dragging selects a run. While
+when you scroll. A click moves the cursor; a drag is the browser's own
+text selection. `s` or the `Select` chip at the right of the status
+line starts selecting from the cursor, as the TUI's: the range's end
+follows the cursor (↑/↓, not the browser's PgUp/PgDn, which scroll), a
+click outside it grows it and one inside takes a line out, Space takes
+the cursor's line out, and `s` or the chip again locks it. While
+selecting, scrolling leaves the cursor where it is, with ▲ or ▼ by the
+time of the line nearest it. While
 the log has focus, `/` finds and `n`/`N` step through matches until Esc
 turns find off, `g` goes
 to a day and time (starting from the cursor's), `c` copies and `e` exports (a

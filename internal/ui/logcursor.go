@@ -10,8 +10,14 @@ import (
 // from, m marks and t describes. These methods shadow app.Log's, passing
 // the cursor where the core takes a line.
 
-// SetCursor puts the cursor on l: a click, or the view dragging it along.
-func (b *browse) SetCursor(l *app.LogLine) { b.Cursor = l }
+// SetCursor puts the cursor on l: a key, a click, find, or the view
+// dragging it along. Every cursor move comes through here, so a live
+// range's end follows it, and a view the wheel left elsewhere while
+// marking comes back to it.
+func (b *browse) SetCursor(l *app.LogLine) {
+	b.Cursor, b.scrolled = l, false
+	b.MarkTo(l)
+}
 
 // MoveCursor moves by delta shown lines. Moving up past the oldest
 // loaded line stops there and pages in older history; the rest of the
@@ -29,7 +35,7 @@ func (b *browse) MoveCursor(delta int) []app.Effect {
 	if i < 0 {
 		i = len(v) - 1
 	}
-	b.Cursor = v[min(max(0, i+delta), len(v)-1)]
+	b.SetCursor(v[min(max(0, i+delta), len(v)-1)])
 	if rest := i + delta; rest < 0 {
 		return b.Older(func() []app.Effect { return b.MoveCursor(rest) })
 	}
@@ -39,13 +45,13 @@ func (b *browse) MoveCursor(delta int) []app.Effect {
 // ToTop pages in all history, then moves to the oldest shown line.
 func (b *browse) ToTop() []app.Effect {
 	if v := b.Visible(); len(v) > 0 {
-		b.Cursor = v[0]
+		b.SetCursor(v[0])
 	}
 	return b.Older(b.ToTop)
 }
 
 // ToBottom moves to the newest shown line.
-func (b *browse) ToBottom() { b.Cursor = b.LastVisible() }
+func (b *browse) ToBottom() { b.SetCursor(b.LastVisible()) }
 
 // Mark marks the cursor's line; see app.Log.Mark.
 func (b *browse) Mark() { b.Log.Mark(b.Cursor) }
@@ -56,13 +62,13 @@ func (b *browse) Refilter() {
 	b.Log.Refilter()
 	if b.Cursor != nil && !b.Shows(b.Cursor) {
 		if n := b.NearestVisible(b.Cursor); n != nil {
-			b.Cursor = n
+			b.SetCursor(n)
 		}
 	}
 }
 
 // found moves the cursor to a find's match.
-func (b *browse) found(l *app.LogLine) { b.Cursor = l }
+func (b *browse) found(l *app.LogLine) { b.SetCursor(l) }
 
 // SetFind sets the find term and goes to its nearest match at the cursor
 // or older.
@@ -77,7 +83,7 @@ func (b *browse) FindOlder(includeCursor bool) []app.Effect {
 // FindNewer goes to the nearest match newer than the cursor.
 func (b *browse) FindNewer() {
 	if l := b.Log.FindNewer(b.Cursor); l != nil {
-		b.Cursor = l
+		b.SetCursor(l)
 	}
 }
 
@@ -88,5 +94,5 @@ func (b *browse) FindStatus() string { return b.Log.FindStatus(b.Cursor) }
 // GotoTime goes to when's line (see app.Log.GotoTime) and puts it at
 // the top of the body.
 func (b *browse) GotoTime(when string) []app.Effect {
-	return b.Log.GotoTime(when, func(l *app.LogLine) { b.Cursor, b.top = l, l })
+	return b.Log.GotoTime(when, func(l *app.LogLine) { b.SetCursor(l); b.top = l })
 }

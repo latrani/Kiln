@@ -390,10 +390,12 @@ func TestGoldenLog(t *testing.T) {
 	ctrlL(t, s.ws)
 	rows := `[...document.querySelectorAll(".lrow")]`
 	waitFor(t, s.ev, rows+`.length === `+strconv.Itoa(len(kilntest.LogScene)), "log mode, the scene")
-	// The TUI's m, ↑, m: the last two lines.
-	click(t, s.ws, s.ev, rows+`.at(-1)`)
+	// The TUI's s, ↑, s: the last two lines.
+	s.ev(`document.querySelector(".log").focus()`)
+	s.letter("s")
 	waitFor(t, s.ev, rows+`.at(-1).querySelector(".gutter").textContent === `+jsString(glyph.Selected), "the last line")
-	shiftClick(t, s.ws, s.ev, rows+`.at(-2)`)
+	click(t, s.ws, s.ev, rows+`.at(-2)`)
+	s.letter("s")
 	waitFor(t, s.ev, `[...document.querySelectorAll(".lrow .gutter")].filter(g => g.textContent === `+jsString(glyph.Selected)+`).length === 2`, "the range")
 	// The Filter chip on, as the TUI's: Only on page, set directly.
 	s.l.Call(func(a *app.App) { a.Char("fm/kit").Log.PressOnly(kscene.Item{Name: "page"}) })

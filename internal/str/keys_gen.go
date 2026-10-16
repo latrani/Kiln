@@ -31,7 +31,7 @@ func BrowseDateFormat() string { return get("browse.date_format", nil) }
 // BrowseDatePrompt is browse.date_prompt: "go to (YYYY-MM-DD HH:MM): "
 func BrowseDatePrompt() string { return get("browse.date_prompt", nil) }
 
-// BrowseExcludeNeedsRange is browse.exclude_needs_range: "exclude works inside a marked range"
+// BrowseExcludeNeedsRange is browse.exclude_needs_range: "exclude works inside a selection"
 func BrowseExcludeNeedsRange() string { return get("browse.exclude_needs_range", nil) }
 
 // BrowseFileExists is browse.file_exists: "{file} exists; pick another name"
@@ -60,8 +60,14 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "m mark · space exclude · / find · g date · f filter · e export · c copy · esc back"
-func BrowseHints() string { return get("browse.hints", nil) }
+// BrowseHintsNone is browse.hints_none: "s select · / find · g date · f filter · esc back"
+func BrowseHintsNone() string { return get("browse.hints_none", nil) }
+
+// BrowseHintsSelected is browse.hints_selected: "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
+func BrowseHintsSelected() string { return get("browse.hints_selected", nil) }
+
+// BrowseHintsSelecting is browse.hints_selecting: "space exclude · s done · c copy · e export · esc drop"
+func BrowseHintsSelecting() string { return get("browse.hints_selecting", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
 func BrowseLineTags(tags any) string { return get("browse.line_tags", map[string]any{"tags": tags}) }
@@ -76,7 +82,7 @@ func BrowseLinesInRange(n int) string {
 // BrowseLoading is browse.loading: "loading older history…"
 func BrowseLoading() string { return get("browse.loading", nil) }
 
-// BrowseMarkRange is browse.mark_range: "mark a range with m (only received lines export)"
+// BrowseMarkRange is browse.mark_range: "select a range with s (only received lines export)"
 func BrowseMarkRange() string { return get("browse.mark_range", nil) }
 
 // BrowseNoExportDir is browse.no_export_dir: "no export_dir configured · give a full path"
@@ -112,7 +118,7 @@ func BrowseNothingLeft() string { return get("browse.nothing_left", nil) }
 // BrowseNothingToExport is browse.nothing_to_export: "nothing to export"
 func BrowseNothingToExport() string { return get("browse.nothing_to_export", nil) }
 
-// BrowseRangeStart is browse.range_start: "range start marked"
+// BrowseRangeStart is browse.range_start: "selecting: move to the other end, s to finish, Esc to drop"
 func BrowseRangeStart() string { return get("browse.range_start", nil) }
 
 // BrowseReadingLogs is browse.reading_logs: "reading logs: {err}"
@@ -1143,6 +1149,9 @@ func ViewSavePassword(name, store any) string {
 	return get("view.save_password", map[string]any{"name": name, "store": store})
 }
 
+// ViewSelectButton is view.select_button: "Select"
+func ViewSelectButton() string { return get("view.select_button", nil) }
+
 // ViewSelected is view.selected: "{n} selected"
 func ViewSelected(n int) string { return get("view.selected", map[string]any{"n": n}) }
 
@@ -1206,9 +1215,6 @@ func WebLoadingSize(got, total any) string {
 
 // WebLog is web.log: "Log"
 func WebLog() string { return get("web.log", nil) }
-
-// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back"
-func WebLogHints() string { return get("web.log_hints", nil) }
 
 // WebNeedsJs is web.needs_js: "Kiln needs JavaScript."
 func WebNeedsJs() string { return get("web.needs_js", nil) }

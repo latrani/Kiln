@@ -138,6 +138,7 @@ type Log struct {
 	Status                       string
 	StatusErr                    bool
 	Searching, Loading, HistDone bool
+	Marking                      bool // select mode: the range's far end follows the cursor
 	Start, End                   *int
 	Selected                     int // lines an export or copy would take
 	Excluded, Hidden, Matches    []int

@@ -37,8 +37,8 @@ export function browseDateFormat(): string { return `times look like 2026-09-24 
 /** browse.date_prompt: go to (YYYY-MM-DD HH:MM):  */
 export function browseDatePrompt(): string { return `go to (YYYY-MM-DD HH:MM): `; }
 
-/** browse.exclude_needs_range: exclude works inside a marked range */
-export function browseExcludeNeedsRange(): string { return `exclude works inside a marked range`; }
+/** browse.exclude_needs_range: exclude works inside a selection */
+export function browseExcludeNeedsRange(): string { return `exclude works inside a selection`; }
 
 /** browse.file_exists: {file} exists; pick another name */
 export function browseFileExists(file: unknown): string { return `${file} exists; pick another name`; }
@@ -58,8 +58,14 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints: m mark · space exclude · / find · g date · f filter · e export · c copy · esc back */
-export function browseHints(): string { return `m mark · space exclude · / find · g date · f filter · e export · c copy · esc back`; }
+/** browse.hints_none: s select · / find · g date · f filter · esc back */
+export function browseHintsNone(): string { return `s select · / find · g date · f filter · esc back`; }
+
+/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filter · esc back */
+export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filter · esc back`; }
+
+/** browse.hints_selecting: space exclude · s done · c copy · e export · esc drop */
+export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export · esc drop`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -75,8 +81,8 @@ export function browseLinesInRange(n: number): string {
 /** browse.loading: loading older history… */
 export function browseLoading(): string { return `loading older history…`; }
 
-/** browse.mark_range: mark a range with m (only received lines export) */
-export function browseMarkRange(): string { return `mark a range with m (only received lines export)`; }
+/** browse.mark_range: select a range with s (only received lines export) */
+export function browseMarkRange(): string { return `select a range with s (only received lines export)`; }
 
 /** browse.no_export_dir: no export_dir configured · give a full path */
 export function browseNoExportDir(): string { return `no export_dir configured · give a full path`; }
@@ -105,8 +111,8 @@ export function browseNothingLeft(): string { return `nothing left to export`; }
 /** browse.nothing_to_export: nothing to export */
 export function browseNothingToExport(): string { return `nothing to export`; }
 
-/** browse.range_start: range start marked */
-export function browseRangeStart(): string { return `range start marked`; }
+/** browse.range_start: selecting: move to the other end, s to finish, Esc to drop */
+export function browseRangeStart(): string { return `selecting: move to the other end, s to finish, Esc to drop`; }
 
 /** browse.reading_logs: reading logs: {err} */
 export function browseReadingLogs(err: unknown): string { return `reading logs: ${e(err)}`; }
@@ -944,6 +950,9 @@ export function viewPresenceUnknown(): string { return `? focus`; }
 /** view.save_password: Save password for {name} in {store}? [Y/n] */
 export function viewSavePassword(name: unknown, store: unknown): string { return `Save password for ${name} in ${store}? [Y/n]`; }
 
+/** view.select_button: Select */
+export function viewSelectButton(): string { return `Select`; }
+
 /** view.selected: {n} selected */
 export function viewSelected(n: number): string { return `${n} selected`; }
 
@@ -997,9 +1006,6 @@ export function webLoadingSize(got: unknown, total: unknown): string { return `l
 
 /** web.log: Log */
 export function webLog(): string { return `Log`; }
-
-/** web.log_hints: click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back */
-export function webLogHints(): string { return `click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back`; }
 
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }
@@ -1058,6 +1064,8 @@ export const glyph = {
   remove: "×",
   selected: "▌",
   excluded: "░",
+  cursorAbove: "▲",
+  cursorBelow: "▼",
   priority: "●",
   choicePrev: "◄",
   choiceNext: "►",

@@ -144,6 +144,8 @@ filter_button = "Filter"
 # The history panel: its button in the statusline, and what it says
 # when it has nothing to list.
 history_button = "History"
+# Log mode's chip for select mode, at the right of the statusline.
+select_button = "Select"
 history_none = "no history yet"
 history_no_match = "no match in history"
 # The presence chip in the top bar: here, away, or no focus event seen yet.
@@ -256,9 +258,9 @@ open_connection = "+ Connection"
 # Log mode (browse, in the code).
 [browse]
 reading_logs = "reading logs: {err}"
-range_start = "range start marked"
+range_start = "selecting: move to the other end, s to finish, Esc to drop"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
-exclude_needs_range = "exclude works inside a marked range"
+exclude_needs_range = "exclude works inside a selection"
 no_matches = "no matches for {find:%q}"
 # Find goes no further than the oldest (or newest) line; it doesn't wrap.
 no_older_matches = "no older matches for {find:%q}"
@@ -275,7 +277,7 @@ no_export_dir = "no export_dir configured · give a full path"
 nothing_to_export = "nothing to export"
 file_exists = "{file} exists; pick another name"
 saved = "saved {path}"
-mark_range = "mark a range with m (only received lines export)"
+mark_range = "select a range with s (only received lines export)"
 copied = { one = "copied 1 line", other = "copied {n} lines" }
 nothing_left = "nothing left to export"
 find_prompt = "find: "
@@ -291,7 +293,10 @@ find_status = "find: {find} {i}/{n} · n/N"
 # As find_status, while older history not yet loaded may hold more.
 find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
-hints = "m mark · space exclude · / find · g date · f filter · e export · c copy · esc back"
+# The action bar's keys, by state: nothing selected, selecting, a range selected.
+hints_none = "s select · / find · g date · f filter · esc back"
+hints_selecting = "space exclude · s done · c copy · e export · esc drop"
+hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
 # In the statusline: the cursor line's tags, and for one with no style
 # of its own, the tag up its slashes whose style it takes. Nothing shows
 # for a line with none.
@@ -424,9 +429,6 @@ copy_refused = "the browser didn't allow the copy"
 # log mode can hide or show only.
 filter = "Filter"
 
-# Log mode's keys (web): the mouse selects lines, as the spec has it, in
-# place of the TUI's m and space; the letters are the TUI's.
-log_hints = "click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back"
 # A character's name in the sidebar, for screen readers, when lines have
 # come you haven't read; and when one of them is a priority (the ● the
 # sidebar shows: a page, a whisper, whatever the priority tags flag).

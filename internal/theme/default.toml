@@ -64,6 +64,8 @@
 "status.filter.on" = { reverse = true }
 "status.history"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.history.on" = { reverse = true }
+"status.select"     = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
+"status.select.on"  = { reverse = true }
 "status.error"     = { fg = "red" }
 
 "status.presence"         = { fg = "glaze.cobalt-ink" }
@@ -82,6 +84,7 @@
 
 "log.time"           = { faint = true }
 "log.cursor"         = { reverse = true }
+"log.cursor.away"    = { reverse = true }
 "log.find"           = { reverse = true }
 "log.day"            = { faint = true }
 "log.loading"        = { faint = true }

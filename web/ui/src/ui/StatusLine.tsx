@@ -1,5 +1,5 @@
 import { loadingText } from "../boot.ts";
-import { cursorOf, findStatus } from "../log.ts";
+import { cursorOf, findStatus, selectChip } from "../log.ts";
 import type { LogState } from "../log.ts";
 import { ask, dismiss } from "../notify.ts";
 import { historyShows, logShows } from "../store.ts";
@@ -15,13 +15,13 @@ function stateName(s: number): string {
 
 // logStatus is log mode's status line with no news, as the TUI's
 // statusParts: find's status while it's on, then the cursor line's tags
-// (Go's word on them, once it's come), then how many lines are selected;
-// most specific first.
+// (Go's word on them, once it's come), then how many lines are selected,
+// while any are; most specific first.
 function logStatus(state: State, g: LogState): string {
   const v = state.logView[state.active], lines = state.logLines[state.active]?.lines ?? [];
   const at = cursorOf(g, v, lines);
   const tags = v?.tags && v.tags.seq === at ? v.tags.text : "";
-  return [findStatus(g, at, lines), tags, str.viewSelected(g.Selected)].filter(Boolean).join(str.separator());
+  return [findStatus(g, at, lines), tags, g.Start != null ? str.viewSelected(g.Selected) : ""].filter(Boolean).join(str.separator());
 }
 
 // StatusLine is the bottom row. Two live regions are always there, so
@@ -32,7 +32,8 @@ function logStatus(state: State, g: LogState): string {
 // read chunk by chunk it would be a flood. While the browser won't show
 // notifications, a button asks it to, with a × to stop offering. The
 // History chip, at the right while there's an input to recall into, as
-// the TUI's, opens and closes the history panel; lit while it's up.
+// the TUI's, opens and closes the history panel; lit while it's up. In
+// log mode the Select chip is there instead: s, lit while selecting.
 export function StatusLine({ state, store }: { state: State; store: Store }) {
   const err = roleClass("status.error");
   let polite = "", urgent = "", gen = 0;
@@ -56,6 +57,10 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
   const on = historyShows(state);
   return (
     <div class={`status ${roleClass("status")}`}>
+      {g && ( // log mode's Select chip, as the TUI's: s
+        <button class={`chip ${roleClass(g.Marking ? "status.select.on" : "status.select")}`} aria-pressed={!!g.Marking}
+          onMouseDown={(e) => e.preventDefault()} onClick={() => selectChip(store)}>{str.viewSelectButton()}</button>
+      )}
       {chip && (
         <button class={`chip ${roleClass(on ? "status.history.on" : "status.history")}`} aria-pressed={on}
           onMouseDown={(e) => e.preventDefault()} onClick={() => state.act?.({ Do: "history_toggle" })}>{str.viewHistoryButton()}</button>

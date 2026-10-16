@@ -9,7 +9,7 @@ import * as str from "./str.gen.ts";
 // LogState is Go's Log event (feed.Log).
 export interface LogState {
   Key: string; Open: boolean; Find: string; LastFind?: string; Status: string; StatusErr: boolean;
-  Searching: boolean; Loading: boolean; HistDone: boolean;
+  Searching: boolean; Loading: boolean; HistDone: boolean; Marking?: boolean;
   Start?: number | null; End?: number | null; Selected: number;
   Excluded?: number[] | null; Hidden?: number[] | null; Matches?: number[] | null;
   ExportFormat: string;
@@ -22,8 +22,7 @@ export type LogRow =
 
 // logRows is what log mode shows of lines, oldest first: the lines the
 // filter shows, a rule before each day's first, each marked in the range
-// (start to end by place; a start alone is just itself), excluded, or a
-// find match.
+// (start to end by place), excluded, or a find match.
 export function logRows(lines: LineData[], g: LogState): LogRow[] {
   const hidden = new Set(g.Hidden ?? []), excluded = new Set(g.Excluded ?? []), matches = new Set(g.Matches ?? []);
   const at = (seq: number | null | undefined) => (seq == null ? -1 : lines.findIndex((l) => l.Seq === seq));
@@ -86,6 +85,24 @@ export function cursorOf(g: LogState, v: LogView | undefined, lines: LineData[])
 // TUI's wheel: it stays put until it would leave the view, then rides
 // along at the top or bottom edge, on the first or last line wholly in
 // view. undefined: it stays where it is.
+// scrolled is what scrolling the view does to the cursor. While
+// selecting it stays put, as the TUI's wheel, so looking around never
+// changes the range; out of view, away says which way it went, by the
+// first or last line wholly in view. Otherwise it's dragged along
+// (dragCursor).
+export function scrolled(selecting: boolean, rows: { seq: number; top: number; height: number }[], top: number, height: number, cursor: number | undefined): { to?: number; away?: { seq: number; dir: "above" | "below" } } {
+  if (!selecting) {
+    const to = dragCursor(rows, top, height, cursor);
+    return to === undefined ? {} : { to };
+  }
+  const at = rows.find((r) => r.seq === cursor);
+  const whole = rows.filter((r) => r.top >= top && r.top + r.height <= top + height);
+  if (!at || !whole.length) return {};
+  if (at.top < top) return { away: { seq: whole[0].seq, dir: "above" } };
+  if (at.top + at.height > top + height) return { away: { seq: whole.at(-1)!.seq, dir: "below" } };
+  return {};
+}
+
 export function dragCursor(rows: { seq: number; top: number; height: number }[], top: number, height: number, cursor: number | undefined): number | undefined {
   const at = rows.find((r) => r.seq === cursor);
   const whole = rows.filter((r) => r.top >= top && r.top + r.height <= top + height);
@@ -96,18 +113,18 @@ export function dragCursor(rows: { seq: number; top: number; height: number }[],
 }
 
 // LogKey is what a key does in log mode.
-export type LogKey = "up" | "down" | "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "back";
+export type LogKey = "up" | "down" | "mark" | "exclude" | "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "back";
 
 const letters: Record<string, LogKey> = {
-  ArrowUp: "up", k: "up", ArrowDown: "down", j: "down",
+  ArrowUp: "up", k: "up", ArrowDown: "down", j: "down", s: "mark", " ": "exclude",
   "/": "find", n: "older", N: "newer", g: "date", f: "filter", e: "export", c: "copy", Escape: "back",
 };
 
 // logKey is a key in log mode, as the TUI's browseKeys: ↑/↓ and j/k move
 // the cursor; PgUp, PgDn, Home and End stay the browser's scrolling, the
-// cursor riding along (dragCursor). Mark and exclude (m, Space) are the
-// mouse's on the web (spec). Ctrl+A and Cmd+A stay the browser's
-// select-all.
+// cursor riding along (dragCursor) except while selecting; s selects and
+// Space leaves a line out, as the TUI's. Ctrl+A and Cmd+A stay the
+// browser's select-all.
 export function logKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }): LogKey | undefined {
   if (e.ctrlKey || e.altKey || e.metaKey) return undefined;
   return letters[e.key];
@@ -152,7 +169,7 @@ export function logAct(store: Store, does: LogKey): void {
       const i = shown.findIndex((l) => l.Seq === here) + (does === "up" ? -1 : 1);
       if (i < 0 && !g.HistDone && !g.Loading) act({ Do: "log_older", Key: k });
       const to = shown[Math.min(Math.max(0, i), shown.length - 1)];
-      if (to) store.setLogView(k, { cursor: to.Seq, follow: true });
+      if (to) store.setLogView(k, { cursor: to.Seq, follow: true, away: undefined });
       break;
     }
     case "find": store.setLogView(k, { prompt: { kind: "find", value: g.LastFind ?? "" } }); break; // the last term, so Enter brings it back
@@ -166,13 +183,26 @@ export function logAct(store: Store, does: LogKey): void {
       if (!g.Selected) act({ Do: "export_name", Key: k, Format: "" });
       else store.setLogView(k, { prompt: { kind: "format" } });
       break;
+    case "mark": // selecting from now, or locked, before Go answers: a move right after counts
+      if (g.Searching) act({ Do: "stop_search", Key: k }); // as the TUI's keys
+      act({ Do: "mark", Key: k, Seq: here });
+      selecting(store, !g.Marking);
+      break;
+    case "exclude":
+      if (g.Searching) act({ Do: "stop_search", Key: k });
+      act({ Do: "exclude", Key: k, Seq: here });
+      break;
     case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
     case "filter": togglePanel(store); break;
-    case "back": // one thing at a time: a search, the panel, find, then log mode
+    case "back": // one thing at a time: a search, the panel, selecting, find, then log mode
       if (g.Searching) act({ Do: "stop_search", Key: k });
       else if (v.panel) closePanel(store);
+      else if (g.Marking) {
+        act({ Do: "end_mark", Key: k });
+        selecting(store, false);
+      }
       else if (g.Find) act({ Do: "end_find", Key: k });
       else act({ Do: "log_close", Key: k });
       break;
@@ -209,22 +239,52 @@ export function toggleLog(store: Store): void {
   s.act?.({ Do: "log", Key: k });
 }
 
+// selecting says the page is selecting (or not) at once, ahead of Go's
+// Log event saying so, and drops an arrow left from the last selection.
+function selecting(store: Store, on: boolean): void {
+  const k = store.state.active;
+  store.set({ logs: { ...store.state.logs, [k]: { ...store.state.logs[k], Marking: on } } });
+  store.setLogView(k, { away: undefined });
+}
+
+// syncCursor keeps the cursor the page shows on the range's end while
+// selecting, as the TUI's: one never moved (the newest line, implicitly)
+// is pinned, and one on a line the filter now hides moves to the
+// nearest shown, taking the range's end along.
+export function syncCursor(store: Store): void {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState | undefined, v = s.logView[k];
+  if (!g?.Marking) return;
+  const c = cursorOf(g, v, s.logLines[k]?.lines ?? []);
+  if (c !== undefined && c !== v?.cursor) store.setLogView(k, { cursor: c });
+}
+
+// selectChip is a click on the Select chip: s, as the TUI's. It stops a
+// search reading older days, and does nothing under a prompt, as a click
+// on the log doesn't.
+export function selectChip(store: Store): void {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState;
+  if (g.Searching) s.act?.({ Do: "stop_search", Key: k });
+  if (s.logView[k]?.prompt) return;
+  logAct(store, "mark");
+}
+
 // logClick is a click on line seq, as the TUI's click: it stops a search
-// reading older days; a click takes the line; Shift+click inside the
-// range takes it out (or back in), elsewhere extends the range; a click
-// on the gutter of a line in the range takes it out. With a prompt open
-// it changes nothing, as the TUI's. The cursor goes to the line clicked:
-// find's steps and t go from it.
+// reading older days, and moves the cursor there. While selecting it's a
+// shift-click: inside the range it takes the line out (or back in),
+// leaving the cursor, the range's end, where it is; outside it grows the
+// range to the line. Shift and the gutter change nothing. With a prompt
+// open it changes nothing, as the TUI's.
 export function logClick(store: Store, seq: number, how: { shift?: boolean; gutter?: boolean; inRange?: boolean }): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState;
   const act = s.act ?? (() => {});
   if (g.Searching) act({ Do: "stop_search", Key: k });
   if (s.logView[k]?.prompt) return; // the selection can't change under a prompt
-  if (how.shift && g.Start != null && g.End != null && how.inRange) act({ Do: "exclude", Key: k, Seq: seq });
-  else if (how.shift && g.Start != null) act({ Do: "extend", Key: k, Seq: seq });
-  else if (how.gutter && how.inRange && g.End != null) act({ Do: "exclude", Key: k, Seq: seq });
-  else act({ Do: "range", Key: k, Start: seq, End: seq });
-  store.setLogView(k, { cursor: seq });
+  if (g.Marking && how.inRange) {
+    act({ Do: "exclude", Key: k, Seq: seq });
+    return;
+  }
+  if (g.Marking) act({ Do: "grow", Key: k, Seq: seq });
+  store.setLogView(k, { cursor: seq, away: undefined });
 }
 
 // Place is where the view is: the first row showing, and how far its top

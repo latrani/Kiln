@@ -18,6 +18,12 @@ func rightRow(h *harness, y int) string {
 
 func chipText(label string) string { return " " + label + " " }
 
+// withoutChip is a bottom-bar row's text before the chip pinned at its
+// right (log mode's Select).
+func withoutChip(row string) string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(row), str.ViewSelectButton()))
+}
+
 func TestTopBar(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)

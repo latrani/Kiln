@@ -17,6 +17,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -99,7 +100,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 	if top := rightRow(h, 0); !strings.HasPrefix(top, "fm"+str.Separator()+"Kit") {
 		t.Errorf("top bar = %q", top)
 	}
-	for _, want := range []string{"── Thu Sep 24 ──", "21:00", "Rook says", "21:06", firstPart(str.BrowseHints())} {
+	for _, want := range []string{"── Thu Sep 24 ──", "21:00", "Rook says", "21:06", firstPart(str.BrowseHintsNone())} {
 		if !strings.Contains(s, want) {
 			t.Errorf("screen missing %q:\n%s", want, s)
 		}
@@ -108,7 +109,7 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 		t.Error("normal input still shown in browse mode")
 	}
 	h.key("esc")
-	if h.br() != nil || strings.Contains(h.screen(), firstPart(str.BrowseHints())) {
+	if h.br() != nil || strings.Contains(h.screen(), firstPart(str.BrowseHintsNone())) {
 		t.Errorf("esc did not close browse:\n%s", h.screen())
 	}
 }
@@ -123,15 +124,15 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 	}
 	last := func() string {
 		rows := strings.Split(h.screen(), "\n")
-		return strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
+		return withoutChip(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	}
-	if got := last(); got != str.ViewSelected(0) {
-		t.Errorf("statusline = %q", got)
+	if got := last(); got != "" {
+		t.Errorf("statusline = %q; want nothing with nothing selected", got)
 	}
-	if !strings.Contains(rows[len(rows)-3], firstPart(str.BrowseHints())) {
+	if !strings.Contains(rows[len(rows)-3], firstPart(str.BrowseHintsNone())) {
 		t.Errorf("action bar should sit a rule above the statusline:\n%s", h.screen())
 	}
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	if got := last(); got != str.BrowseLinesInRange(2) {
 		t.Errorf("statusline = %q", got)
 	}
@@ -154,8 +155,8 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	h.m.a.Config().ExportDir = exportDir
 	h.key("ctrl+l")
 	// Cursor starts on the last line (Rook yawns). Mark 21:01..21:05.
-	h.keys("up", "m")                   // Rook says lighthouse = end
-	h.keys("up", "up", "up", "up", "m") // Sable = start (marks may go either way)
+	h.keys("up", "s")                   // Rook says lighthouse = end
+	h.keys("up", "up", "up", "up", "s") // Sable = start (marks may go either way)
 	h.keys("down", "space")             // exclude the page
 	b := h.br()
 	var got []string
@@ -195,7 +196,7 @@ func TestBrowseExportNeedsRange(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("e")
-	if !strings.Contains(h.screen(), "mark a range with m") {
+	if !strings.Contains(h.screen(), str.BrowseMarkRange()) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	if cmd, _ := h.br().key(tea.KeyPressMsg{Code: 'c', Text: "c"}, h.m.browseBodyH()); cmd != nil {
@@ -207,7 +208,7 @@ func TestBrowseCopy(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	if cmd := h.key("c"); cmd == nil {
 		t.Fatal("copy returned no command")
 	}
@@ -223,30 +224,31 @@ func TestBrowseLineTags(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	status := func() string { return rightRow(h, h.m.height-1) }
-	selected := str.ViewSelected(0)
-	if status() != selected { // Rook yawns.
-		t.Errorf("no tags: statusline %q, want %q", status(), selected)
+	status := func() string { // without the Select chip
+		return withoutChip(rightRow(h, h.m.height-1))
+	}
+	if status() != "" { // Rook yawns.
+		t.Errorf("no tags: statusline %q, want nothing", status())
 	}
 	h.keys("up", "up") // Kit grins.
-	if want := str.BrowseLineTags("self") + str.Separator() + selected; status() != want {
+	if want := str.BrowseLineTags("self"); status() != want {
 		t.Errorf("statusline %q, want %q", status(), want)
 	}
 	h.keys("up", "up") // Mira pages
 	tags := str.BrowseLineTags("page" + str.ListSeparator() + str.BrowseTagAs("page/in", "page"))
-	if want := tags + str.Separator() + selected; status() != want {
+	if want := tags; status() != want {
 		t.Errorf("statusline %q, want %q", status(), want)
 	}
 	h.key("/")
 	h.typeText("pages")
 	h.key("enter")
 	// Find first; a narrow screen cuts from the right.
-	if want := str.BrowseFindStatus("pages", 1, 1) + str.Separator() + tags + str.Separator() + selected; !strings.HasPrefix(want, strings.TrimSuffix(status(), "…")) {
+	if want := str.BrowseFindStatus("pages", 1, 1) + str.Separator() + tags; !strings.HasPrefix(want, strings.TrimSuffix(status(), "…")) {
 		t.Errorf("with find: statusline %q, want %q", status(), want)
 	}
 	h.key("esc")
 	h.key("t")
-	if h.br().Status != "" || status() != tags+str.Separator()+selected {
+	if h.br().Status != "" || status() != tags {
 		t.Errorf("t should do nothing: statusline %q", status())
 	}
 }
@@ -532,7 +534,7 @@ func TestBrowseMarksSurvivePaging(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	b := h.br()
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	start, end := b.Start, b.End
 	h.key("home") // loads everything older
 	if b.Start != start || b.End != end || len(b.Selection()) != 2 {
@@ -584,90 +586,43 @@ func TestHiddenLogModeKeepsACursorAboveTheBottom(t *testing.T) {
 	}
 }
 
-func TestBrowseMouse(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.writeLog(day24, scene1...)
-	h.key("ctrl+l")
-	h.screen()
-	b := h.br()
-	l := h.m.layout()
-	rowOf := func(text string) int {
-		for i, bl := range b.rowLines {
-			if bl != nil && bl.Entry.Text == text {
-				return i + 2
-			}
-		}
-		t.Fatalf("%q not on screen", text)
-		return 0
-	}
-	x := l.sw + 1 + 10
-	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(scene1[1]), Button: tea.MouseLeft})
-	if b.Cursor.Entry.Text != scene1[1] {
-		t.Errorf("click moved cursor to %q", b.Cursor.Entry.Text)
-	}
-	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(scene1[4]), Button: tea.MouseLeft, Mod: tea.ModShift})
-	if b.Start == nil || b.End == nil || b.Start.Entry.Text != scene1[1] || b.End.Entry.Text != scene1[4] {
-		t.Fatalf("shift-click range wrong")
-	}
-	h.screen()
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + browsePrefixW - 2, Y: rowOf(scene1[2]), Button: tea.MouseLeft})
-	if !b.Excluded[b.Lines[2]] {
-		t.Error("gutter click did not exclude")
-	}
-}
-
-func TestBrowseMouseSelectsLikeFinder(t *testing.T) {
+// Outside select mode every click only moves the cursor: a plain one, a
+// shift-click and one on the gutter. A selected range stays as it was.
+func TestBrowseClicksOnlyMoveTheCursor(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.screen()
 	b := h.br()
-	x := h.m.layout().sw + 1 + 10
-	click := func(i int, shift bool) {
-		t.Helper()
-		var mod tea.KeyMod
-		if shift {
-			mod = tea.ModShift
-		}
+	l := h.m.layout()
+	rowOf := func(i int) int {
 		for row, bl := range b.rowLines {
 			if bl == b.Lines[i] {
-				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 2, Button: tea.MouseLeft, Mod: mod})
-				h.screen()
-				return
+				return row + 2
 			}
 		}
 		t.Fatalf("line %d not on screen", i)
+		return 0
 	}
-	span := func() (int, int) { return b.Index(b.Start), b.Index(b.End) }
-
-	click(2, false)
-	if s, e := span(); b.End == nil || s != 2 || e != 2 || b.Cursor != b.Lines[2] {
-		t.Fatalf("click should select just its line, got %d–%d", s, e)
+	click := func(i, x int, mod tea.KeyMod) {
+		h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(i), Button: tea.MouseLeft, Mod: mod})
+		h.screen()
 	}
-	click(4, true)
-	if s, e := span(); s != 2 || e != 4 {
-		t.Fatalf("shift-click below should extend to %d–%d, got %d–%d", 2, 4, s, e)
+	text, gutter := l.sw+1+10, l.sw+1+browsePrefixW-2
+	click(1, text, 0)
+	if b.Cursor != b.Lines[1] || b.Start != nil {
+		t.Fatalf("click: cursor %d, start %v; want the cursor moved and nothing selected", b.Index(b.Cursor), b.Start)
 	}
-	click(1, true)
-	if s, e := span(); s != 1 || e != 4 {
-		t.Fatalf("shift-click above should extend to %d–%d, got %d–%d", 1, 4, s, e)
+	click(4, text, tea.ModShift)
+	if b.Cursor != b.Lines[4] || b.Start != nil {
+		t.Fatalf("shift-click: cursor %d, start %v", b.Index(b.Cursor), b.Start)
 	}
-	click(3, true)
-	if !b.Excluded[b.Lines[3]] {
-		t.Fatal("shift-click inside the range should exclude")
-	}
-	if s, e := span(); s != 1 || e != 4 {
-		t.Errorf("excluding changed the range to %d–%d", s, e)
-	}
-	click(3, true)
-	if b.Excluded[b.Lines[3]] {
-		t.Error("shift-click on an excluded line should bring it back")
-	}
-	click(3, true)
-	click(0, false) // a new selection forgets old exclusions
-	click(4, true)
-	if s, e := span(); s != 0 || e != 4 || b.Excluded[b.Lines[3]] {
-		t.Errorf("new range %d–%d, line 3 excluded %v", s, e, b.Excluded[b.Lines[3]])
+	h.keys("s", "up", "up", "s") // 2–4, selected
+	click(3, gutter, 0)
+	click(0, text, tea.ModShift)
+	if b.Excluded[b.Lines[3]] || b.Index(b.Start) != 2 || b.Index(b.End) != 4 || b.Cursor != b.Lines[0] {
+		t.Errorf("clicks on a selected range: 3 out %v, %d–%d, cursor %d; want the range as it was and the cursor moved",
+			b.Excluded[b.Lines[3]], b.Index(b.Start), b.Index(b.End), b.Index(b.Cursor))
 	}
 }
 
@@ -701,11 +656,11 @@ func TestBrowseCommandAndSwitching(t *testing.T) {
 		t.Fatalf("screen:\n%s", h.screen())
 	}
 	h.press(tea.KeyDown, tea.ModCtrl) // switch to Rook: normal view
-	if h.m.chars["fm/rook"].browse != nil || strings.Contains(h.screen(), firstPart(str.BrowseHints())) {
+	if h.m.chars["fm/rook"].browse != nil || strings.Contains(h.screen(), firstPart(str.BrowseHintsNone())) {
 		t.Error("rook should not be in browse mode")
 	}
 	h.press(tea.KeyUp, tea.ModCtrl)
-	if h.br() == nil || !strings.Contains(h.screen(), firstPart(str.BrowseHints())) {
+	if h.br() == nil || !strings.Contains(h.screen(), firstPart(str.BrowseHintsNone())) {
 		t.Error("kit's browse state was lost")
 	}
 	_ = session.Connected
@@ -797,7 +752,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.m.a.Config().ExportDir = filepath.Join(home, "scenes")
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	b := h.br()
 	b.format = "plain"
 	b.save("~/Desktop/a.txt")
@@ -819,7 +774,7 @@ func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.m.a.Config().ExportDir = ""
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	b := h.br()
 	b.format = "plain"
 	b.save("scene.txt")
@@ -850,7 +805,7 @@ func TestExportNameAndFormatSettings(t *testing.T) {
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\nexport_name = \"{world}/{name} {date}\"\nexport_format = \"html\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	h.key("ctrl+l")
-	h.keys("m", "up", "m", "e")
+	h.keys("s", "up", "s", "e")
 	if !strings.Contains(h.screen(), "enter html") {
 		t.Errorf("preselected format not offered:\n%s", h.screen())
 	}
@@ -969,7 +924,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.key("ctrl+l")
-	h.keys("up", "up", "m")
+	h.keys("up", "up", "s")
 	h.key("f")
 	h.key("down")
 	b := h.br()
@@ -990,6 +945,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 		t.Errorf("hidden log mode missed a live line: last %q", b.Last().Entry.Text)
 	}
 	h.key("esc") // the panel
+	h.key("esc") // marking
 	h.key("esc") // log mode
 	h.key("ctrl+l")
 	if h.br() == b || h.br().Panel != nil || h.br().Start != nil {
@@ -1281,5 +1237,370 @@ func TestSaveFileStatusIsTheLogs(t *testing.T) {
 	b.save("scene.txt")
 	if want := str.BrowseSaved(filepath.Join(h.m.a.Config().ExportDir, "scene.txt")); b.Status != want {
 		t.Errorf("log status %q, want %q", b.Status, want)
+	}
+}
+
+// m starts a range that follows the cursor; m again locks it.
+func TestBrowseLiveRangeKeys(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": echoWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	last := len(b.Lines) - 1
+	h.key("m")
+	if b.Marking {
+		t.Fatal("m no longer selects; s does")
+	}
+	h.key("s")
+	h.keys("up", "up")
+	if !b.Marking || b.Index(b.Start) != last-2 || b.Index(b.End) != last {
+		t.Fatalf("live: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
+	}
+	h.key("up") // past s's message
+	h.key("down")
+	if bar := ansi.Strip(h.m.statusLine(80)); !strings.Contains(bar, str.ViewSelected(len(b.Selection()))) {
+		t.Errorf("statusline %q: want the live count", bar)
+	}
+	h.key("s")
+	h.key("up")
+	if b.Marking || b.Index(b.Start) != last-2 {
+		t.Errorf("locked range moved: marking %v, start %d", b.Marking, b.Index(b.Start))
+	}
+}
+
+// Paging stretches it, including a move that waits for older days.
+func TestBrowseLiveRangePagesOlder(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for d := 21; d <= 24; d++ { // four days; log mode opens with two
+		lines := make([]string, 150)
+		for i := range lines {
+			lines[i] = fmt.Sprintf("day %d line %d", d, i)
+		}
+		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
+	}
+	h.key("ctrl+l")
+	b := h.br()
+	end := b.Cursor
+	h.key("s")
+	h.key("home") // ToTop: moves again as each older day arrives
+	if !b.HistDone || b.Start != b.Lines[0] || b.End != end {
+		t.Errorf("range %q–%q; want the oldest line to the anchor", b.Start.Entry.Text, b.End.Entry.Text)
+	}
+}
+
+// Click, m, click: the range runs between. While marking a click is a
+// sticky shift-click: inside the range it takes a line out (or back in)
+// without moving the end; outside it grows the range to take the line in.
+func TestBrowseLiveRangeClicks(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": echoWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.screen()
+	b := h.br()
+	x := h.m.layout().sw + 1 + 10
+	click := func(i int, shift bool) {
+		t.Helper()
+		var mod tea.KeyMod
+		if shift {
+			mod = tea.ModShift
+		}
+		for row, bl := range b.rowLines {
+			if bl == b.Lines[i] {
+				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 2, Button: tea.MouseLeft, Mod: mod})
+				h.screen()
+				return
+			}
+		}
+		t.Fatalf("line %d not on screen", i)
+	}
+	span := func() (int, int) { return b.Index(b.Start), b.Index(b.End) }
+	click(2, false)
+	h.key("s")
+	click(4, false)
+	if s, e := span(); !b.Marking || s != 2 || e != 4 {
+		t.Fatalf("click below while marking: marking %v, %d–%d", b.Marking, s, e)
+	}
+	click(3, false)
+	if s, e := span(); !b.Excluded[b.Lines[3]] || s != 2 || e != 4 || b.Cursor != b.Lines[4] {
+		t.Errorf("click inside: excluded %v, %d–%d, cursor %d; want 3 out, the range and cursor kept", b.Excluded[b.Lines[3]], s, e, b.Index(b.Cursor))
+	}
+	click(3, true)
+	if b.Excluded[b.Lines[3]] {
+		t.Error("shift-click inside while marking should bring it back, as a click does")
+	}
+	click(3, false)
+	click(1, false)
+	if s, e := span(); s != 1 || e != 4 || !b.Excluded[b.Lines[3]] || b.Cursor != b.Lines[1] {
+		t.Errorf("click above: %d–%d, 3 excluded %v, cursor %d; want it grown to 1–4, 3 still out, cursor on 1", s, e, b.Excluded[b.Lines[3]], b.Index(b.Cursor))
+	}
+	h.key("down") // the far end is the anchor now: keys move the 1 end
+	if s, e := span(); s != 2 || e != 4 {
+		t.Errorf("down after growing up: %d–%d; want 2–4", s, e)
+	}
+	h.key("s")
+	click(0, false)
+	if s, e := span(); s != 2 || e != 4 || b.Cursor != b.Lines[0] {
+		t.Errorf("a click after locking: %d–%d, cursor %d; want the range kept and the cursor moved", s, e, b.Index(b.Cursor))
+	}
+}
+
+// Esc ends marking first, then find, then log mode.
+func TestBrowseEscEndsMarkingFirst(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("/")
+	h.typeText("rook")
+	h.key("enter")
+	h.keys("s", "up")
+	h.key("esc")
+	if b.Marking || b.Start != nil || b.Find == "" || h.br() == nil {
+		t.Fatalf("esc: marking %v, start %v, find %q, open %v", b.Marking, b.Start, b.Find, h.br() != nil)
+	}
+	h.key("esc")
+	if b.Find != "" || h.br() == nil {
+		t.Error("second esc should end find and stay in log mode")
+	}
+}
+
+// Ctrl+L away and back keeps a live range live.
+func TestBrowseLiveRangeSurvivesToggle(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.keys("s", "up")
+	h.key("ctrl+l")
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("up")
+	if !b.Marking || b.Index(b.End)-b.Index(b.Start) != 2 {
+		t.Errorf("after toggle: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
+	}
+}
+
+// A live line arriving while the cursor follows the bottom grows the range.
+func TestBrowseLiveRangeFollowsLiveLines(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("s")
+	anchor := b.Start
+	h.conn("fm/kit").Feed("Brand new line")
+	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Brand new line") })
+	if b.Start != anchor || b.End == nil || b.End.Entry.Text != "Brand new line" {
+		t.Errorf("range %v–%v; want the anchor to the new line", b.Start, b.End)
+	}
+}
+
+// While marking, the wheel only scrolls: the cursor, the range's end,
+// stays put (out of view if need be), so scrolling to look around never
+// changes the range or forgets what was taken out. A key moves on from
+// the cursor and brings it back into view.
+func TestBrowseWheelLeavesALiveRange(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	wheel := func(button tea.MouseButton) {
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: button}))
+		h.screen()
+	}
+	h.screen()
+	h.keys("s", "up", "up", "up", "space", "up") // 75–79, 76 out
+	start, end, cursor := b.Start, b.End, b.Cursor
+	for range 30 {
+		wheel(tea.MouseWheelUp)
+	}
+	h.screen() // a redraw with nothing new keeps the view where it was scrolled
+	if b.Start != start || b.End != end || b.Cursor != cursor || !b.Excluded[b.Lines[76]] {
+		t.Fatalf("wheel moved the live range: %d–%d, cursor %d, 76 out %v", b.Index(b.Start), b.Index(b.End), b.Index(b.Cursor), b.Excluded[b.Lines[76]])
+	}
+	if slices.Contains(b.rowLines, cursor) {
+		t.Fatalf("scrolled 30 lines up, the cursor should be out of view:\n%s", h.screen())
+	}
+	h.key("up")
+	h.screen()
+	if b.Index(b.Cursor) != 74 || !slices.Contains(b.rowLines, b.Cursor) || b.Index(b.Start) != 74 {
+		t.Errorf("up after scrolling: cursor %d in view %v, start %d", b.Index(b.Cursor), slices.Contains(b.rowLines, b.Cursor), b.Index(b.Start))
+	}
+}
+
+// With the cursor scrolled out of view (only while marking), an arrow
+// beside the time of the line nearest it, at the top or bottom of the
+// body, says which way it is.
+func TestBrowseArrowPointsToAnOffscreenCursor(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	wheel := func(button tea.MouseButton, n int) {
+		for range n {
+			h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: button}))
+		}
+		h.screen()
+	}
+	body := func() []string {
+		rows := strings.Split(h.screen(), "\n")
+		return rows[l.top : l.top+len(b.rowLines)]
+	}
+	lineRow := func(rows []string, first bool) string { // the first or last row that starts a line
+		for i := range rows {
+			j := i
+			if !first {
+				j = len(rows) - 1 - i
+			}
+			if bl := b.rowLines[j]; bl != nil && (j == 0 || b.rowLines[j-1] != bl) {
+				return rows[j]
+			}
+		}
+		t.Fatal("no line on screen")
+		return ""
+	}
+	h.screen()
+	if s := strings.Join(body(), "\n"); strings.Contains(s, glyph.CursorAbove) || strings.Contains(s, glyph.CursorBelow) {
+		t.Fatalf("an arrow with the cursor in view:\n%s", s)
+	}
+	h.keys("s", "up")
+	wheel(tea.MouseWheelUp, 30)
+	if row := lineRow(body(), false); !strings.Contains(row, glyph.CursorBelow) {
+		t.Errorf("cursor below the view: last line %q, want %s by its time", row, glyph.CursorBelow)
+	}
+	wheel(tea.MouseWheelDown, 30)
+	h.keys("home")
+	wheel(tea.MouseWheelDown, 30)
+	if row := lineRow(body(), true); !strings.Contains(row, glyph.CursorAbove) {
+		t.Errorf("cursor above the view: first line %q, want %s by its time", row, glyph.CursorAbove)
+	}
+}
+
+// Log mode's bottom bar has the Select chip at its right, lit while
+// selecting; a click on it is s.
+func TestBrowseSelectChip(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	bar := func() (string, [2]int) { s, c := h.m.statusBar(l.rw); return s, c }
+	s, c := bar()
+	if c[1] == 0 || !strings.Contains(s, theme.Paint(theme.StatusSelect, " "+str.ViewSelectButton()+" ")) || !strings.HasSuffix(rightRow(h, h.m.height-1), str.ViewSelectButton()) {
+		t.Fatalf("no Select chip in log mode: %q", s)
+	}
+	press := func() { h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + c[0], Y: h.m.height - 1, Button: tea.MouseLeft}) }
+	press()
+	if s, _ := bar(); !b.Marking || !strings.Contains(s, theme.Paint(theme.StatusSelectOn, " "+str.ViewSelectButton()+" ")) {
+		t.Fatalf("the chip didn't start selecting, lit: marking %v, %q", b.Marking, s)
+	}
+	h.key("up")
+	press()
+	if b.Marking || b.Start == nil || len(b.Selection()) != 2 {
+		t.Errorf("the chip again should lock: marking %v, %d selected", b.Marking, len(b.Selection()))
+	}
+	if strings.Contains(ansi.Strip(h.m.statusLine(80)), "selecting") {
+		t.Error("the lit chip says selecting; the statusline shouldn't")
+	}
+}
+
+// The action bar's hints follow the state: nothing selected, selecting,
+// selected.
+func TestBrowseHintsFollowTheState(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	hints := func() string { h.screen(); return h.br().hints() }
+	for _, step := range []struct{ key, want string }{
+		{"", str.BrowseHintsNone()},
+		{"s", str.BrowseHintsSelecting()},
+		{"s", str.BrowseHintsSelected()},
+		{"s", str.BrowseHintsSelecting()},
+		{"esc", str.BrowseHintsNone()},
+	} {
+		if step.key != "" {
+			h.key(step.key)
+		}
+		if hints() != step.want {
+			t.Errorf("after %q: hints %q, want %q", step.key, hints(), step.want)
+		}
+	}
+}
+
+// While selecting with the view scrolled up by the wheel, a line arriving
+// neither pulls the view back down nor grows the range.
+func TestBrowseLiveLineLeavesAScrolledSelection(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	h.screen()
+	h.key("s")
+	for range 30 {
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: tea.MouseWheelUp}))
+	}
+	h.screen()
+	top, end := b.top, b.End
+	h.conn("fm/kit").Feed("Brand new line")
+	h.settle("fm/kit", func() bool { return b.Last().Entry.Text == "Brand new line" })
+	h.screen()
+	if b.top != top || b.End != end {
+		t.Errorf("a new line moved things: top %q (was %q), end %q (was %q)", b.top.Entry.Text, top.Entry.Text, b.End.Entry.Text, end.Entry.Text)
+	}
+}
+
+// The Select chip does nothing while a prompt is open, as a click on the
+// log doesn't: the selection can't change under the prompt.
+func TestBrowseSelectChipWaitsForAPrompt(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	h.key("/")
+	_, c := h.m.statusBar(l.rw)
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + c[0], Y: h.m.height - 1, Button: tea.MouseLeft})
+	if b.Marking || b.Start != nil {
+		t.Errorf("the chip started selecting under find's prompt: marking %v", b.Marking)
+	}
+}
+
+// While selecting, a cursor line hidden other than by the filter panel
+// (here, a text filter set behind log mode's back, as local_echo or a
+// rules reload might) gives way to the nearest shown line, not the
+// newest: the range's end stays near where it was.
+func TestBrowseHiddenCursorWhileSelectingGoesNearest(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	h.keys("up", "up", "up", "s", "up") // anchored on scene1[3], cursor on scene1[2]
+	cursor := b.Cursor
+	b.Log.AddText("Rook") // hides the cursor's line, not the others with Rook in
+	if b.Shows(cursor) {
+		t.Skipf("the text filter didn't hide %q; pick another term", cursor.Entry.Text)
+	}
+	want := b.NearestVisible(cursor)
+	h.screen()
+	if b.Cursor != want || b.End != want && b.Start != want {
+		t.Errorf("cursor %q, range %q–%q; want both on the nearest shown line %q", b.Cursor.Entry.Text, b.Start.Entry.Text, b.End.Entry.Text, want.Entry.Text)
 	}
 }

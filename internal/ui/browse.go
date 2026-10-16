@@ -16,8 +16,9 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// browsePrefixW is the width of "HH:MM" + space + gutter + space.
-const browsePrefixW = 8
+// browsePrefixW is the width of "HH:MM" + space + gutter + space;
+// browseTimeW, of the time.
+const browsePrefixW, browseTimeW = 8, 5
 
 type promptKind int
 
@@ -101,7 +102,11 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	}
 	b.ClearStatus()
 	switch browseKeys[s] {
-	case actBack: // find first, as Esc backs out of one thing at a time
+	case actBack: // marking, then find, as Esc backs out of one thing at a time
+		if b.Marking {
+			b.EndMark()
+			return nil, false
+		}
 		if b.Find != "" {
 			b.EndFind()
 			return nil, false
@@ -119,7 +124,7 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		return b.run(b.ToTop()), false
 	case actBottom:
 		b.ToBottom()
-	case actMark:
+	case actSelect:
 		b.Mark()
 	case actExclude:
 		b.ToggleExclude(b.Cursor)
@@ -149,8 +154,8 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 
 // statusParts is what log mode's statusline says with no message up:
 // find, while it's on, then the cursor line's tags (if it has any), then
-// how many lines are selected; most specific first, so a narrow screen
-// cuts the least.
+// how many lines are selected, while a range is; most specific first, so
+// a narrow screen cuts the least. Selecting is the Select chip's to say.
 func (b *browse) statusParts() string {
 	var parts []string
 	if f := b.FindStatus(); f != "" {
@@ -161,7 +166,24 @@ func (b *browse) statusParts() string {
 			parts = append(parts, t)
 		}
 	}
-	return strings.Join(append(parts, str.ViewSelected(len(b.Selection()))), str.Separator())
+	if b.Start != nil {
+		parts = append(parts, str.ViewSelected(len(b.Selection())))
+	}
+	return strings.Join(parts, str.Separator())
+}
+
+// hints is the action bar's keys for the state select mode is in:
+// nothing selected, selecting, or a range selected.
+func (b *browse) hints() string {
+	switch {
+	case b.Panel != nil:
+		return str.FilterHints()
+	case b.Marking:
+		return str.BrowseHintsSelecting()
+	case b.Start != nil:
+		return str.BrowseHintsSelected()
+	}
+	return str.BrowseHintsNone()
 }
 
 // lineTags says which tags l has, and for each one without a style of
@@ -255,8 +277,11 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 		return
 	}
 	ci := slices.Index(v, b.Cursor)
-	if ci < 0 {
+	if ci < 0 { // hidden (or none): the nearest shown line, as Refilter, else the newest
 		ci = len(v) - 1
+		if n := b.NearestVisible(b.Cursor); b.Index(b.Cursor) >= 0 && n != nil {
+			ci = slices.Index(v, n)
+		}
 		b.SetCursor(v[ci])
 	}
 	// rows is how many rows v[i] takes with v[top] at the top, where its
@@ -269,6 +294,10 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 		return b.rowsFor(v[i], prev, w)
 	}
 	ti := slices.Index(v, b.top)
+	if b.scrolled && ti >= 0 && b.Marking { // the wheel only scrolls: the cursor is the range's end
+		b.top = v[min(ti, b.bottomTop(v, rows, h))] // and scrolled stays set until the cursor moves
+		return
+	}
 	if b.scrolled && ti >= 0 {
 		b.scrolled = false
 		ti = min(ti, b.bottomTop(v, rows, h)) // no scrolling past the newest line
@@ -307,6 +336,11 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 	b.top = v[min(ti, b.bottomTop(v, rows, h))]
 }
 
+// awayArrow puts arrow in the space after the time that starts row.
+func awayArrow(row, arrow string) string {
+	return xansi.Cut(row, 0, browseTimeW) + theme.Paint(theme.LogAway, arrow) + xansi.Cut(row, browseTimeW+1, xansi.StringWidth(row))
+}
+
 // bottomTop is the earliest top line that still fits everything through
 // the newest line in h rows: a later one would leave rows blank below it.
 func (b *browse) bottomTop(v []*app.LogLine, rows func(i, top int) int, h int) int {
@@ -340,6 +374,8 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		rows = append(rows, theme.Paint(theme.LogLoading, str.BrowseLoading()))
 		b.rowLines = append(b.rowLines, nil)
 	}
+	ci := slices.Index(v, b.Cursor)
+	firstRow, lastRow, lastI := -1, -1, -1 // the rows starting the first and last lines drawn, and the last's index
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
 		if i == max(0, start) || v[i-1].Day != l.Day { // the top line's day always shows, so the date stays in sight
@@ -370,6 +406,11 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			prefix := ts + " " + gutter + " "
 			if j > 0 {
 				prefix = "      " + gutter + " "
+			} else {
+				if firstRow < 0 {
+					firstRow = len(rows)
+				}
+				lastRow, lastI = len(rows), i
 			}
 			rows = append(rows, prefix+row)
 			b.rowLines = append(b.rowLines, l)
@@ -377,6 +418,14 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 				break
 			}
 		}
+	}
+	// A cursor scrolled out of view (while marking: see scrollToCursor)
+	// gets an arrow by the time of the line nearest it.
+	switch {
+	case ci >= 0 && ci < start && firstRow >= 0:
+		rows[firstRow] = awayArrow(rows[firstRow], glyphAbove)
+	case ci > lastI && lastRow >= 0:
+		rows[lastRow] = awayArrow(rows[lastRow], glyphBelow)
 	}
 	// Too few lines to fill the body sit at its bottom, newest last, as
 	// in the scrollback; "no logs yet" stays at the top.
@@ -400,12 +449,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		rows = append(rows, theme.Fill(theme.LogBar, label+text, w))
 		curX, curY, showCur = xansi.StringWidth(label)+x, h-2, true
 	default: // messages go to the bottom bar
-
-		hints := str.BrowseHints()
-		if b.Panel != nil {
-			hints = str.FilterHints()
-		}
-		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, hints), w))
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, b.hints()), w))
 	}
 	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat(glyph.Rule, w)))
 	return rows, curX, curY, showCur
@@ -429,9 +473,21 @@ func highlightFind(plain, needle string) string {
 	return out.String()
 }
 
-// click handles a left click at (x, y) within the right pane. Clicks are
+// selectChip is a click on the Select chip: s, as a key would be. It
+// stops a search reading older days, and does nothing while a prompt is
+// open, as a click on the log doesn't.
+func (b *browse) selectChip() {
+	b.StopSearch()
+	if b.prompt != promptNone {
+		return
+	}
+	b.ClearStatus()
+	b.Mark()
+}
+
+// click handles a left click on row y of the right pane. Clicks are
 // ignored while a prompt is open so the selection can't change under it.
-func (b *browse) click(x, y int, shift bool) {
+func (b *browse) click(y int) {
 	b.StopSearch()
 	if b.prompt != promptNone {
 		return
@@ -440,25 +496,19 @@ func (b *browse) click(x, y int, shift bool) {
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return
 	}
-	// Like selecting files in Finder: a click selects its line, a
-	// shift-click outside the range extends it, and one inside toggles
-	// that line out of (or back into) it. The gutter column toggles too.
+	// Outside select mode a click only moves the cursor. While selecting
+	// it's a shift-click: inside the range it toggles its line, leaving
+	// the cursor (the range's end) where it is; outside it grows the
+	// range to the line.
 	l := b.rowLines[row]
 	switch {
-	case shift && b.Start != nil && b.End != nil && b.InRange(l):
+	case b.Marking && b.InRange(l):
 		b.ToggleExclude(l)
-	case shift:
-		if b.Start == nil {
-			b.NewRange(b.Cursor, nil)
-		}
+	case b.Marking:
+		b.GrowTo(l)
 		b.SetCursor(l)
-		b.ExtendTo(l)
-	case x == browsePrefixW-2 && b.InRange(l) && b.End != nil:
-		b.ToggleExclude(l)
 	default:
 		b.SetCursor(l)
-		b.NewRange(l, l)
-		b.RangeStatus()
 	}
 }
 

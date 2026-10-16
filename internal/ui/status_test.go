@@ -87,14 +87,14 @@ func TestLogMessagesInBottomBar(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("up", "m", "up", "m") // a range: "2 lines in range"
+	h.keys("up", "s", "up", "s") // a range: "2 lines in range"
 	rows := strings.Split(h.screen(), "\n")
-	bottom := strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
+	bottom := withoutChip(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	hints := rows[len(rows)-3]
 	if bottom != str.BrowseLinesInRange(2) {
 		t.Errorf("bottom bar = %q, want the log message", bottom)
 	}
-	if !strings.Contains(hints, firstPart(str.BrowseHints())) {
+	if !strings.Contains(hints, firstPart(str.BrowseHintsSelected())) {
 		t.Errorf("hint row lost its hints: %q", hints)
 	}
 	if !strings.Contains(rows[len(rows)-2], "───") {
@@ -102,7 +102,7 @@ func TestLogMessagesInBottomBar(t *testing.T) {
 	}
 	h.key("down") // any key clears it
 	rows = strings.Split(h.screen(), "\n")
-	if got := strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1]); got != str.ViewSelected(2) {
+	if got := withoutChip(strings.SplitN(rows[len(rows)-1], "│", 2)[1]); got != str.ViewSelected(2) {
 		t.Errorf("after a key the bottom bar = %q, want the count", got)
 	}
 }
@@ -113,7 +113,7 @@ func TestNewestMessageWins(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("up", "m", "up", "m") // "2 lines in range"
+	h.keys("up", "s", "up", "s") // "2 lines in range"
 	h.m.setStatus(false, str.StatusConfigReloaded())
 	if got := strings.TrimSpace(ansi.Strip(h.m.statusLine(60))); got != str.StatusConfigReloaded() {
 		t.Errorf("bottom bar = %q, want the newer message", got)
@@ -158,11 +158,12 @@ func TestLogMessagesExpireAndClear(t *testing.T) {
 	x := l.sw + 11
 	bar := func() string { return strings.TrimSpace(ansi.Strip(h.m.statusLine(60))) }
 	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(0), Button: tea.MouseLeft})
-	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(4), Button: tea.MouseLeft, Mod: tea.ModShift})
-	if got := bar(); got != str.BrowseLinesInRange(5) {
+	h.key("s")
+	if got := bar(); got != str.BrowseRangeStart() {
 		t.Fatalf("bar = %q", got)
 	}
-	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(2), Button: tea.MouseLeft, Mod: tea.ModShift}) // leave line 2 out
+	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(4), Button: tea.MouseLeft}) // grow to 4
+	h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(2), Button: tea.MouseLeft}) // leave line 2 out
 	if got, want := bar(), b.statusParts(); got != want || !strings.HasSuffix(got, str.ViewSelected(len(b.Selection()))) {
 		t.Errorf("after excluding a line the bar = %q, want %q", got, want)
 	}

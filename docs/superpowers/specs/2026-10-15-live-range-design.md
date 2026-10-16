@@ -1,0 +1,158 @@
+# Live range selecting in log mode
+
+Renamed after trying it: the mode is *selecting*, on `s` (it was
+marking, on `m`). The core keeps its names (`Marking`, `Mark`,
+`MarkTo`, `EndMark`): they mark a range's ends.
+
+Issue #191.
+
+## Why
+
+Marking a range in log mode works from the keyboard (`s`, page, `s`)
+but not with the mouse: a plain click starts a new one-line range, so
+click, `s`, click throws the start away. Shift-click extends a range,
+but many terminals keep Shift+mouse for their own text selection, and
+Blink on iOS has no way to send it. Marking has to work with plain
+clicks and keys alone.
+
+## Behavior
+
+`s` starts a **live range** on the cursor's line: that line is the
+anchor, and the range's other end follows the cursor however it moves
+(`↑`/`↓`, `j`/`k`, `PgUp`/`PgDn`, `Home`/`End`, `g`, `n`/`N`, a click,
+the wheel dragging the cursor along at the edge). Moving above the
+anchor puts the range above it; the anchor never moves.
+
+While the range is live:
+
+- The statusline shows it as it shows find: a `selecting` part first,
+  then the cursor line's tags, then the selected count, which changes
+  as the cursor moves.
+- `s` locks the range where it is.
+- `c` and `e` lock it and act on it.
+- `Esc` drops the range and stays in log mode, as `Esc` turns find off
+  without leaving. With both on, `Esc` ends marking first.
+- `Space` leaves the cursor's line out, as now. When the range shrinks
+  past an excluded line, that exclusion is forgotten, so growing back
+  over the line doesn't bring it back excluded.
+- A click is a sticky shift-click (changed after trying it; see #191).
+  Inside the range it takes its line out, or puts it back, and leaves
+  the cursor (the range's end) where it is. Outside the range it grows
+  the range to take the line in: the end away from the click becomes
+  the anchor, and the cursor goes to the clicked line, so the keys move
+  on from there. Shift and the gutter change nothing while marking.
+  With the mouse alone a live range only grows; the keys or `Esc`
+  shrink it.
+
+Once locked, nothing changes from today: a click starts a new one-line
+range, shift-click extends the range or toggles a line in it, a gutter
+click toggles its line, and `s` starts a new live range on the cursor.
+
+The live range looks like a locked one: the same selected and excluded
+styles. Only the statusline tells them apart.
+
+## Core
+
+`app.Log` gains the anchor and a `Marking` flag. The cursor stays the
+front end's (the TUI's `browse`, the web's `logView`), so the core
+doesn't follow it; the front end tells it:
+
+- `Mark(l)` with no live range: anchor, `Start` and `End` are `l`,
+  exclusions cleared, `Marking` on. With a live range: `MarkTo(l)`,
+  then `Marking` off. Front ends pass the cursor, so the range locks
+  where it is.
+- `MarkTo(l)`, while marking: `Start`/`End` become anchor and `l` in
+  order, and exclusions outside them are dropped.
+- `GrowTo(l)`, while marking: the anchor becomes the end away from
+  `l`, then `MarkTo(l)`.
+- `EndMark()`: drops the range (`Start`, `End` nil, exclusions cleared,
+  `Marking` off).
+- `Copy` and `ExportReady` turn `Marking` off before they act.
+- `NewRange` and `ExtendTo` turn it off too, so no other path leaves a
+  stale live range.
+
+A pending start with no end (`End == nil`) no longer exists: `Mark`
+always makes a whole range. `InRange`, `Selection` and `RangeStatus`
+lose their `End == nil` cases.
+
+## TUI
+
+The wheel doesn't move a live range (changed after trying it): while
+marking, scrolling leaves the cursor where it is, out of view if need
+be, so looking around never shrinks the range or forgets exclusions.
+The next cursor move brings the view back to it. While it's out of
+view, a ▲ (or ▼) takes the space after the time of the first (or last)
+line drawn, in a new role, `log.cursor.away` (reverse, as the cursor).
+
+`browse.SetCursor` and `MoveCursor`, and every other place the cursor
+moves, call `MarkTo` while marking. One hook in `SetCursor` covers them
+if every move goes through it; the plan checks that. `click` checks
+`Marking` first: inside the range `ToggleExclude`, outside `GrowTo`
+then `SetCursor`. `Esc` in `browseKey` ends marking before it ends find
+or leaves log mode.
+
+## Web
+
+The web gets `s`, which it doesn't have today (log.ts left marking to
+the mouse). The TUI's keys copy over:
+
+- `s` sends `mark` with the cursor's seq.
+- While `Marking` (in the log state the page gets), each cursor move,
+  from keys, a click or `dragCursor` as the browser scrolls, sends a new
+  `mark_to` action with the seq. `Esc` sends a new `end_mark`.
+- While marking, scrolling doesn't drag the cursor (`dragCursor` is
+  skipped), as the TUI's wheel. PgUp/PgDn are the browser's scrolling,
+  so on the web paging doesn't stretch a live range; ↑/↓ and clicks
+  do. That's the browser's PgDn forcing it.
+- `logClick` checks `Marking` first, as the TUI's `click`: inside the
+  range it sends `exclude`; outside, a new `grow` action, then moves
+  the cursor.
+- The statusline's marking part is the TUI's string.
+
+## Strings
+
+- `browse.selecting`, the statusline part: `selecting`. New.
+- `browse.range_start` (`BrowseRangeStart`, the message `s` gives now)
+  is reworded to say how to finish: `selecting: move to the other end, s
+  to finish, Esc to drop`.
+
+## Docs
+
+`docs/log-mode.md`: the `s` and click rows, and `Esc`.
+
+## Testing
+
+- Core: `Mark`, `MarkTo` above and below the anchor, exclusions dropped
+  on shrink, `Esc`/`EndMark`, `c`/`e` locking.
+- TUI: `s`, PgDn twice, `s` covers the lines between; `s`, click, `s`
+  covers anchor to the clicked line; shift-click and gutter click while
+  marking only move the end; `Esc` with find on ends marking only.
+- Web: `logKey`'s `s`, `logClick` while marking, and the smoke test's
+  click, `s`, click.
+
+## Select mode (after trying it)
+
+Selecting is a mode, with a chip, as History is.
+
+- Three states: **nothing selected**, **selecting** (the live range)
+  and **selected** (a locked range).
+- Outside select mode, every click (plain, shift, gutter) only moves
+  the cursor. Ranges come only from select mode.
+- A **Select** chip sits at the right of the bottom statusline in log
+  mode, where the History chip sits outside it, in new roles
+  `status.select` and `status.select.on` (lit while selecting).
+  Clicking it is `s`: it starts selecting from the cursor, or locks.
+  The lit chip replaces the statusline's `selecting` part.
+- The action bar's hints follow the state:
+  - nothing selected: `s select · / find · g date · f filter · esc back`
+  - selecting: `space exclude · s done · c copy · e export · esc drop`
+  - selected: `s select · space exclude · c copy · e export · / find · g date · f filter · esc back`
+  The filter panel's hints are unchanged.
+- The statusline's count shows only while there's a range: no
+  `0 selected`.
+- Filter stays in the top bar: the top bar says what you're looking at,
+  the bottom bar what you're doing.
+
+Strings: `browse.hints` gives way to `browse.hints_none`,
+`browse.hints_selecting` and `browse.hints_selected`; `browse.selecting`
+goes; `view.select_button` is new.

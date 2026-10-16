@@ -575,6 +575,9 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	var follow []following // log modes whose cursor is on the newest line: a new line takes it along
 	if cs := m.chars[msg.Key]; cs != nil && msg.Ev.Kind == session.EventLine {
 		for _, b := range cs.browses() {
+			if b.Marking && b.scrolled { // reading back while selecting: the view and range stay put
+				continue
+			}
 			if b.Cursor == nil || b.Cursor == b.LastVisible() {
 				follow = append(follow, following{b, b.Last()})
 			}
@@ -591,7 +594,7 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	}
 	for _, f := range follow {
 		if f.b.Last() != f.last { // a line was added, not dropped as one already loaded
-			f.b.Cursor = f.b.LastVisible()
+			f.b.SetCursor(f.b.LastVisible())
 		}
 	}
 	cs := m.chars[ev.Key]
@@ -932,7 +935,7 @@ func (m *Model) openBrowse(cs *charState) {
 	}
 	g := m.a.OpenLog(cs.Key)
 	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
-	cs.browse.Cursor = g.LastVisible()
+	cs.browse.SetCursor(g.LastVisible())
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
 	cs.browse.cfg = m.a.Config
 	m.a.ClearStatus()
@@ -1102,6 +1105,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		return nil
 	}
 	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 && msg.X-l.sw-1 >= c[0] && msg.X-l.sw-1 < c[1] {
+		if cs := m.cur(); cs != nil && cs.browse != nil {
+			cs.browse.selectChip()
+			return nil
+		}
 		return m.historyToggle()
 	}
 	msg.Y -= l.top // body rows from here on
@@ -1113,7 +1120,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		m.clearLogStatus()
-		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
+		cs.browse.click(msg.Y)
 		return nil
 	}
 	cs := m.cur()
