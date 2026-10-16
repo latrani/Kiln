@@ -941,8 +941,8 @@ export function viewHistoryNoMatch(): string { return `no match in history`; }
 /** view.history_none: no history yet */
 export function viewHistoryNone(): string { return `no history yet`; }
 
-/** view.history_placeholder: type to search · tab to change scope */
-export function viewHistoryPlaceholder(): string { return `type to search · tab to change scope`; }
+/** view.history_placeholder: type to search · ←→ change scope */
+export function viewHistoryPlaceholder(): string { return `type to search · ←→ change scope`; }
 
 /** view.log_button: Log */
 export function viewLogButton(): string { return `Log`; }

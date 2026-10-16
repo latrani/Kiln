@@ -16,7 +16,7 @@ export function takes(t: Typed | undefined, ack: number): boolean {
   return !t || (!t.dirty && ack >= t.n);
 }
 
-export type KeyDo = "submit" | "older" | "cancel" | "page_up" | "page_down" | "history_up" | "history_down" | "history_close" | "history_scope" | undefined;
+export type KeyDo = "submit" | "older" | "cancel" | "page_up" | "page_down" | "history_up" | "history_down" | "history_close" | "scope_session" | "scope_character" | undefined;
 
 interface Keyish {
   key: string;
@@ -49,8 +49,8 @@ export interface Caret {
 // ↑ still moves through a wrapped or multi-line draft; without a
 // measure, rows are lines); with a modifier it's a switching key. With
 // the panel up (panel), ↑ and ↓ move its selection wherever the caret
-// is, PgUp and PgDn a page, Tab swaps its scope (the browser's Tab
-// otherwise; Esc closes the panel and gives it back), and Esc closes it.
+// is, PgUp and PgDn a page, ← and → pick its scope (Session, Character;
+// no wrapping round), and Esc closes it.
 export function keyAction(e: Keyish, caret: Caret, panel = false): KeyDo {
   if (composing(e)) return undefined;
   const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
@@ -68,8 +68,10 @@ export function keyAction(e: Keyish, caret: Caret, panel = false): KeyDo {
       return plain && caret.start === caret.end && (caret.first ?? !caret.value.slice(0, caret.start).includes("\n")) ? "older" : undefined;
     case "ArrowDown":
       return panel && plain ? "history_down" : undefined;
-    case "Tab": // the panel's scope; otherwise the browser's, moving focus
-      return panel && !e.altKey && !e.ctrlKey && !e.metaKey ? "history_scope" : undefined;
+    case "ArrowLeft":
+      return panel && plain ? "scope_session" : undefined;
+    case "ArrowRight":
+      return panel && plain ? "scope_character" : undefined;
   }
   return undefined;
 }

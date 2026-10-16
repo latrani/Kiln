@@ -655,9 +655,6 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 	case "tab", "shift+tab":
-		if m.picker == nil && m.historyShows() && !logMode { // the panel's scope
-			return m.historyScope(m.a.SwapHistoryScope())
-		}
 		if m.picker == nil && !logMode { // the picker's forms move between fields with Tab
 			m.switchToUnread(map[string]int{"tab": 1, "shift+tab": -1}[k.String()])
 			return nil
