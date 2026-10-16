@@ -23,7 +23,7 @@ Exports contain only received lines: no timestamps, your own commands (the serve
 
 ## Filter
 
-The filter panel is the sidebar while you're in log mode, under a **Filters** title. It collapses like the sidebar does (`‹`, `Ctrl+B`); collapsed, it shows while it has the keys, and collapses again when the log gets them back. It lists **Untagged** (lines with no tags, including your own commands), every tag in the loaded logs or with a filter set, children indented under their parents (`page/in` under `page`), then any text you've added, each with **Hide** and **Only**:
+The filter panel is the sidebar while you're in log mode, under a **Filters** title. It collapses like the sidebar does (`‹`, `Ctrl+B`); collapsed, it shows while it has the keys, and collapses again when the log gets them back. Under 64 columns it opens over the log while it has the keys, so `f` (or `Ctrl+B`, `≡`, `‹`) opens and closes it. It lists **Untagged** (lines with no tags, including your own commands), every tag in the loaded logs or with a filter set, children indented under their parents (`page/in` under `page`), then any text you've added, each with **Hide** and **Only**:
 
 - **Hide** hides lines with that tag (or text). Hiding a parent hides its children too; unhiding one child brings its parent back and leaves the other children hidden.
 - **Only** shows just lines with that tag (or text), and lights Hide on every other tag (or text) so you can see what's hidden. Unhide any of them and Only lets go; press Only again to clear the tag (or text) filters; press Hide on it to flip it, showing everything but that. Tags and text are separate: Only on a text hides the other texts, not your tags.
