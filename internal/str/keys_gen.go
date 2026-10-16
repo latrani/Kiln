@@ -60,8 +60,14 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "s select · space exclude · / find · g date · f filter · e export · c copy · esc back"
-func BrowseHints() string { return get("browse.hints", nil) }
+// BrowseHintsNone is browse.hints_none: "s select · / find · g date · f filter · esc back"
+func BrowseHintsNone() string { return get("browse.hints_none", nil) }
+
+// BrowseHintsSelected is browse.hints_selected: "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
+func BrowseHintsSelected() string { return get("browse.hints_selected", nil) }
+
+// BrowseHintsSelecting is browse.hints_selecting: "space exclude · s done · c copy · e export · esc drop"
+func BrowseHintsSelecting() string { return get("browse.hints_selecting", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
 func BrowseLineTags(tags any) string { return get("browse.line_tags", map[string]any{"tags": tags}) }
@@ -133,9 +139,6 @@ func BrowseSearchCancelled() string { return get("browse.search_cancelled", nil)
 func BrowseSearching(find, day any) string {
 	return get("browse.searching", map[string]any{"find": find, "day": day})
 }
-
-// BrowseSelecting is browse.selecting: "selecting"
-func BrowseSelecting() string { return get("browse.selecting", nil) }
 
 // BrowseTagAs is browse.tag_as: "{tag} (styled as {styled})"
 func BrowseTagAs(tag, styled any) string {
@@ -1145,6 +1148,9 @@ func ViewPresenceUnknown() string { return get("view.presence_unknown", nil) }
 func ViewSavePassword(name, store any) string {
 	return get("view.save_password", map[string]any{"name": name, "store": store})
 }
+
+// ViewSelectButton is view.select_button: "Select"
+func ViewSelectButton() string { return get("view.select_button", nil) }
 
 // ViewSelected is view.selected: "{n} selected"
 func ViewSelected(n int) string { return get("view.selected", map[string]any{"n": n}) }

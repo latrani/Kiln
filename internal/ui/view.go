@@ -205,26 +205,38 @@ func (m *Model) statusMsg() string {
 	return msg
 }
 
-// statusBar is the bottom bar: statusLine, and the History chip pinned
-// right while there's an input to recall into. It says which columns
-// the chip takes, [from, to); zero when it isn't drawn.
-func (m *Model) statusBar(w int) (line string, histChip [2]int) {
+// statusBar is the bottom bar: statusLine, and a chip pinned right: in
+// log mode Select, lit while selecting; otherwise History, while there's
+// an input to recall into. It says which columns the chip takes,
+// [from, to); zero when it isn't drawn.
+func (m *Model) statusBar(w int) (line string, chipAt [2]int) {
 	msg := m.statusLine(w)
 	cs := m.cur()
-	if m.overviewing() || m.modal() || cs != nil && (cs.browse != nil || cs.NeedPW) {
-		return msg, histChip
+	var c string
+	switch {
+	case m.overviewing() || m.modal():
+		return msg, chipAt
+	case cs != nil && cs.browse != nil:
+		role := theme.StatusSelect
+		if cs.browse.Marking {
+			role = theme.StatusSelectOn
+		}
+		c = chip(role, str.ViewSelectButton())
+	case cs != nil && cs.NeedPW:
+		return msg, chipAt
+	default:
+		if _, _, asking := m.a.PendingSave(); asking {
+			return msg, chipAt
+		}
+		role := theme.StatusHistory
+		if m.a.History().IsOpen() {
+			role = theme.StatusHistoryOn
+		}
+		c = chip(role, str.ViewHistoryButton())
 	}
-	if _, _, asking := m.a.PendingSave(); asking {
-		return msg, histChip
-	}
-	role := theme.StatusHistory
-	if m.a.History().IsOpen() {
-		role = theme.StatusHistoryOn
-	}
-	c := chip(role, str.ViewHistoryButton())
 	cw := xansi.StringWidth(c)
 	if w-cw < 2 { // no room beside the message
-		return msg, histChip
+		return msg, chipAt
 	}
 	return fitName(m.statusMsg(), w-cw-1) + " " + c, [2]int{w - cw, w}
 }
@@ -360,7 +372,8 @@ func (m *Model) View() tea.View {
 	if cs != nil && cs.browse != nil {
 		rows, x, y, show := cs.browse.view(l.rw, m.height-l.top-1)
 		right = append(right, rows...)
-		right = append(right, theme.Fill(theme.Status, m.statusLine(l.rw), l.rw))
+		bar, _ := m.statusBar(l.rw)
+		right = append(right, theme.Fill(theme.Status, bar, l.rw))
 		if show {
 			cursor = tea.NewCursor(l.sw+1+x, l.top+y)
 		}

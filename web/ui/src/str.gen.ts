@@ -58,8 +58,14 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints: s select · space exclude · / find · g date · f filter · e export · c copy · esc back */
-export function browseHints(): string { return `s select · space exclude · / find · g date · f filter · e export · c copy · esc back`; }
+/** browse.hints_none: s select · / find · g date · f filter · esc back */
+export function browseHintsNone(): string { return `s select · / find · g date · f filter · esc back`; }
+
+/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filter · esc back */
+export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filter · esc back`; }
+
+/** browse.hints_selecting: space exclude · s done · c copy · e export · esc drop */
+export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export · esc drop`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -122,9 +128,6 @@ export function browseSearchCancelled(): string { return `search cancelled`; }
 
 /** browse.searching: find: {find} · searching back to {day}… esc to stop */
 export function browseSearching(find: unknown, day: unknown): string { return `find: ${find} · searching back to ${day}… esc to stop`; }
-
-/** browse.selecting: selecting */
-export function browseSelecting(): string { return `selecting`; }
 
 /** browse.tag_as: {tag} (styled as {styled}) */
 export function browseTagAs(tag: unknown, styled: unknown): string { return `${tag} (styled as ${styled})`; }
@@ -946,6 +949,9 @@ export function viewPresenceUnknown(): string { return `? focus`; }
 
 /** view.save_password: Save password for {name} in {store}? [Y/n] */
 export function viewSavePassword(name: unknown, store: unknown): string { return `Save password for ${name} in ${store}? [Y/n]`; }
+
+/** view.select_button: Select */
+export function viewSelectButton(): string { return `Select`; }
 
 /** view.selected: {n} selected */
 export function viewSelected(n: number): string { return `${n} selected`; }

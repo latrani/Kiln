@@ -68,6 +68,8 @@ const (
 	StatusFilterOn  Role = "status.filter.on"
 	StatusHistory   Role = "status.history" // the History chip, in the statusline
 	StatusHistoryOn Role = "status.history.on"
+	StatusSelect    Role = "status.select" // log mode's Select chip, in the statusline
+	StatusSelectOn  Role = "status.select.on"
 	StatusError     Role = "status.error"
 	// The presence chip: here, away, or can't tell (no focus events seen).
 	StatusPresence        Role = "status.presence"
@@ -117,7 +119,7 @@ var Roles = []Role{
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,
-	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusHistory, StatusHistoryOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
+	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusHistory, StatusHistoryOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,

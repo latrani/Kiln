@@ -144,6 +144,8 @@ filter_button = "Filter"
 # The history panel: its button in the statusline, and what it says
 # when it has nothing to list.
 history_button = "History"
+# Log mode's chip for select mode, at the right of the statusline.
+select_button = "Select"
 history_none = "no history yet"
 history_no_match = "no match in history"
 # The presence chip in the top bar: here, away, or no focus event seen yet.
@@ -257,8 +259,6 @@ open_connection = "+ Connection"
 [browse]
 reading_logs = "reading logs: {err}"
 range_start = "selecting: move to the other end, s to finish, Esc to drop"
-# The statusline's part while a range is live (s, then moving).
-selecting = "selecting"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
 exclude_needs_range = "exclude works inside a marked range"
 no_matches = "no matches for {find:%q}"
@@ -293,7 +293,10 @@ find_status = "find: {find} {i}/{n} · n/N"
 # As find_status, while older history not yet loaded may hold more.
 find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
-hints = "s select · space exclude · / find · g date · f filter · e export · c copy · esc back"
+# The action bar's keys, by state: nothing selected, selecting, a range selected.
+hints_none = "s select · / find · g date · f filter · esc back"
+hints_selecting = "space exclude · s done · c copy · e export · esc drop"
+hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
 # In the statusline: the cursor line's tags, and for one with no style
 # of its own, the tag up its slashes whose style it takes. Nothing shows
 # for a line with none.

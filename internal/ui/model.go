@@ -1102,6 +1102,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		return nil
 	}
 	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 && msg.X-l.sw-1 >= c[0] && msg.X-l.sw-1 < c[1] {
+		if cs := m.cur(); cs != nil && cs.browse != nil {
+			cs.browse.Mark() // the Select chip is s
+			return nil
+		}
 		return m.historyToggle()
 	}
 	msg.Y -= l.top // body rows from here on
@@ -1113,7 +1117,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		m.clearLogStatus()
-		cs.browse.click(msg.X-l.sw-1, msg.Y, msg.Mod&tea.ModShift != 0)
+		cs.browse.click(msg.Y)
 		return nil
 	}
 	cs := m.cur()

@@ -153,14 +153,11 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 }
 
 // statusParts is what log mode's statusline says with no message up:
-// marking, while a range is live, and find, while it's on, then the
-// cursor line's tags (if it has any), then how many lines are selected;
-// most specific first, so a narrow screen cuts the least.
+// find, while it's on, then the cursor line's tags (if it has any), then
+// how many lines are selected, while a range is; most specific first, so
+// a narrow screen cuts the least. Selecting is the Select chip's to say.
 func (b *browse) statusParts() string {
 	var parts []string
-	if b.Marking {
-		parts = append(parts, str.BrowseSelecting())
-	}
 	if f := b.FindStatus(); f != "" {
 		parts = append(parts, f)
 	}
@@ -169,7 +166,24 @@ func (b *browse) statusParts() string {
 			parts = append(parts, t)
 		}
 	}
-	return strings.Join(append(parts, str.ViewSelected(len(b.Selection()))), str.Separator())
+	if b.Start != nil {
+		parts = append(parts, str.ViewSelected(len(b.Selection())))
+	}
+	return strings.Join(parts, str.Separator())
+}
+
+// hints is the action bar's keys for the state select mode is in:
+// nothing selected, selecting, or a range selected.
+func (b *browse) hints() string {
+	switch {
+	case b.Panel != nil:
+		return str.FilterHints()
+	case b.Marking:
+		return str.BrowseHintsSelecting()
+	case b.Start != nil:
+		return str.BrowseHintsSelected()
+	}
+	return str.BrowseHintsNone()
 }
 
 // lineTags says which tags l has, and for each one without a style of
@@ -432,12 +446,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		rows = append(rows, theme.Fill(theme.LogBar, label+text, w))
 		curX, curY, showCur = xansi.StringWidth(label)+x, h-2, true
 	default: // messages go to the bottom bar
-
-		hints := str.BrowseHints()
-		if b.Panel != nil {
-			hints = str.FilterHints()
-		}
-		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, hints), w))
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, b.hints()), w))
 	}
 	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat(glyph.Rule, w)))
 	return rows, curX, curY, showCur
@@ -461,9 +470,9 @@ func highlightFind(plain, needle string) string {
 	return out.String()
 }
 
-// click handles a left click at (x, y) within the right pane. Clicks are
+// click handles a left click on row y of the right pane. Clicks are
 // ignored while a prompt is open so the selection can't change under it.
-func (b *browse) click(x, y int, shift bool) {
+func (b *browse) click(y int) {
 	b.StopSearch()
 	if b.prompt != promptNone {
 		return
@@ -472,12 +481,10 @@ func (b *browse) click(x, y int, shift bool) {
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return
 	}
-	// Like selecting files in Finder: a click selects its line, a
-	// shift-click outside the range extends it, and one inside toggles
-	// that line out of (or back into) it. The gutter column toggles too.
-	// While marking, every click is a shift-click: inside the range it
-	// toggles its line, leaving the cursor (the range's end) where it is;
-	// outside it grows the range to the line.
+	// Outside select mode a click only moves the cursor. While selecting
+	// it's a shift-click: inside the range it toggles its line, leaving
+	// the cursor (the range's end) where it is; outside it grows the
+	// range to the line.
 	l := b.rowLines[row]
 	switch {
 	case b.Marking && b.InRange(l):
@@ -485,20 +492,8 @@ func (b *browse) click(x, y int, shift bool) {
 	case b.Marking:
 		b.GrowTo(l)
 		b.SetCursor(l)
-	case shift && b.Start != nil && b.End != nil && b.InRange(l):
-		b.ToggleExclude(l)
-	case shift:
-		if b.Start == nil {
-			b.NewRange(b.Cursor, b.Cursor)
-		}
-		b.SetCursor(l)
-		b.ExtendTo(l)
-	case x == browsePrefixW-2 && b.InRange(l) && b.End != nil:
-		b.ToggleExclude(l)
 	default:
 		b.SetCursor(l)
-		b.NewRange(l, l)
-		b.RangeStatus()
 	}
 }
 
