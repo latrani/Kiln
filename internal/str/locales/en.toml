@@ -427,6 +427,13 @@ flag_preset = "serve these files at /kiln/preset/ for the page to preload (confi
 
 # The web page's own text (like every entry, also in web/ui/src/str.gen.ts).
 [web]
+# The collapsed sidebar's ≡ button, for screen readers: its name, then
+# the activity beside it, joined with the separator ("Sidebar · 5
+# unread · priority"); and the ‹ that collapses the sidebar.
+sidebar_menu = "Sidebar"
+sidebar_unread = "{n} unread"
+sidebar_priority = "priority"
+collapse_sidebar = "Collapse sidebar"
 other_tab = "Kiln's open in another tab."
 use_here = "Use here"
 # Under Use here: taking Kiln over reloads the other tab, which drops

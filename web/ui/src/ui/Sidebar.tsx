@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "preact/hooks";
 import { choose, pickerRows, selKey } from "../picker.ts";
 import type { PickRow } from "../picker.ts";
-import { sidebarRows } from "../sidebar.ts";
+import { sideForced, sidebarRows, toggleSidebar } from "../sidebar.ts";
 import { listing, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -26,7 +26,7 @@ export function Sidebar({ state, store }: { state: State; store: Store }) {
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (
     <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>
-      <SideTitle role="sidebar.title" rule="rule.sidebar" label={str.viewConnectionsTitle()} />
+      <SideTitle role="sidebar.title" rule="rule.sidebar" label={str.viewConnectionsTitle()} collapse={{ role: "sidebar.collapse", state, store }} />
       <ul>
         {sidebarRows(state.order, state.chars).map((r) => {
           if (r.kind === "gap") return <li key="gap" aria-hidden="true"> </li>;
@@ -89,7 +89,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   }, [p.sel]);
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
-      <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} />
+      <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} collapse={{ role: "picker.collapse", state, store }} />
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen
@@ -148,9 +148,15 @@ function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
 // SideTitle is a sidebar list's title, as the TUI's: label over a rule
 // across the column in rule's color, in line with the top bar's. A press
 // on it does onPress (the filter panel's: focus to it).
-export function SideTitle({ role, rule, label, onPress }: { role: string; rule: string; label: string; onPress?: () => void }) {
+export function SideTitle({ role, rule, label, onPress, collapse }: { role: string; rule: string; label: string; onPress?: () => void; collapse?: { role: string; state: State; store: Store } }) {
   return (
     <h2 class={`stitle ${roleClass(role)}`} style={`--rule:var(--role-${rule.replaceAll(".", "-")}-fg)`}
-      onMouseDown={onPress && ((e) => { e.preventDefault(); onPress(); })}>{label}</h2>
+      onMouseDown={onPress && ((e) => { e.preventDefault(); onPress(); })}>
+      <span class="stext">{label}</span>
+      {collapse && !sideForced(collapse.state) && (
+        <button class={roleClass(collapse.role)} aria-label={str.webCollapseSidebar()} onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => toggleSidebar(collapse.store)}>{str.glyph.collapse}</button>
+      )}
+    </h2>
   );
 }

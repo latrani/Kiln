@@ -1239,6 +1239,9 @@ func WebCharacters() string { return get("web.characters", nil) }
 // WebCloseChar is web.close_char: "Close {name}"
 func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
 
+// WebCollapseSidebar is web.collapse_sidebar: "Collapse sidebar"
+func WebCollapseSidebar() string { return get("web.collapse_sidebar", nil) }
+
 // WebCopyRefused is web.copy_refused: "the browser didn't allow the copy"
 func WebCopyRefused() string { return get("web.copy_refused", nil) }
 
@@ -1297,6 +1300,15 @@ func WebReload() string { return get("web.reload", nil) }
 
 // WebResetFailed is web.reset_failed: "failed to wipe · reload and try again"
 func WebResetFailed() string { return get("web.reset_failed", nil) }
+
+// WebSidebarMenu is web.sidebar_menu: "Sidebar"
+func WebSidebarMenu() string { return get("web.sidebar_menu", nil) }
+
+// WebSidebarPriority is web.sidebar_priority: "priority"
+func WebSidebarPriority() string { return get("web.sidebar_priority", nil) }
+
+// WebSidebarUnread is web.sidebar_unread: "{n} unread"
+func WebSidebarUnread(n int) string { return get("web.sidebar_unread", map[string]any{"n": n}) }
 
 // WebStopped is web.stopped: "Kiln stopped."
 func WebStopped() string { return get("web.stopped", nil) }

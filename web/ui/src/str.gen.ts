@@ -1028,6 +1028,9 @@ export function webCharacters(): string { return `Characters`; }
 /** web.close_char: Close {name} */
 export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 
+/** web.collapse_sidebar: Collapse sidebar */
+export function webCollapseSidebar(): string { return `Collapse sidebar`; }
+
 /** web.copy_refused: the browser didn't allow the copy */
 export function webCopyRefused(): string { return `the browser didn't allow the copy`; }
 
@@ -1084,6 +1087,15 @@ export function webReload(): string { return `Reload`; }
 
 /** web.reset_failed: failed to wipe · reload and try again */
 export function webResetFailed(): string { return `failed to wipe · reload and try again`; }
+
+/** web.sidebar_menu: Sidebar */
+export function webSidebarMenu(): string { return `Sidebar`; }
+
+/** web.sidebar_priority: priority */
+export function webSidebarPriority(): string { return `priority`; }
+
+/** web.sidebar_unread: {n} unread */
+export function webSidebarUnread(n: number): string { return `${n} unread`; }
 
 /** web.stopped: Kiln stopped. */
 export function webStopped(): string { return `Kiln stopped.`; }

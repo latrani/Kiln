@@ -21,7 +21,8 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side { grid-area: side; overflow-y: auto; }
 /* Each sidebar list's title, as the TUI's: its first row, underlined
    across the column. */
-.side .stitle { font: inherit; margin: 0 0 calc(.5lh - .5px); padding-bottom: calc(.5lh - .5px); border-bottom: 1px solid var(--rule); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.kiln.collapsed { grid-template-columns: 0 0 1fr; }
+.side .stitle { display: flex; font: inherit; margin: 0 0 calc(.5lh - .5px); padding-bottom: calc(.5lh - .5px); border-bottom: 1px solid var(--rule); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .filter-panel { display: flex; flex-direction: column; }
 .filter-panel ul { flex: 1 1 auto; }
 /* The panel's footer under a rule, wrapping between keys, as the TUI's. */
@@ -64,6 +65,7 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .top { grid-area: top; min-height: 1lh; white-space: pre; overflow: hidden; border-bottom: 1px solid var(--role-rule-fg); padding-bottom: calc(.5lh - .5px); margin-bottom: calc(.5lh - .5px); display: flex; }
 .top .where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .top button { flex: none; }
+.side .stitle .stext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .body { grid-area: body; min-height: 0; position: relative; display: flex; flex-direction: column; }
 /* The scroller is the offset parent of its lines (the pager measures
    them); its gutter is kept, so the width told to the MUCK doesn't change

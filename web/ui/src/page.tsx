@@ -9,6 +9,7 @@ import { toggleLog } from "./log.ts";
 import { show } from "./notify.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
+import { sidebarKey, toggleSidebar } from "./sidebar.ts";
 import { logShows } from "./store.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -72,6 +73,11 @@ export function mount(store: Store): void {
     if (logToggleKey(e)) {
       e.preventDefault();
       toggleLog(store);
+      return;
+    }
+    if (sidebarKey(e)) { // Ctrl+B, as the TUI's
+      e.preventDefault();
+      toggleSidebar(store);
       return;
     }
     const t = e.target as Element | null;
