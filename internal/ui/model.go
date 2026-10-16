@@ -591,7 +591,7 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	}
 	for _, f := range follow {
 		if f.b.Last() != f.last { // a line was added, not dropped as one already loaded
-			f.b.Cursor = f.b.LastVisible()
+			f.b.SetCursor(f.b.LastVisible())
 		}
 	}
 	cs := m.chars[ev.Key]
@@ -932,7 +932,7 @@ func (m *Model) openBrowse(cs *charState) {
 	}
 	g := m.a.OpenLog(cs.Key)
 	cs.browse = &browse{Log: g, cs: cs, pin: NewInput(), run: m.run, painted: map[*app.LogLine]string{}}
-	cs.browse.Cursor = g.LastVisible()
+	cs.browse.SetCursor(g.LastVisible())
 	g.Shown = func(l *app.LogLine) string { return plainShown(l.Line) }
 	cs.browse.cfg = m.a.Config
 	m.a.ClearStatus()

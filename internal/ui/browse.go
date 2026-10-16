@@ -101,7 +101,11 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	}
 	b.ClearStatus()
 	switch browseKeys[s] {
-	case actBack: // find first, as Esc backs out of one thing at a time
+	case actBack: // marking, then find, as Esc backs out of one thing at a time
+		if b.Marking {
+			b.EndMark()
+			return nil, false
+		}
 		if b.Find != "" {
 			b.EndFind()
 			return nil, false
@@ -148,11 +152,14 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 }
 
 // statusParts is what log mode's statusline says with no message up:
-// find, while it's on, then the cursor line's tags (if it has any), then
-// how many lines are selected; most specific first, so a narrow screen
-// cuts the least.
+// marking, while a range is live, and find, while it's on, then the
+// cursor line's tags (if it has any), then how many lines are selected;
+// most specific first, so a narrow screen cuts the least.
 func (b *browse) statusParts() string {
 	var parts []string
+	if b.Marking {
+		parts = append(parts, str.BrowseMarking())
+	}
 	if f := b.FindStatus(); f != "" {
 		parts = append(parts, f)
 	}
@@ -443,8 +450,11 @@ func (b *browse) click(x, y int, shift bool) {
 	// Like selecting files in Finder: a click selects its line, a
 	// shift-click outside the range extends it, and one inside toggles
 	// that line out of (or back into) it. The gutter column toggles too.
+	// While marking, any click just moves the live range's end.
 	l := b.rowLines[row]
 	switch {
+	case b.Marking:
+		b.SetCursor(l)
 	case shift && b.Start != nil && b.End != nil && b.InRange(l):
 		b.ToggleExclude(l)
 	case shift:

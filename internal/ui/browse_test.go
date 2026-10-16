@@ -990,6 +990,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 		t.Errorf("hidden log mode missed a live line: last %q", b.Last().Entry.Text)
 	}
 	h.key("esc") // the panel
+	h.key("esc") // marking
 	h.key("esc") // log mode
 	h.key("ctrl+l")
 	if h.br() == b || h.br().Panel != nil || h.br().Start != nil {
@@ -1281,5 +1282,140 @@ func TestSaveFileStatusIsTheLogs(t *testing.T) {
 	b.save("scene.txt")
 	if want := str.BrowseSaved(filepath.Join(h.m.a.Config().ExportDir, "scene.txt")); b.Status != want {
 		t.Errorf("log status %q, want %q", b.Status, want)
+	}
+}
+
+// m starts a range that follows the cursor; m again locks it.
+func TestBrowseLiveRangeKeys(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": echoWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	last := len(b.Lines) - 1
+	h.key("m")
+	h.keys("up", "up")
+	if !b.Marking || b.Index(b.Start) != last-2 || b.Index(b.End) != last {
+		t.Fatalf("live: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
+	}
+	if bar := ansi.Strip(h.m.statusLine(80)); !strings.Contains(bar, str.BrowseMarking()) || !strings.Contains(bar, str.ViewSelected(len(b.Selection()))) {
+		t.Errorf("statusline %q: want marking and the live count", bar)
+	}
+	h.key("m")
+	h.key("up")
+	if b.Marking || b.Index(b.Start) != last-2 {
+		t.Errorf("locked range moved: marking %v, start %d", b.Marking, b.Index(b.Start))
+	}
+}
+
+// Paging stretches it, including a move that waits for older days.
+func TestBrowseLiveRangePagesOlder(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	for d := 21; d <= 24; d++ { // four days; log mode opens with two
+		lines := make([]string, 150)
+		for i := range lines {
+			lines[i] = fmt.Sprintf("day %d line %d", d, i)
+		}
+		h.writeLog(time.Date(2026, 9, d, 8, 0, 0, 0, time.Local), lines...)
+	}
+	h.key("ctrl+l")
+	b := h.br()
+	end := b.Cursor
+	h.key("m")
+	h.key("home") // ToTop: moves again as each older day arrives
+	if !b.HistDone || b.Start != b.Lines[0] || b.End != end {
+		t.Errorf("range %q–%q; want the oldest line to the anchor", b.Start.Entry.Text, b.End.Entry.Text)
+	}
+}
+
+// Click, m, click: the range runs between; a shift-click while marking
+// only moves the end.
+func TestBrowseLiveRangeClicks(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": echoWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.screen()
+	b := h.br()
+	x := h.m.layout().sw + 1 + 10
+	click := func(i int, shift bool) {
+		t.Helper()
+		var mod tea.KeyMod
+		if shift {
+			mod = tea.ModShift
+		}
+		for row, bl := range b.rowLines {
+			if bl == b.Lines[i] {
+				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 2, Button: tea.MouseLeft, Mod: mod})
+				h.screen()
+				return
+			}
+		}
+		t.Fatalf("line %d not on screen", i)
+	}
+	click(1, false)
+	h.key("m")
+	click(4, false)
+	if !b.Marking || b.Index(b.Start) != 1 || b.Index(b.End) != 4 {
+		t.Fatalf("click while marking: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
+	}
+	click(3, true)
+	if b.Excluded[b.Lines[3]] || b.Index(b.End) != 3 {
+		t.Errorf("shift-click while marking: excluded %v, end %d; want just the end moved", b.Excluded[b.Lines[3]], b.Index(b.End))
+	}
+	h.key("m")
+	click(0, false)
+	if b.Index(b.Start) != 0 || b.Index(b.End) != 0 {
+		t.Error("a click after locking should start a new one-line range")
+	}
+}
+
+// Esc ends marking first, then find, then log mode.
+func TestBrowseEscEndsMarkingFirst(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("/")
+	h.typeText("rook")
+	h.key("enter")
+	h.keys("m", "up")
+	h.key("esc")
+	if b.Marking || b.Start != nil || b.Find == "" || h.br() == nil {
+		t.Fatalf("esc: marking %v, start %v, find %q, open %v", b.Marking, b.Start, b.Find, h.br() != nil)
+	}
+	h.key("esc")
+	if b.Find != "" || h.br() == nil {
+		t.Error("second esc should end find and stay in log mode")
+	}
+}
+
+// Ctrl+L away and back keeps a live range live.
+func TestBrowseLiveRangeSurvivesToggle(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.keys("m", "up")
+	h.key("ctrl+l")
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("up")
+	if !b.Marking || b.Index(b.End)-b.Index(b.Start) != 2 {
+		t.Errorf("after toggle: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
+	}
+}
+
+// A live line arriving while the cursor follows the bottom grows the range.
+func TestBrowseLiveRangeFollowsLiveLines(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	b := h.br()
+	h.key("m")
+	anchor := b.Start
+	h.conn("fm/kit").Feed("Brand new line")
+	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Brand new line") })
+	if b.Start != anchor || b.End == nil || b.End.Entry.Text != "Brand new line" {
+		t.Errorf("range %v–%v; want the anchor to the new line", b.Start, b.End)
 	}
 }
