@@ -29,11 +29,13 @@ func (m *Model) sideForced() bool {
 }
 
 // canToggle reports whether the sidebar can collapse or come back now:
-// not while the picker or an editor is up. ‹ and ≡ show only when it can.
-func (m *Model) canToggle() bool { return m.picker == nil }
+// not while it lists the picker, or an editor opened from there. An
+// editor opened from the main view leaves the sidebar as it was, so it
+// can. ‹ and ≡ show only when it can.
+func (m *Model) canToggle() bool { return !m.listing() }
 
 // toggleSidebar collapses the sidebar or brings it back, as Ctrl+B, ‹ and
-// ≡ do; not while the picker or an editor is up. Collapsing while log
+// ≡ do; not while it lists the picker (see canToggle). Collapsing while log
 // mode's panel has focus gives the log focus, or the panel would stay.
 func (m *Model) toggleSidebar() {
 	if !m.canToggle() {

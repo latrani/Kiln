@@ -52,14 +52,15 @@ export function sideShown(s: State): boolean {
 }
 
 // canToggle reports whether the sidebar can collapse or come back now,
-// as the TUI's: not while the picker or an editor is up. ‹ and ≡ show
-// only when it can.
+// as the TUI's: not while it lists the picker, or an editor opened from
+// there. An editor opened from the main view leaves the sidebar as it
+// was, so it can. ‹ and ≡ show only when it can.
 export function canToggle(s: State): boolean {
-  return !s.picker;
+  return !listing(s);
 }
 
 // toggleSidebar is Ctrl+B, ‹ and ≡, as the TUI's: collapses the sidebar
-// or brings it back; not while the picker or an editor is up.
+// or brings it back; not while it lists the picker (see canToggle).
 // Collapsing while log mode's panel has focus gives the log focus.
 // Focus that was on what goes away goes to what replaces it, so the
 // keyboard keeps its place: from the sidebar to ≡, from ≡ to ‹.

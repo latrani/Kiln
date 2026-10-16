@@ -56,12 +56,14 @@ test("toggleSidebar sends the new state; collapsing with the panel focused gives
   assert.equal(s.state.logView["fm/kit"].focus, undefined);
 });
 
-test("‹ and ≡ show only where they'd do something: not while the picker or an editor is up", () => {
+test("‹ and ≡ show only where they'd do something: not while the picker's list is up (#210)", () => {
   const { s } = page({});
   s.openPicker();
   assert.ok(!html(s).includes(`aria-label="${str.webCollapseSidebar()}"`), "no ‹ with the picker up");
   s.closePicker();
   const c = page({ Collapsed: true }).s;
-  c.set({ picker: { filter: "", sel: "", edit: { closeAll: true } as any } }); // an editor from the main view: the sidebar stays collapsed
-  assert.ok(!canToggle(c.state), "an editor up: no toggling, so TopBar draws no ≡");
+  c.set({ picker: { filter: "", sel: "", edit: { closeAll: false } as any } }); // an editor from the picker: its list stays
+  assert.ok(!canToggle(c.state), "an editor from the picker: no toggling");
+  c.set({ picker: { filter: "", sel: "", edit: { closeAll: true } as any } }); // an editor from the main view: the sidebar as it was
+  assert.ok(canToggle(c.state), "an editor from the main view: toggling, so TopBar draws ≡");
 });

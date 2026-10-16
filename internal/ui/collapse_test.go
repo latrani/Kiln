@@ -173,8 +173,8 @@ func TestCollapseReportsWidth(t *testing.T) {
 	}
 }
 
-// ‹ and ≡ show only where they'd do something: not while the picker or
-// an editor is up.
+// ‹ and ≡ show only where they'd do something: not while the picker's
+// list is up. An editor from the main view leaves them (#210).
 func TestToggleHiddenWhileModal(t *testing.T) {
 	h := collapseHarness(t)
 	h.key("ctrl+o") // expanded, the picker up
@@ -183,12 +183,12 @@ func TestToggleHiddenWhileModal(t *testing.T) {
 	}
 	h.key("esc")
 	h.key("ctrl+b")
-	h.key("ctrl+t") // collapsed, an editor up
+	h.key("ctrl+t") // collapsed, an editor from the main view up
 	if h.m.picker == nil {
 		t.Fatal("no editor")
 	}
-	if strings.HasPrefix(topLine(h), glyph.Menu) {
-		t.Errorf("≡ with an editor up: %q", topLine(h))
+	if !strings.HasPrefix(topLine(h), glyph.Menu) {
+		t.Errorf("no ≡ with an editor from the main view up: %q", topLine(h))
 	}
 }
 
@@ -200,5 +200,42 @@ func TestBadgeClick(t *testing.T) {
 	h.click(2, 0) // the ●
 	if h.m.a.SidebarCollapsed() {
 		t.Error("a click on the badge didn't bring the sidebar back")
+	}
+}
+
+// An editor opened from the main view leaves the sidebar as it was, so
+// it collapses and comes back as ever; one opened from the picker's list
+// keeps it, as the list does (#210).
+func TestToggleOverEditor(t *testing.T) {
+	h := collapseHarness(t)
+	h.press('t', tea.ModCtrl)
+	if h.m.picker == nil || h.m.picker.edit == nil {
+		t.Fatalf("no editor:\n%s", h.screen())
+	}
+	if !strings.HasSuffix(strings.TrimRight(screenSide(h, 0), " "), glyph.Collapse) {
+		t.Errorf("no ‹ over the editor: %q", screenSide(h, 0))
+	}
+	h.key("ctrl+b")
+	if !h.m.a.SidebarCollapsed() || h.m.layout().sw != 0 || h.m.picker == nil || h.m.picker.edit == nil {
+		t.Fatalf("ctrl+b over the editor: collapsed %v, sw %d, editor open %v", h.m.a.SidebarCollapsed(), h.m.layout().sw, h.m.picker != nil && h.m.picker.edit != nil)
+	}
+	h.key("ctrl+b")
+	if h.m.a.SidebarCollapsed() || h.m.layout().sw == 0 {
+		t.Error("ctrl+b over the editor didn't bring it back")
+	}
+
+	h.key("esc")
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyUp, 0) // fm's header
+	h.press('t', tea.ModCtrl)
+	if h.m.picker == nil || h.m.picker.edit == nil {
+		t.Fatalf("no editor from the picker:\n%s", h.screen())
+	}
+	h.key("ctrl+b")
+	if h.m.a.SidebarCollapsed() {
+		t.Error("ctrl+b collapsed the picker's list under its editor")
+	}
+	if strings.Contains(screenSide(h, 0), glyph.Collapse) {
+		t.Errorf("‹ over the picker's editor: %q", screenSide(h, 0))
 	}
 }
