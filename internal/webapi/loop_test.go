@@ -1276,3 +1276,11 @@ func TestALandingMovesALiveRange(t *testing.T) {
 		t.Errorf("after find landed on one: %v", lg)
 	}
 }
+
+func TestSidebarAction(t *testing.T) {
+	h := start(t)
+	b := h.act(`{"Do":"sidebar","Shut":true}`)
+	if sb := event(b, "Sidebar"); sb == nil || sb["Collapsed"] != true || !h.a.SidebarCollapsed() {
+		t.Errorf("sidebar shut: %v", b)
+	}
+}

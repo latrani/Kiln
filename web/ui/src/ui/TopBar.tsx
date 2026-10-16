@@ -1,4 +1,5 @@
 import { toggleLog } from "../log.ts";
+import { canToggle, sideShown, toggleSidebar } from "../sidebar.ts";
 import { logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -20,10 +21,30 @@ export function TopBar({ state, store }: { state: State; store: Store }) {
     : [str.viewPresenceUnknown(), "status.presence.unknown"];
   return (
     <header class={`top ${roleClass("status")}`}>
+      {!sideShown(state) && canToggle(state) && <Menu state={state} store={store} />}
       <span class="where">{where}</span>
       {c && <button class={roleClass(role)} onClick={() => state.act?.({ Do: state.presence === away ? "here" : "away" })}>{label}</button>}
       {c && <span>{str.separator()}</span>}
       {c && <button class={roleClass(shows ? "status.log.on" : "status.log")} onClick={() => toggleLog(store)}>{str.viewLogButton()}</button>}
     </header>
+  );
+}
+
+// Menu is the collapsed sidebar's ≡, at the top bar's start, as the
+// TUI's: beside the connections' (not log mode's filters'), the rows'
+// activity summed, as each row shows its own: ● if any has an unread
+// priority line, then their unread counts' total. A click brings the
+// sidebar back. Its name says the activity for screen readers.
+function Menu({ state, store }: { state: State; store: Store }) {
+  const sb = state.sidebar;
+  const badge = !logShows(state, state.active) && sb && sb.Unread > 0;
+  const name = [str.webSidebarMenu(), ...(badge ? [str.webSidebarUnread(sb.Unread), ...(sb.Priority ? [str.webSidebarPriority()] : [])] : [])].join(str.separator());
+  return (
+    <>
+      <button class={`menu ${roleClass("status.menu")}`} aria-expanded="false" aria-label={name} onClick={() => toggleSidebar(store)}>
+        {str.glyph.menu}{badge && <>{" "}{sb.Priority && <span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>}<span class={roleClass("sidebar.unread")}>{sb.Unread}</span></>}
+      </button>
+      <span> </span>
+    </>
   );
 }

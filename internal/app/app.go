@@ -35,6 +35,7 @@ type Deps struct {
 	Password       func(store, world, char string) (string, error)
 	DeletePassword func(store, world, char string) error // nil: passwords can't be forgotten
 	Now            func() time.Time
+	StateFile      string // Kiln's own state between runs (state.json); "": nothing is saved
 }
 
 // Char is one open character. Front ends read its fields; only App
@@ -123,12 +124,14 @@ type App struct {
 	confirm      string                 // an over-limit line Submit refused; Enter on the same text sends it
 	pending      *pendingSave
 
-	focused         bool                    // the front end has focus, as far as we know
-	focusSeen       bool                    // a focus-in or focus-out has arrived, so the front end reports focus
-	lastHere        time.Time               // latest focus-in or input; see Here
-	awayNow         bool                    // set by /away until the next Here
-	hereGen         int                     // bumped by each Here; re-arms "first"
-	notifyOverrides map[string]notify.Level // from /notify, by character key, until Kiln quits
+	focused          bool                    // the front end has focus, as far as we know
+	focusSeen        bool                    // a focus-in or focus-out has arrived, so the front end reports focus
+	lastHere         time.Time               // latest focus-in or input; see Here
+	awayNow          bool                    // set by /away until the next Here
+	hereGen          int                     // bumped by each Here; re-arms "first"
+	notifyOverrides  map[string]notify.Level // from /notify, by character key, until Kiln quits
+	state            state                   // what's in Deps.StateFile
+	sidebarCollapsed bool                    // see SidebarCollapsed
 }
 
 // pendingSave is a password just used, awaiting the answer to "save it?".
@@ -159,6 +162,7 @@ func New(d Deps) *App {
 	a := &App{d: d, chars: map[string]*Char{}, focused: true, lastHere: d.Now(),
 		notifyOverrides: map[string]notify.Level{}}
 	a.idleHist.all = &a.sent
+	a.loadState()
 	return a
 }
 

@@ -111,7 +111,7 @@ func TestFirstTurnSendsEverything(t *testing.T) {
 	open(t, a, "fm/kit")
 	f := New(a)
 	evs := f.Turn(nil)
-	want := []string{"Worlds", "Order", "Char", "Input", "Input", "History", "Presence", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
+	want := []string{"Worlds", "Order", "Char", "Input", "Input", "History", "Presence", "Sidebar", "Active", "Status", "Confirm", "SaveQuestion", "Lines"}
 	if got := kinds(evs); !reflect.DeepEqual(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)
 	}
@@ -231,13 +231,13 @@ func TestOneLineOneChange(t *testing.T) {
 	f.Turn(nil)
 	line(a, "fm/rook", s, "Hello")
 	evs := f.Turn(nil)
-	if got := kinds(evs); !reflect.DeepEqual(got, []string{"Char", "Lines"}) {
+	if got := kinds(evs); !reflect.DeepEqual(got, []string{"Char", "Sidebar", "Lines"}) { // the badge counts it too
 		t.Fatalf("kinds %v", got)
 	}
 	if c := evs[0].(Char); c.Key != "fm/rook" || c.Unread != 1 {
 		t.Errorf("char %+v", c)
 	}
-	if l := evs[1].(Lines); l.Key != "fm/rook" || l.Op != Append || len(l.Lines) != 1 || l.Lines[0].Seq != 0 {
+	if l := evs[2].(Lines); l.Key != "fm/rook" || l.Op != Append || len(l.Lines) != 1 || l.Lines[0].Seq != 0 {
 		t.Errorf("lines %+v", l)
 	}
 }
@@ -579,5 +579,22 @@ func TestLogCarriesTheExportFormat(t *testing.T) {
 	a.OpenLog("fm/kit")
 	if l, _ := find[Log](f.Turn(nil)); l.ExportFormat != "html" {
 		t.Errorf("ExportFormat %q, want html", l.ExportFormat)
+	}
+}
+
+func TestSidebarEvent(t *testing.T) {
+	a, _ := newApp(t)
+	open(t, a, "fm/kit")
+	f := New(a)
+	if sb, ok := find[Sidebar](f.Turn(nil)); !ok || sb.Collapsed || sb.Unread != 0 || sb.Priority {
+		t.Fatalf("first Sidebar = %+v, %v", sb, ok)
+	}
+	a.Char("fm/kit").Unread, a.Char("fm/kit").Priority = 2, true
+	a.SetSidebarCollapsed(true)
+	if sb, ok := find[Sidebar](f.Turn(nil)); !ok || !sb.Collapsed || sb.Unread != 2 || !sb.Priority {
+		t.Errorf("Sidebar = %+v, %v; want collapsed, 2 unread, a priority", sb, ok)
+	}
+	if _, ok := find[Sidebar](f.Turn(nil)); ok {
+		t.Error("Sidebar sent again with nothing changed")
 	}
 }

@@ -26,7 +26,7 @@ const side = (h: string) => h.slice(h.indexOf("<nav"), h.indexOf("</nav>"));
 
 test("each sidebar list is titled: Connections, All connections in the picker, Filters in log mode", () => {
   const { s } = store(false);
-  const title = (role: string, rule: string, label: string) => `<h2 class="stitle ${roleClass(role)}" style="--rule:var(--role-${rule.replaceAll(".", "-")}-fg)">${label}</h2>`;
+  const title = (role: string, rule: string, label: string) => `<div class="stitle ${roleClass(role)}" style="--rule:var(--role-${rule.replaceAll(".", "-")}-fg)"><h2 class="stext">${label}</h2>`;
   assert.ok(side(html(s)).includes(title("sidebar.title", "rule.sidebar", str.viewConnectionsTitle())), "over a rule in the sidebar's color");
   s.openPicker();
   assert.ok(side(html(s)).includes(title("picker.title", "rule.picker", str.pickerTitle())));

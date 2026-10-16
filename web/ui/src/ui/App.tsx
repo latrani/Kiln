@@ -12,6 +12,7 @@ import { BottomPane } from "./BottomPane.tsx";
 import { LogView } from "./LogView.tsx";
 import { Scrollback } from "./Scrollback.tsx";
 import { Sidebar } from "./Sidebar.tsx";
+import { sideShown } from "../sidebar.ts";
 import { Splash } from "./Splash.tsx";
 import { StatusLine } from "./StatusLine.tsx";
 import { TopBar } from "./TopBar.tsx";
@@ -27,9 +28,9 @@ export function App({ store }: { store: Store }) {
     <>
       <style dangerouslySetInnerHTML={{ __html: themeCSS(s.theme ?? recalled) }} />
       {s.phase === "locked" ? <Splash state={s} /> : (
-        <div class="kiln" style={{ "--side": sidebarCSS() }}>
-          <Sidebar state={s} store={store} />
-          <div class="divider" />
+        <div class={sideShown(s) ? "kiln" : "kiln collapsed"} style={{ "--side": sidebarCSS() }}>
+          {sideShown(s) && <Sidebar state={s} store={store} />}
+          {sideShown(s) && <div class="divider" />}
           <TopBar state={s} store={store} />
           {logShows(s, s.active) ? <LogView state={s} store={store} /> : <Scrollback state={s} />}
           <BottomPane state={s} store={store} />

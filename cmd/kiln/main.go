@@ -274,6 +274,7 @@ func tui(cfgDir, dataDir string, cfg *config.Config, noAutoconnect bool) error {
 		NoAutoconnect: noAutoconnect,
 		ConfigDir:     cfgDir,
 		LogRoot:       logRoot,
+		StateFile:     filepath.Join(dataDir, "state.json"), //str:ok
 		KnownHosts:    knownHosts(dataDir),
 		Load:          config.Load,
 		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {

@@ -823,6 +823,12 @@ export function statusRestored(n: number): string {
 /** status.skipped_login: skipped login */
 export function statusSkippedLogin(): string { return `skipped login`; }
 
+/** status.state_not_saved: Kiln's state couldn't be saved: {err} */
+export function statusStateNotSaved(err: unknown): string { return `Kiln's state couldn't be saved: ${e(err)}`; }
+
+/** status.state_unreadable: Kiln's saved state couldn't be read: {err} */
+export function statusStateUnreadable(err: unknown): string { return `Kiln's saved state couldn't be read: ${e(err)}`; }
+
 /** status.theme_not_loaded: theme not loaded: {err} */
 export function statusThemeNotLoaded(err: unknown): string { return `theme not loaded: ${e(err)}`; }
 
@@ -1022,6 +1028,9 @@ export function webCharacters(): string { return `Characters`; }
 /** web.close_char: Close {name} */
 export function webCloseChar(name: unknown): string { return `Close ${name}`; }
 
+/** web.collapse_sidebar: Collapse sidebar */
+export function webCollapseSidebar(): string { return `Collapse sidebar`; }
+
 /** web.copy_refused: the browser didn't allow the copy */
 export function webCopyRefused(): string { return `the browser didn't allow the copy`; }
 
@@ -1079,6 +1088,15 @@ export function webReload(): string { return `Reload`; }
 /** web.reset_failed: failed to wipe · reload and try again */
 export function webResetFailed(): string { return `failed to wipe · reload and try again`; }
 
+/** web.sidebar_menu: Sidebar */
+export function webSidebarMenu(): string { return `Sidebar`; }
+
+/** web.sidebar_priority: priority */
+export function webSidebarPriority(): string { return `priority`; }
+
+/** web.sidebar_unread: {n} unread */
+export function webSidebarUnread(n: number): string { return `${n} unread`; }
+
 /** web.stopped: Kiln stopped. */
 export function webStopped(): string { return `Kiln stopped.`; }
 
@@ -1113,5 +1131,6 @@ export const glyph = {
   choiceNext: "►",
   add: "+",
   menu: "≡",
+  collapse: "‹",
   connecting: "…",
 } as const;

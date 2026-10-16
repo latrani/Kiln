@@ -982,6 +982,16 @@ func StatusRestored(n int) string { return count("status.restored", n, map[strin
 // StatusSkippedLogin is status.skipped_login: "skipped login"
 func StatusSkippedLogin() string { return get("status.skipped_login", nil) }
 
+// StatusStateNotSaved is status.state_not_saved: "Kiln's state couldn't be saved: {err}"
+func StatusStateNotSaved(err error) string {
+	return get("status.state_not_saved", map[string]any{"err": err})
+}
+
+// StatusStateUnreadable is status.state_unreadable: "Kiln's saved state couldn't be read: {err}"
+func StatusStateUnreadable(err error) string {
+	return get("status.state_unreadable", map[string]any{"err": err})
+}
+
 // StatusThemeNotLoaded is status.theme_not_loaded: "theme not loaded: {err}"
 func StatusThemeNotLoaded(err error) string {
 	return get("status.theme_not_loaded", map[string]any{"err": err})
@@ -1229,6 +1239,9 @@ func WebCharacters() string { return get("web.characters", nil) }
 // WebCloseChar is web.close_char: "Close {name}"
 func WebCloseChar(name any) string { return get("web.close_char", map[string]any{"name": name}) }
 
+// WebCollapseSidebar is web.collapse_sidebar: "Collapse sidebar"
+func WebCollapseSidebar() string { return get("web.collapse_sidebar", nil) }
+
 // WebCopyRefused is web.copy_refused: "the browser didn't allow the copy"
 func WebCopyRefused() string { return get("web.copy_refused", nil) }
 
@@ -1287,6 +1300,15 @@ func WebReload() string { return get("web.reload", nil) }
 
 // WebResetFailed is web.reset_failed: "failed to wipe · reload and try again"
 func WebResetFailed() string { return get("web.reset_failed", nil) }
+
+// WebSidebarMenu is web.sidebar_menu: "Sidebar"
+func WebSidebarMenu() string { return get("web.sidebar_menu", nil) }
+
+// WebSidebarPriority is web.sidebar_priority: "priority"
+func WebSidebarPriority() string { return get("web.sidebar_priority", nil) }
+
+// WebSidebarUnread is web.sidebar_unread: "{n} unread"
+func WebSidebarUnread(n int) string { return get("web.sidebar_unread", map[string]any{"n": n}) }
 
 // WebStopped is web.stopped: "Kiln stopped."
 func WebStopped() string { return get("web.stopped", nil) }

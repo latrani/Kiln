@@ -122,6 +122,7 @@ export interface State {
   logView: Record<string, LogView>; // by character
   status?: { Text: string; Err: boolean; Gen: number };
   presence?: number;
+  sidebar?: { Collapsed: boolean; Unread: number; Priority: boolean }; // Go's Sidebar event: the collapsed preference and the badge
   confirm?: boolean;
   history?: HistoryPanel; // the active input's history panel, as Go holds it
   saveQuestion?: any;
@@ -358,6 +359,7 @@ export class Store {
       }
       case "Status": return { ...s, status: { Text: e.Text, Err: e.Err, Gen: e.Gen } };
       case "Presence": return { ...s, presence: e.State };
+      case "Sidebar": return { ...s, sidebar: e as unknown as State["sidebar"] };
       case "Confirm": return { ...s, confirm: e.On };
       case "History": return { ...s, history: e as unknown as HistoryPanel };
       case "SaveQuestion": return { ...s, saveQuestion: e };

@@ -69,7 +69,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
         const now = document.activeElement;
         if (nav.current && !nav.current.contains(now) && !now?.closest(".logbar")) store.setLogView(k, { focus: undefined });
       })}>
-      <SideTitle role="filter.title" rule="rule.filter" label={str.filterTitle()} onPress={() => focusPanel(store)} />
+      <SideTitle role="filter.title" rule="rule.filter" label={str.filterTitle()} onPress={() => focusPanel(store)} collapse={{ role: "filter.collapse", state, store }} />
       <ul>
         {/* One flat keyed list, not an array per entry: Preact matches
             arrays by position, so a row Go adds or drops above the

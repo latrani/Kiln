@@ -63,6 +63,10 @@ func (h *harness) key(s string) tea.Cmd {
 	case "ctrl+c":
 		k = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	default:
+		if c, ok := strings.CutPrefix(s, "ctrl+"); ok && len(c) == 1 { // ctrl+b, ctrl+o, …
+			k = tea.KeyPressMsg{Code: rune(c[0]), Mod: tea.ModCtrl}
+			break
+		}
 		r := []rune(s)[0]
 		k = tea.KeyPressMsg{Code: r, Text: s}
 	}
@@ -963,7 +967,7 @@ func TestLogModeKeptAcrossChipAndCommand(t *testing.T) {
 	h.key("f")
 	b := h.br()
 	l := h.m.layout()
-	_, logc, _ := h.m.topBar(l.rw)
+	_, logc, _, _ := h.m.topBar(l.rw)
 	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + logc[0] + 1, Y: 0, Button: tea.MouseLeft})
 	if h.br() != nil {
 		t.Fatalf("the Log chip should leave log mode:\n%s", h.screen())

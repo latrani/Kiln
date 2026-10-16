@@ -47,6 +47,7 @@ type Deps struct {
 	Remote         bool                                            // over ssh: links can't open on your screen, so a click copies them
 	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
 	Raw            func(seq string) tea.Cmd                        // writes straight to the terminal; default tea.Raw
+	StateFile      string                                          // Kiln's own state between runs; "": nothing is saved
 	Now            func() time.Time
 }
 
@@ -59,7 +60,8 @@ type Model struct {
 	chars       map[string]*charState // the open characters' views, keyed like the core's
 	width       int
 	height      int
-	resizeGen   int      // bumped per WindowSizeMsg; see resizeMsg
+	resizeGen   int      // bumped per pane size change; see resizeMsg
+	pane        [2]int   // the pane size last given the core; see notePane
 	sideTop     int      // first sidebar row shown when it overflows
 	sideShown   string   // active character last scrolled into view
 	quitKey     string   // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
@@ -139,7 +141,8 @@ func New(d Deps, cfg *config.Config) *Model {
 	m.a = app.New(app.Deps{
 		ConfigDir: d.ConfigDir, KnownHosts: d.KnownHosts, SavePassword: d.SavePassword,
 		LogRoot: d.LogRoot, Load: d.Load, DeletePassword: d.DeletePassword, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
-		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
+		Now:       func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
+		StateFile: d.StateFile,
 	})
 	m.applyWith(func() (app.ConfigResult, bool) { return m.a.ApplyConfig(cfg), true })
 	m.shownPresence = m.a.Presence()
@@ -395,6 +398,21 @@ const resizeDebounce = 200 * time.Millisecond
 // message's generation, and only the latest generation reports.
 type resizeMsg int
 
+// notePane gives the core the pane's size when it has changed (the
+// terminal resized, or the sidebar collapsed or showed), and asks for
+// it to be reported once things settle (resizeMsg). Nil when it hasn't.
+func (m *Model) notePane() tea.Cmd {
+	w, h := m.paneSize()
+	if [2]int{w, h} == m.pane {
+		return nil
+	}
+	m.pane = [2]int{w, h}
+	m.a.SetPane(w, h)
+	m.resizeGen++
+	gen := m.resizeGen
+	return tea.Tick(resizeDebounce, func(time.Time) tea.Msg { return resizeMsg(gen) })
+}
+
 // paneSize is the right pane's size, where server text is shown: what
 // NAWS reports. It is 0×0 before the first WindowSizeMsg.
 func (m *Model) paneSize() (w, h int) {
@@ -415,6 +433,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.shownPresence = m.a.Presence()
 	}
 	m.takeLogStatus()
+	if c := m.notePane(); c != nil { // the sidebar collapsed or showed: the pane's width changed with no resize
+		cmd = tea.Batch(cmd, c)
+	}
 	if older := m.pageOlder(); older != nil {
 		cmd = tea.Batch(cmd, older)
 	}
@@ -433,10 +454,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.a.SetPane(m.paneSize())
-		m.resizeGen++
-		gen := m.resizeGen
-		return m, tea.Tick(resizeDebounce, func(time.Time) tea.Msg { return resizeMsg(gen) })
+		return m, m.notePane()
 	case resizeMsg:
 		if int(msg) == m.resizeGen { // the drag has settled
 			m.a.ReportSize()
@@ -644,6 +662,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	logMode := cs != nil && cs.browse != nil // a place you go into and out of: switching keys do nothing there
 	switch k.String() {
+	case toggleSidebarKey:
+		m.toggleSidebar()
+		return nil
 	case "ctrl+up":
 		if !logMode {
 			m.switchBy(-1)
@@ -1000,7 +1021,7 @@ func (m *Model) browseBodyH() int { return max(1, m.height-topH-4) }
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()
 	cs := m.cur()
-	if cs != nil && cs.browse != nil && msg.X > l.sw {
+	if cs != nil && cs.browse != nil && msg.X >= l.rx {
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			return m.run(cs.browse.scrollBy(-m.scrollLines()))
@@ -1027,7 +1048,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if m.overviewing() && msg.X > l.sw && msg.Y >= l.top && msg.Y-l.top < l.sbH {
+	if m.overviewing() && msg.X >= l.rx && msg.Y >= l.top && msg.Y-l.top < l.sbH {
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			m.scrollOverview(-m.scrollLines())
@@ -1036,7 +1057,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if cs == nil || msg.X <= l.sw || msg.Y < l.top || msg.Y-l.top >= l.sbH {
+	if cs == nil || msg.X < l.rx || msg.Y < l.top || msg.Y-l.top >= l.sbH {
 		return nil
 	}
 	switch msg.Button {
@@ -1065,6 +1086,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
+		if msg.Y == 0 && msg.X == l.sw-1 && !m.sideForced() && m.canToggle() { // ‹
+			m.toggleSidebar()
+			return nil
+		}
 		if msg.Y < sideTitleH { // the title: the panel's side, in log mode
 			if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.prompt == promptNone {
 				cs.browse.panelFocus = true
@@ -1112,12 +1137,12 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	if msg.Y < l.top {
 		if msg.Y == 0 {
-			m.topClick(msg.X-l.sw-1, was)
+			m.topClick(msg.X-l.rx, was)
 		}
 		return nil
 	}
 	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 {
-		x := msg.X - l.sw - 1
+		x := msg.X - l.rx
 		in := func(span [2]int) bool { return x >= span[0] && x < span[1] }
 		switch {
 		case in(c.session):
@@ -1153,23 +1178,23 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		cs.sb.ToBottom()
 		return nil
 	}
-	if cs != nil && msg.Y < l.sbH && msg.X > l.sw {
-		if p, ok := cs.sb.At(msg.Y, msg.X-l.sw-1); ok {
+	if cs != nil && msg.Y < l.sbH && msg.X >= l.rx {
+		if p, ok := cs.sb.At(msg.Y, msg.X-l.rx); ok {
 			cs.sb.StartSelect(p) // a drag selects; a click opens a link
 		}
 		return nil
 	}
-	if y := msg.Y - l.sbH - 1; l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+	if y := msg.Y - l.sbH - 1; l.prompt && y >= 0 && y < len(l.inRows) && msg.X >= l.rx {
 		if f := m.shownForm(); f != nil {
-			f.click(msg.X-l.sw-1, l.inTop+y)
+			f.click(msg.X-l.rx, l.inTop+y)
 		}
 		return nil
 	}
-	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X >= l.rx {
 		if y < len(l.hist) {
 			return m.historyClick(l.hist[y])
 		}
-		m.input().StartSelect(msg.X-l.sw-1-gutterWidth, l.inTop+y-len(l.hist)) // past the separator and gutter
+		m.input().StartSelect(msg.X-l.rx-gutterWidth, l.inTop+y-len(l.hist)) // past the separator and gutter
 	}
 	return nil
 }
@@ -1180,10 +1205,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 func (m *Model) handleDrag(msg tea.Mouse) {
 	l := m.layout()
 	msg.Y -= l.top // body rows
-	x := max(0, msg.X-l.sw-1)
+	x := max(0, msg.X-l.rx)
 	if cs := m.cur(); cs != nil && msg.Button == tea.MouseNone {
 		cs.sb.Hover(nil)
-		if msg.X > l.sw && msg.Y < l.sbH && cs.browse == nil {
+		if msg.X >= l.rx && msg.Y < l.sbH && cs.browse == nil {
 			if p, ok := cs.sb.At(msg.Y, x); ok {
 				cs.sb.Hover(&p)
 			}

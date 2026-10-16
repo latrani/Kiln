@@ -451,12 +451,12 @@ func sideRowOf(h *harness, s string) int {
 func TestSidebarTitle(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
-	if got := strings.TrimSpace(screenSide(h, 0)); got != str.ViewConnectionsTitle() {
+	if got := sideTitleText(h); got != str.ViewConnectionsTitle() {
 		t.Errorf("row 0 = %q; want the title", got)
 	}
 	l := h.m.layout()
 	rows := strings.Split(h.m.View().Content, "\n")
-	if !strings.Contains(rows[0], theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw))) {
+	if !strings.Contains(rows[0], theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw-1))) || !strings.Contains(rows[0], theme.Paint(theme.SidebarCollapse, glyph.Collapse)) {
 		t.Errorf("row 0 %q; want the title", rows[0])
 	}
 	if !strings.Contains(rows[1], theme.Paint(theme.RuleSidebar, strings.Repeat(glyph.Rule, l.sw))) {
@@ -485,16 +485,22 @@ func TestSidebarClickUnderTitle(t *testing.T) {
 func TestPickerListTitle(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
 	h.m.openPicker()
-	if got := strings.TrimSpace(screenSide(h, 0)); got != str.PickerTitle() {
+	if got := sideTitleText(h); got != str.PickerTitle() {
 		t.Errorf("row 0 = %q; want the picker's title", got)
 	}
-	if raw := strings.Split(h.m.View().Content, "\n"); !strings.Contains(raw[0], theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) ||
+	if raw := strings.Split(h.m.View().Content, "\n"); !strings.Contains(raw[0], theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) || strings.Contains(raw[0], glyph.Collapse) ||
 		!strings.Contains(raw[1], theme.Paint(theme.RulePicker, strings.Repeat(glyph.Rule, h.m.layout().sw))) {
-		t.Errorf("rows 0-1 %q; want the picker's title and its rule", raw[:2])
+		t.Errorf("rows 0-1 %q; want the picker's title (no ‹: it can't collapse while the picker is up) and its rule", raw[:2])
 	}
 	y := sideRowOf(h, "sp")
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: y, Button: tea.MouseLeft})
 	if h.m.picker.sel != selKey(sidebarRow{kind: rowWorld, world: "sp"}) {
 		t.Errorf("clicked sp's row %d: sel %q", y, h.m.picker.sel)
 	}
+}
+
+// sideTitleText is the sidebar's title row as text, less the ‹ at its
+// right.
+func sideTitleText(h *harness) string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(screenSide(h, 0)), glyph.Collapse))
 }

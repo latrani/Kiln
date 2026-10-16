@@ -58,12 +58,12 @@ func TestTopBarChipsToggle(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	l := h.m.layout()
 	click := func(x int) { h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + x, Y: 0, Button: tea.MouseLeft}) }
-	_, logc, _ := h.m.topBar(l.rw)
+	_, logc, _, _ := h.m.topBar(l.rw)
 	click(logc[0] + 1)
 	if h.br() == nil {
 		t.Fatal("clicking Log should open log mode")
 	}
-	_, logc, _ = h.m.topBar(l.rw)
+	_, logc, _, _ = h.m.topBar(l.rw)
 	click(logc[0] + 1)
 	if h.br() != nil {
 		t.Error("clicking Log in log mode should close it")
@@ -115,7 +115,7 @@ func TestTopBarTooNarrowForChips(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	lw := len(chipText(str.ViewLogButton()))
-	if _, logc, pres := h.m.topBar(lw + 1); logc != [2]int{} || pres != [2]int{} {
+	if _, logc, pres, _ := h.m.topBar(lw + 1); logc != [2]int{} || pres != [2]int{} {
 		t.Errorf("too narrow for any chip: log %v, presence %v", logc, pres)
 	}
 }
@@ -167,11 +167,11 @@ func TestTopBarDropsPresence(t *testing.T) {
 	pw := presenceWidth(str.ViewPresenceUnknown())
 	sw := ansi.StringWidth(str.Separator())
 	w := pw + sw + lw + 2 // room for presence and Log beside a two-column name
-	_, logc, pres := h.m.topBar(w)
+	_, logc, pres, _ := h.m.topBar(w)
 	if pres != [2]int{w - lw - sw - pw, w - lw - sw} || logc != [2]int{w - lw, w} {
 		t.Errorf("topBar(%d): log %v, presence %v; want presence and Log", w, logc, pres)
 	}
-	if _, logc, pres := h.m.topBar(w - 1); pres != [2]int{} || logc != [2]int{w - 1 - lw, w - 1} {
+	if _, logc, pres, _ := h.m.topBar(w - 1); pres != [2]int{} || logc != [2]int{w - 1 - lw, w - 1} {
 		t.Errorf("topBar(%d): log %v, presence %v; want Log alone", w-1, logc, pres)
 	}
 }
@@ -182,7 +182,7 @@ func TestPresenceChipClickTogglesAway(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	l := h.m.layout()
 	click := func() {
-		_, _, pres := h.m.topBar(l.rw)
+		_, _, pres, _ := h.m.topBar(l.rw)
 		h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + pres[0] + 1, Y: 0, Button: tea.MouseLeft})
 	}
 	if h.m.a.Presence() != app.PresenceUnknown {

@@ -21,7 +21,7 @@ func logHarness(t *testing.T) *harness {
 
 func TestLogModePanelAlwaysUp(t *testing.T) {
 	h := logHarness(t)
-	if got := strings.TrimSpace(screenSide(h, 0)); got != str.FilterTitle() {
+	if got := sideTitleText(h); got != str.FilterTitle() {
 		t.Errorf("sidebar title = %q; want the filter panel's", got)
 	}
 	if side := panelSide(h); side[0] != str.FilterUntagged() {

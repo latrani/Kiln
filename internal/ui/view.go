@@ -23,6 +23,7 @@ const (
 
 type layout struct {
 	sw, rw int // sidebar width; right pane width
+	rx     int // the screen column the right pane starts at: past the sidebar and its divider
 	top    int // rows above the body: the top bar and its rule
 	sbH    int // scrollback rows
 	inRows []string
@@ -42,8 +43,12 @@ func SidebarWidth(w int) int {
 }
 
 func (m *Model) layout() layout {
-	l := layout{sw: SidebarWidth(m.width), top: topH}
-	l.rw = max(1, m.width-l.sw-1)
+	l := layout{top: topH}
+	if m.sidebarShown() {
+		l.sw = SidebarWidth(m.width)
+		l.rx = l.sw + 1
+	}
+	l.rw = max(1, m.width-l.rx)
 	if m.overviewing() { // no input box: the overview has the pane down to the statusline
 		l.sbH = max(1, m.height-l.top-2) // top bar and rule; rule + statusline
 		return l
@@ -271,17 +276,19 @@ const topH = 2
 // right, pinned, the presence chip and the Log chip at the far right, a
 // spaced dot between them. It says which columns each chip takes,
 // [from, to); zero when it isn't drawn whole.
-func (m *Model) topBar(w int) (line string, logChip, presenceChip [2]int) {
+func (m *Model) topBar(w int) (line string, logChip, presenceChip, menuChip [2]int) {
 	return m.topBarFor(w, m.shownPresence)
 }
 
 // topBarFor is topBar with the presence chip as it is for p, which
 // decides the chip's width; a click lands on the layout it was made on.
-func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, presenceChip [2]int) {
+func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, presenceChip, menuChip [2]int) {
+	prefix, menuChip := m.menuPrefix()
+	pw := xansi.StringWidth(prefix)
 	cs := m.cur()
 	if cs == nil {
 		world, _ := m.a.ActiveWorld() // "" with nothing open
-		return fitName(world, w), logChip, presenceChip
+		return prefix + fitName(world, w-pw), logChip, presenceChip, menuChip
 	}
 	left := cs.Ch.World + str.Separator() + cs.Ch.Name
 	logRole := theme.StatusLog
@@ -315,8 +322,8 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, presence
 		parts = parts[1:]
 	}
 	start := w - width()
-	if start < 2 { // no room for a chip at all
-		return fitName(left, w), [2]int{}, [2]int{}
+	if start-pw < 2 { // no room for a chip at all
+		return prefix + fitName(left, w-pw), [2]int{}, [2]int{}, menuChip
 	}
 	x := start
 	texts := make([]string, len(parts))
@@ -325,7 +332,7 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, presence
 		*pt.span = [2]int{x, x + xansi.StringWidth(pt.text)}
 		x += xansi.StringWidth(pt.text) + xansi.StringWidth(sep)
 	}
-	return fitName(left, start-1) + " " + strings.Join(texts, sep), logChip, presenceChip
+	return prefix + fitName(left, start-1-pw) + " " + strings.Join(texts, sep), logChip, presenceChip, menuChip
 }
 
 // topClick handles a click at column x of the top bar. was is the
@@ -333,11 +340,15 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, presence
 // presence chip sets Away unless you already were, and then it's the
 // click itself that ended it.
 func (m *Model) topClick(x int, was app.Presence) {
+	_, logc, pres, menu := m.topBarFor(m.layout().rw, was)
+	if x >= menu[0] && x < menu[1] {
+		m.toggleSidebar()
+		return
+	}
 	cs := m.cur()
 	if cs == nil {
 		return
 	}
-	_, logc, pres := m.topBarFor(m.layout().rw, was)
 	switch {
 	case x >= pres[0] && x < pres[1]:
 		if was != app.PresenceAway {
@@ -377,7 +388,7 @@ func (m *Model) View() tea.View {
 	right := make([]string, 0, m.height)
 	cs := m.cur()
 	var cursor *tea.Cursor
-	top, _, _ := m.topBar(l.rw)
+	top, _, _, _ := m.topBar(l.rw)
 	rule := strings.Repeat(glyph.Rule, l.rw)
 	right = append(right, theme.Fill(theme.Status, top, l.rw), theme.Paint(theme.RuleStatus, rule))
 	if cs != nil && cs.browse != nil {
@@ -386,7 +397,7 @@ func (m *Model) View() tea.View {
 		bar, _ := m.statusBar(l.rw)
 		right = append(right, theme.Fill(theme.Status, bar, l.rw))
 		if show {
-			cursor = tea.NewCursor(l.sw+1+x, l.top+y)
+			cursor = tea.NewCursor(l.rx+x, l.top+y)
 		}
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
@@ -424,16 +435,16 @@ func (m *Model) View() tea.View {
 		}
 		bar, _ := m.statusBar(l.rw)
 		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, bar, l.rw))
-		cursor = tea.NewCursor(l.sw+1+l.curCol, l.top+l.sbH+1+l.curRow)
+		cursor = tea.NewCursor(l.rx+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 
-	side, title, titleRole, titleRule := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar
+	side, title, titleRole, titleRule, chev := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar, theme.SidebarCollapse
 	if m.listing() {
-		side, title, titleRole, titleRule = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker
+		side, title, titleRole, titleRule, chev = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker, theme.PickerCollapse
 	}
 	var panel []string
-	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-		side, title, titleRole, titleRule = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter
+	if cs != nil && cs.browse != nil && cs.browse.Panel != nil && l.sw > 0 { // collapsed: nothing to lay out
+		side, title, titleRole, titleRule, chev = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter, theme.FilterCollapse
 		panel = cs.browse.panelView(l.sw, m.height-sideTitleH)
 	}
 	sv := m.sidebarView()
@@ -442,8 +453,18 @@ func (m *Model) View() tea.View {
 		if y > 0 {
 			b.WriteByte('\n')
 		}
+		if l.sw == 0 { // collapsed: the right pane is all there is
+			if y < len(right) {
+				b.WriteString(fit(right[y], l.rw) + style.Reset)
+			}
+			continue
+		}
 		if y < sideTitleH {
-			b.WriteString(theme.Fill(side, sideTitle(y, titleRole, titleRule, title, l.sw), l.sw))
+			if y == 0 && !m.sideForced() && m.canToggle() { // ‹ at the title's right
+				b.WriteString(theme.Fill(side, theme.Paint(titleRole, fit(title, l.sw-1))+theme.Paint(chev, glyph.Collapse), l.sw))
+			} else {
+				b.WriteString(theme.Fill(side, sideTitle(y, titleRole, titleRule, title, l.sw), l.sw))
+			}
 			b.WriteString(theme.Paint(theme.Divider, "│"))
 			b.WriteString(fit(right[y], l.rw) + style.Reset)
 			continue

@@ -22,6 +22,7 @@
 "sidebar.action"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "sidebar.more"         = { fg = "glaze.celadon-mid" }
 "sidebar.title"        = { bold = true }
+"sidebar.collapse"     = { fg = "glaze.celadon-mid" }
 
 "picker"                = { fg = "glaze.kaki-ink" }
 "picker.world"          = { bold = true }
@@ -30,6 +31,7 @@
 "picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
 "picker.error"          = { fg = "red" }
 "picker.title"          = { bold = true }
+"picker.collapse"       = { fg = "glaze.kaki-mid" }
 
 "divider"     = { fg = "glaze.celadon-line" }
 "rule.input"  = { fg = "glaze.gold-line" }
@@ -65,6 +67,7 @@
 "status"           = { fg = "glaze.cobalt-ink" }
 "status.log"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.log.on"    = { reverse = true }
+"status.menu"      = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.history"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.history.on" = { reverse = true }
 "status.scope"      = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
@@ -105,6 +108,7 @@
 "filter.add"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "filter.more"      = { fg = "glaze.celadon-mid" }
 "filter.title"     = { bold = true }
+"filter.collapse"  = { fg = "glaze.celadon-mid" }
 "filter.hints"     = { fg = "glaze.celadon-mid" }
 "filter.hints.away" = { faint = true }
 
