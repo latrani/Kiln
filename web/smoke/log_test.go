@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/coder/websocket"
@@ -266,10 +267,13 @@ func TestLogCursor(t *testing.T) {
 	for i := range many {
 		many[i] = fmt.Sprintf("line %d", i)
 	}
+	many[78] = "Kit waves." // tagged self
 	s := goldenScene(t, nil, func(s *scene) {
 		kilntest.WriteLog(t, logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}, kilntest.LogDay, many...)
 	})
 	logEl := `document.querySelector(".log")`
+	tagsLabel, _, _ := strings.Cut(str.BrowseLineTags("\x00"), "\x00")
+	status := `document.querySelector(".status").textContent`
 	cursor := `(() => { const r = document.querySelector(".lrow .r-log-cursor")?.closest(".lrow"); return r ? [...document.querySelectorAll(".lrow")].indexOf(r) : -1; })()`
 	inView := `(() => { const e = ` + logEl + `, r = document.querySelector(".lrow .r-log-cursor").closest(".lrow"); return r.offsetTop >= e.scrollTop && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; })()`
 	ctrlL(t, s.ws)
@@ -279,8 +283,12 @@ func TestLogCursor(t *testing.T) {
 		devtools(t, s.ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": k, "text": k})
 		devtools(t, s.ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": k})
 	}
+	if got := mustUnquote(t, s.ev(status)); strings.Contains(got, tagsLabel) {
+		t.Errorf("an untagged line's tags in the status line: %q", got)
+	}
 	pressKey(t, s.ws, "ArrowUp", 38)
 	waitFor(t, s.ev, cursor+` === 78`, "↑ moved it up")
+	waitFor(t, s.ev, status+`.includes(`+jsString(tagsLabel)+`) && `+status+`.includes("self")`, "its tags in the status line")
 	letter("k")
 	waitFor(t, s.ev, cursor+` === 77`, "k too")
 	pressKey(t, s.ws, "ArrowDown", 40)

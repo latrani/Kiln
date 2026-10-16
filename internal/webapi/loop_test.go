@@ -1160,9 +1160,13 @@ func TestGotoLands(t *testing.T) {
 
 func TestTagsExportNameAndSay(t *testing.T) {
 	h, seqs := logWith(t, "one", "two")
+	h.act(`{"Do":"say","Text":"news","Err":false}`)
 	b := h.act(fmt.Sprintf(`{"Do":"tags","Key":"fm/kit","Seq":%d}`, seqs[0]))
-	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseNoLineTags() {
-		t.Errorf("tags: %v", st)
+	if lt := event(b, "LineTags"); lt == nil || lt["Seq"] != float64(seqs[0]) || lt["Text"] != "" {
+		t.Errorf("tags: %v", lt)
+	}
+	if st := event(b, "Status"); st != nil {
+		t.Errorf("asking a line's tags isn't acting: the status went to %v", st)
 	}
 	b = h.act(`{"Do":"export_name","Key":"fm/kit","Format":"plain"}`)
 	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseMarkRange() || event(b, "ExportName") != nil {
@@ -1184,9 +1188,9 @@ func TestTagsExportNameAndSay(t *testing.T) {
 // clearLogStatus: it never lingers over how many lines are selected.
 func TestLogStatusIsTheStatusLinesUntilYouActAgain(t *testing.T) {
 	h, seqs := logWith(t, "one", "two")
-	b := h.act(fmt.Sprintf(`{"Do":"tags","Key":"fm/kit","Seq":%d}`, seqs[0]))
-	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseNoLineTags() {
-		t.Fatalf("tags on the status line: %v", types(b))
+	b := h.act(`{"Do":"copy","Key":"fm/kit"}`) // nothing marked: says to mark a range
+	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseMarkRange() {
+		t.Fatalf("copy's message on the status line: %v", types(b))
 	}
 	if lg := event(b, "Log"); lg != nil && lg["Status"] != "" {
 		t.Errorf("still log mode's own: %v", lg["Status"])

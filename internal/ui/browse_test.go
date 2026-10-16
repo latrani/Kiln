@@ -216,23 +216,38 @@ func TestBrowseCopy(t *testing.T) {
 	}
 }
 
-// t says which tags the cursor's line has, and which style each takes.
+// The statusline always says which tags the cursor's line has, and
+// which style each takes, after find and before how many are selected;
+// nothing for a line with none. t no longer does anything.
 func TestBrowseLineTags(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": echoWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.key("t") // Rook yawns.
-	if !strings.Contains(h.screen(), str.BrowseNoLineTags()) {
-		t.Errorf("want no tags:\n%s", h.screen())
+	status := func() string { return rightRow(h, h.m.height-1) }
+	selected := str.ViewSelected(0)
+	if status() != selected { // Rook yawns.
+		t.Errorf("no tags: statusline %q, want %q", status(), selected)
 	}
-	h.keys("up", "up", "t") // Kit grins.
-	if want := str.BrowseLineTags("self"); !strings.Contains(h.screen(), want) {
-		t.Errorf("want %q:\n%s", want, h.screen())
+	h.keys("up", "up") // Kit grins.
+	if want := str.BrowseLineTags("self") + str.Separator() + selected; status() != want {
+		t.Errorf("statusline %q, want %q", status(), want)
 	}
-	h.keys("up", "up", "t") // Mira pages
-	want := str.BrowseLineTags("page" + str.Separator() + str.BrowseTagAs("page/in", "page"))
-	if !strings.Contains(h.screen(), want) {
-		t.Errorf("want %q:\n%s", want, h.screen())
+	h.keys("up", "up") // Mira pages
+	tags := str.BrowseLineTags("page" + str.ListSeparator() + str.BrowseTagAs("page/in", "page"))
+	if want := tags + str.Separator() + selected; status() != want {
+		t.Errorf("statusline %q, want %q", status(), want)
+	}
+	h.key("/")
+	h.typeText("pages")
+	h.key("enter")
+	// Find first; a narrow screen cuts from the right.
+	if want := str.BrowseFindStatus("pages", 1, 1) + str.Separator() + tags + str.Separator() + selected; !strings.HasPrefix(want, strings.TrimSuffix(status(), "…")) {
+		t.Errorf("with find: statusline %q, want %q", status(), want)
+	}
+	h.key("esc")
+	h.key("t")
+	if h.br().Status != "" || status() != tags+str.Separator()+selected {
+		t.Errorf("t should do nothing: statusline %q", status())
 	}
 }
 

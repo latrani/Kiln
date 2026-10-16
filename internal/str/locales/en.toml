@@ -6,6 +6,8 @@
 # Between parts of the statusline, the log header, and a form and its hint;
 # the spaces are part of it.
 separator = " · "
+# Between the items of a list inside one of those parts.
+list_separator = ", "
 
 [session]
 not_connected = "not connected"
@@ -289,11 +291,11 @@ find_status = "find: {find} {i}/{n} · n/N"
 # As find_status, while older history not yet loaded may hold more.
 find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
-hints = "m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back"
-# What t shows: the cursor line's tags, and for one with no style of its
-# own, the tag up its slashes whose style it takes.
+hints = "m mark · space exclude · / find · g date · f filter · e export · c copy · esc back"
+# In the statusline: the cursor line's tags, and for one with no style
+# of its own, the tag up its slashes whose style it takes. Nothing shows
+# for a line with none.
 line_tags = "tags: {tags}"
-no_line_tags = "no tags on this line"
 tag_as = "{tag} (styled as {styled})"
 tag_unstyled = "{tag} (unstyled)"
 
@@ -424,7 +426,7 @@ filter = "Filter"
 
 # Log mode's keys (web): the mouse selects lines, as the spec has it, in
 # place of the TUI's m and space; the letters are the TUI's.
-log_hints = "click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back"
+log_hints = "click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back"
 # A character's name in the sidebar, for screen readers, when lines have
 # come you haven't read; and when one of them is a priority (the ● the
 # sidebar shows: a page, a whisper, whatever the priority tags flag).

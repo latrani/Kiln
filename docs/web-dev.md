@@ -10,13 +10,14 @@ Enter with nothing open. Edit a world or character from the picker
 `/edit` and `/edit world`. In the editor Enter saves, Esc cancels, and
 Ctrl+T or Alt+T hides it, keeping the edits.
 Ctrl+L or the `Log` chip opens log mode for the character showing (and
-hides it again, as it was). ↑/↓ or `j`/`k` move the cursor (the time
+hides it again, as it was); the status line shows find's count, the
+cursor line's tags and how many lines are selected. ↑/↓ or `j`/`k` move the cursor (the time
 in a different color), which starts on the newest line and rides along
 when you scroll. Select lines with the mouse: a click takes
 a line (the cursor going to it), Shift+click extends the range, dragging selects a run. While
 the log has focus, `/` finds and `n`/`N` step through matches until Esc
 turns find off, `g` goes
-to a day and time (starting from the cursor's), `t` shows a line's tags, `c` copies and `e` exports (a
+to a day and time (starting from the cursor's), `c` copies and `e` exports (a
 download). `f` (or the `Filter` chip) opens the filter panel in the
 sidebar: ↑/↓ move, `h` hides and `o` shows only an entry, ←/→ fold a
 group (Space or Enter toggles it), Enter on `+ Text` filters by a text, `x` removes one, Esc closes

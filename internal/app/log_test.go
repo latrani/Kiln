@@ -344,10 +344,10 @@ func TestLineTagsSaysWhoseStyleEachTakes(t *testing.T) {
 		}
 		return "", false
 	}
-	if got := LineTags(nil, styled); got != str.BrowseNoLineTags() {
+	if got := LineTags(nil, styled); got != "" {
 		t.Errorf("no tags: %q", got)
 	}
-	want := str.BrowseLineTags(strings.Join([]string{"page", str.BrowseTagAs("page/ooc", "page"), str.BrowseTagUnstyled("x")}, str.Separator()))
+	want := str.BrowseLineTags(strings.Join([]string{"page", str.BrowseTagAs("page/ooc", "page"), str.BrowseTagUnstyled("x")}, str.ListSeparator()))
 	if got := LineTags([]string{"page", "page/ooc", "x"}, styled); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

@@ -89,6 +89,13 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     if (was.k !== k || was.goN === v.goN || v.at === undefined) return;
     el.current?.querySelector(`[data-seq="${v.at}"]`)?.scrollIntoView({ block: "center" });
   });
+  // The status line says the cursor line's tags: Go's to say, as it
+  // knows which style each takes. Asked again when the line changes
+  // (rules reloaded).
+  const cursorLine = lines.find((l) => l.Seq === cursor);
+  useEffect(() => {
+    if (cursor !== undefined) act({ Do: "tags", Key: k, Seq: cursor });
+  }, [k, cursor, cursorLine]);
   // A key moved the cursor: it comes into view, as the TUI's.
   useLayoutEffect(() => {
     if (!v.follow) return;

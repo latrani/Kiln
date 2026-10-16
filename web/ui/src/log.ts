@@ -96,11 +96,11 @@ export function dragCursor(rows: { seq: number; top: number; height: number }[],
 }
 
 // LogKey is what a key does in log mode.
-export type LogKey = "up" | "down" | "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "tags" | "back";
+export type LogKey = "up" | "down" | "find" | "older" | "newer" | "date" | "filter" | "export" | "copy" | "back";
 
 const letters: Record<string, LogKey> = {
   ArrowUp: "up", k: "up", ArrowDown: "down", j: "down",
-  "/": "find", n: "older", N: "newer", g: "date", f: "filter", e: "export", c: "copy", t: "tags", Escape: "back",
+  "/": "find", n: "older", N: "newer", g: "date", f: "filter", e: "export", c: "copy", Escape: "back",
 };
 
 // logKey is a key in log mode, as the TUI's browseKeys: ↑/↓ and j/k move
@@ -136,8 +136,7 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
 // move the cursor a shown line (up from the oldest asks for older
 // history); a prompt for find, go-to (starting from the cursor's day and
 // time) or export's format; n and N step
-// find from the cursor; c copies; t says the cursor line's tags; f
-// opens or closes the filter panel; Esc stops a search, else closes the
+// find from the cursor; c copies; f opens or closes the filter panel; Esc stops a search, else closes the
 // panel, else turns find off, else closes log mode.
 export function logAct(store: Store, does: LogKey): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
@@ -170,7 +169,6 @@ export function logAct(store: Store, does: LogKey): void {
     case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
-    case "tags": if (here >= 0) act({ Do: "tags", Key: k, Seq: here }); break;
     case "filter": togglePanel(store); break;
     case "back": // one thing at a time: a search, the panel, find, then log mode
       if (g.Searching) act({ Do: "stop_search", Key: k });

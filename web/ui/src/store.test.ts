@@ -385,7 +385,7 @@ const logged = (log: object = {}) => {
   return { s, sent };
 };
 
-test("the cursor: the newest line at first; a click, find landing or ↑/↓ moves it; t and n go from it", () => {
+test("the cursor: the newest line at first; a click, find landing or ↑/↓ moves it; n goes from it", () => {
   const { s, sent } = logged({ Find: "l" });
   const cur = () => cursorOf(s.state.logs["fm/kit"] as LogState, s.state.logView["fm/kit"], s.state.logLines["fm/kit"].lines);
   assert.equal(cur(), 3, "the newest line, as the TUI's");
@@ -394,8 +394,6 @@ test("the cursor: the newest line at first; a click, find landing or ↑/↓ mov
   logClick(s, 3, {});
   assert.deepEqual(sent.at(-1), { Do: "range", Key: "fm/kit", Start: 3, End: 3 });
   assert.equal(cur(), 3, "the line clicked");
-  logAct(s, "tags");
-  assert.deepEqual(sent.at(-1), { Do: "tags", Key: "fm/kit", Seq: 3 });
   logAct(s, "older");
   assert.deepEqual(sent.at(-1), { Do: "find_older", Key: "fm/kit", Seq: 3 });
   logAct(s, "up");
@@ -409,6 +407,14 @@ test("the cursor: the newest line at first; a click, find landing or ↑/↓ mov
   logAct(s, "up");
   assert.equal(cur(), 1, "↑ stops at the oldest loaded");
   assert.deepEqual(sent.slice(n), [{ Do: "log_older", Key: "fm/kit" }], "and asks for older history");
+});
+
+test("LineTags is kept for the status line; closing log mode drops it", () => {
+  const { s } = logged();
+  s.apply([{ type: "LineTags", Key: "fm/kit", Seq: 2, Text: str.browseLineTags("x") }]);
+  assert.deepEqual(s.state.logView["fm/kit"].tags, { seq: 2, text: str.browseLineTags("x") });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: false }]);
+  assert.equal(s.state.logView["fm/kit"], undefined);
 });
 
 test("g starts go-to at the cursor's day and time, to edit", () => {

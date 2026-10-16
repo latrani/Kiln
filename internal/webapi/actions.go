@@ -303,8 +303,8 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		if g == nil {
 			return nil, nil, true
 		}
-		if act.Do != "log_older" { //str:ok
-			l.clearLogStatus() // you've acted again (scrolling to older history isn't acting)
+		if act.Do != "log_older" && act.Do != "tags" { //str:ok
+			l.clearLogStatus() // you've acted again (scrolling to older history, or the page asking the cursor line's tags, isn't acting)
 		}
 	default:
 		return nil, nil, false
@@ -345,7 +345,7 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 			if hl := l.lk.highlighter(act.Key); hl != nil {
 				styled = hl.Styled
 			}
-			g.SetStatus(false, app.LineTags(ln.Tags, styled))
+			extra = append(extra, LineTags{Key: act.Key, Seq: act.Seq, Text: app.LineTags(ln.Tags, styled)})
 		}
 	case "export_name": //str:ok
 		if g.ExportReady() {
