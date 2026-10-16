@@ -87,6 +87,7 @@ const (
 	Log         Role = "log"
 	LogTime     Role = "log.time"
 	LogCursor   Role = "log.cursor"
+	LogAway     Role = "log.cursor.away" // the ▲/▼ by the time while the cursor is scrolled out of view
 	LogSelected Role = "log.selected"
 	LogExcluded Role = "log.excluded"
 	LogFind     Role = "log.find"
@@ -118,7 +119,7 @@ var Roles = []Role{
 	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,
 	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusHistory, StatusHistoryOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
-	Log, LogTime, LogCursor, LogSelected, LogExcluded,
+	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,
 	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore,
 	Export,

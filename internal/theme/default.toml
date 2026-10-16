@@ -82,6 +82,7 @@
 
 "log.time"           = { faint = true }
 "log.cursor"         = { reverse = true }
+"log.cursor.away"    = { reverse = true }
 "log.find"           = { reverse = true }
 "log.day"            = { faint = true }
 "log.loading"        = { faint = true }

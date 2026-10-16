@@ -17,6 +17,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/kilntest"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -1470,5 +1471,58 @@ func TestBrowseWheelLeavesALiveRange(t *testing.T) {
 	h.screen()
 	if b.Index(b.Cursor) != 74 || !slices.Contains(b.rowLines, b.Cursor) || b.Index(b.Start) != 74 {
 		t.Errorf("up after scrolling: cursor %d in view %v, start %d", b.Index(b.Cursor), slices.Contains(b.rowLines, b.Cursor), b.Index(b.Start))
+	}
+}
+
+// With the cursor scrolled out of view (only while marking), an arrow
+// beside the time of the line nearest it, at the top or bottom of the
+// body, says which way it is.
+func TestBrowseArrowPointsToAnOffscreenCursor(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	wheel := func(button tea.MouseButton, n int) {
+		for range n {
+			h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: button}))
+		}
+		h.screen()
+	}
+	body := func() []string {
+		rows := strings.Split(h.screen(), "\n")
+		return rows[l.top : l.top+len(b.rowLines)]
+	}
+	lineRow := func(rows []string, first bool) string { // the first or last row that starts a line
+		for i := range rows {
+			j := i
+			if !first {
+				j = len(rows) - 1 - i
+			}
+			if bl := b.rowLines[j]; bl != nil && (j == 0 || b.rowLines[j-1] != bl) {
+				return rows[j]
+			}
+		}
+		t.Fatal("no line on screen")
+		return ""
+	}
+	h.screen()
+	if s := strings.Join(body(), "\n"); strings.Contains(s, glyph.CursorAbove) || strings.Contains(s, glyph.CursorBelow) {
+		t.Fatalf("an arrow with the cursor in view:\n%s", s)
+	}
+	h.keys("m", "up")
+	wheel(tea.MouseWheelUp, 30)
+	if row := lineRow(body(), false); !strings.Contains(row, glyph.CursorBelow) {
+		t.Errorf("cursor below the view: last line %q, want %s by its time", row, glyph.CursorBelow)
+	}
+	wheel(tea.MouseWheelDown, 30)
+	h.keys("home")
+	wheel(tea.MouseWheelDown, 30)
+	if row := lineRow(body(), true); !strings.Contains(row, glyph.CursorAbove) {
+		t.Errorf("cursor above the view: first line %q, want %s by its time", row, glyph.CursorAbove)
 	}
 }

@@ -80,4 +80,6 @@ var exportFormatKeys = map[string]string{"p": "plain", "a": "ansi", "h": "html"}
 const (
 	glyphSelected = glyph.Selected
 	glyphExcluded = glyph.Excluded
+	glyphAbove    = glyph.CursorAbove
+	glyphBelow    = glyph.CursorBelow
 )

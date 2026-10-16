@@ -76,7 +76,9 @@ lose their `End == nil` cases.
 The wheel doesn't move a live range (changed after trying it): while
 marking, scrolling leaves the cursor where it is, out of view if need
 be, so looking around never shrinks the range or forgets exclusions.
-The next cursor move brings the view back to it.
+The next cursor move brings the view back to it. While it's out of
+view, a ▲ (or ▼) takes the space after the time of the first (or last)
+line drawn, in a new role, `log.cursor.away` (reverse, as the cursor).
 
 `browse.SetCursor` and `MoveCursor`, and every other place the cursor
 moves, call `MarkTo` while marking. One hook in `SetCursor` covers them

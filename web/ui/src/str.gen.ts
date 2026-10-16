@@ -1061,6 +1061,8 @@ export const glyph = {
   remove: "×",
   selected: "▌",
   excluded: "░",
+  cursorAbove: "▲",
+  cursorBelow: "▼",
   priority: "●",
   choicePrev: "◄",
   choiceNext: "►",

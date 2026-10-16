@@ -16,8 +16,9 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// browsePrefixW is the width of "HH:MM" + space + gutter + space.
-const browsePrefixW = 8
+// browsePrefixW is the width of "HH:MM" + space + gutter + space;
+// browseTimeW, of the time.
+const browsePrefixW, browseTimeW = 8, 5
 
 type promptKind int
 
@@ -318,6 +319,11 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 	b.top = v[min(ti, b.bottomTop(v, rows, h))]
 }
 
+// awayArrow puts arrow in the space after the time that starts row.
+func awayArrow(row, arrow string) string {
+	return xansi.Cut(row, 0, browseTimeW) + theme.Paint(theme.LogAway, arrow) + xansi.Cut(row, browseTimeW+1, xansi.StringWidth(row))
+}
+
 // bottomTop is the earliest top line that still fits everything through
 // the newest line in h rows: a later one would leave rows blank below it.
 func (b *browse) bottomTop(v []*app.LogLine, rows func(i, top int) int, h int) int {
@@ -351,6 +357,8 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		rows = append(rows, theme.Paint(theme.LogLoading, str.BrowseLoading()))
 		b.rowLines = append(b.rowLines, nil)
 	}
+	ci := slices.Index(v, b.Cursor)
+	firstRow, lastRow, lastI := -1, -1, -1 // the rows starting the first and last lines drawn, and the last's index
 	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
 		if i == max(0, start) || v[i-1].Day != l.Day { // the top line's day always shows, so the date stays in sight
@@ -381,6 +389,11 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			prefix := ts + " " + gutter + " "
 			if j > 0 {
 				prefix = "      " + gutter + " "
+			} else {
+				if firstRow < 0 {
+					firstRow = len(rows)
+				}
+				lastRow, lastI = len(rows), i
 			}
 			rows = append(rows, prefix+row)
 			b.rowLines = append(b.rowLines, l)
@@ -388,6 +401,14 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 				break
 			}
 		}
+	}
+	// A cursor scrolled out of view (while marking: see scrollToCursor)
+	// gets an arrow by the time of the line nearest it.
+	switch {
+	case ci >= 0 && ci < start && firstRow >= 0:
+		rows[firstRow] = awayArrow(rows[firstRow], glyphAbove)
+	case ci > lastI && lastRow >= 0:
+		rows[lastRow] = awayArrow(rows[lastRow], glyphBelow)
 	}
 	// Too few lines to fill the body sit at its bottom, newest last, as
 	// in the scrollback; "no logs yet" stays at the top.

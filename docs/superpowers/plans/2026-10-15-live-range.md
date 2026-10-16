@@ -488,7 +488,7 @@ git commit -m "Log mode: a live range follows the cursor, clicks included (#191)
 
 **Changed after Task 2 (Indi tried it):** a click while marking is a sticky shift-click. Inside the range: `exclude`, cursor unchanged. Outside: `grow` (core `GrowTo`), then the cursor moves to the line (which sends `mark_to`, a no-op after `grow`). This replaces the "a click while marking only moves the end" steps below.
 
-**Also changed after Task 2:** while marking, the wheel no longer drags the cursor (TUI: `scrollToCursor` keeps the view and `scrolled` until `SetCursor`). On the web, `LogView.onScroll` skips `dragCursor` while `g.Marking`; test it in `LogView.test.tsx` or `log.test.ts` (a scroll while marking sends no `mark_to`). The web `log_hints` and docs say paging doesn't stretch the range there.
+**Also changed after Task 2:** while marking, the wheel no longer drags the cursor (TUI: `scrollToCursor` keeps the view and `scrolled` until `SetCursor`). On the web, `LogView.onScroll` skips `dragCursor` while `g.Marking`; test it in `LogView.test.tsx` or `log.test.ts` (a scroll while marking sends no `mark_to`). The web `log_hints` and docs say paging doesn't stretch the range there. The web draws the ▲/▼ too (glyph.CursorAbove/Below, role `log.cursor.away`), by the time of the first/last line in view while the cursor is out of it.
 
 - [ ] **Step 1: Go side, failing test** in `internal/webapi/loop_test.go`, after the existing `mark`/`mark` pair (~line 397), make it a live range and check it:
 
