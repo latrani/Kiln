@@ -25,7 +25,8 @@ interface Keyish {
 // keys: Ctrl+↑/↓ steps through the sidebar's worlds and characters,
 // Alt+↓/↑ goes to the next or previous character with unread lines (Tab
 // in the TUI; on the web Tab moves focus). Kiln's core decides where.
-export function switchAction(e: Keyish): object | undefined {
+export function switchAction(e: Keyish, logMode = false): object | undefined {
+  if (logMode) return undefined; // a place you go into and out of: switching does nothing there
   if (e.shiftKey || e.metaKey || e.ctrlKey === e.altKey) return undefined;
   const dir = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
   if (!dir) return undefined;
@@ -36,11 +37,11 @@ export function switchAction(e: Keyish): object | undefined {
 // or click is you here (at most once a second); the window gaining or
 // losing focus is focus; the switching keys switch; and the scrollback's
 // size in characters goes to the MUCK, settled for 200ms first.
-export function watch(act: (o: object) => void, pane: HTMLElement, size: () => { cols: number; rows: number }): void {
+export function watch(act: (o: object) => void, pane: HTMLElement, size: () => { cols: number; rows: number }, logMode: () => boolean = () => false): void {
   const here = throttle(() => act({ Do: "here" }), 1000);
   addEventListener("keydown", (e) => {
     here();
-    const a = switchAction(e);
+    const a = switchAction(e, logMode());
     if (a) {
       e.preventDefault();
       act(a);

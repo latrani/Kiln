@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
+import { filterKey, panelAct } from "../filter.ts";
+import { panelOnlyKeys } from "./FilterPanel.tsx";
 import { cursorOf, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, scrolled, segments, syncCursor, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
@@ -136,14 +138,22 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   };
   const onKeyDown = (e: KeyboardEvent) => {
     const does = logKey(e);
-    if (!does) return;
-    e.preventDefault();
-    logAct(store, does);
+    if (does) {
+      e.preventDefault();
+      logAct(store, does);
+      return;
+    }
+    const p = filterKey(e); // the filter panel's own keys reach it from here too
+    if (p && panelOnlyKeys.has(p)) {
+      e.preventDefault();
+      panelAct(store, p);
+    }
   };
 
   return (
     <main class="body">
-      <div class="log" ref={el} tabindex={0} role="region" aria-label={str.webLog()} onScroll={onScroll} onClick={onClick} onKeyDown={onKeyDown}>
+      <div class="log" ref={el} tabindex={0} role="region" aria-label={str.webLog()} onScroll={onScroll} onClick={onClick} onKeyDown={onKeyDown}
+        onFocusIn={() => { if (state.logView[k]?.focus) store.setLogView(k, { focus: undefined }); }}>
         {g.Loading && <div class={roleClass("log.loading")}>{str.browseLoading()}</div>}
         {!lines.length && g.HistDone && <div class={roleClass("log.loading")}>{str.browseNoLogs()}</div>}
         {logRows(lines, g).map((r) => {

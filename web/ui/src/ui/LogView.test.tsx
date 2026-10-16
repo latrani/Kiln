@@ -162,15 +162,14 @@ test("Esc stops a search reading older days, then turns find off, then closes lo
   assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "find", value: "x" }, "/ starts with the last term");
 });
 
-test("with the panel open: the panel's hints; the filter prompt's label and field", () => {
-  assert.ok(bottom(pageWith({}, { panel: { sel: "+" } })).includes(str.filterHints()));
+test("with the panel focused: only the log keys that reach it; the filter prompt's label and field", () => {
+  assert.ok(bottom(pageWith({}, { panel: { sel: "+" }, focus: "panel" })).includes(str.browseHintsNoneAway()));
   assert.match(bottom(pageWith({}, { panel: { sel: "+" }, prompt: { kind: "filter", value: "y" } })), new RegExp(`<label[^>]*>${str.filterPrompt()}</label><input[^>]*value="y"`));
 });
 
-test("the Filter chip, between presence and Log in log mode, lit while the panel's open", () => {
+test("in log mode the top bar has presence then Log, lit", () => {
   const top = (html: string) => html.slice(html.indexOf("<header"), html.indexOf("</header>"));
-  assert.match(top(pageWith({})), new RegExp(`<button class="${roleClass("status.filter")}"[^>]*>${str.viewFilterButton()}</button><span>${str.separator()}</span><button class="${roleClass("status.log.on")}"`));
-  assert.match(top(pageWith({}, { panel: { sel: "+" } })), new RegExp(`<button class="${roleClass("status.filter.on")}"`));
+  assert.match(top(pageWith({})), new RegExp(`</button><span>${str.separator()}</span><button class="${roleClass("status.log.on")}"`));
 });
 
 test("Enter in the filter prompt adds the text, which becomes the highlight; Esc goes back to the panel", () => {

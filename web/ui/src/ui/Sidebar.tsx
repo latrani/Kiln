@@ -4,6 +4,7 @@ import type { PickRow } from "../picker.ts";
 import { sidebarRows } from "../sidebar.ts";
 import { listing, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
+import { titled } from "../layout.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { FilterPanel } from "./FilterPanel.tsx";
@@ -18,14 +19,15 @@ const connecting = 1, connected = 2;
 // name, cut with … when too long, and its unread count, after ● when a
 // line was a priority. The active row is lit across. Last, after a gap,
 // "+ Connection" opens the picker. With the picker open, it's the
-// picker's list instead; in log mode with the filter panel open (f), the
-// panel.
+// picker's list instead; in log mode, the filter panel. Each is titled,
+// as the TUI's.
 export function Sidebar({ state, store }: { state: State; store: Store }) {
-  if (logShows(state, state.active) && state.logView[state.active]?.panel) return <FilterPanel state={state} store={store} />;
+  if (logShows(state, state.active)) return <FilterPanel state={state} store={store} />;
   if (listing(state)) return <PickerList state={state} store={store} />;
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (
     <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>
+      <h2 class={`stitle ${roleClass("sidebar.title")}`}>{titled(str.viewConnectionsTitle())}</h2>
       <ul>
         {sidebarRows(state.order, state.chars).map((r) => {
           if (r.kind === "gap") return <li key="gap" aria-hidden="true"> </li>;
@@ -88,6 +90,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   }, [p.sel]);
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
+      <h2 class={`stitle ${roleClass("picker.title")}`}>{titled(str.pickerTitle())}</h2>
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen

@@ -66,8 +66,9 @@ export type Prompt = { kind: "find" | "date" | "filename" | "filter"; value: str
 // LogView is the page's side of a character's log mode: hidden by Ctrl+L
 // (kept as it was), its prompt, the line find or go-to-date last landed
 // on (at; goN counts landings, so each moves the view once), the cursor
-// (see cursorOf; follow: scroll it into view on the next draw), and the
-// filter panel, open with its highlight.
+// (see cursorOf; follow: scroll it into view on the next draw), the
+// filter panel's highlight (none yet: its first entry), and which side has
+// focus (focus: the panel; none: the log, or nothing).
 export interface LogView {
   hidden?: boolean;
   prompt?: Prompt;
@@ -76,7 +77,8 @@ export interface LogView {
   cursor?: number;
   follow?: boolean;
   tags?: { seq: number; text: string }; // Go's word on a line's tags (LineTags), for the status line while it's the cursor's
-  panel?: { sel: string; follow?: boolean }; // the filter panel, open, and its highlight (filter.ts)
+  panel?: { sel: string; follow?: boolean }; // the filter panel's highlight (filter.ts); the panel's always there in log mode
+  focus?: "panel"; // the panel has focus: its keys and footer; else the log's
   away?: { seq: number; dir: "above" | "below" }; // while selecting, the cursor scrolled out of view: which way, by which line (log.ts scrolled)
 }
 

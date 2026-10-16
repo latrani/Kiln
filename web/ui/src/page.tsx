@@ -9,6 +9,7 @@ import { toggleLog } from "./log.ts";
 import { show } from "./notify.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
+import { logShows } from "./store.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import { App } from "./ui/App.tsx";
@@ -94,6 +95,6 @@ export function mount(store: Store): void {
     stop();
     // Measured inside the scroller: its text box, less any scrollbar.
     const main = document.querySelector("main")!;
-    watch(act, main, () => paneSize(main.querySelector<HTMLElement>(".scroll") ?? main));
+    watch(act, main, () => paneSize(main.querySelector<HTMLElement>(".scroll") ?? main), () => logShows(store.state, store.state.active));
   });
 }

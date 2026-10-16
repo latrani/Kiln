@@ -26,3 +26,8 @@ export function paneSize(el: HTMLElement): { cols: number; rows: number } {
   if (!width || !height) return { cols: 0, rows: 0 };
   return { cols: Math.floor(el.clientWidth / width), rows: Math.floor(el.clientHeight / height) };
 }
+
+// titled pads a sidebar title past the widest the column gets, so its
+// underline runs across the column as the TUI's does (the column clips
+// the rest).
+export function titled(label: string): string { return label + " ".repeat(22); }

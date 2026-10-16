@@ -1,6 +1,10 @@
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { filterKey, fixSel, glyphClick, panelAct, panelClick, panelRows } from "../filter.ts";
+import type { PanelKey } from "../filter.ts";
+import { logAct, logKey } from "../log.ts";
+import type { LogKey } from "../log.ts";
 import type { State, Store } from "../store.ts";
+import { titled } from "../layout.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
@@ -12,10 +16,14 @@ import { roleClass } from "../theme.ts";
 // button, named by the entry too, as it's the TUI's fold control. The
 // highlight is the
 // roving focus: ↑/↓ move it, and only its entry's controls are in the
-// tab order. Its keys work while it has focus (filter.ts).
+// tab order. Its keys work while it has focus (filter.ts), and so do the
+// log's that the panel doesn't share (s, /, g, c, e, n, N). Under a
+// title; at the bottom its footer: its keys while it has focus, those
+// that reach it from the log while that has, as the TUI's.
 export function FilterPanel({ state, store }: { state: State; store: Store }) {
   const k = state.active;
-  const p = state.logView[k]!.panel!;
+  const v = state.logView[k];
+  const p = v?.panel ?? { sel: "" }; // first entry until one's highlighted
   const rows = panelRows(state.filters[k]?.Entries ?? []);
   const sel = fixSel(rows, p.sel);
   const nav = useRef<HTMLElement>(null);
@@ -30,7 +38,14 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
 
   const onKeyDown = (e: KeyboardEvent) => {
     const does = filterKey(e);
-    if (!does) return;
+    if (!does) {
+      const l = logKey(e); // the log's own keys reach it from here too
+      if (l && !sharedLogKeys.has(l)) {
+        e.preventDefault();
+        logAct(store, l);
+      }
+      return;
+    }
     // Enter or Space on Hide, Only or a fold glyph presses it, as a
     // button's does; they're the panel's only on its highlighted row.
     if ((does === "enter" || does === "toggle") && !(e.target as HTMLElement).classList.contains("fsel")) return;
@@ -39,7 +54,10 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   };
 
   return (
-    <nav ref={nav} class={`side filter-panel ${roleClass("filter")}`} aria-label={str.webFilter()} onKeyDown={onKeyDown}>
+    <nav ref={nav} class={`side filter-panel ${roleClass("filter")}`} aria-label={str.webFilter()} onKeyDown={onKeyDown}
+      onFocusIn={() => { if (v?.focus !== "panel") store.setLogView(k, { focus: "panel" }); }}
+      onFocusOut={(e) => { if (!nav.current?.contains(e.relatedTarget as Node)) store.setLogView(k, { focus: undefined }); }}>
+      <h2 class={`stitle ${roleClass("filter.title")}`}>{titled(str.filterTitle())}</h2>
       <ul>
         {/* One flat keyed list, not an array per entry: Preact matches
             arrays by position, so a row Go adds or drops above the
@@ -89,6 +107,17 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
           ];
         })}
       </ul>
+      <div class={`ffoot ${roleClass("filter.hints")}`}>
+        {(v?.focus === "panel" ? str.filterHints() : str.filterHintsAway()).split(str.separator()).map((h, i) => <span key={i}>{i > 0 && str.separator()}{h}</span>)}
+      </div>
     </nav>
   );
 }
+
+// sharedLogKeys are the log's keys the panel has its own use for: from
+// the panel they're the panel's.
+const sharedLogKeys = new Set<LogKey>(["up", "down", "exclude", "back"]);
+
+// panelOnlyKeys are the panel's keys the log doesn't use: they work from
+// the log too.
+export const panelOnlyKeys = new Set<PanelKey>(["hide", "only", "shut", "open", "remove"]);

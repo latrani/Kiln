@@ -67,22 +67,19 @@ export function filterKey(e: { key: string; ctrlKey: boolean; altKey: boolean; m
   return panelKeys[e.key];
 }
 
-// togglePanel is f, or the Filter chip, as the TUI's togglePanel: the
-// panel opens on its first entry, focus going to it, or closes. Only in
-// log mode, with no prompt open.
-export function togglePanel(store: Store): void {
+// focusPanel is f in the log, as the TUI's: focus goes to the panel's
+// highlight. Only in log mode.
+export function focusPanel(store: Store): void {
   const s = store.state, k = s.active;
-  if (!logShows(s, k) || s.logView[k]?.prompt) return; // a prompt open keeps the clicks, as the TUI's topClick
-  if (s.logView[k]?.panel) {
-    closePanel(store);
-    return;
-  }
-  store.setLogView(k, { panel: { sel: panelRows(s.filters[k]?.Entries ?? [])[0].key, follow: true } });
+  if (!logShows(s, k)) return;
+  const sel = fixSel(panelRows(s.filters[k]?.Entries ?? []), s.logView[k]?.panel?.sel ?? "");
+  store.setLogView(k, { panel: { sel, follow: true }, focus: "panel" });
 }
 
-// closePanel closes the panel, focus going back to the log.
-export function closePanel(store: Store): void {
-  store.setLogView(store.state.active, { panel: undefined });
+// focusLog is f or Esc in the panel, as the TUI's: focus goes back to
+// the log, the panel staying.
+export function focusLog(store: Store): void {
+  store.setLogView(store.state.active, { focus: undefined });
   globalThis.document?.querySelector<HTMLElement>(".log")?.focus();
 }
 
@@ -91,10 +88,9 @@ export function closePanel(store: Store): void {
 // ←/→ fold a tag shut or open, and Space or Enter toggle it; Enter on +
 // Text asks for a text; x
 // removes a text row, the highlight moving down first so one stays; Esc
-// and f close the panel.
+// and f give the log focus.
 export function panelAct(store: Store, does: PanelKey): void {
-  const s = store.state, k = s.active, p = s.logView[k]?.panel;
-  if (!p) return;
+  const s = store.state, k = s.active, p = s.logView[k]?.panel ?? { sel: "" };
   const rows = panelRows(s.filters[k]?.Entries ?? []);
   const sel = fixSel(rows, p.sel);
   const r = rows.find((r) => r.key === sel)!;
@@ -126,7 +122,7 @@ export function panelAct(store: Store, does: PanelKey): void {
         act({ Do: "remove_text", Key: k, Term: r.e.Item.Name });
       }
       break;
-    case "close": closePanel(store); break;
+    case "close": focusLog(store); break;
   }
 }
 

@@ -6,8 +6,16 @@ import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
+// hints is the action bar's keys for the state select mode is in, as the
+// TUI's; away (the panel has focus), only those that still reach the log.
+function hints(g: LogState, away: boolean): string {
+  if (g.Marking) return away ? str.browseHintsSelectingAway() : str.browseHintsSelecting();
+  if (g.Start != null) return away ? str.browseHintsSelectedAway() : str.browseHintsSelected();
+  return away ? str.browseHintsNoneAway() : str.browseHintsNone();
+}
+
 // LogBar is log mode's bar in the bottom pane, as the TUI's action bar:
-// its keys (the filter panel's while it's open), or a prompt. A text
+// its keys (see hints), or a prompt. A text
 // prompt (find, a date, export's file name, a text to filter by) is a
 // label and a field: Enter sends, Esc closes it and goes back to the log
 // (the filter's, to the panel). Export's format prompt takes p, a or h
@@ -37,7 +45,7 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
     document.querySelector<HTMLElement>(".log")?.focus();
   };
   if (!p) {
-    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{v.panel ? str.filterHints() : g.Marking ? str.browseHintsSelecting() : g.Start != null ? str.browseHintsSelected() : str.browseHintsNone()}</span></div>;
+    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{hints(g, v.focus === "panel")}</span></div>;
   }
   if (p.kind === "format") {
     const onKeyDown = (e: KeyboardEvent) => {

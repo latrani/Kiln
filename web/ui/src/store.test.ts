@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
+import { focusPanel, glyphClick, panelAct, panelClick } from "./filter.ts";
 import { cursorOf, logAct, logClick, selectChip, syncCursor, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
@@ -562,17 +562,16 @@ const filtered = (log: object = {}) => {
   return r;
 };
 
-test("f opens the panel on its first entry, focus following; f again closes it", () => {
+test("f gives the panel focus on its highlight, the first entry to start", () => {
   const { s } = filtered();
   logAct(s, "filter");
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "u", follow: true });
-  logAct(s, "filter");
-  assert.equal(s.state.logView["fm/kit"].panel, undefined);
+  assert.equal(s.state.logView["fm/kit"].focus, "panel");
 });
 
 test("the panel's keys act on the highlighted entry, as the TUI's", () => {
   const { s, sent } = filtered();
-  togglePanel(s);
+  focusPanel(s);
   panelAct(s, "down");
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page", follow: true });
   panelAct(s, "hide");
@@ -610,14 +609,12 @@ test("x on a text row removes it, the highlight moving down first; Enter on + Te
   assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
 });
 
-test("Esc in the log closes the panel first, then log mode", () => {
+test("Esc in the panel gives the log focus; the panel stays", () => {
   const { s, sent } = filtered();
-  togglePanel(s);
-  logAct(s, "back");
-  assert.equal(s.state.logView["fm/kit"].panel, undefined);
+  focusPanel(s);
+  panelAct(s, "close");
+  assert.equal(s.state.logView["fm/kit"].focus, undefined);
   assert.equal(sent.filter((a) => a.Do === "log_close").length, 0);
-  logAct(s, "back");
-  assert.deepEqual(sent.at(-1), { Do: "log_close", Key: "fm/kit" });
 });
 
 test("each character's panel is its own; Ctrl+L keeps it as it was", () => {
@@ -630,16 +627,16 @@ test("each character's panel is its own; Ctrl+L keeps it as it was", () => {
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" }, "hidden and shown again: as it was, focus left with the log");
 });
 
-test("not in log mode, the panel doesn't open", () => {
+test("not in log mode, f doesn't focus a panel", () => {
   const { s } = filtered();
   s.setLogView("fm/kit", { hidden: true });
-  togglePanel(s);
-  assert.equal(s.state.logView["fm/kit"].panel, undefined);
+  focusPanel(s);
+  assert.equal(s.state.logView["fm/kit"].focus, undefined);
 });
 
 test("a click on a glyph highlights its entry and folds or removes it; focus follows only a text row's (a span takes none)", () => {
   const { s, sent } = filtered();
-  togglePanel(s);
+  focusPanel(s);
   glyphClick(s, "g:page");
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" }, "a group's glyph is a button and keeps focus");
   assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true });
@@ -648,21 +645,20 @@ test("a click on a glyph highlights its entry and folds or removes it; focus fol
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "+", follow: true });
 });
 
-test("with a prompt open, clicks in the panel and the Filter chip do nothing, as the TUI's", () => {
+test("with a prompt open, clicks in the panel do nothing, as the TUI's", () => {
   const { s, sent } = filtered();
   s.setLogView("fm/kit", { panel: { sel: "u" }, prompt: { kind: "filter", value: "" } });
   const n = sent.length;
   panelClick(s, "g:page", "hide");
   panelClick(s, "g:page");
   glyphClick(s, "g:page");
-  togglePanel(s);
   assert.equal(sent.length, n);
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "u" });
 });
 
 test("clicks: a name highlights its entry; Hide and Only press too; + Text asks for a text", () => {
   const { s, sent } = filtered();
-  togglePanel(s);
+  focusPanel(s);
   panelClick(s, "g:page");
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" });
   panelClick(s, "g:page/ooc", "only");

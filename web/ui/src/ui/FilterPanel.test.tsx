@@ -38,7 +38,7 @@ test("glyphs and + Text: ▼ on an open parent, a fold button named by it; × on
   assert.ok(nav.includes(`<button class="fglyph ${roleClass("filter.item")}" tabindex="-1" aria-expanded="true" aria-labelledby="flt-1">${str.glyph.open} </button>`));
   assert.ok(nav.includes(`<span aria-hidden="true" class="fglyph ${roleClass("filter.item")}">${str.glyph.remove} </span><button id="flt-3"`));
   assert.ok(nav.includes(str.filterTextItem("x").replaceAll(`"`, "&quot;")), "the text row's name, its quotes escaped in HTML");
-  assert.match(nav, new RegExp(`<button class="fname ${roleClass("filter.add")}" tabindex="-1">${str.filterAddText().replace("+", "\\+")}</button></li></ul>$`));
+  assert.match(nav, new RegExp(`<button class="fname ${roleClass("filter.add")}" tabindex="-1">${str.filterAddText().replace("+", "\\+")}</button></li></ul><div class="ffoot`), "last in the list, the footer after");
 });
 
 test("a highlight Go no longer lists falls back to the first entry", () => {
