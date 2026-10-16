@@ -304,7 +304,7 @@ add_text = "+ Text"
 untagged = "Untagged"
 # A text row's name in the panel.
 text_item = "\"{term}\""
-hints = "h hide · o only · ←→ fold · enter add · x remove · f close"
+hints = "h hide · o only · space ←→ fold · enter add · x remove · f close"
 prompt = "filter text: "
 
 # The open-connection picker.

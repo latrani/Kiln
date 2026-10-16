@@ -27,7 +27,7 @@ type layout struct {
 	top    int // rows above the body: the top bar and its rule
 	sbH    int // scrollback rows
 	inRows []string
-	inTop  int  // input row shown first, when it's too tall to fit
+	inTop  int  // input (or prompt) row shown first, when it's too tall to fit
 	prompt bool // inRows is a prompt, not the editable text
 	curRow int  // cursor row within inRows
 	curCol int
@@ -60,7 +60,7 @@ func (m *Model) layout() layout {
 		for _, r := range rows {
 			l.inRows = append(l.inRows, fit(r, l.rw))
 		}
-		l.curRow, l.curCol, l.prompt = row-top, min(col, l.rw-1), true
+		l.inTop, l.curRow, l.curCol, l.prompt = top, row-top, min(col, l.rw-1), true
 	} else {
 		limit, flatten := 0, false
 		if cs != nil {
@@ -113,11 +113,7 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 	case m.addingChar() != nil: // the name is typed in the sidebar; its keys stay here
 		return []string{theme.Paint(theme.FormHint, addCharHint)}, 0, 0, true
 	case m.picker != nil:
-		f := m.picker.form
-		if m.picker.edit != nil {
-			f = m.picker.edit.form
-		}
-		rows, row, col := f.rows()
+		rows, row, col := m.shownForm().rows()
 		return rows, row, col, true
 	case m.a.History().IsOpen() && (cs == nil || !cs.NeedPW): // the panel, over its query
 		return nil, 0, 0, false
@@ -141,6 +137,18 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		return hint(str.ViewConnectFailed())
 	}
 	return hint(str.ViewDisconnected())
+}
+
+// shownForm is the form the input area shows: the picker's, or the
+// editor open over it; nil when it shows none.
+func (m *Model) shownForm() *form {
+	switch {
+	case m.asking() || m.addingChar() != nil || m.picker == nil:
+		return nil
+	case m.picker.edit != nil:
+		return m.picker.edit.form
+	}
+	return m.picker.form
 }
 
 // storeName describes a password_store setting for the save prompt.

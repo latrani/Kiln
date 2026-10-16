@@ -134,7 +134,8 @@ a.s { text-decoration: underline; }
 .editor .choice span::before { content: "  " / ""; }
 .editor .choice:focus-within span::before { content: var(--g-prev) " " / ""; }
 .editor .choice:focus-within span::after { content: " " var(--g-next) / ""; }
-.editor summary { list-style: none; cursor: pointer; white-space: pre; }
+.editor summary { list-style: none; white-space: pre; }
+.editor summary .dglyph { cursor: pointer; }
 .editor summary::-webkit-details-marker { display: none; }
 .editor .buttons .row { display: flex; white-space: pre; }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }

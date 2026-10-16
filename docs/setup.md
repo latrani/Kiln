@@ -61,7 +61,7 @@ go install github.com/latrani/Kiln/cmd/kiln@latest
 
 4. **Run `kiln`.** Characters with `autoconnect = true` open and log in (`kiln --no-autoconnect` skips that for one run). Press `Ctrl+O` (or click `+ Open connection`, or type `/open`) to open another.
 
-You can also edit worlds and characters from inside Kiln (`Ctrl+T` or `/edit` for the active character, or `Ctrl+T` on anything in the `Ctrl+O` list): a world's server and settings, a character's aliases and settings, and forgetting a saved password or deleting a character (logs are kept) or an empty world. Kiln changes only the lines it has to, so your comments and layout stay put.
+You can also edit worlds and characters from inside Kiln (`Ctrl+T` or `/edit` for the active character, or `Ctrl+T` on anything in the `Ctrl+O` list): a world's server and settings, a character's aliases and settings, and forgetting a saved password or deleting a character (logs are kept) or an empty world. Kiln changes only the lines it has to, so your comments and layout stay put. A world's less common settings sit under **More settings**, which opens and shuts like a folded tag in log mode's filter panel: `Space` or `Enter` toggles it, `→`/`←` open and shut it, and so does a click on its `>` or `▼`.
 
 Config changes apply live while Kiln runs. If a file has a mistake, Kiln keeps the last working config and shows the error in the statusline.
 

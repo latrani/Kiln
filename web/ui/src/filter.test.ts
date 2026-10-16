@@ -16,7 +16,7 @@ test("the panel lists entries less those folded away, + Text last; names as the 
   assert.deepEqual(names, [str.filterUntagged(), "page", "ooc", str.filterTextItem("hello world")]);
 });
 
-test("glyphs: ▼ open, ► folded (• when something under it is filtered), × on a text row", () => {
+test("glyphs: ▼ open, > folded (• when something under it is filtered), × on a text row", () => {
   const rows = panelRows([E("a", { Parent: true }), E("b", { Parent: true, Folded: true, FilteredUnder: true }), E("c", { Parent: true, Folded: true }), E("t", { Text: true, Depth: 0 })]);
   const g = rows.flatMap((r) => (r.kind === "entry" ? [[r.glyph, r.after]] : []));
   assert.deepEqual(g, [[str.glyph.open, ""], [str.glyph.collapsed, str.glyph.filtered], [str.glyph.collapsed, ""], [str.glyph.remove, ""]]);
@@ -39,8 +39,8 @@ test("the highlight: kept if it's there, else the first entry; moves stop at the
 
 test("the panel's keys, as the TUI's; never with a modifier", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => filterKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
-  assert.deepEqual(["ArrowUp", "ArrowDown", "h", "o", "ArrowLeft", "ArrowRight", "Enter", "x", "Delete", "Escape", "f"].map((x) => k(x)),
-    ["up", "down", "hide", "only", "shut", "open", "add", "remove", "remove", "close", "close"]);
+  assert.deepEqual(["ArrowUp", "ArrowDown", "h", "o", "ArrowLeft", "ArrowRight", " ", "Enter", "x", "Delete", "Escape", "f"].map((x) => k(x)),
+    ["up", "down", "hide", "only", "shut", "open", "toggle", "enter", "remove", "remove", "close", "close"]);
   assert.equal(k("h", { ctrlKey: true }), undefined);
   assert.equal(k("o", { metaKey: true }), undefined);
   assert.equal(k("j"), undefined, "no j/k on the web: arrows");

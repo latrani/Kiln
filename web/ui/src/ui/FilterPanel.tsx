@@ -5,10 +5,10 @@ import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
 // FilterPanel is log mode's filter panel in the sidebar, as the TUI's:
-// each entry its name (indented by depth; ▼ ► on a group, × on a text
+// each entry its name (indented by depth; ▼ > on a group, × on a text
 // row) and its Hide and Only, a blank row after each top-level group, +
 // Text last. Hide and Only are toggle buttons; each entry holds a group
-// named by its entry, so they're read with it. A group's ▼ ► is its fold
+// named by its entry, so they're read with it. A group's ▼ > is its fold
 // button, named by the entry too, as it's the TUI's fold control. The
 // highlight is the
 // roving focus: ↑/↓ move it, and only its entry's controls are in the
@@ -31,9 +31,9 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   const onKeyDown = (e: KeyboardEvent) => {
     const does = filterKey(e);
     if (!does) return;
-    // Enter on Hide or Only presses it, as a button's Enter does; Enter
-    // is the panel's only on its highlighted row.
-    if (does === "add" && !(e.target as HTMLElement).classList.contains("fsel")) return;
+    // Enter or Space on Hide, Only or a fold glyph presses it, as a
+    // button's does; they're the panel's only on its highlighted row.
+    if ((does === "enter" || does === "toggle") && !(e.target as HTMLElement).classList.contains("fsel")) return;
     e.preventDefault();
     panelAct(store, does);
   };
@@ -80,7 +80,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                 {pad + " "}
                 <button class={roleClass(e.Hidden ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Hidden}
                   onClick={() => panelClick(store, r.key, "hide")}>{str.filterHide()}</button>
-                {" "}
+                {str.separator()}
                 <button class={roleClass(e.Only ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Only}
                   onClick={() => panelClick(store, r.key, "only")}>{str.filterOnly()}</button>
               </div>
