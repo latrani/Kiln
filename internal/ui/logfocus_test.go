@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -148,4 +148,62 @@ func TestLogModeNoSwitching(t *testing.T) {
 	}
 }
 
-var _ = xansi.Strip
+// panelFooter is the filter panel's footer, its rows joined with the
+// separator; "" with no rule above one.
+func panelFooter(h *harness) string {
+	side := panelSide(h)
+	for i, r := range side {
+		if r != "" && strings.Trim(r, glyph.Rule) == "" {
+			return strings.Join(side[i+1:], str.Separator())
+		}
+	}
+	return ""
+}
+
+// logBar is log mode's action bar, trimmed.
+func logBar(h *harness) string { return rightRow(h, h.m.height-3) }
+
+func TestLogFooters(t *testing.T) {
+	h := logHarness(t)
+	if logBar(h) != str.BrowseHintsNone() || panelFooter(h) != str.FilterHintsAway() {
+		t.Errorf("log focused: bar %q, panel footer %q", logBar(h), panelFooter(h))
+	}
+	h.key("f")
+	if logBar(h) != str.BrowseHintsNoneAway() || panelFooter(h) != str.FilterHints() {
+		t.Errorf("panel focused: bar %q, panel footer %q", logBar(h), panelFooter(h))
+	}
+	h.key("s")
+	if logBar(h) != str.BrowseHintsSelectingAway() {
+		t.Errorf("selecting, panel focused: bar %q", logBar(h))
+	}
+	h.key("s")
+	if logBar(h) != str.BrowseHintsSelectedAway() {
+		t.Errorf("a range, panel focused: bar %q", logBar(h))
+	}
+}
+
+func TestFooterRows(t *testing.T) {
+	sep := str.Separator()
+	got := footerRows("a b"+sep+"c d"+sep+"e", 5)
+	if strings.Join(got, "|") != "a b|c d|e" {
+		t.Errorf("footerRows = %q", got)
+	}
+	if got := footerRows("a b"+sep+"e", 20); len(got) != 1 || got[0] != "a b"+sep+"e" {
+		t.Errorf("both fit on one row: %q", got)
+	}
+	if got := footerRows("abcdefgh", 4); len(got) != 1 || got[0] != "abc…" {
+		t.Errorf("too wide an item: %q", got)
+	}
+}
+
+func TestLogModeShortScreen(t *testing.T) {
+	h := logHarness(t)
+	h.m.Update(tea.WindowSizeMsg{Width: MinWidth, Height: MinHeight})
+	rows := strings.Split(h.screen(), "\n")
+	if len(rows) != MinHeight {
+		t.Fatalf("%d rows; want %d", len(rows), MinHeight)
+	}
+	if side := panelSide(h); side[0] != str.FilterUntagged() {
+		t.Errorf("at %dx%d the panel lost its list:\n%s", MinWidth, MinHeight, h.screen())
+	}
+}

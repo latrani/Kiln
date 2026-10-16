@@ -44,7 +44,11 @@ func TestTopBar(t *testing.T) {
 	if bottom := rightRow(h, h.m.height-1); !strings.HasPrefix(bottom, str.BrowseFindStatus("Mira", 1, 1)) {
 		t.Errorf("statusline = %q, want find's status first", bottom)
 	}
-	if strings.Contains(h.screen(), "→") {
+	var right []string
+	for y := range h.m.height {
+		right = append(right, rightRow(h, y))
+	}
+	if strings.Contains(strings.Join(right, "\n"), "→") { // the filter panel's footer has one
 		t.Errorf("the date range should be gone:\n%s", h.screen())
 	}
 }

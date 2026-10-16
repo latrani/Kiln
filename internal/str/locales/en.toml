@@ -301,10 +301,16 @@ find_status = "find: {find} {i}/{n} · n/N"
 # As find_status, while older history not yet loaded may hold more.
 find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
-# The action bar's keys, by state: nothing selected, selecting, a range selected.
-hints_none = "s select · / find · g date · f filter · esc back"
+# The action bar's keys, by state: nothing selected, selecting, a range
+# selected. These are while the log has focus; f moves it to the filters.
+hints_none = "s select · / find · g date · f filters · esc back"
 hints_selecting = "space exclude · s done · c copy · e export · esc drop"
-hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filter · esc back"
+hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filters · esc back"
+# The same while the filters have focus: only the keys that still reach
+# the log from there.
+hints_none_away = "s select · / find · g date"
+hints_selecting_away = "s done · c copy · e export"
+hints_selected_away = "s select · c copy · e export · / find · g date"
 # In the statusline: the cursor line's tags, and for one with no style
 # of its own, the tag up its slashes whose style it takes. Nothing shows
 # for a line with none.
@@ -323,7 +329,10 @@ add_text = "+ Text"
 untagged = "Untagged"
 # A text row's name in the panel.
 text_item = "\"{term}\""
-hints = "h hide · o only · space ←→ fold · enter add · x remove · f close"
+# The filter panel's footer: its keys while it has focus (f or Esc
+# gives the log focus), and those that reach it while the log has.
+hints = "h hide · o only · space ←→ fold · enter add · x remove · f esc log"
+hints_away = "h hide · o only · ←→ fold · x remove"
 prompt = "filter text: "
 
 # The open-connection picker.

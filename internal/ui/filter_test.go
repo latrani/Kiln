@@ -207,11 +207,11 @@ func TestPanelScrolls(t *testing.T) {
 	h.writeLog(day24, lines...)
 	h.key("ctrl+l")
 	h.key("f")
-	side := panelSide(h)
-	// 12 tags × 3 rows + "+ Text" = 37 rows; 22 show under the title,
-	// above the hint.
-	if want := str.ViewMoreBelow(37 - 22); side[len(side)-1] != want {
-		t.Fatalf("last row = %q, want %q:\n%s", side[len(side)-1], want, h.screen())
+	side, listH := panelSide(h), h.br().Panel.listH
+	// 12 tags × 3 rows + "+ Text" = 37 rows; all but one of the list's
+	// rows show, above the hint, which is its last.
+	if want := str.ViewMoreBelow(37 - (listH - 1)); side[listH-1] != want {
+		t.Fatalf("the list's last row = %q, want %q:\n%s", side[listH-1], want, h.screen())
 	}
 	for range 40 {
 		h.key("down")
@@ -308,7 +308,7 @@ func TestPanelWheelScrollsAndStays(t *testing.T) {
 func TestPanelClickOnBottomHintScrolls(t *testing.T) {
 	h := manyTagsHarness(t)
 	sel := h.br().Panel.Sel
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: h.m.height - 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + h.br().Panel.listH - 1, Button: tea.MouseLeft})
 	h.screen()
 	if h.br().Panel.top == 0 || h.br().Panel.Sel != sel || h.kitFilter().Active() {
 		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().Panel.top, h.br().Panel.Sel, h.kitFilter().Active())

@@ -34,6 +34,7 @@ const (
 	Rule       Role = "rule"
 	RuleInput  Role = "rule.input"  // above the input area
 	RuleForm   Role = "rule.form"   // above it while a form is up
+	RuleFilter Role = "rule.filter" // above the filter panel's footer
 	RuleStatus Role = "rule.status" // above the statusline
 
 	Scrollback           Role = "scrollback" // never an area: server text keeps the terminal background
@@ -108,6 +109,7 @@ const (
 	FilterAdd      Role = "filter.add"
 	FilterMore     Role = "filter.more"
 	FilterTitle    Role = "filter.title" // its first row
+	FilterHints    Role = "filter.hints" // its footer's keys
 
 	Export Role = "export" // the HTML export's page colors
 )
@@ -117,7 +119,7 @@ var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle,
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle,
-	Divider, Rule, RuleInput, RuleForm, RuleStatus,
+	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
@@ -126,7 +128,7 @@ var Roles = []Role{
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,
-	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle, FilterHints,
 	Export,
 }
 

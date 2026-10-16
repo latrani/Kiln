@@ -58,14 +58,23 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints_none: s select · / find · g date · f filter · esc back */
-export function browseHintsNone(): string { return `s select · / find · g date · f filter · esc back`; }
+/** browse.hints_none: s select · / find · g date · f filters · esc back */
+export function browseHintsNone(): string { return `s select · / find · g date · f filters · esc back`; }
 
-/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filter · esc back */
-export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filter · esc back`; }
+/** browse.hints_none_away: s select · / find · g date */
+export function browseHintsNoneAway(): string { return `s select · / find · g date`; }
+
+/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filters · esc back */
+export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filters · esc back`; }
+
+/** browse.hints_selected_away: s select · c copy · e export · / find · g date */
+export function browseHintsSelectedAway(): string { return `s select · c copy · e export · / find · g date`; }
 
 /** browse.hints_selecting: space exclude · s done · c copy · e export · esc drop */
 export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export · esc drop`; }
+
+/** browse.hints_selecting_away: s done · c copy · e export */
+export function browseHintsSelectingAway(): string { return `s done · c copy · e export`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -462,8 +471,11 @@ export function filterAddText(): string { return `+ Text`; }
 /** filter.hide: Hide */
 export function filterHide(): string { return `Hide`; }
 
-/** filter.hints: h hide · o only · space ←→ fold · enter add · x remove · f close */
-export function filterHints(): string { return `h hide · o only · space ←→ fold · enter add · x remove · f close`; }
+/** filter.hints: h hide · o only · space ←→ fold · enter add · x remove · f esc log */
+export function filterHints(): string { return `h hide · o only · space ←→ fold · enter add · x remove · f esc log`; }
+
+/** filter.hints_away: h hide · o only · ←→ fold · x remove */
+export function filterHintsAway(): string { return `h hide · o only · ←→ fold · x remove`; }
 
 /** filter.only: Only */
 export function filterOnly(): string { return `Only`; }

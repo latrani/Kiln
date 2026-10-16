@@ -174,15 +174,21 @@ func (b *browse) statusParts() string {
 }
 
 // hints is the action bar's keys for the state select mode is in:
-// nothing selected, selecting, or a range selected.
+// nothing selected, selecting, or a range selected; while the panel has
+// focus, only those that still reach the log.
 func (b *browse) hints() string {
+	away := b.panelFocus // only the keys that reach the log from the panel
 	switch {
-	case b.panelFocus:
-		return str.FilterHints()
+	case b.Marking && away:
+		return str.BrowseHintsSelectingAway()
 	case b.Marking:
 		return str.BrowseHintsSelecting()
+	case b.Start != nil && away:
+		return str.BrowseHintsSelectedAway()
 	case b.Start != nil:
 		return str.BrowseHintsSelected()
+	case away:
+		return str.BrowseHintsNoneAway()
 	}
 	return str.BrowseHintsNone()
 }

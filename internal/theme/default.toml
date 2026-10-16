@@ -34,6 +34,7 @@
 "divider"     = { fg = "glaze.celadon-line" }
 "rule.input"  = { fg = "glaze.gold-line" }
 "rule.form"   = { fg = "glaze.kaki-line" }
+"rule.filter" = { fg = "glaze.celadon-line" }
 "rule.status" = { fg = "glaze.cobalt-line" }
 
 "scrollback.day"         = { faint = true }
@@ -101,6 +102,7 @@
 "filter.add"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "filter.more"      = { fg = "glaze.celadon-mid" }
 "filter.title"     = { bold = true, underline = true }
+"filter.hints"     = { fg = "glaze.celadon-mid" }
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
 

@@ -38,11 +38,11 @@ Filters         │fm · Kit                                       ? focus  ·  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-32 faint
                 │21:02   Mira pages: you around?                                
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 reverse; @25-28 reverse
-                │───────────────────────────────────────────────────────────────
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │s select · space exclude · c copy · e export · / find · g date 
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
-                │───────────────────────────────────────────────────────────────
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │find: Mira 1/1 · n/N · tags: page, page/in (styled as…  Select 
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-71 fg=#a0b7e3; @72-79 bold,fg=#c0cfed,bg=#0b1b3d
+────────────────│───────────────────────────────────────────────────────────────
+  @0-16 fg=#a2cdcc
+h hide · o only │s select · space exclude · c copy · e export · / find · g date 
+  @0-15 fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
+←→ fold         │───────────────────────────────────────────────────────────────
+  @0-15 fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+x remove        │find: Mira 1/1 · n/N · tags: page, page/in (styled as…  Select 
+  @0-15 fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-71 fg=#a0b7e3; @72-79 bold,fg=#c0cfed,bg=#0b1b3d
