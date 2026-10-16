@@ -40,7 +40,7 @@ test("the highlight: kept if it's there, else the first entry; moves stop at the
 test("the panel's keys, as the TUI's; never with a modifier", () => {
   const k = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {}) => filterKey({ key, ctrlKey: false, altKey: false, metaKey: false, ...mods });
   assert.deepEqual(["ArrowUp", "ArrowDown", "h", "o", "ArrowLeft", "ArrowRight", " ", "Enter", "x", "Delete", "Escape", "f"].map((x) => k(x)),
-    ["up", "down", "hide", "only", "shut", "open", "toggle", "enter", "remove", "remove", "close", "close"]);
+    ["up", "down", "hide", "only", "shut", "open", "toggle", "enter", "remove", "remove", "close", "log"]);
   assert.equal(k("h", { ctrlKey: true }), undefined);
   assert.equal(k("o", { metaKey: true }), undefined);
 });

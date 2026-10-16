@@ -154,17 +154,20 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
 // history); a prompt for find, go-to (starting from the cursor's day and
 // time) or export's format; n and N step
 // find from the cursor; c copies; f gives the filter panel focus; Esc
-// stops a search, else ends selecting, else turns find off, else closes
-// log mode.
+// ends selecting, else turns find off, else closes log mode. Any key
+// stops a search reading older days first, as the TUI's: Esc only that.
 export function logAct(store: Store, does: LogKey): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
   const lines = s.logLines[k]?.lines ?? [];
   const here = cursorOf(g, v, lines) ?? -1;
   const act = s.act ?? (() => {});
+  if (g.Searching) {
+    act({ Do: "stop_search", Key: k });
+    if (does === "back") return;
+  }
   switch (does) {
     case "up":
     case "down": {
-      if (g.Searching) act({ Do: "stop_search", Key: k }); // you've moved on, as the TUI's
       const hidden = new Set(g.Hidden ?? []);
       const shown = lines.filter((l) => !hidden.has(l.Seq));
       const i = shown.findIndex((l) => l.Seq === here) + (does === "up" ? -1 : 1);
@@ -185,21 +188,18 @@ export function logAct(store: Store, does: LogKey): void {
       else store.setLogView(k, { prompt: { kind: "format" } });
       break;
     case "mark": // selecting from now, or locked, before Go answers: a move right after counts
-      if (g.Searching) act({ Do: "stop_search", Key: k }); // as the TUI's keys
       act({ Do: "mark", Key: k, Seq: here });
       selecting(store, !g.Marking);
       break;
     case "exclude":
-      if (g.Searching) act({ Do: "stop_search", Key: k });
       act({ Do: "exclude", Key: k, Seq: here });
       break;
     case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
     case "filter": focusPanel(store); break;
-    case "back": // one thing at a time: a search, selecting, find, then log mode
-      if (g.Searching) act({ Do: "stop_search", Key: k });
-      else if (g.Marking) {
+    case "back": // one thing at a time: selecting, find, then log mode
+      if (g.Marking) {
         act({ Do: "end_mark", Key: k });
         selecting(store, false);
       }

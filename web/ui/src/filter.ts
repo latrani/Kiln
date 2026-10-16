@@ -52,11 +52,11 @@ export function moveSel(rows: PanelRow[], sel: string, delta: number): string {
 }
 
 // PanelKey is what a key does in the panel.
-export type PanelKey = "up" | "down" | "hide" | "only" | "shut" | "open" | "toggle" | "enter" | "remove" | "close";
+export type PanelKey = "up" | "down" | "hide" | "only" | "shut" | "open" | "toggle" | "enter" | "remove" | "close" | "log";
 
 const panelKeys: Record<string, PanelKey> = {
   ArrowUp: "up", ArrowDown: "down", k: "up", j: "down", h: "hide", o: "only", ArrowLeft: "shut", ArrowRight: "open",
-  " ": "toggle", Enter: "enter", x: "remove", Delete: "remove", Escape: "close", f: "close",
+  " ": "toggle", Enter: "enter", x: "remove", Delete: "remove", Escape: "close", f: "log",
 };
 
 // filterKey is a key in the panel, as the TUI's panelKey: arrows or j/k
@@ -92,13 +92,18 @@ export function focusLog(store: Store): void {
 // ←/→ fold a tag shut or open, and Space or Enter toggle it; Enter on +
 // Text asks for a text; x
 // removes a text row, the highlight moving down first so one stays; Esc
-// and f give the log focus.
+// and f give the log focus. Any key stops a search reading older days
+// first, as the TUI's: Esc only that.
 export function panelAct(store: Store, does: PanelKey): void {
   const s = store.state, k = s.active, p = s.logView[k]?.panel ?? { sel: "" };
   const rows = panelRows(s.filters[k]?.Entries ?? []);
   const sel = fixSel(rows, p.sel);
   const r = rows.find((r) => r.key === sel)!;
   const act = s.act ?? (() => {});
+  if (s.logs[k]?.Searching) {
+    act({ Do: "stop_search", Key: k });
+    if (does === "close") return;
+  }
   const move = (to: string) => store.setLogView(k, { panel: { sel: to, follow: true } });
   switch (does) {
     case "up": move(moveSel(rows, sel, -1)); break;
@@ -126,7 +131,8 @@ export function panelAct(store: Store, does: PanelKey): void {
         act({ Do: "remove_text", Key: k, Term: r.e.Item.Name });
       }
       break;
-    case "close": focusLog(store); break;
+    case "close":
+    case "log": focusLog(store); break;
   }
 }
 
