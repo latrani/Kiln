@@ -536,6 +536,29 @@ func TestCertificateErrorsFailWithoutRetry(t *testing.T) {
 	}
 }
 
+// permanentErr is a dial error that says it will recur, as the web
+// build's refused-certificate error does.
+type permanentErr struct{}
+
+func (permanentErr) Error() string   { return "refused" }
+func (permanentErr) Permanent() bool { return true }
+
+func TestPermanentDialErrorFailsWithoutRetry(t *testing.T) {
+	dialErr := fmt.Errorf("dial: %w", permanentErr{})
+	s := New(Options{
+		Char:    kit,
+		Log:     &memLog{},
+		Dial:    func(context.Context) (LineConn, error) { return nil, dialErr },
+		Backoff: func(int) time.Duration { t.Error("a permanent error must not use backoff"); return 0 },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	if ev := waitFor(t, s, isState(Failed)); ev.Err != dialErr {
+		t.Errorf("Failed err = %v", ev.Err)
+	}
+}
+
 func TestLogFailureStillDeliversLine(t *testing.T) {
 	ch := kit
 	ch.Login = ""

@@ -371,6 +371,11 @@ func ConnReadingKnownHosts(err error) string {
 	return get("conn.reading_known_hosts", map[string]any{"err": err})
 }
 
+// ConnRelayBadCert is conn.relay_bad_cert: "the web relay refused this world's certificate: {reason}"
+func ConnRelayBadCert(reason any) string {
+	return get("conn.relay_bad_cert", map[string]any{"reason": reason})
+}
+
 // ConnRelayBusy is conn.relay_busy: "the web relay is full · try again in a bit"
 func ConnRelayBusy() string { return get("conn.relay_busy", nil) }
 
@@ -380,8 +385,8 @@ func ConnRelayDown() string { return get("conn.relay_down", nil) }
 // ConnRelayDropped is conn.relay_dropped: "lost the connection to the web relay"
 func ConnRelayDropped() string { return get("conn.relay_dropped", nil) }
 
-// ConnRelayNeedsTls is conn.relay_needs_tls: "this world only works over TLS on the web"
-func ConnRelayNeedsTls() string { return get("conn.relay_needs_tls", nil) }
+// ConnRelayNoTls is conn.relay_no_tls: "the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator"
+func ConnRelayNoTls() string { return get("conn.relay_no_tls", nil) }
 
 // ConnRelayNotListed is conn.relay_not_listed: "this world isn't on the web relay's list"
 func ConnRelayNotListed() string { return get("conn.relay_not_listed", nil) }

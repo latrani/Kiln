@@ -91,7 +91,6 @@ func run(k js.Value, p page) error {
 		return err
 	}
 	kh := conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")} //str:ok
-	dial := wsdial.Dialer(p.relay)
 	var mu sync.Mutex
 	writers := map[logstore.Layout]*logstore.Writer{}
 	a := app.New(app.Deps{
@@ -101,10 +100,12 @@ func run(k js.Value, p page) error {
 		KnownHosts: kh,
 		Load:       config.Load,
 		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {
-			// A terminal's size until the page says how wide it is (resize).
+			// The relay does TLS, trusting the world as its config says, so
+			// the world file's tls only says what to ask for. A terminal's
+			// size until the page says how wide it is (resize).
 			return conn.Dial(ctx, conn.Options{
-				Host: ch.Host, Port: ch.Port, TLS: ch.TLS, TLSTrust: ch.TLSTrust,
-				KnownHosts: kh, Width: 80, Height: 24, DialContext: dial,
+				Host: ch.Host, Port: ch.Port, Width: 80, Height: 24,
+				DialContext: wsdial.Dialer(p.relay, ch.TLS),
 			})
 		},
 		NewLog: func(l logstore.Layout) session.Appender {

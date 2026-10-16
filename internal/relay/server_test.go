@@ -163,7 +163,7 @@ func closeCode(t *testing.T, c *websocket.Conn) websocket.StatusCode {
 func TestPlaintextRoundTrip(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
 	_, base, _ := relay(t, world(port, ""))
-	nc := websocket.NetConn(context.Background(), open(t, base, "127.0.0.1", port), websocket.MessageBinary)
+	nc := piped(t, open(t, base, "127.0.0.1", port))
 	r := bufio.NewReader(nc)
 	if line, _ := r.ReadString('\n'); line != "hello\r\n" {
 		t.Fatalf("greeting %q", line)
@@ -324,6 +324,20 @@ func TestTLSRefusalsReleaseSlots(t *testing.T) {
 	eventually(t, "a refused connection kept its slot", func() bool { return s.inUse() == 0 })
 }
 
+func TestRelaySaysOpenBeforeData(t *testing.T) {
+	port := serveEach(t, tcpListener(t), echoGreeter)
+	_, base, _ := relay(t, world(port, ""))
+	c := open(t, base, "127.0.0.1", port)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if typ, b, err := c.Read(ctx); err != nil || typ != websocket.MessageText || string(b) != OpenFrame {
+		t.Errorf("first frame %v %q, %v", typ, b, err)
+	}
+	if typ, b, _ := c.Read(ctx); typ != websocket.MessageBinary || string(b) != "hello\r\n" {
+		t.Errorf("second frame %v %q", typ, b)
+	}
+}
+
 func TestUnreachable(t *testing.T) {
 	ln := tcpListener(t)
 	port := ln.Addr().(*net.TCPAddr).Port
@@ -365,7 +379,7 @@ func TestPerIPCapAndRelease(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		nc := websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+		nc := piped(t, c)
 		nc.SetReadDeadline(time.Now().Add(time.Second))
 		line, _ := bufio.NewReader(nc).ReadString('\n')
 		c.CloseNow()
@@ -462,7 +476,7 @@ func TestPingsKeepLiveClients(t *testing.T) {
 	s, base, _ := relay(t, world(port, ""))
 	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
 	c := open(t, base, "127.0.0.1", port)
-	nc := websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+	nc := piped(t, c)
 	br := bufio.NewReader(nc)
 	br.ReadString('\n') // hello; reading also answers pings
 	lines := make(chan string, 1)
@@ -488,10 +502,23 @@ func TestPingsReapSilentClients(t *testing.T) {
 	eventually(t, "silent client never reaped", func() bool { return s.inUse() == 0 })
 }
 
+// piped reads the relay's "open" frame from c, then returns c as a byte
+// stream to and from the world.
+func piped(t *testing.T, c *websocket.Conn) net.Conn {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typ, b, err := c.Read(ctx)
+	if err != nil || typ != websocket.MessageText || string(b) != OpenFrame {
+		t.Fatalf("first frame %v %q, %v; want text %q", typ, b, err, OpenFrame)
+	}
+	return websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+}
+
 // readLine reads one line relayed to c.
 func readLine(t *testing.T, c *websocket.Conn) string {
 	t.Helper()
-	nc := websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+	nc := piped(t, c)
 	nc.SetReadDeadline(time.Now().Add(2 * time.Second))
 	l, err := bufio.NewReader(nc).ReadString('\n')
 	if err != nil {

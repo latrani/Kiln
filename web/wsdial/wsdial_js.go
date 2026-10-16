@@ -17,12 +17,14 @@ import (
 )
 
 // Dialer returns a conn.Options.DialContext that reaches addr through the
-// relay at relayURL (ws:// or wss://), using the page's WebSocket.
+// relay at relayURL (ws:// or wss://), asking for TLS if tls, using the
+// page's WebSocket. It returns once the relay says it has reached the
+// world, so a refusal is a dial error.
 // coder/websocket's browser build drops the close code once the socket
 // closes, and the code is how the relay says why it refused.
-func Dialer(relayURL string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+func Dialer(relayURL string, tls bool) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	return func(ctx context.Context, _, addr string) (net.Conn, error) {
-		u, err := target(relayURL, addr)
+		u, err := target(relayURL, addr, tls)
 		if err != nil {
 			return nil, err
 		}
@@ -39,7 +41,8 @@ type pageConn struct {
 
 	mu     sync.Mutex
 	cond   *sync.Cond
-	open   bool
+	open   bool // the socket opened
+	ready  bool // the relay reached the world (its open frame came)
 	buf    []byte
 	closed bool
 	err    error // what Read and Write return once closed and drained
@@ -56,9 +59,17 @@ func dial(ctx context.Context, u string) (net.Conn, error) {
 		c.mu.Lock()
 		c.open = true
 		c.mu.Unlock()
-		settle()
 	})
 	c.on("message", func(e js.Value) { //str:ok
+		if d := e.Get("data"); d.Type() == js.TypeString { //str:ok
+			if d.String() == openFrame {
+				c.mu.Lock()
+				c.ready = true
+				c.mu.Unlock()
+				settle()
+			}
+			return
+		}
 		b := js.Global().Get("Uint8Array").New(e.Get("data")) //str:ok
 		p := make([]byte, b.Length())
 		js.CopyBytesToGo(p, b)
@@ -86,10 +97,15 @@ func dial(ctx context.Context, u string) (net.Conn, error) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.open {
+	switch {
+	case c.ready:
+		return c, nil
+	case !c.open:
 		return nil, errors.New(str.ConnRelayDown())
+	case c.err == io.EOF:
+		return nil, errors.New(str.ConnRelayDropped())
 	}
-	return c, nil
+	return nil, c.err // the relay's refusal, explained
 }
 
 func (c *pageConn) on(event string, f func(js.Value)) {

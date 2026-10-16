@@ -318,6 +318,9 @@ export function connNoCertificate(): string { return `server sent no certificate
 /** conn.reading_known_hosts: reading known_hosts: {err} */
 export function connReadingKnownHosts(err: unknown): string { return `reading known_hosts: ${e(err)}`; }
 
+/** conn.relay_bad_cert: the web relay refused this world's certificate: {reason} */
+export function connRelayBadCert(reason: unknown): string { return `the web relay refused this world's certificate: ${reason}`; }
+
 /** conn.relay_busy: the web relay is full · try again in a bit */
 export function connRelayBusy(): string { return `the web relay is full · try again in a bit`; }
 
@@ -327,8 +330,8 @@ export function connRelayDown(): string { return `couldn't reach the web relay`;
 /** conn.relay_dropped: lost the connection to the web relay */
 export function connRelayDropped(): string { return `lost the connection to the web relay`; }
 
-/** conn.relay_needs_tls: this world only works over TLS on the web */
-export function connRelayNeedsTls(): string { return `this world only works over TLS on the web`; }
+/** conn.relay_no_tls: the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator */
+export function connRelayNoTls(): string { return `the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator`; }
 
 /** conn.relay_not_listed: this world isn't on the web relay's list */
 export function connRelayNotListed(): string { return `this world isn't on the web relay's list`; }

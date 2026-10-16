@@ -33,6 +33,11 @@ const (
 	CodeBadCert     websocket.StatusCode = 4526 // the world's certificate failed its pin or CA check
 )
 
+// OpenFrame is the text frame the relay sends once it has reached the
+// world (and done TLS), before any of the world's bytes. Until it comes,
+// a client hasn't connected: a close instead is a refusal.
+const OpenFrame = "open" //str:ok protocol token
+
 // Server is the relay's HTTP handler. Set a config before serving.
 type Server struct {
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error) // nil: TCP
@@ -131,6 +136,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tc.Close()
+	if err := c.Write(ctx, websocket.MessageText, []byte(OpenFrame)); err != nil {
+		return
+	}
 	go s.keepAlive(ctx, c)
 	start := time.Now()
 	s.logf(str.RelayOpened(ip, addr))
