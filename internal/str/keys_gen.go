@@ -1100,9 +1100,6 @@ func ViewConnectionsTitle() string { return get("view.connections_title", nil) }
 // ViewDisconnected is view.disconnected: "Disconnected · Enter to connect"
 func ViewDisconnected() string { return get("view.disconnected", nil) }
 
-// ViewFilterButton is view.filter_button: "Filter"
-func ViewFilterButton() string { return get("view.filter_button", nil) }
-
 // ViewHistoryButton is view.history_button: "History"
 func ViewHistoryButton() string { return get("view.history_button", nil) }
 

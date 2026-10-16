@@ -35,18 +35,19 @@ const (
 // the core's log.
 type browse struct {
 	*app.Log
-	cs       *charState
-	Cursor   *app.LogLine            // the highlighted line; see logcursor.go
-	top      *app.LogLine            // first line drawn at the top of the body
-	scrolled bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
-	rowLines []*app.LogLine          // body row → line (nil for dividers), from the last draw
-	painted  map[*app.LogLine]string // each line as painted, once it's been needed; see text
-	prompt   promptKind
-	pin      *Input
-	Panel    *filterPanel // the filter panel, while it's open
-	format   string
-	run      func([]app.Effect) tea.Cmd // the model's run
-	cfg      func() *config.Config      // the config as it is now, for the export settings
+	cs         *charState
+	Cursor     *app.LogLine            // the highlighted line; see logcursor.go
+	top        *app.LogLine            // first line drawn at the top of the body
+	scrolled   bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
+	rowLines   []*app.LogLine          // body row → line (nil for dividers), from the last draw
+	painted    map[*app.LogLine]string // each line as painted, once it's been needed; see text
+	prompt     promptKind
+	pin        *Input
+	Panel      *filterPanel // the filter panel, always there in log mode
+	panelFocus bool         // keys go to the panel, not the log
+	format     string
+	run        func([]app.Effect) tea.Cmd // the model's run
+	cfg        func() *config.Config      // the config as it is now, for the export settings
 }
 
 // text is l painted, painting it the first time it's needed.
@@ -93,12 +94,12 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	if b.prompt != promptNone {
 		return b.promptKey(k), false
 	}
-	if b.Panel != nil {
-		return b.panelKey(k), false
-	}
-	if s == openFilterKey {
-		b.togglePanel()
+	switch {
+	case s == openFilterKey:
+		b.focusPanel(!b.panelFocus)
 		return nil, false
+	case panelOnlyKeys[s] || sharedKeys[s] && b.panelFocus:
+		return b.panelKey(k), false
 	}
 	b.ClearStatus()
 	switch browseKeys[s] {
@@ -176,7 +177,7 @@ func (b *browse) statusParts() string {
 // nothing selected, selecting, or a range selected.
 func (b *browse) hints() string {
 	switch {
-	case b.Panel != nil:
+	case b.panelFocus:
 		return str.FilterHints()
 	case b.Marking:
 		return str.BrowseHintsSelecting()
@@ -492,6 +493,7 @@ func (b *browse) click(y int) {
 	if b.prompt != promptNone {
 		return
 	}
+	b.focusPanel(false)
 	row := y
 	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
 		return

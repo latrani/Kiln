@@ -224,10 +224,9 @@ func TestHistoryScopeTabElsewhere(t *testing.T) {
 	h.key("up")
 	h.key("ctrl+l") // log mode over the panel
 	h.press(tea.KeyTab, 0)
-	if h.m.a.HistoryScope() != app.ScopeCharacter || h.m.a.Active() != "fm/rook" {
-		t.Errorf("Tab in log mode: scope %v, active %s; want the unread one, scope as it was", h.m.a.HistoryScope(), h.m.a.Active())
+	if h.m.a.HistoryScope() != app.ScopeCharacter || h.m.a.Active() != "fm/kit" {
+		t.Errorf("Tab in log mode: scope %v, active %s; want both as they were", h.m.a.HistoryScope(), h.m.a.Active())
 	}
-	h.m.switchTo("fm/kit")
 	h.key("ctrl+l") // out of log mode, back to the panel
 	if !h.m.historyShows() {
 		t.Fatal("the panel isn't showing")

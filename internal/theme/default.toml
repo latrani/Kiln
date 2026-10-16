@@ -62,8 +62,6 @@
 "status"           = { fg = "glaze.cobalt-ink" }
 "status.log"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.log.on"    = { reverse = true }
-"status.filter"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
-"status.filter.on" = { reverse = true }
 "status.history"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.history.on" = { reverse = true }
 "status.scope"      = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
@@ -95,13 +93,13 @@
 "log.bar"            = { fg = "glaze.gold-ink" }
 "log.bar.hints"      = { fg = "glaze.gold-mid" }
 
-"filter"           = { fg = "glaze.cobalt-ink" }
+"filter"           = { fg = "glaze.celadon-ink" }
 "filter.item"      = { bold = true }
 "filter.selected"  = { reverse = true }
-"filter.button"    = { fg = "glaze.cobalt-mid" }
-"filter.button.on" = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
-"filter.add"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
-"filter.more"      = { fg = "glaze.cobalt-mid" }
+"filter.button"    = { fg = "glaze.celadon-mid" }
+"filter.button.on" = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
+"filter.add"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
+"filter.more"      = { fg = "glaze.celadon-mid" }
 "filter.title"     = { bold = true, underline = true }
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }

@@ -66,8 +66,6 @@ const (
 	Status          Role = "status"     // area
 	StatusLog       Role = "status.log" // the Log chip
 	StatusLogOn     Role = "status.log.on"
-	StatusFilter    Role = "status.filter" // the Filter chip, in log mode
-	StatusFilterOn  Role = "status.filter.on"
 	StatusHistory   Role = "status.history" // the History chip, in the statusline
 	StatusHistoryOn Role = "status.history.on"
 	StatusScope     Role = "status.scope" // a half of the history panel's Session/Character switch, beside History
@@ -124,7 +122,7 @@ var Roles = []Role{
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,
-	Status, StatusLog, StatusLogOn, StatusFilter, StatusFilterOn, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
+	Status, StatusLog, StatusLogOn, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,

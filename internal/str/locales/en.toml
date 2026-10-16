@@ -142,7 +142,6 @@ pill_new = "▼ {n} new"
 pill_more = "▼ more"
 selected = "{n} selected"
 log_button = "Log"
-filter_button = "Filter"
 # The history panel: its button in the statusline, and what it says
 # when it has nothing to list.
 history_button = "History"

@@ -67,14 +67,19 @@ func (b *browse) entriesOf(items []scene.Item) []panelEntry {
 // entries is entriesOf the items as they are now.
 func (b *browse) entries() []panelEntry { return b.entriesOf(b.Items()) }
 
-// togglePanel opens the filter panel on its first entry, scrolled to it,
-// or closes it.
-func (b *browse) togglePanel() {
-	if b.Panel != nil {
-		b.Panel = nil
-		return
+// newPanel puts the filter panel on its first entry, scrolled to it,
+// with the log focused: log mode as it starts.
+func (b *browse) newPanel() {
+	b.Panel, b.panelFocus = &filterPanel{Sel: b.entries()[0].sel(), follow: true}, false
+}
+
+// focusPanel gives the panel the keys, or (false) the log; the
+// highlight comes into view.
+func (b *browse) focusPanel(on bool) {
+	b.panelFocus = on
+	if on {
+		b.Panel.follow = true
 	}
-	b.Panel = &filterPanel{Sel: b.entries()[0].sel(), follow: true}
 }
 
 // movePanel moves the highlight by delta entries, stopping at the ends.
@@ -232,12 +237,13 @@ func (b *browse) panelWindow(total, h, sel int) (top int, above, below bool, ava
 	return top, above, below, avail
 }
 
-// panelKey handles a key while the filter panel is open.
+// panelKey handles a key for the filter panel: one only it uses, from
+// either side, or a shared one while it has focus.
 func (b *browse) panelKey(k tea.KeyPressMsg) tea.Cmd {
 	sel := b.Panel.Sel
 	switch k.String() {
-	case "esc", "ctrl+c", openFilterKey: // as they back out of log mode
-		b.togglePanel() // it's open: this closes it
+	case "esc", "ctrl+c": // one step back: to the log
+		b.focusPanel(false)
 		return nil
 	case "up", "k":
 		b.movePanel(-1)
@@ -282,6 +288,7 @@ func (b *browse) panelClick(x, y, h int) {
 	if b.prompt != promptNone {
 		return
 	}
+	b.panelFocus = true // not focusPanel: the panel stays where the click found it
 	rows := b.panelRows(0)
 	top, above, below, avail := b.panelWindow(len(rows), h, -1)
 	if above {

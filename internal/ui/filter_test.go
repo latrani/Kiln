@@ -56,15 +56,14 @@ func TestPanelOpensAndCloses(t *testing.T) {
 		}
 	}
 	h.key("f")
-	if h.br().Panel != nil || panelSide(h)[0] != "fm" {
-		t.Errorf("f should close the panel:\n%s", h.screen())
+	if h.br().panelFocus || panelSide(h)[0] != str.FilterUntagged() {
+		t.Errorf("f should give the log focus, the panel staying:\n%s", h.screen())
 	}
 	h.key("f")
 	h.key("esc")
-	if h.br() == nil || h.br().Panel != nil {
-		t.Error("Esc should close the panel and stay in log mode")
+	if h.br() == nil || h.br().panelFocus {
+		t.Error("Esc should give the log focus and stay in log mode")
 	}
-	// The chip toggles it too (TestTopBarChipsToggle).
 }
 
 func TestPanelLightsTheItemsOwnState(t *testing.T) {
@@ -189,13 +188,11 @@ func TestPanelClicksIgnoredDuringPrompt(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("up", "s", "up", "up", "s", "f") // a range, then the panel
-	h.key("esc")                            // close the panel
-	h.key("e")                              // export's format prompt
-	h.br().togglePanel()                    // panel open under the prompt
+	h.keys("up", "s", "up", "up", "s") // a range
+	h.key("e")                         // export's format prompt, the panel beside it
 	h.screen()
 	h.m.Update(tea.MouseClickMsg{X: 2, Y: sideTitleH + 3, Button: tea.MouseLeft}) // page's Hide
-	h.key("p")                                                       // must not panic
+	h.key("p")                                                                    // must not panic
 	if h.kitFilter().Active() {
 		t.Error("clicks should be ignored while a prompt is open")
 	}
@@ -375,8 +372,8 @@ func TestPanelLogModeKeys(t *testing.T) {
 		t.Errorf("k should move up: %v", h.br().Panel.Sel)
 	}
 	h.key("ctrl+c")
-	if h.br() == nil || h.br().Panel != nil {
-		t.Error("Ctrl+C should close the panel and stay in log mode")
+	if h.br() == nil || h.br().panelFocus {
+		t.Error("Ctrl+C should give the log focus and stay in log mode")
 	}
 }
 

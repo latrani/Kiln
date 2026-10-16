@@ -176,7 +176,7 @@ func TestLogModeUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	th := withTheme(t, `[ui]
-"status.filter.on" = { fg = "#0d0e0f" }
+"filter.title" = { fg = "#0d0e0f" }
 "log.time" = { fg = "#101112" }
 "log.cursor" = { fg = "#131415" }
 "log.find" = { fg = "#161718" }
@@ -194,9 +194,8 @@ func TestLogModeUsesTheme(t *testing.T) {
 	h.key("/")
 	h.typeText("Mira") // only pages show
 	h.key("enter")
-	h.key("f") // the panel open: the Filter chip on
 	s = h.drawn()
-	for _, role := range []theme.Role{theme.StatusFilterOn, theme.LogFind} {
+	for _, role := range []theme.Role{theme.FilterTitle, theme.LogFind} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("log mode doesn't draw %s", role)
 		}

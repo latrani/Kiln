@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -269,21 +268,20 @@ func (m *Model) statusBar(w int) (line string, chips statusChips) {
 const topH = 2
 
 // topBar draws the top status bar: the character on the left; on the
-// right, pinned, the presence chip, the
-// Filter chip (log mode) and the Log chip at the far right, a spaced dot
-// between each. It says which columns each chip takes, [from, to); zero
-// when it isn't drawn whole.
-func (m *Model) topBar(w int) (line string, logChip, filterChip, presenceChip [2]int) {
+// right, pinned, the presence chip and the Log chip at the far right, a
+// spaced dot between them. It says which columns each chip takes,
+// [from, to); zero when it isn't drawn whole.
+func (m *Model) topBar(w int) (line string, logChip, presenceChip [2]int) {
 	return m.topBarFor(w, m.shownPresence)
 }
 
 // topBarFor is topBar with the presence chip as it is for p, which
 // decides the chip's width; a click lands on the layout it was made on.
-func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterChip, presenceChip [2]int) {
+func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, presenceChip [2]int) {
 	cs := m.cur()
 	if cs == nil {
 		world, _ := m.a.ActiveWorld() // "" with nothing open
-		return fitName(world, w), logChip, filterChip, presenceChip
+		return fitName(world, w), logChip, presenceChip
 	}
 	left := cs.Ch.World + str.Separator() + cs.Ch.Name
 	logRole := theme.StatusLog
@@ -299,13 +297,8 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterCh
 		presLabel, presRole = str.ViewPresenceAway(), theme.StatusPresenceAway
 	}
 	parts := []part{{chip(presRole, presLabel), &presenceChip}}
-	if b := cs.browse; b != nil {
+	if cs.browse != nil {
 		logRole = theme.StatusLogOn
-		role := theme.StatusFilter
-		if b.Panel != nil {
-			role = theme.StatusFilterOn
-		}
-		parts = append(parts, part{chip(role, str.ViewFilterButton()), &filterChip})
 	}
 	parts = append(parts, part{chip(logRole, str.ViewLogButton()), &logChip})
 
@@ -317,17 +310,13 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterCh
 		}
 		return n
 	}
-	// Too tight beside a name: Filter goes first, then presence; Log stays.
-	for len(parts) > 1 && w-width() < 2 {
-		drop := 0 // presence
-		if len(parts) == 3 {
-			drop = 1 // Filter
-		}
-		parts = slices.Delete(parts, drop, drop+1)
+	// Too tight beside a name: presence goes; Log stays.
+	if len(parts) > 1 && w-width() < 2 {
+		parts = parts[1:]
 	}
 	start := w - width()
 	if start < 2 { // no room for a chip at all
-		return fitName(left, w), [2]int{}, [2]int{}, [2]int{}
+		return fitName(left, w), [2]int{}, [2]int{}
 	}
 	x := start
 	texts := make([]string, len(parts))
@@ -336,7 +325,7 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterCh
 		*pt.span = [2]int{x, x + xansi.StringWidth(pt.text)}
 		x += xansi.StringWidth(pt.text) + xansi.StringWidth(sep)
 	}
-	return fitName(left, start-1) + " " + strings.Join(texts, sep), logChip, filterChip, presenceChip
+	return fitName(left, start-1) + " " + strings.Join(texts, sep), logChip, presenceChip
 }
 
 // topClick handles a click at column x of the top bar. was is the
@@ -348,7 +337,7 @@ func (m *Model) topClick(x int, was app.Presence) {
 	if cs == nil {
 		return
 	}
-	_, logc, filt, pres := m.topBarFor(m.layout().rw, was)
+	_, logc, pres := m.topBarFor(m.layout().rw, was)
 	switch {
 	case x >= pres[0] && x < pres[1]:
 		if was != app.PresenceAway {
@@ -360,8 +349,6 @@ func (m *Model) topClick(x int, was app.Presence) {
 		} else {
 			m.openBrowse(cs)
 		}
-	case x >= filt[0] && x < filt[1] && cs.browse != nil && cs.browse.prompt == promptNone:
-		cs.browse.togglePanel()
 	}
 }
 
@@ -390,7 +377,7 @@ func (m *Model) View() tea.View {
 	right := make([]string, 0, m.height)
 	cs := m.cur()
 	var cursor *tea.Cursor
-	top, _, _, _ := m.topBar(l.rw)
+	top, _, _ := m.topBar(l.rw)
 	rule := strings.Repeat(glyph.Rule, l.rw)
 	right = append(right, theme.Fill(theme.Status, top, l.rw), theme.Paint(theme.RuleStatus, rule))
 	if cs != nil && cs.browse != nil {

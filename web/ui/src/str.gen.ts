@@ -905,9 +905,6 @@ export function viewConnectionsTitle(): string { return `Connections`; }
 /** view.disconnected: Disconnected · Enter to connect */
 export function viewDisconnected(): string { return `Disconnected · Enter to connect`; }
 
-/** view.filter_button: Filter */
-export function viewFilterButton(): string { return `Filter`; }
-
 /** view.history_button: History */
 export function viewHistoryButton(): string { return `History`; }
 
