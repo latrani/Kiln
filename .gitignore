@@ -4,7 +4,7 @@
 /web/static/kiln.wasm
 /web/static/wasm_exec.js
 /web/preset.local/
-/web/dev-allow.toml
+/web/dev-relay.toml
 /web/ui/node_modules/
 /web/ui/.test-out/
 /web/static/app.js*

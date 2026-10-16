@@ -1,6 +1,6 @@
 // Package relay is kiln-relay's core: it carries a browser's WebSocket to
 // a MUCK's TCP port, for the worlds on an allowlist, so Kiln's web build
-// can reach MUCKs. TLS runs inside the browser; the relay passes bytes.
+// can reach MUCKs. The relay does TLS with each TLS world itself.
 package relay
 
 import (
@@ -15,6 +15,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -22,14 +23,18 @@ import (
 type World struct {
 	Host  string `toml:"host"`
 	Ports []int  `toml:"ports"`
-	// Plaintext allows non-TLS traffic. Off, the relay refuses anything
-	// that doesn't start with a TLS handshake, so whoever runs the relay
-	// never sees players' passwords. Meant for the operator's own MUCK.
+	// Plaintext allows non-TLS traffic. Off, the world is TLS.
 	Plaintext bool `toml:"plaintext"`
+	// How the relay trusts a TLS world: TLSTrust "ca" (a real CA), or a
+	// pinned certificate, "sha256:…" as conn.Fingerprint makes it. A TLS
+	// world has exactly one; nothing is trusted on first use.
+	TLSTrust string `toml:"tls_trust"`
+	Pin      string `toml:"pin"`
 }
 
-// Allowlist is the relay's config file.
-type Allowlist struct {
+// Config is the relay's config file, relay.toml. Its [[world]] list is the
+// allowlist.
+type Config struct {
 	Worlds []World `toml:"world"`
 	// Origins are extra host patterns allowed to open the relay from a
 	// page (the relay's own host always is).
@@ -46,54 +51,57 @@ type Allowlist struct {
 	proxies []netip.Prefix
 }
 
-// LoadAllowlist reads and checks the allowlist at path.
-func LoadAllowlist(path string) (*Allowlist, error) {
+// LoadConfig reads and checks the allowlist at path.
+func LoadConfig(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return nil, str.Wrap(str.RelayAllowReading(path, err), err)
+		return nil, str.Wrap(str.RelayConfigReading(path, err), err)
 	}
-	return ParseAllowlist(path, b)
+	return ParseConfig(path, b)
 }
 
-// ParseAllowlist checks an allowlist file's contents; path is for messages.
+// ParseConfig checks an allowlist file's contents; path is for messages.
 // Unknown settings are errors: a typo in a security setting must not be
 // silently ignored.
-func ParseAllowlist(path string, b []byte) (*Allowlist, error) {
-	var a Allowlist
+func ParseConfig(path string, b []byte) (*Config, error) {
+	var a Config
 	md, err := toml.Decode(string(b), &a)
 	if err != nil {
-		return nil, str.Wrap(str.RelayAllowReading(path, err), err)
+		return nil, str.Wrap(str.RelayConfigReading(path, err), err)
 	}
 	if und := md.Undecoded(); len(und) > 0 {
-		return nil, errors.New(str.RelayAllowUnknownKey(path, und[0].String()))
+		return nil, errors.New(str.RelayConfigUnknownKey(path, und[0].String()))
 	}
 	seen := map[string]bool{}
 	for i, w := range a.Worlds {
 		h := normHost(w.Host)
 		if h == "" {
-			return nil, errors.New(str.RelayAllowNoHost(path, i+1))
+			return nil, errors.New(str.RelayConfigNoHost(path, i+1))
 		}
 		if len(w.Ports) == 0 {
-			return nil, errors.New(str.RelayAllowNoPorts(path, h))
+			return nil, errors.New(str.RelayConfigNoPorts(path, h))
 		}
 		for _, p := range w.Ports {
 			if p < 1 || p > 65535 {
-				return nil, errors.New(str.RelayAllowBadPort(path, h, p))
+				return nil, errors.New(str.RelayConfigBadPort(path, h, p))
 			}
 			// Lookup takes the first match, so a second entry would be
 			// silently ignored.
 			hp := net.JoinHostPort(h, strconv.Itoa(p))
 			if seen[hp] {
-				return nil, errors.New(str.RelayAllowDuplicate(path, hp))
+				return nil, errors.New(str.RelayConfigDuplicate(path, hp))
 			}
 			seen[hp] = true
+		}
+		if err := checkTrust(path, h, w); err != nil {
+			return nil, err
 		}
 		a.Worlds[i].Host = h
 	}
 	for i, o := range a.Origins {
 		n := normHost(o)
 		if !validOrigin(n) {
-			return nil, errors.New(str.RelayAllowBadOrigin(path, o))
+			return nil, errors.New(str.RelayConfigBadOrigin(path, o))
 		}
 		a.Origins[i] = n
 	}
@@ -102,22 +110,48 @@ func ParseAllowlist(path string, b []byte) (*Allowlist, error) {
 		v   int
 	}{{"max_per_ip", a.MaxPerIP}, {"max_conns", a.MaxConns}} { //str:ok
 		if md.IsDefined(l.key) && l.v < 1 {
-			return nil, errors.New(str.RelayAllowBadLimit(path, l.key))
+			return nil, errors.New(str.RelayConfigBadLimit(path, l.key))
 		}
 	}
 	for _, s := range a.TrustedProxies {
 		p, err := parsePrefix(s)
 		if err != nil {
-			return nil, errors.New(str.RelayAllowBadProxy(path, s))
+			return nil, errors.New(str.RelayConfigBadProxy(path, s))
 		}
 		a.proxies = append(a.proxies, p)
 	}
 	return &a, nil
 }
 
+// checkTrust checks that w says how it's trusted, if it's TLS, and not
+// if it isn't.
+func checkTrust(path, host string, w World) error {
+	if w.Plaintext {
+		if w.TLSTrust != "" || w.Pin != "" {
+			return errors.New(str.RelayConfigPlaintextTrust(path, host))
+		}
+		return nil
+	}
+	switch {
+	case w.TLSTrust != "" && w.Pin != "":
+		return errors.New(str.RelayConfigBothTrust(path, host))
+	case w.TLSTrust != "":
+		if w.TLSTrust != "ca" { //str:ok config vocabulary
+			return errors.New(str.RelayConfigBadTrust(path, host, w.TLSTrust))
+		}
+	case w.Pin != "":
+		if conn.ValidateFingerprint(w.Pin) != nil {
+			return errors.New(str.RelayConfigBadPin(path, host, w.Pin))
+		}
+	default:
+		return errors.New(str.RelayConfigNoTrust(path, host))
+	}
+	return nil
+}
+
 // Lookup finds the world for host:port, comparing host case-insensitively
 // and ignoring a trailing dot.
-func (a *Allowlist) Lookup(host string, port int) (World, bool) {
+func (a *Config) Lookup(host string, port int) (World, bool) {
 	h := normHost(host)
 	for _, w := range a.Worlds {
 		if w.Host == h && slices.Contains(w.Ports, port) {
@@ -128,7 +162,7 @@ func (a *Allowlist) Lookup(host string, port int) (World, bool) {
 }
 
 // Trusted reports whether ip is a trusted proxy.
-func (a *Allowlist) Trusted(ip netip.Addr) bool {
+func (a *Config) Trusted(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	for _, p := range a.proxies {
 		if p.Contains(ip) {

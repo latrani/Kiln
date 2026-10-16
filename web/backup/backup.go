@@ -1,6 +1,6 @@
-// Package backup packs Kiln's config and TLS pins into a zip and unpacks
-// one back: the web build's Back up and Restore. Browsers can clear what
-// a page saves, so this is the copy the user keeps.
+// Package backup packs Kiln's config into a zip and unpacks one back:
+// the web build's Back up and Restore. Browsers can clear what a page
+// saves, so this is the copy the user keeps.
 package backup
 
 import (
@@ -24,14 +24,10 @@ const MaxUnpacked = 10 << 20
 // for the zip's headers. The page reads no more than this of a file.
 const MaxFile = MaxUnpacked + 1<<20
 
-const (
-	configPrefix = "config/"     //str:ok
-	knownName    = "known_hosts" //str:ok
-)
+const configPrefix = "config/" //str:ok
 
-// Zip packs every file under configDir as config/… and knownHosts as
-// known_hosts, if it exists.
-func Zip(configDir, knownHosts string) ([]byte, error) {
+// Zip packs every file under configDir as config/….
+func Zip(configDir string) ([]byte, error) {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 	add := func(name, file string) error {
@@ -59,23 +55,18 @@ func Zip(configDir, knownHosts string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := os.Stat(knownHosts); err == nil {
-		if err := add(knownName, knownHosts); err != nil {
-			return nil, err
-		}
-	}
 	if err := w.Close(); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-// Unzip writes a backup's files over configDir and knownHosts. It checks
+// Unzip writes a backup's files over configDir. It checks
 // every entry, and reads every file into memory, before writing any, so a
 // bad name or an oversized backup leaves disk untouched. It never deletes
 // a file, and returns how many files it wrote; a name that appears twice
 // is written once, with the later copy.
-func Unzip(data []byte, configDir, knownHosts string) (int, error) {
+func Unzip(data []byte, configDir string) (int, error) {
 	if len(data) > MaxFile {
 		return 0, errors.New(str.BackupFileTooBig(MaxFile >> 20))
 	}
@@ -98,8 +89,6 @@ func Unzip(data []byte, configDir, knownHosts string) (int, error) {
 		var dest string
 		switch {
 		case clean != f.Name || path.IsAbs(clean):
-		case clean == knownName:
-			dest = knownHosts
 		case strings.HasPrefix(clean, configPrefix):
 			dest = filepath.Join(configDir, filepath.FromSlash(strings.TrimPrefix(clean, configPrefix)))
 		}

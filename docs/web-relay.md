@@ -2,15 +2,30 @@
 
 Kiln's web build can't open TCP connections, so the page opens a
 WebSocket to `kiln-relay`, which connects to the MUCK. It only connects to
-worlds in its allowlist; that list is the real boundary. For a world
-without `plaintext = true`, the relay also checks that the client's first
-frame starts a TLS handshake and refuses it otherwise, so an honest
-client can't send a password in the clear by accident. It doesn't inspect
-anything after that first frame.
+worlds in its allowlist (the `[[world]]` list in `relay.toml`); that list
+is the real boundary. For a TLS world, the relay opens the TLS
+connection itself, trusting the world's certificate as `relay.toml` says.
 
 The relay also serves the page itself, and a preset: the worlds a
 player's browser starts with. So one process and one nginx block run
 the whole web build.
+
+## What the relay can see
+
+The relay, not the player's browser, holds the TLS connection to each
+world. Traffic is encrypted between the browser and nginx, and between
+the relay and the world, but the relay itself handles it in the clear:
+passwords, pages, whispers, everything a player sends or sees. While a
+player is away, it keeps what arrives in memory until they come back or
+the hold runs out.
+
+So whoever runs the relay, and anyone who gets onto its host, can read
+its players' traffic. That's no new exposure when the relay is run by
+the world's own staff. Don't serve worlds you don't operate unless their
+players know you can read what they send.
+
+The relay never writes traffic to disk. Turn off core dumps for it
+(`LimitCORE=0` in the systemd unit).
 
 ## Installing
 
@@ -29,13 +44,16 @@ sudo systemctl restart kiln-relay
 
 The relay's flags:
 
-- `-allow PATH`: the allowlist (below). Required.
+- `-config PATH`: the relay's config file, `relay.toml` (below). Required.
 - `-web DIR`: serve the page at `/kiln/`.
 - `-preset DIR`: serve a preset at `/kiln/preset/` (below). Without it
   the page starts with nothing preset.
 - `-listen ADDR`: where to listen; `127.0.0.1:7801` by default.
 
-## Allowlist
+## relay.toml
+
+Say `/etc/kiln-relay/relay.toml`. Its `[[world]]` entries are the
+allowlist.
 
 ```toml
 # Hosts (beyond the relay's own) whose pages may use this relay.
@@ -51,38 +69,44 @@ max_conns = 256
 [[world]]
 host = "muck.example.org"
 ports = [8899]
-plaintext = true   # only for your own MUCK
+plaintext = true
+
+[[world]]
+host = "muck.example.org"
+ports = [8888]
+pin = "sha256:…"    # a self-signed certificate (below)
 
 [[world]]
 host = "friends.example.net"
-ports = [8888]     # TLS only
+ports = [7777]
+tls_trust = "ca"    # a certificate from a real CA
 ```
 
 `origins` are host patterns (`*.example.org`, `localhost:8080`), not
 URLs. A host and port may appear in only one `[[world]]`.
 
 The relay reloads the file when it changes, following a symlink to its
-target. If the new file has an error, it logs it and keeps the old list.
+target. If the new file has an error, it logs it and keeps the old one.
 
 The relay pings each open connection every 30 seconds and closes one
 that doesn't answer, so a browser that vanished (a laptop gone to sleep)
 doesn't hold a slot until nginx's timeout.
 
-## TLS trust in the browser
+## TLS trust
 
-The relay never sees a TLS world's plaintext, but it, or anyone between
-it and the MUCK, could show the browser its own certificate. A `pin`
-world trusts the first certificate it sees and remembers it, and the
-browser keeps that pin only as long as it keeps the site's data. So
-a player's first visit, a private window, or a visit after clearing site
-data trusts whatever it's shown. Close that gap for the worlds you serve:
+Every world without `plaintext = true` is TLS, and says how the relay
+trusts it. Nothing is trusted on first use.
 
-- A world with a certificate from a real CA: `tls_trust = "ca"` in its
-  world file. The web build carries its own root certificates.
-- A self-signed world: put its pin in the preset's `known_hosts`, one
-  `host:port sha256:…` line each, as in a desktop Kiln's `known_hosts`
-  once it has connected. The page adds each to the browser's pins unless that host:port already
-  has one.
+- A world with a certificate from a real CA: `tls_trust = "ca"`. The
+  relay checks it against the system's root certificates.
+- A self-signed world: `pin = "sha256:…"`. Copy the pin from a desktop
+  Kiln's `known_hosts` once it has connected to the world (the part
+  after `host:port`).
+
+If the certificate doesn't match, the relay refuses the connection and
+the player sees that it refused the world's certificate. A player's
+world file can't turn TLS off for a TLS world here; one that asks for TLS
+on a `plaintext` world is refused rather than sent in the clear.
 
 ## Preset
 
@@ -92,7 +116,6 @@ A preset is laid out like a `/backup` zip, in a folder of its own, say
 ```
 /etc/kiln-relay/preset/
   config/worlds/fm.toml
-  known_hosts            # pins for self-signed worlds (above)
 ```
 
 `config/` is Kiln's config folder: worlds, and any other config file you
@@ -143,8 +166,9 @@ Description=Kiln web relay
 After=network-online.target
 
 [Service]
-ExecStart=/home/linuxbrew/.linuxbrew/bin/kiln-relay -allow /etc/kiln-relay/allow.toml -web /home/linuxbrew/.linuxbrew/share/kiln/web -preset /etc/kiln-relay/preset
+ExecStart=/home/linuxbrew/.linuxbrew/bin/kiln-relay -config /etc/kiln-relay/relay.toml -web /home/linuxbrew/.linuxbrew/share/kiln/web -preset /etc/kiln-relay/preset
 DynamicUser=yes
+LimitCORE=0
 Restart=on-failure
 
 [Install]

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadingText, mergeKnownHosts, readWithProgress, toBase64 } from "./boot.ts";
+import { loadingText, readWithProgress, toBase64 } from "./boot.ts";
 import * as str from "./str.gen.ts";
 
 const res = (chunks: number[], length?: number, encoding?: string) =>
@@ -54,14 +54,3 @@ test("a file's bytes go to Go as base64, however large", () => {
   assert.equal(toBase64(new Uint8Array()), "");
 });
 
-test("mergeKnownHosts adds preset pins the saved file lacks", () => {
-  const saved = "fm.example:8888 sha256:aa\n";
-  const preset = "fm.example:8888 sha256:bb\nrook.example:7777 sha256:cc\n\n";
-  assert.equal(mergeKnownHosts(saved, preset), "fm.example:8888 sha256:aa\nrook.example:7777 sha256:cc\n");
-});
-
-test("mergeKnownHosts seeds an empty file and leaves a full one alone", () => {
-  assert.equal(mergeKnownHosts("", "fm.example:8888 sha256:bb"), "fm.example:8888 sha256:bb\n");
-  assert.equal(mergeKnownHosts("fm.example:8888 sha256:aa", "fm.example:8888 sha256:bb\n"), "fm.example:8888 sha256:aa");
-  assert.equal(mergeKnownHosts("a:1 sha256:aa", "b:2 sha256:bb"), "a:1 sha256:aa\nb:2 sha256:bb\n");
-});

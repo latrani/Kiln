@@ -1,7 +1,7 @@
 // memfs: an in-memory filesystem with the Node-style callback API that
 // Go's syscall package calls through globalThis.fs under GOOS=js (see
 // $(go env GOROOT)/src/syscall/fs_js.go). It gives Kiln real files in the
-// browser: config, known_hosts and logs, for the length of a visit.
+// browser: config and logs, for the length of a visit.
 //
 // Errors carry Node's codes (ENOENT, ...): Go maps them to errnos, and
 // panics on a code it doesn't know. Callbacks run synchronously, which

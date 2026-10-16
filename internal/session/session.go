@@ -308,9 +308,14 @@ func (s *Session) stayDown(ctx context.Context) bool {
 // Run connects and keeps reconnecting until ctx is cancelled.
 // permanent reports whether a dial error will recur on every retry, so the
 // session should go to Failed and wait for Reconnect instead of backing
-// off: a changed pinned certificate, or a certificate that fails CA
-// verification (unknown authority, wrong host, expired).
+// off: a changed pinned certificate, a certificate that fails CA
+// verification (unknown authority, wrong host, expired), or an error that
+// says so itself (the web relay refusing a certificate).
 func permanent(err error) bool {
+	var p interface{ Permanent() bool }
+	if errors.As(err, &p) && p.Permanent() {
+		return true
+	}
 	var (
 		pin      *conn.PinMismatchError
 		verify   *tls.CertificateVerificationError

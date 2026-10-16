@@ -1,6 +1,6 @@
 // Package wsdial dials MUCKs through kiln-relay: a WebSocket to the relay,
-// used as a plain net.Conn, so TLS and telnet still happen in Kiln and the
-// relay only passes bytes. In the browser it uses the page's WebSocket
+// used as a plain net.Conn. The relay does TLS with the world; telnet
+// happens in Kiln. In the browser it uses the page's WebSocket
 // directly (wsdial_js.go); elsewhere coder/websocket (wsdial_other.go),
 // which is how it's tested natively.
 package wsdial
@@ -20,14 +20,32 @@ import (
 // build doesn't link the relay's server code.
 const (
 	codeNotListed   websocket.StatusCode = 4403
-	codeNeedsTLS    websocket.StatusCode = 4426
+	codeNoTLS       websocket.StatusCode = 4426
 	codeTooMany     websocket.StatusCode = 4429
 	codeUnreachable websocket.StatusCode = 4502
 	codeBusy        websocket.StatusCode = 4503
+	codeBadCert     websocket.StatusCode = 4526
 )
 
-// target is the relay URL that asks for addr (host:port).
-func target(relayURL, addr string) (string, error) {
+// openFrame is relay.OpenFrame: the relay has reached the world.
+const openFrame = "open" //str:ok protocol token
+
+// CertError is the relay refusing the world's certificate. It won't
+// change by retrying, so it's Permanent: the session waits for the
+// player to reconnect.
+type CertError struct{ err error }
+
+func (e *CertError) Error() string {
+	var ce websocket.CloseError
+	errors.As(e.err, &ce)
+	return str.ConnRelayBadCert(ce.Reason)
+}
+func (e *CertError) Unwrap() error   { return e.err }
+func (e *CertError) Permanent() bool { return true }
+
+// target is the relay URL that asks for addr (host:port), and for TLS
+// when the world file does.
+func target(relayURL, addr string, tls bool) (string, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return "", err
@@ -39,6 +57,9 @@ func target(relayURL, addr string) (string, error) {
 	q := u.Query()
 	q.Set("host", host)
 	q.Set("port", port)
+	if tls {
+		q.Set("tls", "1")
+	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil
 }
@@ -53,8 +74,10 @@ func explain(err error) error {
 	switch ce.Code {
 	case codeNotListed:
 		return str.Wrap(str.ConnRelayNotListed(), err)
-	case codeNeedsTLS:
-		return str.Wrap(str.ConnRelayNeedsTls(), err)
+	case codeNoTLS:
+		return str.Wrap(str.ConnRelayNoTls(), err)
+	case codeBadCert:
+		return &CertError{err}
 	case codeTooMany:
 		return str.Wrap(str.ConnRelayTooMany(), err)
 	case codeUnreachable:

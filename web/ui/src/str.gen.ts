@@ -318,6 +318,9 @@ export function connNoCertificate(): string { return `server sent no certificate
 /** conn.reading_known_hosts: reading known_hosts: {err} */
 export function connReadingKnownHosts(err: unknown): string { return `reading known_hosts: ${e(err)}`; }
 
+/** conn.relay_bad_cert: the web relay refused this world's certificate: {reason} */
+export function connRelayBadCert(reason: unknown): string { return `the web relay refused this world's certificate: ${reason}`; }
+
 /** conn.relay_busy: the web relay is full · try again in a bit */
 export function connRelayBusy(): string { return `the web relay is full · try again in a bit`; }
 
@@ -327,8 +330,8 @@ export function connRelayDown(): string { return `couldn't reach the web relay`;
 /** conn.relay_dropped: lost the connection to the web relay */
 export function connRelayDropped(): string { return `lost the connection to the web relay`; }
 
-/** conn.relay_needs_tls: this world only works over TLS on the web */
-export function connRelayNeedsTls(): string { return `this world only works over TLS on the web`; }
+/** conn.relay_no_tls: the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator */
+export function connRelayNoTls(): string { return `the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator`; }
 
 /** conn.relay_not_listed: this world isn't on the web relay's list */
 export function connRelayNotListed(): string { return `this world isn't on the web relay's list`; }
@@ -579,58 +582,76 @@ export function pickerName(): string { return `Name`; }
 /** picker.title: All connections */
 export function pickerTitle(): string { return `All connections`; }
 
-/** relay.allow_bad_limit: allowlist {path}: {key} must be 1 or more */
-export function relayAllowBadLimit(path: unknown, key: unknown): string { return `allowlist ${path}: ${key} must be 1 or more`; }
-
-/** relay.allow_bad_origin: allowlist {path}: origins has bad pattern {pattern:%q} · use a host, like "muck.example.org" or "*.example.org" */
-export function relayAllowBadOrigin(path: unknown, pattern: unknown): string { return `allowlist ${path}: origins has bad pattern ${q(pattern)} · use a host, like "muck.example.org" or "*.example.org"`; }
-
-/** relay.allow_bad_port: allowlist {path}: {host} has bad port {port} */
-export function relayAllowBadPort(path: unknown, host: unknown, port: unknown): string { return `allowlist ${path}: ${host} has bad port ${port}`; }
-
-/** relay.allow_bad_proxy: allowlist {path}: trusted_proxies has bad address {addr:%q} */
-export function relayAllowBadProxy(path: unknown, addr: unknown): string { return `allowlist ${path}: trusted_proxies has bad address ${q(addr)}`; }
-
-/** relay.allow_duplicate: allowlist {path}: {world:%q} is listed twice */
-export function relayAllowDuplicate(path: unknown, world: unknown): string { return `allowlist ${path}: ${q(world)} is listed twice`; }
-
-/** relay.allow_loaded: one: allowlist {path}: 1 world · other: allowlist {path}: {n} worlds */
-export function relayAllowLoaded(n: number, path: unknown): string {
-  switch (plural.select(n)) {
-    case "one": return `allowlist ${path}: 1 world`;
-    default: return `allowlist ${path}: ${n} worlds`;
-  }
-}
-
-/** relay.allow_no_host: allowlist {path}: world {n} has no host */
-export function relayAllowNoHost(path: unknown, n: number): string { return `allowlist ${path}: world ${n} has no host`; }
-
-/** relay.allow_no_ports: allowlist {path}: {host} has no ports */
-export function relayAllowNoPorts(path: unknown, host: unknown): string { return `allowlist ${path}: ${host} has no ports`; }
-
-/** relay.allow_reading: reading allowlist {path}: {err} */
-export function relayAllowReading(path: unknown, err: unknown): string { return `reading allowlist ${path}: ${e(err)}`; }
-
-/** relay.allow_reload_failed: allowlist not reloaded, keeping the old one: {err} */
-export function relayAllowReloadFailed(err: unknown): string { return `allowlist not reloaded, keeping the old one: ${e(err)}`; }
-
-/** relay.allow_unknown_key: allowlist {path}: unknown setting {key:%q} */
-export function relayAllowUnknownKey(path: unknown, key: unknown): string { return `allowlist ${path}: unknown setting ${q(key)}`; }
-
 /** relay.bad_dir: -{flag} {path}: {err} */
 export function relayBadDir(flag: unknown, path: unknown, err: unknown): string { return `-${flag} ${path}: ${e(err)}`; }
+
+/** relay.cert_not_pinned: it doesn't match the pin in the relay's config */
+export function relayCertNotPinned(): string { return `it doesn't match the pin in the relay's config`; }
 
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
-/** relay.flag_allow: allowlist file (TOML) */
-export function relayFlagAllow(): string { return `allowlist file (TOML)`; }
+/** relay.config_bad_limit: {path}: {key} must be 1 or more */
+export function relayConfigBadLimit(path: unknown, key: unknown): string { return `${path}: ${key} must be 1 or more`; }
+
+/** relay.config_bad_origin: {path}: origins has bad pattern {pattern:%q} · use a host, like "muck.example.org" or "*.example.org" */
+export function relayConfigBadOrigin(path: unknown, pattern: unknown): string { return `${path}: origins has bad pattern ${q(pattern)} · use a host, like "muck.example.org" or "*.example.org"`; }
+
+/** relay.config_bad_pin: {path}: {host} has pin {value:%q} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts */
+export function relayConfigBadPin(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has pin ${q(value)} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts`; }
+
+/** relay.config_bad_port: {path}: {host} has bad port {port} */
+export function relayConfigBadPort(path: unknown, host: unknown, port: unknown): string { return `${path}: ${host} has bad port ${port}`; }
+
+/** relay.config_bad_proxy: {path}: trusted_proxies has bad address {addr:%q} */
+export function relayConfigBadProxy(path: unknown, addr: unknown): string { return `${path}: trusted_proxies has bad address ${q(addr)}`; }
+
+/** relay.config_bad_trust: {path}: {host} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate */
+export function relayConfigBadTrust(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has tls_trust ${q(value)} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate`; }
+
+/** relay.config_both_trust: {path}: {host} has both tls_trust and pin · use one */
+export function relayConfigBothTrust(path: unknown, host: unknown): string { return `${path}: ${host} has both tls_trust and pin · use one`; }
+
+/** relay.config_duplicate: {path}: {world:%q} is listed twice */
+export function relayConfigDuplicate(path: unknown, world: unknown): string { return `${path}: ${q(world)} is listed twice`; }
+
+/** relay.config_loaded: one: {path}: 1 world · other: {path}: {n} worlds */
+export function relayConfigLoaded(n: number, path: unknown): string {
+  switch (plural.select(n)) {
+    case "one": return `${path}: 1 world`;
+    default: return `${path}: ${n} worlds`;
+  }
+}
+
+/** relay.config_no_host: {path}: world {n} has no host */
+export function relayConfigNoHost(path: unknown, n: number): string { return `${path}: world ${n} has no host`; }
+
+/** relay.config_no_ports: {path}: {host} has no ports */
+export function relayConfigNoPorts(path: unknown, host: unknown): string { return `${path}: ${host} has no ports`; }
+
+/** relay.config_no_trust: {path}: {host} needs tls_trust = "ca" or a pin (or plaintext = true) */
+export function relayConfigNoTrust(path: unknown, host: unknown): string { return `${path}: ${host} needs tls_trust = "ca" or a pin (or plaintext = true)`; }
+
+/** relay.config_plaintext_trust: {path}: {host} is plaintext, so it can't have tls_trust or pin */
+export function relayConfigPlaintextTrust(path: unknown, host: unknown): string { return `${path}: ${host} is plaintext, so it can't have tls_trust or pin`; }
+
+/** relay.config_reading: reading {path}: {err} */
+export function relayConfigReading(path: unknown, err: unknown): string { return `reading ${path}: ${e(err)}`; }
+
+/** relay.config_reload_failed: config not reloaded, keeping the old one: {err} */
+export function relayConfigReloadFailed(err: unknown): string { return `config not reloaded, keeping the old one: ${e(err)}`; }
+
+/** relay.config_unknown_key: {path}: unknown setting {key:%q} */
+export function relayConfigUnknownKey(path: unknown, key: unknown): string { return `${path}: unknown setting ${q(key)}`; }
+
+/** relay.flag_config: the relay's config file (relay.toml) */
+export function relayFlagConfig(): string { return `the relay's config file (relay.toml)`; }
 
 /** relay.flag_listen: address to listen on (default 127.0.0.1:7801) */
 export function relayFlagListen(): string { return `address to listen on (default 127.0.0.1:7801)`; }
 
-/** relay.flag_preset: serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts) */
-export function relayFlagPreset(): string { return `serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)`; }
+/** relay.flag_preset: serve these files at /kiln/preset/ for the page to preload (config/…) */
+export function relayFlagPreset(): string { return `serve these files at /kiln/preset/ for the page to preload (config/…)`; }
 
 /** relay.flag_web: serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web) */
 export function relayFlagWeb(): string { return `serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)`; }
@@ -641,11 +662,14 @@ export function relayListening(addr: unknown): string { return `kiln-relay liste
 /** relay.manifest_failed: listing the preset: {err} */
 export function relayManifestFailed(err: unknown): string { return `listing the preset: ${e(err)}`; }
 
-/** relay.need_allow: kiln-relay needs -allow PATH (the allowlist file) */
-export function relayNeedAllow(): string { return `kiln-relay needs -allow PATH (the allowlist file)`; }
+/** relay.need_config: kiln-relay needs -config PATH (relay.toml) */
+export function relayNeedConfig(): string { return `kiln-relay needs -config PATH (relay.toml)`; }
 
 /** relay.opened: open {ip} → {world:%q} */
 export function relayOpened(ip: unknown, world: unknown): string { return `open ${ip} → ${q(world)}`; }
+
+/** relay.refused_bad_cert: refused {ip} → {world:%q}: certificate: {err} */
+export function relayRefusedBadCert(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: certificate: ${e(err)}`; }
 
 /** relay.refused_bad_peer: refused {peer:%q}: unreadable client address */
 export function relayRefusedBadPeer(peer: unknown): string { return `refused ${q(peer)}: unreadable client address`; }
@@ -653,11 +677,11 @@ export function relayRefusedBadPeer(peer: unknown): string { return `refused ${q
 /** relay.refused_busy: refused {ip} → {world:%q}: relay full (max_conns) */
 export function relayRefusedBusy(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: relay full (max_conns)`; }
 
+/** relay.refused_no_tls: refused {ip} → {world:%q}: client asked for TLS, world is plaintext */
+export function relayRefusedNoTls(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: client asked for TLS, world is plaintext`; }
+
 /** relay.refused_not_listed: refused {ip} → {world:%q}: not on the allowlist */
 export function relayRefusedNotListed(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: not on the allowlist`; }
-
-/** relay.refused_not_tls: refused {ip} → {world:%q}: not TLS */
-export function relayRefusedNotTls(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: not TLS`; }
 
 /** relay.refused_too_many: refused {ip} → {world:%q}: too many connections */
 export function relayRefusedTooMany(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: too many connections`; }
@@ -668,8 +692,8 @@ export function relayRefusedUnreachable(ip: unknown, world: unknown, err: unknow
 /** relay.serving_page: serving the page at {url} */
 export function relayServingPage(url: unknown): string { return `serving the page at ${url}`; }
 
-/** relay.watch_failed: watching the allowlist: {err} */
-export function relayWatchFailed(err: unknown): string { return `watching the allowlist: ${e(err)}`; }
+/** relay.watch_failed: watching the config: {err} */
+export function relayWatchFailed(err: unknown): string { return `watching the config: ${e(err)}`; }
 
 /** scrollback.history_ends: ─── history ends {when} ─── */
 export function scrollbackHistoryEnds(when: unknown): string { return `─── history ends ${when} ───`; }

@@ -9,9 +9,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,20 +45,19 @@ func launch(t *testing.T) (ws *websocket.Conn, another func() *websocket.Conn) {
 	return launchWith(t, nil)
 }
 
-// launchWith is launch, with pins(port) as the preset's known_hosts.
-func launchWith(t *testing.T, pins func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn) {
+// launchWith is launch, with pin(port) as the relay's pin for the fake
+// world instead of its certificate's.
+func launchWith(t *testing.T, pin func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn) {
 	t.Helper()
 	chrome := chromePath(t)
 	root, _ := filepath.Abs("../..")
 	static := buildPage(t, root)
-	muckPort := fakeMuck(t)
-	preset, allow := config(t, muckPort)
-	if pins != nil {
-		if err := os.WriteFile(filepath.Join(preset, "known_hosts"), []byte(pins(muckPort)), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	muckPort, certPin := fakeMuck(t)
+	if pin != nil {
+		certPin = pin(muckPort)
 	}
-	page := startRelay(t, root, static, preset, allow)
+	preset, cfg := config(t, muckPort, certPin)
+	page := startRelay(t, root, static, preset, cfg)
 	ws, tab := openTab(t, chrome, page+"?record")
 	return ws, func() *websocket.Conn { return tab(page) }
 }
@@ -95,21 +96,21 @@ func TestTypingAnywhere(t *testing.T) {
 	waitFor(t, ev, in+`.value === "é"`, "the accented letter in the input")
 }
 
-// TestPresetPinRefusesOtherCert seeds a pin from the preset that the
-// fake MUCK's certificate doesn't match: the first visit refuses it
-// instead of trusting whatever it's shown.
-func TestPresetPinRefusesOtherCert(t *testing.T) {
-	ws, _ := launchWith(t, func(port int) string {
-		return fmt.Sprintf("127.0.0.1:%d sha256:%s\n", port, strings.Repeat("0", 64))
-	})
+// TestRelayPinRefusesOtherCert pins the fake world, in the relay's
+// config, to a certificate it doesn't have: the relay refuses it, and the
+// character says so instead of connecting. The world file still says
+// tls_trust = "pin", as one saved before the relay did TLS would.
+func TestRelayPinRefusesOtherCert(t *testing.T) {
+	ws, _ := launchWith(t, func(int) string { return "sha256:" + strings.Repeat("0", 64) })
 	ev := evaluator(t, ws)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
 	ev(`kilnPage.act({Do: "open", Key: "fake/tester"})`)
 	ev(`kilnPage.act({Do: "submit", Key: "fake/tester", Text: "", N: 1000})`)
-	changed, _ := json.Marshal(str.StatusCertChanged("Tester"))
-	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Status" && e.Text === `+string(changed)+`)`, "the changed certificate refused")
+	refused, _, _ := strings.Cut(str.ConnRelayBadCert("\x00"), "\x00")
+	q, _ := json.Marshal(refused)
+	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes(`+string(q)+`)))`, "the refused certificate")
 	if got := ev(`kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes("Welcome")))`); got != "false" {
-		t.Error("connected despite the preset's pin")
+		t.Error("connected despite the relay's pin")
 	}
 }
 
@@ -371,8 +372,9 @@ func buildPage(t *testing.T, root string) string {
 }
 
 // fakeMuck serves TLS on a free port with a self-signed certificate:
-// a greeting, then `You say, "L"` for each line L. It returns the port.
-func fakeMuck(t *testing.T) int {
+// a greeting, then `You say, "L"` for each line L. It returns the port
+// and the certificate's pin.
+func fakeMuck(t *testing.T) (port int, pin string) {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpl := &x509.Certificate{
@@ -431,7 +433,8 @@ func fakeMuck(t *testing.T) int {
 			}()
 		}
 	}()
-	return ln.Addr().(*net.TCPAddr).Port
+	sum := sha256.Sum256(der)
+	return ln.Addr().(*net.TCPAddr).Port, "sha256:" + hex.EncodeToString(sum[:])
 }
 
 // lines sends n numbered lines long enough to wrap at most widths.
@@ -441,8 +444,9 @@ func lines(c net.Conn, what string, n int) {
 	}
 }
 
-// config writes a preset with the fake world, and an allowlist for it.
-func config(t *testing.T, port int) (preset, allow string) {
+// config writes a preset with the fake world, and a relay config that
+// pins it to pin.
+func config(t *testing.T, port int, pin string) (preset, cfg string) {
 	t.Helper()
 	dir := t.TempDir()
 	preset = filepath.Join(dir, "preset")
@@ -453,16 +457,16 @@ func config(t *testing.T, port int) (preset, allow string) {
 	if err := os.WriteFile(filepath.Join(preset, "config", "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	allow = filepath.Join(dir, "allow.toml")
-	if err := os.WriteFile(allow, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port), 0o644); err != nil {
+	cfg = filepath.Join(dir, "relay.toml")
+	if err := os.WriteFile(cfg, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\npin = %q\n", port, pin), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return preset, allow
+	return preset, cfg
 }
 
 // startRelay runs kiln-relay on a free port, serving the page and the
 // preset, and returns the page's URL.
-func startRelay(t *testing.T, root, static, preset, allow string) string {
+func startRelay(t *testing.T, root, static, preset, cfg string) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -476,7 +480,7 @@ func startRelay(t *testing.T, root, static, preset, allow string) string {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building kiln-relay: %v\n%s", err, out)
 	}
-	relay := exec.Command(bin, "-listen", addr, "-allow", allow, "-web", static, "-preset", preset)
+	relay := exec.Command(bin, "-listen", addr, "-config", cfg, "-web", static, "-preset", preset)
 	relay.Stdout, relay.Stderr = os.Stderr, os.Stderr
 	if err := relay.Start(); err != nil {
 		t.Fatal(err)

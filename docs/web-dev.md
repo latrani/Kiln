@@ -32,13 +32,13 @@ it. Esc closes log mode.
 ```sh
 web/build.sh
 cp -R web/preset.example web/preset.local      # edit config/worlds/*.toml
-cp web/dev-allow.example.toml web/dev-allow.toml  # list the same worlds
-go run ./cmd/kiln-relay -listen localhost:8080 -allow web/dev-allow.toml \
+cp web/dev-relay.example.toml web/dev-relay.toml  # list the same worlds
+go run ./cmd/kiln-relay -listen localhost:8080 -config web/dev-relay.toml \
   -web web/static -preset web/preset.local
 ```
 
 Open http://localhost:8080/kiln/. Rebuild with `web/build.sh` and reload
-after changing Go or page code; the relay reloads `dev-allow.toml` by
+after changing Go or page code; the relay reloads `dev-relay.toml` by
 itself. Add `?record` to the address to keep every event Go sends in
 `kilnPage.events` (the smoke test does), and drive Kiln from the console
 with `kilnPage.act({Do: "open", Key: "world/char"})`.
@@ -110,7 +110,7 @@ how text is drawn and fail every golden: look at the diffs, then
 `-update`.
 
 Files are saved in the browser (IndexedDB) and come back on the next
-visit: config edits, worlds, TLS pins and logs. That's best effort:
+visit: config edits, worlds and logs. That's best effort:
 clearing site data, a private window, or a browser that evicts storage
 loses them. Safari clears a site's storage after 7 days of Safari use
 without visiting it. `/backup` downloads everything as a zip, and
@@ -129,8 +129,10 @@ and shows the same offer. Keeping the connections across the move is
 #187.
 
 A preset is laid out like a `/backup` zip: `config/…` is the config
-dir, and `known_hosts` holds TLS pins. Preset files are written only
-where nothing is saved, so your edits to a
-preset world win over the server's copy. A preset world you delete comes
-back on the next visit. Preset pins are added to the saved ones for
-any host:port that has no pin yet.
+dir. Preset files are written only where nothing is saved, so your edits
+to a preset world win over the server's copy. A preset world you delete
+comes back on the next visit.
+
+The relay does TLS, so TLS pins live in its config, not the browser:
+give each TLS world in `web/dev-relay.toml` a `pin` or `tls_trust = "ca"`
+(docs/web-relay.md).

@@ -90,21 +90,20 @@ func run(k js.Value, p page) error {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return err
 	}
-	kh := conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")} //str:ok
-	dial := wsdial.Dialer(p.relay)
 	var mu sync.Mutex
 	writers := map[logstore.Layout]*logstore.Writer{}
 	a := app.New(app.Deps{
-		ConfigDir:  cfgDir,
-		LogRoot:    filepath.Join(dataDir, "logs"),       //str:ok
-		StateFile:  filepath.Join(dataDir, "state.json"), //str:ok
-		KnownHosts: kh,
-		Load:       config.Load,
+		ConfigDir: cfgDir,
+		LogRoot:   filepath.Join(dataDir, "logs"),       //str:ok
+		StateFile: filepath.Join(dataDir, "state.json"), //str:ok
+		Load:      config.Load,
 		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {
-			// A terminal's size until the page says how wide it is (resize).
+			// The relay does TLS, trusting the world as its config says, so
+			// the world file's tls only says what to ask for. A terminal's
+			// size until the page says how wide it is (resize).
 			return conn.Dial(ctx, conn.Options{
-				Host: ch.Host, Port: ch.Port, TLS: ch.TLS, TLSTrust: ch.TLSTrust,
-				KnownHosts: kh, Width: 80, Height: 24, DialContext: dial,
+				Host: ch.Host, Port: ch.Port, Width: 80, Height: 24,
+				DialContext: wsdial.Dialer(p.relay, ch.TLS),
 			})
 		},
 		NewLog: func(l logstore.Layout) session.Appender {
@@ -134,8 +133,8 @@ func run(k js.Value, p page) error {
 	}
 	l.Run(context.Background(), webapi.Options{
 		Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir, //str:ok
-		Backup:  func() ([]byte, error) { return backup.Zip(cfgDir, kh.Path) },
-		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir, kh.Path) },
+		Backup:  func() ([]byte, error) { return backup.Zip(cfgDir) },
+		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir) },
 	})
 	return nil
 }
