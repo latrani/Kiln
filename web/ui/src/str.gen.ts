@@ -78,6 +78,9 @@ export function browseLoading(): string { return `loading older history…`; }
 /** browse.mark_range: mark a range with m (only received lines export) */
 export function browseMarkRange(): string { return `mark a range with m (only received lines export)`; }
 
+/** browse.marking: marking */
+export function browseMarking(): string { return `marking`; }
+
 /** browse.no_export_dir: no export_dir configured · give a full path */
 export function browseNoExportDir(): string { return `no export_dir configured · give a full path`; }
 
@@ -105,8 +108,8 @@ export function browseNothingLeft(): string { return `nothing left to export`; }
 /** browse.nothing_to_export: nothing to export */
 export function browseNothingToExport(): string { return `nothing to export`; }
 
-/** browse.range_start: range start marked */
-export function browseRangeStart(): string { return `range start marked`; }
+/** browse.range_start: marking: move to the other end, m to finish, Esc to drop */
+export function browseRangeStart(): string { return `marking: move to the other end, m to finish, Esc to drop`; }
 
 /** browse.reading_logs: reading logs: {err} */
 export function browseReadingLogs(err: unknown): string { return `reading logs: ${e(err)}`; }

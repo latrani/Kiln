@@ -256,7 +256,9 @@ open_connection = "+ Connection"
 # Log mode (browse, in the code).
 [browse]
 reading_logs = "reading logs: {err}"
-range_start = "range start marked"
+range_start = "marking: move to the other end, m to finish, Esc to drop"
+# The statusline's part while a range is live (m, then moving).
+marking = "marking"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
 exclude_needs_range = "exclude works inside a marked range"
 no_matches = "no matches for {find:%q}"

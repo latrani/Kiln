@@ -37,7 +37,8 @@ func makeLogLine(r Rules, e logstore.Entry) *LogLine {
 // read its fields and set Shown; only its methods change the rest.
 type Log struct {
 	Lines      []*LogLine // oldest first
-	Start, End *LogLine   // the marked range; End nil while only Start is marked
+	Start, End *LogLine   // the marked range, both set or both nil
+	Marking    bool       // the range is live: its far end follows the cursor; see Mark
 	Excluded   map[*LogLine]bool
 	Find       string // the find term while find is on; "" when it's off
 	LastFind   string // the last term find had, kept when it ends, for the next find to start with
@@ -53,6 +54,7 @@ type Log struct {
 	a           *App
 	c           *Char
 	hist        *history.Reader
+	anchor      *LogLine        // the line m was pressed on, while Marking
 	loadedTo    time.Time       // newest logged time at open, at log (millisecond) precision
 	pending     func() []Effect // what to do when the day being read arrives; see Older
 	tagNames    []string        // the distinct tags on Lines[:tagNamesN]; see Items
@@ -251,14 +253,10 @@ func (g *Log) LastVisible() *LogLine {
 // Index is l's position in Lines; -1 if it isn't there.
 func (g *Log) Index(l *LogLine) int { return slices.Index(g.Lines, l) }
 
-// InRange reports whether l is inside the marked range. With only a
-// start marked, just the start counts.
+// InRange reports whether l is inside the marked range.
 func (g *Log) InRange(l *LogLine) bool {
 	if g.Start == nil {
 		return false
-	}
-	if g.End == nil {
-		return l == g.Start
 	}
 	i := g.Index(l)
 	return i >= g.Index(g.Start) && i <= g.Index(g.End)
@@ -320,32 +318,62 @@ func (g *Log) NearestVisible(l *LogLine) *LogLine {
 	return nil
 }
 
-// Mark marks l as the start of a range, or, with a start marked, as its
-// other end. A nil l does nothing.
+// Mark is m on l, the cursor's line. With no live range it starts one
+// there: l is its anchor, and MarkTo moves its other end. With one, it
+// takes the range to l and locks it. A nil l starts nothing.
 func (g *Log) Mark(l *LogLine) {
+	if g.Marking {
+		g.MarkTo(l)
+		g.lock()
+		g.RangeStatus()
+		return
+	}
 	if l == nil {
 		return
 	}
-	if g.Start == nil || g.End != nil {
-		g.NewRange(l, nil)
-		g.SetStatus(false, str.BrowseRangeStart())
+	g.NewRange(l, l)
+	g.Marking, g.anchor = true, l
+	g.SetStatus(false, str.BrowseRangeStart())
+}
+
+// MarkTo moves a live range's far end to l, the cursor's line: the range
+// runs from the anchor to l, either way round. Exclusions it no longer
+// covers are forgotten, so growing back over them doesn't bring them
+// back. Nothing when the range isn't live.
+func (g *Log) MarkTo(l *LogLine) {
+	if !g.Marking || l == nil {
 		return
 	}
-	g.End = l
-	if g.Index(g.End) < g.Index(g.Start) {
-		g.Start, g.End = g.End, g.Start
+	g.Start, g.End = g.anchor, l
+	if g.Index(l) < g.Index(g.anchor) {
+		g.Start, g.End = l, g.anchor
 	}
-	g.RangeStatus()
+	for x := range g.Excluded {
+		if !g.InRange(x) {
+			delete(g.Excluded, x)
+		}
+	}
 }
+
+// EndMark drops a live range: Esc while marking.
+func (g *Log) EndMark() {
+	g.Start, g.End = nil, nil
+	g.lock()
+	clear(g.Excluded)
+}
+
+// lock stops a live range following the cursor, leaving it where it is.
+func (g *Log) lock() { g.Marking, g.anchor = false, nil }
 
 // NewRange starts a range from start to end, either way round, dropping
 // exclusions left from an earlier one so they can't resurface if it
-// grows over them.
+// grows over them. A live range locks: this is a range of its own.
 func (g *Log) NewRange(start, end *LogLine) {
-	if end != nil && g.Index(end) < g.Index(start) {
+	if g.Index(end) < g.Index(start) {
 		start, end = end, start
 	}
 	g.Start, g.End = start, end
+	g.lock()
 	clear(g.Excluded)
 }
 
@@ -355,11 +383,9 @@ func (g *Log) RangeStatus() {
 }
 
 // ExtendTo grows the range to take in l, from whichever end is nearer.
-// With only a start marked, l becomes the other end.
+// A live range locks first.
 func (g *Log) ExtendTo(l *LogLine) {
-	if g.End == nil {
-		g.End = g.Start
-	}
+	g.lock()
 	if g.Index(l) < g.Index(g.Start) {
 		g.Start = l
 	} else if g.Index(l) > g.Index(g.End) {
@@ -370,7 +396,7 @@ func (g *Log) ExtendTo(l *LogLine) {
 
 // ToggleExclude takes l out of the range, or puts it back.
 func (g *Log) ToggleExclude(l *LogLine) {
-	if l == nil || g.End == nil || !g.InRange(l) {
+	if l == nil || !g.InRange(l) {
 		g.SetStatus(true, str.BrowseExcludeNeedsRange())
 		return
 	}
@@ -380,7 +406,7 @@ func (g *Log) ToggleExclude(l *LogLine) {
 // Selection is what an export contains: received lines inside the range,
 // not excluded and not hidden by the filter.
 func (g *Log) Selection() []logstore.Entry {
-	if g.Start == nil || g.End == nil {
+	if g.Start == nil {
 		return nil
 	}
 	var out []logstore.Entry
@@ -403,8 +429,9 @@ func (g *Log) Title() string {
 }
 
 // Copy puts the selection on the clipboard as plain text, or says to
-// mark a range first.
+// mark a range first. A live range locks.
 func (g *Log) Copy() []Effect {
+	g.lock()
 	sel := g.Selection()
 	if len(sel) == 0 {
 		g.SetStatus(true, str.BrowseMarkRange())
@@ -415,8 +442,9 @@ func (g *Log) Copy() []Effect {
 }
 
 // ExportReady reports whether there's a selection to export, and if not
-// says to mark a range first.
+// says to mark a range first. A live range locks.
 func (g *Log) ExportReady() bool {
+	g.lock()
 	if len(g.Selection()) == 0 {
 		g.SetStatus(true, str.BrowseMarkRange())
 		return false

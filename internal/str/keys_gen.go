@@ -79,6 +79,9 @@ func BrowseLoading() string { return get("browse.loading", nil) }
 // BrowseMarkRange is browse.mark_range: "mark a range with m (only received lines export)"
 func BrowseMarkRange() string { return get("browse.mark_range", nil) }
 
+// BrowseMarking is browse.marking: "marking"
+func BrowseMarking() string { return get("browse.marking", nil) }
+
 // BrowseNoExportDir is browse.no_export_dir: "no export_dir configured · give a full path"
 func BrowseNoExportDir() string { return get("browse.no_export_dir", nil) }
 
@@ -112,7 +115,7 @@ func BrowseNothingLeft() string { return get("browse.nothing_left", nil) }
 // BrowseNothingToExport is browse.nothing_to_export: "nothing to export"
 func BrowseNothingToExport() string { return get("browse.nothing_to_export", nil) }
 
-// BrowseRangeStart is browse.range_start: "range start marked"
+// BrowseRangeStart is browse.range_start: "marking: move to the other end, m to finish, Esc to drop"
 func BrowseRangeStart() string { return get("browse.range_start", nil) }
 
 // BrowseReadingLogs is browse.reading_logs: "reading logs: {err}"

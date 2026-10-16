@@ -449,7 +449,7 @@ func (b *browse) click(x, y int, shift bool) {
 		b.ToggleExclude(l)
 	case shift:
 		if b.Start == nil {
-			b.NewRange(b.Cursor, nil)
+			b.NewRange(b.Cursor, b.Cursor)
 		}
 		b.SetCursor(l)
 		b.ExtendTo(l)

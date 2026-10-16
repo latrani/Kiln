@@ -49,8 +49,9 @@ front end's (the TUI's `browse`, the web's `logView`), so the core
 doesn't follow it; the front end tells it:
 
 - `Mark(l)` with no live range: anchor, `Start` and `End` are `l`,
-  exclusions cleared, `Marking` on. With a live range: `Marking` off
-  (`l` is ignored; the range is already where the cursor is).
+  exclusions cleared, `Marking` on. With a live range: `MarkTo(l)`,
+  then `Marking` off. Front ends pass the cursor, so the range locks
+  where it is.
 - `MarkTo(l)`, while marking: `Start`/`End` become anchor and `l` in
   order, and exclusions outside them are dropped.
 - `EndMark()`: drops the range (`Start`, `End` nil, exclusions cleared,
