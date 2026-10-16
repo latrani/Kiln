@@ -427,7 +427,7 @@ func TestSidebarIndent(t *testing.T) {
 // At the narrowest screen the add chips still fit whole.
 func TestAddChipsFitNarrowSidebar(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.m.Update(tea.WindowSizeMsg{Width: MinWidth, Height: 24})
+	h.m.Update(tea.WindowSizeMsg{Width: NarrowWidth, Height: 24}) // the narrowest the sidebar has a column
 	if s := h.screen(); !strings.Contains(s, " "+addLabel+" ") {
 		t.Errorf("the %s chip is cut:\n%s", addLabel, s)
 	}

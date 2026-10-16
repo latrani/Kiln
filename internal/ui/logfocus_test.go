@@ -240,6 +240,7 @@ func TestFooterRows(t *testing.T) {
 func TestLogModeShortScreen(t *testing.T) {
 	h := logHarness(t)
 	h.m.Update(tea.WindowSizeMsg{Width: MinWidth, Height: MinHeight})
+	h.key("f") // narrow: the panel is open while it has the keys
 	rows := strings.Split(h.screen(), "\n")
 	if len(rows) != MinHeight {
 		t.Fatalf("%d rows; want %d", len(rows), MinHeight)

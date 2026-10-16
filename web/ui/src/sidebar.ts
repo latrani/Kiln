@@ -1,6 +1,6 @@
 // The sidebar's rows, as the TUI lists them (internal/ui/sidebar.go's
 // sidebarRows), and when it shows (internal/ui/collapse.go).
-import { focusLog } from "./filter.ts";
+import { focusLog, focusPanel } from "./filter.ts";
 import { listing, logShows } from "./store.ts";
 import type { State, Store } from "./store.ts";
 
@@ -31,12 +31,23 @@ export function sidebarRows(order: string[], chars: Record<string, { World: stri
 // panel has focus. Collapsing is what was chosen, so it's collapsed again
 // after.
 export function sideForced(s: State): boolean {
-  if (!s.sidebar?.Collapsed) return false;
+  if (s.narrow || !s.sidebar?.Collapsed) return false; // narrow: ‹ always closes it
   return listing(s) || (logShows(s, s.active) && s.logView[s.active]?.focus === "panel");
 }
 
-// sideShown reports whether the sidebar has its column.
+// narrowShown reports whether the narrow sidebar is open, as the TUI's:
+// opened (≡, Ctrl+B), the picker's list up, or in log mode the panel
+// with focus (it's open exactly while it has the keys).
+export function narrowShown(s: State): boolean {
+  if (!s.narrow) return false;
+  if (logShows(s, s.active)) return s.logView[s.active]?.focus === "panel";
+  return !!s.narrowOpen || listing(s);
+}
+
+// sideShown reports whether the sidebar shows: its column, or narrow,
+// open over the top bar and scrollback.
 export function sideShown(s: State): boolean {
+  if (s.narrow) return narrowShown(s);
   return !s.sidebar?.Collapsed || sideForced(s);
 }
 
@@ -55,6 +66,18 @@ export function canToggle(s: State): boolean {
 export function toggleSidebar(store: Store): void {
   const s = store.state;
   if (!canToggle(s)) return;
+  if (s.narrow) { // a toggle, not saved; in log mode, the panel with the keys, as f
+    if (logShows(s, s.active)) {
+      if (s.logView[s.active]?.focus === "panel") focusLog(store);
+      else focusPanel(store);
+      return;
+    }
+    const open = !s.narrowOpen;
+    store.set({ narrowOpen: open });
+    // Focus goes in when it opens, and back to the input when it closes.
+    setTimeout(() => globalThis.document?.querySelector<HTMLElement>(open ? ".side .stitle button" : ".bottom textarea")?.focus());
+    return;
+  }
   const shut = !s.sidebar?.Collapsed;
   const doc = globalThis.document;
   const was = doc?.activeElement;
@@ -77,4 +100,25 @@ export function toggleSidebar(store: Store): void {
 // sidebarKey reports whether a keydown is Ctrl+B.
 export function sidebarKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean; shiftKey: boolean }): boolean {
   return e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "b";
+}
+
+// doubleClick is the longest gap between a double-click's clicks, as the
+// TUI's.
+const doubleClick = 400;
+
+// swallowsClick reports whether a click outside the sidebar is a
+// double-click's second, landing on what was under the narrow sidebar
+// its first click picked from and closed, as the TUI's: it does nothing.
+export function swallowsClick(s: State, now: number, inSidebar: boolean): boolean {
+  return !inSidebar && s.narrowPicked !== undefined && now - s.narrowPicked <= doubleClick;
+}
+
+// becomeNarrow records the page going narrow or wide. Narrow starts
+// closed: the narrow sidebar, and in log mode the panel (which would
+// otherwise open over the log), as the TUI's.
+export function becomeNarrow(store: Store, narrow: boolean): void {
+  const s = store.state;
+  if (narrow === !!s.narrow) return;
+  store.set({ narrow, narrowOpen: false });
+  if (narrow && logShows(s, s.active) && s.logView[s.active]?.focus === "panel") focusLog(store);
 }

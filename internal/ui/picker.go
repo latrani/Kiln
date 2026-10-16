@@ -88,7 +88,8 @@ func (m *Model) openPicker() {
 // closePicker goes back to the open characters.
 func (m *Model) closePicker() {
 	m.picker = nil
-	m.sideShown = "" // scroll the active character back into view
+	m.sideShown = ""     // scroll the active character back into view
+	m.narrowOpen = false // picked or escaped: the narrow sidebar closes
 }
 
 // matches reports whether ch fits the lowercased filter f: its name, an
@@ -126,7 +127,11 @@ func (m *Model) pickerRows() []sidebarRow {
 			if e := m.addingChar(); e != nil && e.world == w && e.form.reject != "" {
 				// One space in, as the field; wrapped, since the sidebar
 				// is narrow.
-				wrapped := xansi.Wrap(e.form.reject, max(1, SidebarWidth(m.width)-1), "")
+				bw, _ := m.sideBox()
+				if bw == 0 {
+					bw = SidebarWidth(m.width)
+				}
+				wrapped := xansi.Wrap(e.form.reject, max(1, bw-1), "")
 				for _, l := range strings.Split(wrapped, "\n") {
 					rows = append(rows, sidebarRow{kind: rowAddCharError, world: w, text: l})
 				}

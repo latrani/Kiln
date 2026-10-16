@@ -13,7 +13,11 @@ import (
 
 // rightRow is screen row y's right pane, trimmed.
 func rightRow(h *harness, y int) string {
-	return strings.TrimSpace(strings.SplitN(strings.Split(h.screen(), "\n")[y], "│", 2)[1])
+	row := strings.Split(h.screen(), "\n")[y]
+	if _, r, ok := strings.Cut(row, "│"); ok { // past the sidebar; narrow, there's no column
+		row = r
+	}
+	return strings.TrimSpace(row)
 }
 
 func chipText(label string) string { return " " + label + " " }

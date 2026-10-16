@@ -53,22 +53,24 @@ type Deps struct {
 
 // Model is the Bubble Tea model.
 type Model struct {
-	d           Deps
-	a           *app.App              // what Kiln decides; Model is its terminal front end
-	picker      *picker               // non-nil while the open-connection picker is open
-	idle        *Input                // the input box while nothing is open
-	chars       map[string]*charState // the open characters' views, keyed like the core's
-	width       int
-	height      int
-	resizeGen   int      // bumped per pane size change; see resizeMsg
-	pane        [2]int   // the pane size last given the core; see notePane
-	sideTop     int      // first sidebar row shown when it overflows
-	sideShown   string   // active character last scrolled into view
-	quitKey     string   // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
-	quitGen     int      // bumped per arming; see quitExpiredMsg
-	logStatus   int      // the status Gen of a message log mode put up; its next key or click clears that one
-	statusTimed int      // the statusGen whose expiry is scheduled
-	lastClick   struct { // for spotting a double-click in the sidebar
+	d            Deps
+	a            *app.App              // what Kiln decides; Model is its terminal front end
+	picker       *picker               // non-nil while the open-connection picker is open
+	idle         *Input                // the input box while nothing is open
+	chars        map[string]*charState // the open characters' views, keyed like the core's
+	width        int
+	height       int
+	resizeGen    int       // bumped per pane size change; see resizeMsg
+	pane         [2]int    // the pane size last given the core; see notePane
+	narrowOpen   bool      // the narrow sidebar is open; see narrowShown
+	narrowPicked time.Time // when a click last picked from the narrow sidebar, closing it
+	sideTop      int       // first sidebar row shown when it overflows
+	sideShown    string    // active character last scrolled into view
+	quitKey      string    // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen      int       // bumped per arming; see quitExpiredMsg
+	logStatus    int       // the status Gen of a message log mode put up; its next key or click clears that one
+	statusTimed  int       // the statusGen whose expiry is scheduled
+	lastClick    struct {  // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
 	}
@@ -453,7 +455,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		wasNarrow := m.narrow()
 		m.width, m.height = msg.Width, msg.Height
+		if m.narrow() && !wasNarrow { // narrow starts closed
+			m.narrowOpen = false
+			if cs := m.cur(); cs != nil && cs.browse != nil {
+				cs.browse.focusPanel(false) // or the panel would open over the log
+			}
+		}
 		return m, m.notePane()
 	case resizeMsg:
 		if int(msg) == m.resizeGen { // the drag has settled
@@ -665,6 +674,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case toggleSidebarKey:
 		m.toggleSidebar()
 		return nil
+	case "esc":
+		if m.narrowOpen && m.narrow() && !logMode && m.picker == nil { // one step back: close it
+			m.narrowOpen = false
+			return nil
+		}
 	case "ctrl+up":
 		if !logMode {
 			m.switchBy(-1)
@@ -954,6 +968,7 @@ func (m *Model) do(d app.Do) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
+	m.narrowOpen = false // log mode has its own: the panel
 	if cs.hidBrowse != nil { // back as Ctrl+L left it
 		cs.browse, cs.hidBrowse = cs.hidBrowse, nil
 		m.a.ClearStatus()
@@ -1021,30 +1036,16 @@ func (m *Model) browseBodyH() int { return max(1, m.height-topH-4) }
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()
 	cs := m.cur()
+	if w, h := m.sideBox(); msg.X < w && msg.Y < h { // first: narrow, it lies over the log
+		m.sideWheel(msg.Button)
+		return nil
+	}
 	if cs != nil && cs.browse != nil && msg.X >= l.rx {
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			return m.run(cs.browse.scrollBy(-m.scrollLines()))
 		case tea.MouseWheelDown:
 			return m.run(cs.browse.scrollBy(m.scrollLines()))
-		}
-		return nil
-	}
-	if msg.X < l.sw {
-		if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-			switch msg.Button {
-			case tea.MouseWheelUp:
-				cs.browse.panelScroll(-3, m.height-sideTitleH)
-			case tea.MouseWheelDown:
-				cs.browse.panelScroll(3, m.height-sideTitleH)
-			}
-			return nil
-		}
-		switch msg.Button {
-		case tea.MouseWheelUp:
-			m.scrollSidebar(-3)
-		case tea.MouseWheelDown:
-			m.scrollSidebar(3)
 		}
 		return nil
 	}
@@ -1085,55 +1086,11 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		return nil
 	}
 	l := m.layout()
-	if msg.X < l.sw {
-		if msg.Y == 0 && msg.X == l.sw-1 && !m.sideForced() && m.canToggle() { // ‹
-			m.toggleSidebar()
-			return nil
-		}
-		if msg.Y < sideTitleH { // the title: the panel's side, in log mode
-			if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.prompt == promptNone {
-				cs.browse.panelFocus = true
-			}
-			return nil
-		}
-		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-			cs.browse.panelClick(msg.X, msg.Y-sideTitleH, m.height-sideTitleH)
-			return nil
-		}
-		sv := m.sidebarView()
-		r, hint := sv.at(msg.Y - sideTitleH)
-		switch {
-		case hint != 0:
-			m.scrollSidebar(hint * max(1, sv.avail-1))
-		case r == nil:
-		case m.listing() && r.kind == rowAddCharError: // the name's problem: nothing
-		case m.listing(): // the rows are the picker's
-			m.leaveEditor()
-			if k := selKey(*r); k != "" {
-				m.picker.sel = k
-				return m.choose(k)
-			}
-		case r.kind == rowAdd:
-			m.parkEditor()
-			m.openPicker()
-		case r.kind == rowWorld:
-			m.switchTo(worldSel(r.world))
-			m.sideShown = m.a.Active() // clicked, so already in view
-		case r.kind == rowGap: // gaps do nothing
-		case msg.X == badgeX && closable(m.chars[r.char]):
-			m.close(r.char)
-		default:
-			m.switchTo(r.char)
-			m.sideShown = r.char // clicked, so already in view
-			now := m.d.Now()
-			double := m.lastClick.char == r.char && now.Sub(m.lastClick.at) <= doubleClick
-			m.lastClick.char, m.lastClick.at = r.char, now
-			if cs := m.chars[r.char]; double && cs.State != session.Connected && cs.State != session.Connecting {
-				m.lastClick.char = "" // a third click starts over
-				return m.connect(cs)
-			}
-		}
-		return nil
+	if w, h := m.sideBox(); msg.X < w && msg.Y < h {
+		return m.sideClick(msg.X, msg.Y)
+	}
+	if !m.narrowPicked.IsZero() && m.d.Now().Sub(m.narrowPicked) <= doubleClick {
+		return nil // a double-click's second click, on what was under the narrow sidebar: nothing
 	}
 	if msg.Y < l.top {
 		if msg.Y == 0 {
@@ -1276,4 +1233,83 @@ func (m *Model) handleRelease() tea.Cmd {
 	}
 	m.setStatus(false, str.StatusCopied())
 	return m.copyCmd(text)
+}
+
+// sideClick handles a left click at (x, y) in the side box: ‹ collapses;
+// the title gives log mode's panel focus; a row does what it does.
+func (m *Model) sideClick(x, y int) tea.Cmd {
+	w, h := m.sideBox()
+	if y == 0 && x == w-1 && !m.sideForced() && m.canToggle() { // ‹
+		m.toggleSidebar()
+		return nil
+	}
+	if y < sideTitleH { // the title: the panel's side, in log mode
+		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.prompt == promptNone {
+			cs.browse.panelFocus = true
+		}
+		return nil
+	}
+	if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
+		cs.browse.panelClick(x, y-sideTitleH, h-sideTitleH)
+		return nil
+	}
+	sv := m.sidebarView()
+	r, hint := sv.at(y - sideTitleH)
+	switch {
+	case hint != 0:
+		m.scrollSidebar(hint * max(1, sv.avail-1))
+	case r == nil:
+	case m.listing() && r.kind == rowAddCharError: // the name's problem: nothing
+	case m.listing(): // the rows are the picker's
+		if m.narrow() {
+			m.narrowPicked = m.d.Now() // choosing closes the picker, and the narrow sidebar with it
+		}
+		m.leaveEditor()
+		if k := selKey(*r); k != "" {
+			m.picker.sel = k
+			return m.choose(k)
+		}
+	case r.kind == rowAdd:
+		m.parkEditor()
+		m.openPicker()
+	case r.kind == rowWorld:
+		m.switchTo(worldSel(r.world))
+		m.sideShown = m.a.Active() // clicked, so already in view
+		m.pickedNarrow()
+	case r.kind == rowGap: // gaps do nothing
+	case x == badgeX && closable(m.chars[r.char]):
+		m.close(r.char)
+	default:
+		m.switchTo(r.char)
+		m.sideShown = r.char // clicked, so already in view
+		m.pickedNarrow()
+		now := m.d.Now()
+		double := m.lastClick.char == r.char && now.Sub(m.lastClick.at) <= doubleClick
+		m.lastClick.char, m.lastClick.at = r.char, now
+		if cs := m.chars[r.char]; double && cs.State != session.Connected && cs.State != session.Connecting {
+			m.lastClick.char = "" // a third click starts over
+			return m.connect(cs)
+		}
+	}
+	return nil
+}
+
+// sideWheel scrolls the side box: log mode's panel, or the list.
+func (m *Model) sideWheel(b tea.MouseButton) {
+	_, h := m.sideBox()
+	if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
+		switch b {
+		case tea.MouseWheelUp:
+			cs.browse.panelScroll(-3, h-sideTitleH)
+		case tea.MouseWheelDown:
+			cs.browse.panelScroll(3, h-sideTitleH)
+		}
+		return
+	}
+	switch b {
+	case tea.MouseWheelUp:
+		m.scrollSidebar(-3)
+	case tea.MouseWheelDown:
+		m.scrollSidebar(3)
+	}
 }

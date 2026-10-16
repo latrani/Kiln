@@ -1,0 +1,48 @@
+Connections                                                ‹
+  @0-58 bold,fg=#a0e3e1; @59-59 fg=#8bb1b0
+────────────────────────────────────────────────────────────
+  @0-59 fg=#a2cdcc
+fm                                                          
+  @0-59 fg=#a0e3e1
+ Kit                                                        
+  @0-59 bold,reverse,fg=#a0e3e1
+ × Rook                                                  ● 3
+  @0-55 bold,fg=#a0e3e1; @56-56 fg=#a0e3e1; @57-57 bold,fg=#eed49f; @58-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+ + Connection                                               
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+                                                            
+  @0-59 fg=#a0e3e1
+────────────────────────────────────────────────────────────
+  @0-59 fg=#cdc1a2
+›                                                           
+  @0-59 fg=#e3d0a0
+────────────────────────────────────────────────────────────
+  @0-59 fg=#a2b0cd
+Connected since 21:14                               History 
+  @0-50 fg=#a0b7e3; @51-59 bold,fg=#c0cfed,bg=#0b1b3d

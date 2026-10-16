@@ -230,6 +230,7 @@ export function filterPromptEnter(store: Store): void {
 export function toggleLog(store: Store): void {
   const s = store.state, k = s.active;
   if (!s.chars[k] || s.picker) return; // the picker and editors keep the keys, as the TUI's
+  store.set({ narrowOpen: false }); // log mode has its own: the panel
   if (s.logs[k]?.Open) {
     const hide = !s.logView[k]?.hidden;
     if (hide && s.logs[k].Searching) s.act?.({ Do: "stop_search", Key: k }); // as the TUI's hideBrowse

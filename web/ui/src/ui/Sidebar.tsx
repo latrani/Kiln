@@ -23,9 +23,10 @@ const connecting = 1, connected = 2;
 export function Sidebar({ state, store }: { state: State; store: Store }) {
   if (logShows(state, state.active)) return <FilterPanel state={state} store={store} />;
   if (listing(state)) return <PickerList state={state} store={store} />;
-  const go = (Key: string) => state.act?.({ Do: "switch", Key });
+  const go = (Key: string) => store.pickFromSidebar(Key);
   return (
-    <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>
+    <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}
+      onKeyDown={(e) => { if (e.key === "Escape" && state.narrowOpen) { e.preventDefault(); toggleSidebar(store); } }}>
       <SideTitle role="sidebar.title" rule="rule.sidebar" label={str.viewConnectionsTitle()} collapse={{ role: "sidebar.collapse", state, store }} />
       <ul>
         {sidebarRows(state.order, state.chars).map((r) => {

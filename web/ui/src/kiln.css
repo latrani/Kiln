@@ -22,6 +22,12 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 /* Each sidebar list's title, as the TUI's: its first row, underlined
    across the column. */
 .kiln.collapsed { grid-template-columns: 0 0 1fr; }
+/* Narrow (sidebar.ts): no column; open, the sidebar lies over the top bar
+   and scrollback, which stay drawn underneath (keeping their place) but
+   unseen and out of the reading order, as the TUI covers them. */
+.kiln.narrow { grid-template-columns: 1fr; grid-template-areas: "top" "body" "bottom" "status"; }
+.kiln.narrow .side { grid-area: 1 / 1 / 3 / 2; z-index: 1; }
+.kiln.narrow.open main { visibility: hidden; }
 .side .stitle { display: flex; font: inherit; margin: 0 0 calc(.5lh - .5px); padding-bottom: calc(.5lh - .5px); border-bottom: 1px solid var(--rule); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .filter-panel { display: flex; flex-direction: column; }
 .filter-panel ul { flex: 1 1 auto; }
