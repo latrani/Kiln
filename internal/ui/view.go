@@ -44,7 +44,7 @@ func SidebarWidth(w int) int {
 
 func (m *Model) layout() layout {
 	l := layout{top: topH}
-	if m.sidebarShown() {
+	if !m.narrow() && m.sidebarShown() { // narrow: no column
 		l.sw = SidebarWidth(m.width)
 		l.rx = l.sw + 1
 	}
@@ -449,6 +449,9 @@ func (m *Model) View() tea.View {
 		}
 		if y < len(sideRows) {
 			b.WriteString(sideRows[y])
+			if m.narrow() { // over the right pane, not beside it
+				continue
+			}
 			b.WriteString(theme.Paint(theme.Divider, "│"))
 		}
 		if y < len(right) {
@@ -530,6 +533,9 @@ func stateName(s session.State) string {
 // sideBox is the sidebar's rectangle, w by h from the screen's top left:
 // its column while it shows; nothing (0, 0) while it doesn't.
 func (m *Model) sideBox() (w, h int) {
+	if m.narrowShown() { // over the top bar and scrollback, the screen across
+		return m.width, m.narrowH()
+	}
 	if l := m.layout(); l.sw > 0 {
 		return l.sw, m.height
 	}

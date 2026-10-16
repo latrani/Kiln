@@ -88,7 +88,8 @@ func (m *Model) openPicker() {
 // closePicker goes back to the open characters.
 func (m *Model) closePicker() {
 	m.picker = nil
-	m.sideShown = "" // scroll the active character back into view
+	m.sideShown = ""     // scroll the active character back into view
+	m.narrowOpen = false // picked or escaped: the narrow sidebar closes
 }
 
 // matches reports whether ch fits the lowercased filter f: its name, an

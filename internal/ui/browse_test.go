@@ -1047,7 +1047,11 @@ func TestLogBodyStaysFull(t *testing.T) {
 			s := h.screen()
 			rows := strings.Split(s, "\n")
 			bodyEnd := len(rows) - 5
-			last := strings.TrimSpace(strings.SplitN(rows[bodyEnd], "│", 2)[1])
+			right := rows[bodyEnd] // past the sidebar's divider; narrow (under 64), the whole row
+			if _, r, ok := strings.Cut(right, "│"); ok {
+				right = r
+			}
+			last := strings.TrimSpace(right)
 			if last == "" {
 				t.Fatalf("seed %d step %d after %s: blank bottom row\n%s", seed, step, k, s)
 			}

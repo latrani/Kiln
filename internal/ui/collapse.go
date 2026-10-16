@@ -21,7 +21,7 @@ func (m *Model) sidebarShown() bool { return !m.a.SidebarCollapsed() || m.sideFo
 // focus, so you never type into a list you can't see. Collapsing is what
 // was chosen, so it's collapsed again after.
 func (m *Model) sideForced() bool {
-	if !m.a.SidebarCollapsed() {
+	if m.narrow() || !m.a.SidebarCollapsed() { // narrow: ‹ always closes it
 		return false
 	}
 	cs := m.cur()
@@ -39,6 +39,14 @@ func (m *Model) toggleSidebar() {
 	if !m.canToggle() {
 		return
 	}
+	if m.narrow() { // a toggle, not saved; in log mode, the panel with the keys, as f
+		if cs := m.cur(); cs != nil && cs.browse != nil {
+			cs.browse.focusPanel(!cs.browse.panelFocus)
+		} else {
+			m.narrowOpen = !m.narrowOpen
+		}
+		return
+	}
 	shut := !m.a.SidebarCollapsed()
 	if cs := m.cur(); shut && cs != nil && cs.browse != nil {
 		cs.browse.focusPanel(false)
@@ -53,7 +61,11 @@ func (m *Model) toggleSidebar() {
 // menu is the columns ≡ and its badge take, the button they make; zero
 // when it isn't drawn (shown, or it can't toggle now).
 func (m *Model) menuPrefix() (s string, menu [2]int) {
-	if m.sidebarShown() || !m.canToggle() {
+	shown := m.sidebarShown()
+	if m.narrow() {
+		shown = m.narrowShown()
+	}
+	if shown || !m.canToggle() {
 		return "", menu
 	}
 	s = theme.Paint(theme.StatusMenu, glyph.Menu)

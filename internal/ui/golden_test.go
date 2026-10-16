@@ -224,6 +224,26 @@ func TestGoldenCollapsed(t *testing.T) {
 	assertGolden(t, "collapsed", h.drawn())
 }
 
+// Narrow (under 64 columns): no sidebar column, ≡ and the activity at
+// the top bar's left; and with the sidebar open over the top bar and
+// scrollback, the input and statusline still there.
+func TestGoldenNarrow(t *testing.T) {
+	for _, open := range []bool{false, true} {
+		h := goldenHarness(t)
+		h.open("fm/rook")
+		h.show(kilntest.MainLines[0])
+		h.show(kilntest.MainLines[1])
+		h.m.chars["fm/rook"].Unread, h.m.chars["fm/rook"].Priority = 3, true
+		h.m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
+		name := "narrow"
+		if open {
+			h.key("ctrl+b")
+			name = "narrow-open"
+		}
+		assertGolden(t, name, h.drawn())
+	}
+}
+
 func TestGoldenPicker(t *testing.T) {
 	h := goldenHarness(t)
 	h.show(kilntest.MainLines[0]) // bold (self), so the backdrop shows

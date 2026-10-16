@@ -62,6 +62,7 @@ type Model struct {
 	height      int
 	resizeGen   int      // bumped per pane size change; see resizeMsg
 	pane        [2]int   // the pane size last given the core; see notePane
+	narrowOpen  bool     // the narrow sidebar is open; see narrowShown
 	sideTop     int      // first sidebar row shown when it overflows
 	sideShown   string   // active character last scrolled into view
 	quitKey     string   // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
@@ -453,7 +454,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		wasNarrow := m.narrow()
 		m.width, m.height = msg.Width, msg.Height
+		if m.narrow() && !wasNarrow { // narrow starts closed
+			m.narrowOpen = false
+		}
 		return m, m.notePane()
 	case resizeMsg:
 		if int(msg) == m.resizeGen { // the drag has settled
@@ -665,6 +670,11 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 	case toggleSidebarKey:
 		m.toggleSidebar()
 		return nil
+	case "esc":
+		if m.narrowOpen && m.narrow() && !logMode && m.picker == nil { // one step back: close it
+			m.narrowOpen = false
+			return nil
+		}
 	case "ctrl+up":
 		if !logMode {
 			m.switchBy(-1)
@@ -1254,12 +1264,14 @@ func (m *Model) sideClick(x, y int) tea.Cmd {
 	case r.kind == rowWorld:
 		m.switchTo(worldSel(r.world))
 		m.sideShown = m.a.Active() // clicked, so already in view
+		m.narrowOpen = false       // picked: the narrow sidebar closes
 	case r.kind == rowGap: // gaps do nothing
 	case x == badgeX && closable(m.chars[r.char]):
 		m.close(r.char)
 	default:
 		m.switchTo(r.char)
 		m.sideShown = r.char // clicked, so already in view
+		m.narrowOpen = false // picked: the narrow sidebar closes
 		now := m.d.Now()
 		double := m.lastClick.char == r.char && now.Sub(m.lastClick.at) <= doubleClick
 		m.lastClick.char, m.lastClick.at = r.char, now
