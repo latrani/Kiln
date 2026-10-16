@@ -18,7 +18,7 @@
 - Desktop Kiln and the TUI behave exactly as before (`conn.Dial` with `TLS: true` still does TLS in-process).
 - Names in tests and docs: Kit, Rook, Ash, world `fm`.
 - The README is not touched.
-- `run-web.sh` and `web/dev-allow.toml` are Indi's local, untracked files: don't edit them; the PR says what to change.
+- `run-web.sh` and `web/dev-allow.toml` are Indi's local, untracked files (not in git). Update them in place as Tasks 1 and 2 say (Indi asked); they never get committed.
 
 ## Review Focus
 
@@ -47,7 +47,8 @@ Pure rename; behavior unchanged.
 - [ ] **Step 2:** Run `go test ./cmd/kiln-relay` — FAIL (undefined `str.RelayNeedConfig`).
 - [ ] **Step 3:** Rename the Go identifiers above and the `-allow` flag to `-config`. Catalog: replace `allow_*` keys with `config_*` (`config_reading`, `config_unknown_key`, `config_no_host`, `config_no_ports`, `config_bad_port`, `config_bad_proxy`, `config_bad_origin`, `config_duplicate`, `config_bad_limit`, `config_loaded`, `config_reload_failed`), each message starting `{path}:` instead of `allowlist {path}:`; `watch_failed` = `"watching the config: {err}"`; `need_allow` → `need_config = "kiln-relay needs -config PATH (relay.toml)"`; `flag_allow` → `flag_config = "the relay's config file (relay.toml)"`. `refused_not_listed` keeps "not on the allowlist" (the `[[world]]` list is still the allowlist). Docs: every `-allow`/allowlist-file mention becomes `-config`/`relay.toml`; `/etc/kiln-relay/relay.toml` in examples; the `[[world]]` list is "the allowlist". Package and type comments follow.
 - [ ] **Step 4:** Run `go generate ./internal/str && go test ./... && (cd web/ui && npm test)` — PASS. `KILN_SMOKE=1 go test ./web/smoke` — PASS.
-- [ ] **Step 5:** Commit `relay: the allowlist file becomes relay.toml (-config)` with a `Strings:` trailer listing every renamed key.
+- [ ] **Step 5:** Local files: `mv web/dev-allow.toml web/dev-relay.toml`; in `run-web.sh`, `-allow web/dev-allow.toml` → `-config web/dev-relay.toml`.
+- [ ] **Step 6:** Commit `relay: the allowlist file becomes relay.toml (-config)` with a `Strings:` trailer listing every renamed key.
 
 ### Task 2: Per-world trust in the config
 
@@ -74,7 +75,8 @@ Pure rename; behavior unchanged.
   - `config_bad_pin = '{path}: {host} has pin {value:%q} · use "sha256:" and 64 hex digits, as in Kiln''s known_hosts'`
   - `config_plaintext_trust = "{path}: {host} is plaintext, so it can't have tls_trust or pin"`
 - [ ] **Step 4:** Run `go generate ./internal/str && go test ./internal/relay` — PASS. Existing server tests that build TLS worlds with `world(port, false)` now fail to parse: update the `world()` helper to take a trust string (`world(port int, trust string)`, `""` meaning plaintext) and pass `pin = …` where the test has a certificate, `tls_trust = "ca"` otherwise. Expect Task 3 to rewrite the TLS tests themselves.
-- [ ] **Step 5:** Commit `relay: per-world TLS trust in relay.toml` with `Strings:` trailer.
+- [ ] **Step 5:** Local file: add `pin = "sha256:76d3b9f3c88542b199af41a3d1639765f2a78c14b7ae5581d9be68270f9f9342"` to the `muck.postfurry.net` world in `web/dev-relay.toml` (PFMuck's cert is self-signed; this matches Indi's desktop `known_hosts`, checked 2026-10-16).
+- [ ] **Step 6:** Commit `relay: per-world TLS trust in relay.toml` with `Strings:` trailer.
 
 ### Task 3: The relay dials TLS
 
@@ -141,5 +143,5 @@ Pure rename; behavior unchanged.
 
 ## PR notes
 
-- Indi's local setup: rename `web/dev-allow.toml` → `web/dev-relay.toml`, give each TLS world `tls_trust = "ca"` or `pin = "…"`, and change `-allow` to `-config` in `run-web.sh`. The server's systemd unit needs `-config` and `LimitCORE=0`, and the tap formula (latrani/homebrew-tap) any `-allow` mention.
+- Indi's local `run-web.sh` and `web/dev-relay.toml` are already updated (untracked). The server's systemd unit needs `-config` and `LimitCORE=0`, and the tap formula (latrani/homebrew-tap) any `-allow` mention.
 - Strings list with a one-line reason each, as CLAUDE.md asks.
