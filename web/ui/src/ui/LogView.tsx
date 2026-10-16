@@ -37,7 +37,12 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   const place = useRef<{ k: string; first?: number; hidden: string; at?: Place }>({ k, hidden: "" });
   const rowsOf = (e: HTMLElement) => [...e.querySelectorAll<HTMLElement>(".lrow")].map((r) => ({ seq: Number(r.dataset.seq), top: r.offsetTop, height: r.offsetHeight }));
 
-  useEffect(() => el.current?.focus(), [k]);
+  // Shown (switched to, or back from Ctrl+L): focus where it was left, the
+  // panel's highlight or the log.
+  useEffect(() => {
+    if (store.state.logView[k]?.focus === "panel") document.querySelector<HTMLElement>(".filter-panel .fsel")?.focus();
+    else el.current?.focus();
+  }, [k]);
   // Showing a character's log (switched to, or shown again by Ctrl+L): a
   // find or go-to-date that landed while it was away; else where you were,
   // as the TUI keeps each browse; else the newest line, as the TUI's

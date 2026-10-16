@@ -41,6 +41,10 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
       store.setLogView(k, { prompt: undefined, panel: { sel: v.panel?.sel ?? "+", follow: true } });
       return;
     }
+    if (v.focus === "panel") { // opened from the panel: back to it
+      store.setLogView(k, { prompt: undefined, panel: { sel: v.panel?.sel ?? "", follow: true } });
+      return;
+    }
     store.setLogView(k, { prompt: undefined });
     document.querySelector<HTMLElement>(".log")?.focus();
   };

@@ -28,11 +28,16 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   const sel = fixSel(rows, p.sel);
   const nav = useRef<HTMLElement>(null);
 
-  // Focus goes to the highlight when asked (opening, a key's move), as
-  // the TUI's follow scrolls to it; never on a draw Go caused.
+  // The highlight comes into view when asked (f, a key's move), as the
+  // TUI's follow scrolls to it; never on a draw Go caused. Focus goes
+  // with it, unless the log has focus: a panel key pressed there leaves
+  // it there. (A row removed with focus on it drops focus to the page.)
   useLayoutEffect(() => {
     if (!p.follow) return;
-    nav.current?.querySelector<HTMLElement>(".fsel")?.focus();
+    const el = nav.current?.querySelector<HTMLElement>(".fsel");
+    const now = document.activeElement;
+    if (v?.focus === "panel" || !now || now === document.body || nav.current?.contains(now)) el?.focus();
+    else el?.scrollIntoView?.({ block: "nearest" });
     store.setLogView(k, { panel: { sel, follow: false } });
   });
 
@@ -56,7 +61,13 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   return (
     <nav ref={nav} class={`side filter-panel ${roleClass("filter")}`} aria-label={str.webFilter()} onKeyDown={onKeyDown}
       onFocusIn={() => { if (v?.focus !== "panel") store.setLogView(k, { focus: "panel" }); }}
-      onFocusOut={(e) => { if (!nav.current?.contains(e.relatedTarget as Node)) store.setLogView(k, { focus: undefined }); }}>
+      onFocusOut={() => setTimeout(() => {
+        // Settled first: the panel gone (Ctrl+L) or its focused row
+        // redrawn isn't focus leaving; a prompt opened from here keeps
+        // the panel's side, for when it closes.
+        const now = document.activeElement;
+        if (nav.current && !nav.current.contains(now) && !now?.closest(".logbar")) store.setLogView(k, { focus: undefined });
+      })}>
       <h2 class={`stitle ${roleClass("filter.title")}`}>{titled(str.filterTitle())}</h2>
       <ul>
         {/* One flat keyed list, not an array per entry: Preact matches

@@ -219,6 +219,20 @@ func TestFilter(t *testing.T) {
 	waitFor(t, ev, `!document.querySelector(".log") && !document.querySelector(".filter-panel")`, "hidden, the characters back")
 	ctrlL(t, ws)
 	waitFor(t, ev, `document.querySelector(".log") && document.querySelector(".filter-panel")`, "back as it was")
+	waitFor(t, ev, `document.activeElement === `+sel, "back with the panel focused, as left")
+
+	// A prompt opened from the panel gives it focus back when it closes.
+	letter("/")
+	waitFor(t, ev, `document.activeElement === `+prompt, "find's prompt, from the panel")
+	pressKey(t, ws, "Escape", 27)
+	waitFor(t, ev, `document.activeElement === `+sel, "the panel focused again")
+
+	// x from the log removes the highlighted text, the log keeping focus.
+	pressKey(t, ws, "Escape", 27)
+	waitFor(t, ev, `document.activeElement === `+logEl, "the log focused")
+	letter("x")
+	waitFor(t, ev, `!document.querySelector(".filter-panel").textContent.includes(`+jsString(str.FilterTextItem("bb"))+`)`, "bb removed from the log")
+	waitFor(t, ev, `document.activeElement === `+logEl, "the log still focused")
 }
 
 // TestLogPlace: log mode keeps each character's place across a switch
