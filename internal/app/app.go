@@ -119,6 +119,7 @@ type App struct {
 	paneW, paneH int                    // where server text is shown; 0×0 until known
 	idleText     string                 // the input's text while nothing is open
 	idleHist     History                // its history
+	sent         sentLog                // every input's sent lines, and the history panels' scope
 	confirm      string                 // an over-limit line Submit refused; Enter on the same text sends it
 	pending      *pendingSave
 
@@ -155,8 +156,10 @@ func New(d Deps) *App {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	return &App{d: d, chars: map[string]*Char{}, focused: true, lastHere: d.Now(),
+	a := &App{d: d, chars: map[string]*Char{}, focused: true, lastHere: d.Now(),
 		notifyOverrides: map[string]notify.Level{}}
+	a.idleHist.all = &a.sent
+	return a
 }
 
 // ConfigResult is what ApplyConfig did to the open characters.
@@ -272,6 +275,7 @@ func (a *App) Open(k string) (*Char, error) {
 		return nil, nil
 	}
 	c := &Char{Key: k, Ch: ch, sentGen: -1}
+	c.History.all = &a.sent
 	err := c.compile()
 	a.chars[k] = c
 	a.order = append(a.order, k)

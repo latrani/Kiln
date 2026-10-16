@@ -95,8 +95,12 @@ func (a *App) History() *History {
 }
 
 // HistoryOpen puts the active input's history panel up, its text the
-// query. The front end shows the panel while History().IsOpen().
+// query. The front end shows the panel while History().IsOpen(). With
+// nothing open there's no panel.
 func (a *App) HistoryOpen() []Effect {
+	if a.chars[a.active] == nil {
+		return nil
+	}
 	h := a.History()
 	if !h.IsOpen() {
 		h.Open(a.Text())
@@ -147,6 +151,29 @@ func (a *App) HistoryToggle() []Effect {
 		return nil
 	}
 	return a.HistoryOpen()
+}
+
+// HistoryScope is which lines the history panels list. It holds until
+// Kiln quits.
+func (a *App) HistoryScope() Scope { return a.sent.scope }
+
+// SetHistoryScope has the history panels list s's lines; the active
+// panel selects its newest.
+func (a *App) SetHistoryScope(s Scope) []Effect {
+	if s != a.sent.scope {
+		a.sent.scope = s
+		a.sent.gen++
+		a.History().back = 0
+	}
+	return a.moreSent()
+}
+
+// SwapHistoryScope sets the other scope: Tab on the panel.
+func (a *App) SwapHistoryScope() []Effect {
+	if a.sent.scope == ScopeSession {
+		return a.SetHistoryScope(ScopeCharacter)
+	}
+	return a.SetHistoryScope(ScopeSession)
 }
 
 // Unconfirm drops the confirmation, as Esc does: the next Submit of an
