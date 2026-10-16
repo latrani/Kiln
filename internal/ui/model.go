@@ -459,6 +459,9 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		if m.narrow() && !wasNarrow { // narrow starts closed
 			m.narrowOpen = false
+			if cs := m.cur(); cs != nil && cs.browse != nil {
+				cs.browse.focusPanel(false) // or the panel would open over the log
+			}
 		}
 		return m, m.notePane()
 	case resizeMsg:
@@ -965,6 +968,7 @@ func (m *Model) do(d app.Do) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
+	m.narrowOpen = false // log mode has its own: the panel
 	if cs.hidBrowse != nil { // back as Ctrl+L left it
 		cs.browse, cs.hidBrowse = cs.hidBrowse, nil
 		m.a.ClearStatus()

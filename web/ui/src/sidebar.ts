@@ -112,3 +112,13 @@ const doubleClick = 400;
 export function swallowsClick(s: State, now: number, inSidebar: boolean): boolean {
   return !inSidebar && s.narrowPicked !== undefined && now - s.narrowPicked <= doubleClick;
 }
+
+// becomeNarrow records the page going narrow or wide. Narrow starts
+// closed: the narrow sidebar, and in log mode the panel (which would
+// otherwise open over the log), as the TUI's.
+export function becomeNarrow(store: Store, narrow: boolean): void {
+  const s = store.state;
+  if (narrow === !!s.narrow) return;
+  store.set({ narrow, narrowOpen: false });
+  if (narrow && logShows(s, s.active) && s.logView[s.active]?.focus === "panel") focusLog(store);
+}

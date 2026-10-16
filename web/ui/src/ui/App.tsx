@@ -12,7 +12,7 @@ import { BottomPane } from "./BottomPane.tsx";
 import { LogView } from "./LogView.tsx";
 import { Scrollback } from "./Scrollback.tsx";
 import { Sidebar } from "./Sidebar.tsx";
-import { sideShown, swallowsClick } from "../sidebar.ts";
+import { becomeNarrow, sideShown, swallowsClick } from "../sidebar.ts";
 import { Splash } from "./Splash.tsx";
 import { StatusLine } from "./StatusLine.tsx";
 import { TopBar } from "./TopBar.tsx";
@@ -30,13 +30,11 @@ export function App({ store }: { store: Store }) {
   useEffect(() => {
     const el = kiln.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const check = () => {
-      const narrow = paneSize(el).cols < narrowWidth;
-      if (narrow !== !!store.state.narrow) store.set({ narrow, narrowOpen: false }); // narrow starts closed
-    };
+    const check = () => becomeNarrow(store, paneSize(el).cols < narrowWidth);
     const ro = new ResizeObserver(check);
     ro.observe(el);
     check();
+    document.fonts?.ready.then(check); // measured in the fallback font until the page's loads
     return () => ro.disconnect();
   }, [s.phase === "locked"]);
   return (

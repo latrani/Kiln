@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
-import { swallowsClick, toggleSidebar } from "../sidebar.ts";
+import { becomeNarrow, swallowsClick, toggleSidebar } from "../sidebar.ts";
+import { toggleLog } from "../log.ts";
 import { Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 
@@ -62,4 +63,16 @@ test("a double-click's second click, outside the sidebar, does nothing once the 
   assert.equal(swallowsClick(s.state, at + 100, false), true);
   assert.equal(swallowsClick(s.state, at + 100, true), false, "in the sidebar: a click as ever");
   assert.equal(swallowsClick(s.state, at + 1000, false), false, "later: a click as ever");
+});
+
+test("opening log mode starts the narrow sidebar closed; becoming narrow closes log mode's panel", () => {
+  const { s } = page([{ type: "Log", Key: "fm/kit", Open: false, Find: "", Selected: 0, HistDone: true }]);
+  toggleSidebar(s);
+  toggleLog(s);
+  assert.equal(s.state.narrowOpen, false);
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0, HistDone: true }] as any); // Go's answer
+  s.set({ narrow: false });
+  s.setLogView("fm/kit", { focus: "panel" });
+  becomeNarrow(s, true);
+  assert.equal(s.state.logView["fm/kit"].focus, undefined);
 });

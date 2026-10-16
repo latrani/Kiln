@@ -55,6 +55,14 @@ func TestNarrow(t *testing.T) {
 	waitFor(t, s.ev, `document.querySelector("header .where").textContent === "fm"`, "still the overview: the second click did nothing")
 	time.Sleep(450 * time.Millisecond)
 
+	// Picking a character: closed, focus on the input.
+	s.ev(`kilnPage.act({Do: "switch", Key: "fm/kit"})`)
+	click(t, s.ws, s.ev, `document.querySelector("header .menu")`)
+	waitFor(t, s.ev, `document.querySelectorAll("nav.side button.name").length > 1`, "open, with a character row")
+	click(t, s.ws, s.ev, `document.querySelectorAll("nav.side button.name")[1]`)
+	waitFor(t, s.ev, `!document.querySelector("nav.side") && document.activeElement === document.querySelector(".bottom textarea")`, "picked a character: closed, focus on the input")
+	time.Sleep(450 * time.Millisecond)
+
 	// Log mode: f opens the panel over the log, Esc closes it, the log
 	// focused, its keys working.
 	devtools(t, s.ws, "Emulation.setDeviceMetricsOverride", map[string]any{"width": 960, "height": 600, "deviceScaleFactor": 1, "mobile": false})

@@ -175,3 +175,51 @@ func TestNarrowDoubleClickDoesNothingUnder(t *testing.T) {
 		t.Error("a later click on the overview did nothing")
 	}
 }
+
+// Opening log mode, or becoming narrow, starts the narrow sidebar
+// closed: whatever was open before doesn't come back.
+func TestNarrowClosesOnLogModeAndResize(t *testing.T) {
+	h := narrowHarness(t)
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+b")
+	h.key("ctrl+l")
+	h.key("ctrl+l") // back out
+	if h.m.narrowShown() {
+		t.Error("the sidebar came back open after log mode")
+	}
+	h.m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+	h.key("ctrl+l")
+	h.key("f") // wide: the panel focused
+	h.m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
+	if h.m.narrowShown() || h.br().panelFocus {
+		t.Error("becoming narrow opened the panel over the log")
+	}
+}
+
+// The picker's add-character field and its wrapped error, and the
+// scroll hints, at the narrow sidebar's full width.
+func TestNarrowAddCharacterAndHints(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.enter()
+	if h.m.picker == nil || h.m.picker.edit == nil {
+		t.Fatalf("no character editor:\n%s", h.screen())
+	}
+	h.typeText("Ash")
+	if c := h.m.View().Cursor; c == nil || c.Y >= h.m.narrowH() || c.X != 2+len("Ash") {
+		t.Errorf("cursor %+v; want it in the name field, in the open sidebar", c)
+	}
+	h.typeText(strings.Repeat("!", 3))
+	if s := h.screen(); !strings.Contains(s, "Ash!!!") {
+		t.Errorf("the name isn't drawn across:\n%s", s)
+	}
+	h2 := newHarness(t, map[string]string{"big": manyChars(30)})
+	h2.openAll()
+	h2.m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
+	h2.key("ctrl+b")
+	if s := h2.screen(); !strings.Contains(s, "▼ ") || !strings.Contains(s, "more") {
+		t.Errorf("no scroll hint in the open narrow sidebar:\n%s", s)
+	}
+}

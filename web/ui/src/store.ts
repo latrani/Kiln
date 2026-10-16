@@ -406,7 +406,10 @@ export class Store {
   // the narrow sidebar, picked from, closes.
   pickFromSidebar(key: string): void {
     this.state.act?.({ Do: "switch", Key: key });
-    this.set({ narrowOpen: false, narrowPicked: this.state.narrowOpen ? Date.now() : this.state.narrowPicked });
+    const was = this.state.narrowOpen;
+    this.set({ narrowOpen: false, narrowPicked: was ? Date.now() : this.state.narrowPicked });
+    // Picked: back to the input, as from ≡ closing it (an overview has none).
+    if (was) setTimeout(() => globalThis.document?.querySelector<HTMLElement>(".bottom textarea")?.focus());
   }
 
   // setPicker changes the open picker, keeping its highlight on a row the
