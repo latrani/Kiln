@@ -114,8 +114,17 @@ func (l *logLines) first() string {
 	return l.lines[0]
 }
 
-func world(port int, plaintext bool) string {
-	return fmt.Sprintf("[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\nplaintext = %v\n", port, plaintext)
+// world is a relay.toml world for 127.0.0.1:port. trust is "" for a
+// plaintext world, "ca", or a pin.
+func world(port int, trust string) string {
+	w := fmt.Sprintf("[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port)
+	switch trust {
+	case "":
+		return w + "plaintext = true\n"
+	case "ca":
+		return w + "tls_trust = \"ca\"\n"
+	}
+	return w + fmt.Sprintf("pin = %q\n", trust)
 }
 
 func open(t *testing.T, base, host string, port int) *websocket.Conn {
@@ -142,7 +151,7 @@ func closeCode(t *testing.T, c *websocket.Conn) websocket.StatusCode {
 
 func TestPlaintextRoundTrip(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	_, base, _ := relay(t, world(port, true))
+	_, base, _ := relay(t, world(port, ""))
 	nc := websocket.NetConn(context.Background(), open(t, base, "127.0.0.1", port), websocket.MessageBinary)
 	r := bufio.NewReader(nc)
 	if line, _ := r.ReadString('\n'); line != "hello\r\n" {
@@ -156,7 +165,7 @@ func TestPlaintextRoundTrip(t *testing.T) {
 
 func TestUnlistedIsRefusedAndNeverDialed(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, logs := relay(t, world(port, true))
+	s, base, logs := relay(t, world(port, ""))
 	dialed := false
 	s.Dial = func(context.Context, string, string) (net.Conn, error) { dialed = true; return nil, net.ErrClosed }
 	for _, hp := range []struct {
@@ -177,7 +186,7 @@ func TestUnlistedIsRefusedAndNeverDialed(t *testing.T) {
 
 func TestLoggedHostIsOneQuotedLine(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	_, base, logs := relay(t, world(port, true))
+	_, base, logs := relay(t, world(port, ""))
 	host := "fm.example\nrefused 10.0.0.1 → evil" + strings.Repeat("x", 1000)
 	closeCode(t, open(t, base, url.QueryEscape(host), port))
 	line := logs.first()
@@ -204,7 +213,7 @@ func TestReasonKeepsWholeRunes(t *testing.T) {
 
 func TestTLSOnlyRefusesPlainFirstFrame(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, false))
+	s, base, _ := relay(t, world(port, "ca"))
 	dialed := false
 	s.Dial = func(context.Context, string, string) (net.Conn, error) { dialed = true; return nil, net.ErrClosed }
 	c := open(t, base, "127.0.0.1", port)
@@ -219,7 +228,7 @@ func TestTLSOnlyRefusesPlainFirstFrame(t *testing.T) {
 
 func TestTLSOnlyRefusesSilentClient(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	_, base, _ := relay(t, world(port, false))
+	_, base, _ := relay(t, world(port, "ca"))
 	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeNeedsTLS {
 		t.Errorf("code %d, want %d", code, CodeNeedsTLS)
 	}
@@ -228,7 +237,7 @@ func TestTLSOnlyRefusesSilentClient(t *testing.T) {
 func TestTLSThroughRelayPins(t *testing.T) {
 	ln, cert := selfSignedListener(t)
 	port := serveEach(t, ln, func(c net.Conn) { c.Write([]byte("secure hello\r\n")) })
-	_, base, logs := relay(t, world(port, false))
+	_, base, logs := relay(t, world(port, "ca"))
 	kh := conn.KnownHosts{Path: filepath.Join(t.TempDir(), "known_hosts")}
 	viaRelay := func(ctx context.Context, _, addr string) (net.Conn, error) {
 		h, p, _ := net.SplitHostPort(addr)
@@ -264,7 +273,7 @@ func TestUnreachable(t *testing.T) {
 	ln := tcpListener(t)
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close() // nothing listens there now
-	_, base, _ := relay(t, world(port, true))
+	_, base, _ := relay(t, world(port, ""))
 	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeUnreachable {
 		t.Errorf("code %d, want %d", code, CodeUnreachable)
 	}
@@ -272,7 +281,7 @@ func TestUnreachable(t *testing.T) {
 
 func TestWrongOriginRefused(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	_, base, _ := relay(t, world(port, true))
+	_, base, _ := relay(t, world(port, ""))
 	_, resp, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/?host=127.0.0.1&port=%d", base, port),
 		&websocket.DialOptions{HTTPHeader: http.Header{"Origin": {"https://evil.example"}}})
 	if err == nil || resp == nil || resp.StatusCode != http.StatusForbidden {
@@ -282,7 +291,7 @@ func TestWrongOriginRefused(t *testing.T) {
 
 func TestPerIPCapAndRelease(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	_, base, _ := relay(t, "max_per_ip = 2\n"+world(port, true))
+	_, base, _ := relay(t, "max_per_ip = 2\n"+world(port, ""))
 	// Refusals must not use up slots.
 	for range 3 {
 		closeCode(t, open(t, base, "127.0.0.1", port+1))
@@ -341,7 +350,7 @@ func TestClientIPTrustsXFFOnlyFromProxies(t *testing.T) {
 func TestUnreadablePeerRefused(t *testing.T) {
 	logs := &logLines{}
 	s := &Server{Log: logs.add}
-	a, _ := ParseConfig("relay.toml", []byte(world(1, true)))
+	a, _ := ParseConfig("relay.toml", []byte(world(1, "")))
 	s.SetConfig(a)
 	r := httptest.NewRequest("GET", "/?host=127.0.0.1&port=1", nil)
 	r.RemoteAddr = "@"
@@ -379,7 +388,7 @@ func TestPerIPCapBucketsIPv6By64(t *testing.T) {
 
 func TestGlobalCap(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, logs := relay(t, "max_conns = 1\n"+world(port, true))
+	s, base, logs := relay(t, "max_conns = 1\n"+world(port, ""))
 	a := open(t, base, "127.0.0.1", port)
 	readLine(t, a)
 	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeBusy {
@@ -395,7 +404,7 @@ func TestGlobalCap(t *testing.T) {
 
 func TestTLSRefusalsReleaseSlots(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, false))
+	s, base, _ := relay(t, world(port, "ca"))
 	c := open(t, base, "127.0.0.1", port)
 	c.Write(context.Background(), websocket.MessageBinary, []byte("connect kit\r\n"))
 	if code := closeCode(t, c); code != CodeNeedsTLS {
@@ -409,7 +418,7 @@ func TestTLSRefusalsReleaseSlots(t *testing.T) {
 
 func TestPingsKeepLiveClients(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, true))
+	s, base, _ := relay(t, world(port, ""))
 	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
 	c := open(t, base, "127.0.0.1", port)
 	nc := websocket.NetConn(context.Background(), c, websocket.MessageBinary)
@@ -431,7 +440,7 @@ func TestPingsKeepLiveClients(t *testing.T) {
 
 func TestPingsReapSilentClients(t *testing.T) {
 	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, true))
+	s, base, _ := relay(t, world(port, ""))
 	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
 	open(t, base, "127.0.0.1", port) // never reads, so never answers a ping
 	eventually(t, "connection opened", func() bool { return s.inUse() == 1 })

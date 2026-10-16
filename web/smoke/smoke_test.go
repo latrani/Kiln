@@ -9,9 +9,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,8 +51,8 @@ func launchWith(t *testing.T, pins func(port int) string) (ws *websocket.Conn, a
 	chrome := chromePath(t)
 	root, _ := filepath.Abs("../..")
 	static := buildPage(t, root)
-	muckPort := fakeMuck(t)
-	preset, cfg := config(t, muckPort)
+	muckPort, pin := fakeMuck(t)
+	preset, cfg := config(t, muckPort, pin)
 	if pins != nil {
 		if err := os.WriteFile(filepath.Join(preset, "known_hosts"), []byte(pins(muckPort)), 0o644); err != nil {
 			t.Fatal(err)
@@ -371,8 +373,9 @@ func buildPage(t *testing.T, root string) string {
 }
 
 // fakeMuck serves TLS on a free port with a self-signed certificate:
-// a greeting, then `You say, "L"` for each line L. It returns the port.
-func fakeMuck(t *testing.T) int {
+// a greeting, then `You say, "L"` for each line L. It returns the port
+// and the certificate's pin.
+func fakeMuck(t *testing.T) (port int, pin string) {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpl := &x509.Certificate{
@@ -431,7 +434,8 @@ func fakeMuck(t *testing.T) int {
 			}()
 		}
 	}()
-	return ln.Addr().(*net.TCPAddr).Port
+	sum := sha256.Sum256(der)
+	return ln.Addr().(*net.TCPAddr).Port, "sha256:" + hex.EncodeToString(sum[:])
 }
 
 // lines sends n numbered lines long enough to wrap at most widths.
@@ -441,8 +445,9 @@ func lines(c net.Conn, what string, n int) {
 	}
 }
 
-// config writes a preset with the fake world, and a relay config for it.
-func config(t *testing.T, port int) (preset, cfg string) {
+// config writes a preset with the fake world, and a relay config that
+// pins it to pin.
+func config(t *testing.T, port int, pin string) (preset, cfg string) {
 	t.Helper()
 	dir := t.TempDir()
 	preset = filepath.Join(dir, "preset")
@@ -454,7 +459,7 @@ func config(t *testing.T, port int) (preset, cfg string) {
 		t.Fatal(err)
 	}
 	cfg = filepath.Join(dir, "relay.toml")
-	if err := os.WriteFile(cfg, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port), 0o644); err != nil {
+	if err := os.WriteFile(cfg, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\npin = %q\n", port, pin), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return preset, cfg

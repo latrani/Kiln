@@ -21,6 +21,7 @@ plaintext = true
 [[world]]
 host = "Other.Example."
 ports = [7000]
+tls_trust = "ca"
 `
 
 func TestParseAndLookup(t *testing.T) {
@@ -40,6 +41,25 @@ func TestParseAndLookup(t *testing.T) {
 	}
 	if _, ok := a.Lookup("evil.example", 8888); ok {
 		t.Error("an unlisted host matched")
+	}
+}
+
+// testPin is a well-formed pin that matches no certificate.
+var testPin = "sha256:" + strings.Repeat("0", 64)
+
+func TestParseTrust(t *testing.T) {
+	a, err := ParseConfig("relay.toml", []byte(sample+"\n[[world]]\nhost = \"pinned.example\"\nports = [1]\npin = \""+testPin+"\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, _ := a.Lookup("other.example", 7000); w.TLSTrust != "ca" || w.Pin != "" {
+		t.Errorf("ca world = %+v", w)
+	}
+	if w, _ := a.Lookup("pinned.example", 1); w.Pin != testPin || w.TLSTrust != "" {
+		t.Errorf("pinned world = %+v", w)
+	}
+	if w, _ := a.Lookup("muck.example.org", 8888); !w.Plaintext || w.Pin != "" || w.TLSTrust != "" {
+		t.Errorf("plaintext world = %+v", w)
 	}
 }
 
@@ -68,8 +88,19 @@ func TestParseErrors(t *testing.T) {
 		{"origin path", "origins = [\"a.example/kiln\"]\n", str.RelayConfigBadOrigin("relay.toml", "a.example/kiln")},
 		{"origin glob", "origins = [\"[a.example\"]\n", str.RelayConfigBadOrigin("relay.toml", "[a.example")},
 		{"origin empty", "origins = [\"\"]\n", str.RelayConfigBadOrigin("relay.toml", "")},
-		{"duplicate", "[[world]]\nhost = \"a.example\"\nports = [1, 2]\n[[world]]\nhost = \"A.example.\"\nports = [2]\nplaintext = true\n",
+		{"duplicate", "[[world]]\nhost = \"a.example\"\nports = [1, 2]\ntls_trust = \"ca\"\n[[world]]\nhost = \"A.example.\"\nports = [2]\nplaintext = true\n",
 			str.RelayConfigDuplicate("relay.toml", "a.example:2")},
+		{"no trust", "[[world]]\nhost = \"a.example\"\nports = [1]\n", str.RelayConfigNoTrust("relay.toml", "a.example")},
+		{"both trust", "[[world]]\nhost = \"a.example\"\nports = [1]\ntls_trust = \"ca\"\npin = \"" + testPin + "\"\n",
+			str.RelayConfigBothTrust("relay.toml", "a.example")},
+		{"trust pin", "[[world]]\nhost = \"a.example\"\nports = [1]\ntls_trust = \"pin\"\n",
+			str.RelayConfigBadTrust("relay.toml", "a.example", "pin")},
+		{"bad pin", "[[world]]\nhost = \"a.example\"\nports = [1]\npin = \"sha256:abc\"\n",
+			str.RelayConfigBadPin("relay.toml", "a.example", "sha256:abc")},
+		{"plaintext pin", "[[world]]\nhost = \"a.example\"\nports = [1]\nplaintext = true\npin = \"" + testPin + "\"\n",
+			str.RelayConfigPlaintextTrust("relay.toml", "a.example")},
+		{"plaintext ca", "[[world]]\nhost = \"a.example\"\nports = [1]\nplaintext = true\ntls_trust = \"ca\"\n",
+			str.RelayConfigPlaintextTrust("relay.toml", "a.example")},
 		{"zero per ip", "max_per_ip = 0\n", str.RelayConfigBadLimit("relay.toml", "max_per_ip")},
 		{"negative conns", "max_conns = -1\n", str.RelayConfigBadLimit("relay.toml", "max_conns")},
 	} {

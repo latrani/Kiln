@@ -40,7 +40,7 @@ func TestCodesMatchRelay(t *testing.T) {
 func relayURL(t *testing.T, port int, plaintext bool) string {
 	t.Helper()
 	a, err := relay.ParseConfig("relay.toml", []byte(fmt.Sprintf(
-		"[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\nplaintext = %v\n", port, plaintext)))
+		"[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n%s\n", port, map[bool]string{true: "plaintext = true", false: `tls_trust = "ca"`}[plaintext])))
 	if err != nil {
 		t.Fatal(err)
 	}

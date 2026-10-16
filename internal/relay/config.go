@@ -15,6 +15,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -22,10 +23,13 @@ import (
 type World struct {
 	Host  string `toml:"host"`
 	Ports []int  `toml:"ports"`
-	// Plaintext allows non-TLS traffic. Off, the relay refuses anything
-	// that doesn't start with a TLS handshake, so whoever runs the relay
-	// never sees players' passwords. Meant for the operator's own MUCK.
+	// Plaintext allows non-TLS traffic. Off, the world is TLS.
 	Plaintext bool `toml:"plaintext"`
+	// How the relay trusts a TLS world: TLSTrust "ca" (a real CA), or a
+	// pinned certificate, "sha256:…" as conn.Fingerprint makes it. A TLS
+	// world has exactly one; nothing is trusted on first use.
+	TLSTrust string `toml:"tls_trust"`
+	Pin      string `toml:"pin"`
 }
 
 // Config is the relay's config file, relay.toml. Its [[world]] list is the
@@ -89,6 +93,9 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 			}
 			seen[hp] = true
 		}
+		if err := checkTrust(path, h, w); err != nil {
+			return nil, err
+		}
 		a.Worlds[i].Host = h
 	}
 	for i, o := range a.Origins {
@@ -114,6 +121,32 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 		a.proxies = append(a.proxies, p)
 	}
 	return &a, nil
+}
+
+// checkTrust checks that w says how it's trusted, if it's TLS, and not
+// if it isn't.
+func checkTrust(path, host string, w World) error {
+	if w.Plaintext {
+		if w.TLSTrust != "" || w.Pin != "" {
+			return errors.New(str.RelayConfigPlaintextTrust(path, host))
+		}
+		return nil
+	}
+	switch {
+	case w.TLSTrust != "" && w.Pin != "":
+		return errors.New(str.RelayConfigBothTrust(path, host))
+	case w.TLSTrust != "":
+		if w.TLSTrust != "ca" { //str:ok config vocabulary
+			return errors.New(str.RelayConfigBadTrust(path, host, w.TLSTrust))
+		}
+	case w.Pin != "":
+		if conn.ValidateFingerprint(w.Pin) != nil {
+			return errors.New(str.RelayConfigBadPin(path, host, w.Pin))
+		}
+	default:
+		return errors.New(str.RelayConfigNoTrust(path, host))
+	}
+	return nil
 }
 
 // Lookup finds the world for host:port, comparing host case-insensitively

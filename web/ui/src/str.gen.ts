@@ -591,11 +591,20 @@ export function relayConfigBadLimit(path: unknown, key: unknown): string { retur
 /** relay.config_bad_origin: {path}: origins has bad pattern {pattern:%q} · use a host, like "muck.example.org" or "*.example.org" */
 export function relayConfigBadOrigin(path: unknown, pattern: unknown): string { return `${path}: origins has bad pattern ${q(pattern)} · use a host, like "muck.example.org" or "*.example.org"`; }
 
+/** relay.config_bad_pin: {path}: {host} has pin {value:%q} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts */
+export function relayConfigBadPin(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has pin ${q(value)} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts`; }
+
 /** relay.config_bad_port: {path}: {host} has bad port {port} */
 export function relayConfigBadPort(path: unknown, host: unknown, port: unknown): string { return `${path}: ${host} has bad port ${port}`; }
 
 /** relay.config_bad_proxy: {path}: trusted_proxies has bad address {addr:%q} */
 export function relayConfigBadProxy(path: unknown, addr: unknown): string { return `${path}: trusted_proxies has bad address ${q(addr)}`; }
+
+/** relay.config_bad_trust: {path}: {host} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate */
+export function relayConfigBadTrust(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has tls_trust ${q(value)} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate`; }
+
+/** relay.config_both_trust: {path}: {host} has both tls_trust and pin · use one */
+export function relayConfigBothTrust(path: unknown, host: unknown): string { return `${path}: ${host} has both tls_trust and pin · use one`; }
 
 /** relay.config_duplicate: {path}: {world:%q} is listed twice */
 export function relayConfigDuplicate(path: unknown, world: unknown): string { return `${path}: ${q(world)} is listed twice`; }
@@ -613,6 +622,12 @@ export function relayConfigNoHost(path: unknown, n: number): string { return `${
 
 /** relay.config_no_ports: {path}: {host} has no ports */
 export function relayConfigNoPorts(path: unknown, host: unknown): string { return `${path}: ${host} has no ports`; }
+
+/** relay.config_no_trust: {path}: {host} needs tls_trust = "ca" or a pin (or plaintext = true) */
+export function relayConfigNoTrust(path: unknown, host: unknown): string { return `${path}: ${host} needs tls_trust = "ca" or a pin (or plaintext = true)`; }
+
+/** relay.config_plaintext_trust: {path}: {host} is plaintext, so it can't have tls_trust or pin */
+export function relayConfigPlaintextTrust(path: unknown, host: unknown): string { return `${path}: ${host} is plaintext, so it can't have tls_trust or pin`; }
 
 /** relay.config_reading: reading {path}: {err} */
 export function relayConfigReading(path: unknown, err: unknown): string { return `reading ${path}: ${e(err)}`; }

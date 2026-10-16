@@ -678,6 +678,11 @@ func RelayConfigBadOrigin(path, pattern any) string {
 	return get("relay.config_bad_origin", map[string]any{"path": path, "pattern": pattern})
 }
 
+// RelayConfigBadPin is relay.config_bad_pin: "{path}: {host} has pin {value:%q} · use \"sha256:\" and 64 hex digits, as in Kiln's known_hosts"
+func RelayConfigBadPin(path, host, value any) string {
+	return get("relay.config_bad_pin", map[string]any{"path": path, "host": host, "value": value})
+}
+
 // RelayConfigBadPort is relay.config_bad_port: "{path}: {host} has bad port {port}"
 func RelayConfigBadPort(path, host, port any) string {
 	return get("relay.config_bad_port", map[string]any{"path": path, "host": host, "port": port})
@@ -686,6 +691,16 @@ func RelayConfigBadPort(path, host, port any) string {
 // RelayConfigBadProxy is relay.config_bad_proxy: "{path}: trusted_proxies has bad address {addr:%q}"
 func RelayConfigBadProxy(path, addr any) string {
 	return get("relay.config_bad_proxy", map[string]any{"path": path, "addr": addr})
+}
+
+// RelayConfigBadTrust is relay.config_bad_trust: "{path}: {host} has tls_trust {value:%q} · the only value is \"ca\"; use pin = \"sha256:…\" for a pinned certificate"
+func RelayConfigBadTrust(path, host, value any) string {
+	return get("relay.config_bad_trust", map[string]any{"path": path, "host": host, "value": value})
+}
+
+// RelayConfigBothTrust is relay.config_both_trust: "{path}: {host} has both tls_trust and pin · use one"
+func RelayConfigBothTrust(path, host any) string {
+	return get("relay.config_both_trust", map[string]any{"path": path, "host": host})
 }
 
 // RelayConfigDuplicate is relay.config_duplicate: "{path}: {world:%q} is listed twice"
@@ -708,6 +723,16 @@ func RelayConfigNoHost(path any, n int) string {
 // RelayConfigNoPorts is relay.config_no_ports: "{path}: {host} has no ports"
 func RelayConfigNoPorts(path, host any) string {
 	return get("relay.config_no_ports", map[string]any{"path": path, "host": host})
+}
+
+// RelayConfigNoTrust is relay.config_no_trust: "{path}: {host} needs tls_trust = \"ca\" or a pin (or plaintext = true)"
+func RelayConfigNoTrust(path, host any) string {
+	return get("relay.config_no_trust", map[string]any{"path": path, "host": host})
+}
+
+// RelayConfigPlaintextTrust is relay.config_plaintext_trust: "{path}: {host} is plaintext, so it can't have tls_trust or pin"
+func RelayConfigPlaintextTrust(path, host any) string {
+	return get("relay.config_plaintext_trust", map[string]any{"path": path, "host": host})
 }
 
 // RelayConfigReading is relay.config_reading: "reading {path}: {err}"

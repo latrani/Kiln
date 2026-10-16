@@ -404,6 +404,11 @@ config_bad_proxy = "{path}: trusted_proxies has bad address {addr:%q}"
 config_bad_origin = '{path}: origins has bad pattern {pattern:%q} · use a host, like "muck.example.org" or "*.example.org"'
 config_duplicate = "{path}: {world:%q} is listed twice"
 config_bad_limit = "{path}: {key} must be 1 or more"
+config_no_trust = '{path}: {host} needs tls_trust = "ca" or a pin (or plaintext = true)'
+config_both_trust = "{path}: {host} has both tls_trust and pin · use one"
+config_bad_trust = '{path}: {host} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate'
+config_bad_pin = """{path}: {host} has pin {value:%q} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts"""
+config_plaintext_trust = "{path}: {host} is plaintext, so it can't have tls_trust or pin"
 opened = "open {ip} → {world:%q}"
 closed = "closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur}"
 refused_not_listed = "refused {ip} → {world:%q}: not on the allowlist"
