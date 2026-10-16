@@ -38,6 +38,11 @@ const (
 // a client hasn't connected: a close instead is a refusal.
 const OpenFrame = "open" //str:ok protocol token
 
+// defaultHandshakeTimeout bounds the relay's dial and TLS handshake. It's
+// well under the page's conn.DialTimeout, whose clock starts first, so the
+// page hears the relay's refusal rather than timing out itself.
+const defaultHandshakeTimeout = 10 * time.Second
+
 // Server is the relay's HTTP handler. Set a config before serving.
 type Server struct {
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error) // nil: TCP
@@ -45,7 +50,8 @@ type Server struct {
 	// RootCAs are the CAs a tls_trust = "ca" world is checked against.
 	// nil: the system's.
 	RootCAs *x509.CertPool
-	// HandshakeTimeout bounds the dial and TLS handshake together. 0: 15s.
+	// HandshakeTimeout bounds the dial and TLS handshake together. 0:
+	// defaultHandshakeTimeout.
 	HandshakeTimeout time.Duration
 
 	// pingEvery is how often an open connection is pinged; one that
@@ -118,7 +124,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	addr = net.JoinHostPort(wl.Host, strconv.Itoa(port))
-	dctx, dcancel := context.WithTimeout(ctx, or(s.HandshakeTimeout, 15*time.Second))
+	dctx, dcancel := context.WithTimeout(ctx, or(s.HandshakeTimeout, defaultHandshakeTimeout))
 	tc, err := s.dial(dctx, addr)
 	if err == nil && !wl.Plaintext {
 		tc, err = s.handshake(dctx, tc, addr, wl)

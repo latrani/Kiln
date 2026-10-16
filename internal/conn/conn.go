@@ -49,11 +49,14 @@ type Conn struct {
 	err     error // set before lines is closed
 }
 
-// Dial connects and starts reading. The context, capped at 15s, bounds the
-// dial and TLS handshake together.
+// DialTimeout caps Dial: the dial and TLS handshake together.
+const DialTimeout = 15 * time.Second
+
+// Dial connects and starts reading. The context, capped at DialTimeout,
+// bounds the dial and TLS handshake together.
 func Dial(ctx context.Context, o Options) (*Conn, error) {
 	hostport := net.JoinHostPort(o.Host, strconv.Itoa(o.Port))
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second) // dial and handshake together
+	ctx, cancel := context.WithTimeout(ctx, DialTimeout)
 	defer cancel()
 	dial := o.DialContext
 	if dial == nil {

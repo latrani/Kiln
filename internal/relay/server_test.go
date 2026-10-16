@@ -550,3 +550,12 @@ func selfSignedListener(t *testing.T) (net.Listener, *x509.Certificate) {
 	}
 	return ln, cert
 }
+
+// The relay must give up on a slow world before the page's dial does, so
+// the page hears the relay's refusal (catalog text) instead of its own
+// timeout. The page's clock starts first: it covers the WebSocket too.
+func TestRelayGivesUpBeforeTheClient(t *testing.T) {
+	if margin := conn.DialTimeout - defaultHandshakeTimeout; margin < 3*time.Second {
+		t.Errorf("relay gives up %v before the client; want 3s or more", margin)
+	}
+}
