@@ -32,13 +32,13 @@ it. Esc closes log mode.
 ```sh
 web/build.sh
 cp -R web/preset.example web/preset.local      # edit config/worlds/*.toml
-cp web/dev-allow.example.toml web/dev-allow.toml  # list the same worlds
-go run ./cmd/kiln-relay -listen localhost:8080 -allow web/dev-allow.toml \
+cp web/dev-relay.example.toml web/dev-relay.toml  # list the same worlds
+go run ./cmd/kiln-relay -listen localhost:8080 -config web/dev-relay.toml \
   -web web/static -preset web/preset.local
 ```
 
 Open http://localhost:8080/kiln/. Rebuild with `web/build.sh` and reload
-after changing Go or page code; the relay reloads `dev-allow.toml` by
+after changing Go or page code; the relay reloads `dev-relay.toml` by
 itself. Add `?record` to the address to keep every event Go sends in
 `kilnPage.events` (the smoke test does), and drive Kiln from the console
 with `kilnPage.act({Do: "open", Key: "world/char"})`.

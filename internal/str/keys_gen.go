@@ -658,63 +658,6 @@ func PickerName() string { return get("picker.name", nil) }
 // PickerTitle is picker.title: "All connections"
 func PickerTitle() string { return get("picker.title", nil) }
 
-// RelayAllowBadLimit is relay.allow_bad_limit: "allowlist {path}: {key} must be 1 or more"
-func RelayAllowBadLimit(path, key any) string {
-	return get("relay.allow_bad_limit", map[string]any{"path": path, "key": key})
-}
-
-// RelayAllowBadOrigin is relay.allow_bad_origin: "allowlist {path}: origins has bad pattern {pattern:%q} · use a host, like \"muck.example.org\" or \"*.example.org\""
-func RelayAllowBadOrigin(path, pattern any) string {
-	return get("relay.allow_bad_origin", map[string]any{"path": path, "pattern": pattern})
-}
-
-// RelayAllowBadPort is relay.allow_bad_port: "allowlist {path}: {host} has bad port {port}"
-func RelayAllowBadPort(path, host, port any) string {
-	return get("relay.allow_bad_port", map[string]any{"path": path, "host": host, "port": port})
-}
-
-// RelayAllowBadProxy is relay.allow_bad_proxy: "allowlist {path}: trusted_proxies has bad address {addr:%q}"
-func RelayAllowBadProxy(path, addr any) string {
-	return get("relay.allow_bad_proxy", map[string]any{"path": path, "addr": addr})
-}
-
-// RelayAllowDuplicate is relay.allow_duplicate: "allowlist {path}: {world:%q} is listed twice"
-func RelayAllowDuplicate(path, world any) string {
-	return get("relay.allow_duplicate", map[string]any{"path": path, "world": world})
-}
-
-// RelayAllowLoaded is relay.allow_loaded, by count:
-//   - one: "allowlist {path}: 1 world"
-//   - other: "allowlist {path}: {n} worlds"
-func RelayAllowLoaded(n int, path any) string {
-	return count("relay.allow_loaded", n, map[string]any{"n": n, "path": path})
-}
-
-// RelayAllowNoHost is relay.allow_no_host: "allowlist {path}: world {n} has no host"
-func RelayAllowNoHost(path any, n int) string {
-	return get("relay.allow_no_host", map[string]any{"path": path, "n": n})
-}
-
-// RelayAllowNoPorts is relay.allow_no_ports: "allowlist {path}: {host} has no ports"
-func RelayAllowNoPorts(path, host any) string {
-	return get("relay.allow_no_ports", map[string]any{"path": path, "host": host})
-}
-
-// RelayAllowReading is relay.allow_reading: "reading allowlist {path}: {err}"
-func RelayAllowReading(path any, err error) string {
-	return get("relay.allow_reading", map[string]any{"path": path, "err": err})
-}
-
-// RelayAllowReloadFailed is relay.allow_reload_failed: "allowlist not reloaded, keeping the old one: {err}"
-func RelayAllowReloadFailed(err error) string {
-	return get("relay.allow_reload_failed", map[string]any{"err": err})
-}
-
-// RelayAllowUnknownKey is relay.allow_unknown_key: "allowlist {path}: unknown setting {key:%q}"
-func RelayAllowUnknownKey(path, key any) string {
-	return get("relay.allow_unknown_key", map[string]any{"path": path, "key": key})
-}
-
 // RelayBadDir is relay.bad_dir: "-{flag} {path}: {err}"
 func RelayBadDir(flag, path any, err error) string {
 	return get("relay.bad_dir", map[string]any{"flag": flag, "path": path, "err": err})
@@ -725,8 +668,65 @@ func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
 }
 
-// RelayFlagAllow is relay.flag_allow: "allowlist file (TOML)"
-func RelayFlagAllow() string { return get("relay.flag_allow", nil) }
+// RelayConfigBadLimit is relay.config_bad_limit: "{path}: {key} must be 1 or more"
+func RelayConfigBadLimit(path, key any) string {
+	return get("relay.config_bad_limit", map[string]any{"path": path, "key": key})
+}
+
+// RelayConfigBadOrigin is relay.config_bad_origin: "{path}: origins has bad pattern {pattern:%q} · use a host, like \"muck.example.org\" or \"*.example.org\""
+func RelayConfigBadOrigin(path, pattern any) string {
+	return get("relay.config_bad_origin", map[string]any{"path": path, "pattern": pattern})
+}
+
+// RelayConfigBadPort is relay.config_bad_port: "{path}: {host} has bad port {port}"
+func RelayConfigBadPort(path, host, port any) string {
+	return get("relay.config_bad_port", map[string]any{"path": path, "host": host, "port": port})
+}
+
+// RelayConfigBadProxy is relay.config_bad_proxy: "{path}: trusted_proxies has bad address {addr:%q}"
+func RelayConfigBadProxy(path, addr any) string {
+	return get("relay.config_bad_proxy", map[string]any{"path": path, "addr": addr})
+}
+
+// RelayConfigDuplicate is relay.config_duplicate: "{path}: {world:%q} is listed twice"
+func RelayConfigDuplicate(path, world any) string {
+	return get("relay.config_duplicate", map[string]any{"path": path, "world": world})
+}
+
+// RelayConfigLoaded is relay.config_loaded, by count:
+//   - one: "{path}: 1 world"
+//   - other: "{path}: {n} worlds"
+func RelayConfigLoaded(n int, path any) string {
+	return count("relay.config_loaded", n, map[string]any{"n": n, "path": path})
+}
+
+// RelayConfigNoHost is relay.config_no_host: "{path}: world {n} has no host"
+func RelayConfigNoHost(path any, n int) string {
+	return get("relay.config_no_host", map[string]any{"path": path, "n": n})
+}
+
+// RelayConfigNoPorts is relay.config_no_ports: "{path}: {host} has no ports"
+func RelayConfigNoPorts(path, host any) string {
+	return get("relay.config_no_ports", map[string]any{"path": path, "host": host})
+}
+
+// RelayConfigReading is relay.config_reading: "reading {path}: {err}"
+func RelayConfigReading(path any, err error) string {
+	return get("relay.config_reading", map[string]any{"path": path, "err": err})
+}
+
+// RelayConfigReloadFailed is relay.config_reload_failed: "config not reloaded, keeping the old one: {err}"
+func RelayConfigReloadFailed(err error) string {
+	return get("relay.config_reload_failed", map[string]any{"err": err})
+}
+
+// RelayConfigUnknownKey is relay.config_unknown_key: "{path}: unknown setting {key:%q}"
+func RelayConfigUnknownKey(path, key any) string {
+	return get("relay.config_unknown_key", map[string]any{"path": path, "key": key})
+}
+
+// RelayFlagConfig is relay.flag_config: "the relay's config file (relay.toml)"
+func RelayFlagConfig() string { return get("relay.flag_config", nil) }
 
 // RelayFlagListen is relay.flag_listen: "address to listen on (default 127.0.0.1:7801)"
 func RelayFlagListen() string { return get("relay.flag_listen", nil) }
@@ -745,8 +745,8 @@ func RelayManifestFailed(err error) string {
 	return get("relay.manifest_failed", map[string]any{"err": err})
 }
 
-// RelayNeedAllow is relay.need_allow: "kiln-relay needs -allow PATH (the allowlist file)"
-func RelayNeedAllow() string { return get("relay.need_allow", nil) }
+// RelayNeedConfig is relay.need_config: "kiln-relay needs -config PATH (relay.toml)"
+func RelayNeedConfig() string { return get("relay.need_config", nil) }
 
 // RelayOpened is relay.opened: "open {ip} → {world:%q}"
 func RelayOpened(ip, world any) string {
@@ -786,7 +786,7 @@ func RelayRefusedUnreachable(ip, world any, err error) string {
 // RelayServingPage is relay.serving_page: "serving the page at {url}"
 func RelayServingPage(url any) string { return get("relay.serving_page", map[string]any{"url": url}) }
 
-// RelayWatchFailed is relay.watch_failed: "watching the allowlist: {err}"
+// RelayWatchFailed is relay.watch_failed: "watching the config: {err}"
 func RelayWatchFailed(err error) string { return get("relay.watch_failed", map[string]any{"err": err}) }
 
 // ScrollbackHistoryEnds is scrollback.history_ends: "─── history ends {when} ───"

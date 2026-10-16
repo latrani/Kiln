@@ -10,22 +10,22 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// relinkEvery is how often the watcher checks whether the allowlist's
+// relinkEvery is how often the watcher checks whether the config's
 // link points somewhere new, for systems that don't say.
 const relinkEvery = time.Second
 
-// WatchAllowlist loads path into s, then reloads it whenever it changes.
+// WatchConfig loads path into s, then reloads it whenever it changes.
 // A file that fails to load (half-saved, a typo) is logged and the old
 // list kept. If path is a symlink, a change to its target counts too,
 // and so does repointing it.
 // Close the result to stop watching.
-func WatchAllowlist(s *Server, path string) (io.Closer, error) {
-	a, err := LoadAllowlist(path)
+func WatchConfig(s *Server, path string) (io.Closer, error) {
+	a, err := LoadConfig(path)
 	if err != nil {
 		return nil, err
 	}
-	s.SetAllowlist(a)
-	s.logf(str.RelayAllowLoaded(len(a.Worlds), path))
+	s.SetConfig(a)
+	s.logf(str.RelayConfigLoaded(len(a.Worlds), path))
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -82,13 +82,13 @@ func WatchAllowlist(s *Server, path string) (io.Closer, error) {
 				s.logf(str.RelayWatchFailed(err))
 			case <-settle.C:
 				follow()
-				a, err := LoadAllowlist(path)
+				a, err := LoadConfig(path)
 				if err != nil {
-					s.logf(str.RelayAllowReloadFailed(err))
+					s.logf(str.RelayConfigReloadFailed(err))
 					continue
 				}
-				s.SetAllowlist(a)
-				s.logf(str.RelayAllowLoaded(len(a.Worlds), path))
+				s.SetConfig(a)
+				s.logf(str.RelayConfigLoaded(len(a.Worlds), path))
 			}
 		}
 	}()

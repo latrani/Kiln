@@ -2,7 +2,8 @@
 
 Kiln's web build can't open TCP connections, so the page opens a
 WebSocket to `kiln-relay`, which connects to the MUCK. It only connects to
-worlds in its allowlist; that list is the real boundary. For a world
+worlds in its allowlist (the `[[world]]` list in `relay.toml`); that list
+is the real boundary. For a world
 without `plaintext = true`, the relay also checks that the client's first
 frame starts a TLS handshake and refuses it otherwise, so an honest
 client can't send a password in the clear by accident. It doesn't inspect
@@ -29,13 +30,16 @@ sudo systemctl restart kiln-relay
 
 The relay's flags:
 
-- `-allow PATH`: the allowlist (below). Required.
+- `-config PATH`: the relay's config file, `relay.toml` (below). Required.
 - `-web DIR`: serve the page at `/kiln/`.
 - `-preset DIR`: serve a preset at `/kiln/preset/` (below). Without it
   the page starts with nothing preset.
 - `-listen ADDR`: where to listen; `127.0.0.1:7801` by default.
 
-## Allowlist
+## relay.toml
+
+Say `/etc/kiln-relay/relay.toml`. Its `[[world]]` entries are the
+allowlist.
 
 ```toml
 # Hosts (beyond the relay's own) whose pages may use this relay.
@@ -62,7 +66,7 @@ ports = [8888]     # TLS only
 URLs. A host and port may appear in only one `[[world]]`.
 
 The relay reloads the file when it changes, following a symlink to its
-target. If the new file has an error, it logs it and keeps the old list.
+target. If the new file has an error, it logs it and keeps the old one.
 
 The relay pings each open connection every 30 seconds and closes one
 that doesn't answer, so a browser that vanished (a laptop gone to sleep)
@@ -143,7 +147,7 @@ Description=Kiln web relay
 After=network-online.target
 
 [Service]
-ExecStart=/home/linuxbrew/.linuxbrew/bin/kiln-relay -allow /etc/kiln-relay/allow.toml -web /home/linuxbrew/.linuxbrew/share/kiln/web -preset /etc/kiln-relay/preset
+ExecStart=/home/linuxbrew/.linuxbrew/bin/kiln-relay -config /etc/kiln-relay/relay.toml -web /home/linuxbrew/.linuxbrew/share/kiln/web -preset /etc/kiln-relay/preset
 DynamicUser=yes
 Restart=on-failure
 

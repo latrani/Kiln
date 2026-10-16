@@ -27,8 +27,14 @@ func TestManifestListsFilesAsSlashPaths(t *testing.T) {
 	}
 }
 
-func TestRunNeedsAllow(t *testing.T) {
-	if err := run(nil, io.Discard); err == nil || err.Error() != str.RelayNeedAllow() {
+func TestRunNeedsConfig(t *testing.T) {
+	if err := run(nil, io.Discard); err == nil || err.Error() != str.RelayNeedConfig() {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestAllowFlagIsGone(t *testing.T) {
+	if err := run([]string{"-allow", "x"}, io.Discard); err == nil || !strings.Contains(err.Error(), "-allow") {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -101,7 +107,7 @@ func TestWebWithoutPreset(t *testing.T) {
 
 // -dev is gone: -web and -preset say what to serve, -listen where.
 func TestDevIsGone(t *testing.T) {
-	if err := run([]string{"-allow", "x.toml", "-dev"}, io.Discard); err == nil || !strings.Contains(err.Error(), "-dev") {
+	if err := run([]string{"-config", "x.toml", "-dev"}, io.Discard); err == nil || !strings.Contains(err.Error(), "-dev") {
 		t.Errorf("err = %v, want an unknown flag", err)
 	}
 }
@@ -112,7 +118,7 @@ func TestBadDirsStopTheStart(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "nope")
 	for _, flag := range []string{"web", "preset"} {
 		_, statErr := os.Stat(missing)
-		err := run([]string{"-allow", "x.toml", "-" + flag, missing}, io.Discard)
+		err := run([]string{"-config", "x.toml", "-" + flag, missing}, io.Discard)
 		if err == nil || err.Error() != str.RelayBadDir(flag, missing, statErr) {
 			t.Errorf("-%s %s: err = %v", flag, missing, err)
 		}

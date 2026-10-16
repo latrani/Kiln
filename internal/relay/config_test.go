@@ -24,7 +24,7 @@ ports = [7000]
 `
 
 func TestParseAndLookup(t *testing.T) {
-	a, err := ParseAllowlist("allow.toml", []byte(sample))
+	a, err := ParseConfig("relay.toml", []byte(sample))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestParseAndLookup(t *testing.T) {
 }
 
 func TestTrusted(t *testing.T) {
-	a, _ := ParseAllowlist("allow.toml", []byte(sample))
+	a, _ := ParseConfig("relay.toml", []byte(sample))
 	for ip, want := range map[string]bool{
 		"127.0.0.1": true, "::ffff:127.0.0.1": true, "10.2.3.4": true, "192.168.1.1": false,
 	} {
@@ -57,23 +57,23 @@ func TestTrusted(t *testing.T) {
 func TestParseErrors(t *testing.T) {
 	for _, c := range []struct{ name, toml, want string }{
 		{"typo", "[[world]]\nhost = \"a.example\"\nports = [1]\nplaintxt = true\n",
-			str.RelayAllowUnknownKey("allow.toml", "world.plaintxt")},
+			str.RelayConfigUnknownKey("relay.toml", "world.plaintxt")},
 		{"singular port", "[[world]]\nhost = \"a.example\"\nport = 1\n",
-			str.RelayAllowUnknownKey("allow.toml", "world.port")},
-		{"no host", "[[world]]\nports = [1]\n", str.RelayAllowNoHost("allow.toml", 1)},
-		{"no ports", "[[world]]\nhost = \"a.example\"\n", str.RelayAllowNoPorts("allow.toml", "a.example")},
-		{"bad port", "[[world]]\nhost = \"a.example\"\nports = [70000]\n", str.RelayAllowBadPort("allow.toml", "a.example", 70000)},
-		{"bad proxy", "trusted_proxies = [\"nope\"]\n", str.RelayAllowBadProxy("allow.toml", "nope")},
-		{"origin URL", "origins = [\"https://a.example\"]\n", str.RelayAllowBadOrigin("allow.toml", "https://a.example")},
-		{"origin path", "origins = [\"a.example/kiln\"]\n", str.RelayAllowBadOrigin("allow.toml", "a.example/kiln")},
-		{"origin glob", "origins = [\"[a.example\"]\n", str.RelayAllowBadOrigin("allow.toml", "[a.example")},
-		{"origin empty", "origins = [\"\"]\n", str.RelayAllowBadOrigin("allow.toml", "")},
+			str.RelayConfigUnknownKey("relay.toml", "world.port")},
+		{"no host", "[[world]]\nports = [1]\n", str.RelayConfigNoHost("relay.toml", 1)},
+		{"no ports", "[[world]]\nhost = \"a.example\"\n", str.RelayConfigNoPorts("relay.toml", "a.example")},
+		{"bad port", "[[world]]\nhost = \"a.example\"\nports = [70000]\n", str.RelayConfigBadPort("relay.toml", "a.example", 70000)},
+		{"bad proxy", "trusted_proxies = [\"nope\"]\n", str.RelayConfigBadProxy("relay.toml", "nope")},
+		{"origin URL", "origins = [\"https://a.example\"]\n", str.RelayConfigBadOrigin("relay.toml", "https://a.example")},
+		{"origin path", "origins = [\"a.example/kiln\"]\n", str.RelayConfigBadOrigin("relay.toml", "a.example/kiln")},
+		{"origin glob", "origins = [\"[a.example\"]\n", str.RelayConfigBadOrigin("relay.toml", "[a.example")},
+		{"origin empty", "origins = [\"\"]\n", str.RelayConfigBadOrigin("relay.toml", "")},
 		{"duplicate", "[[world]]\nhost = \"a.example\"\nports = [1, 2]\n[[world]]\nhost = \"A.example.\"\nports = [2]\nplaintext = true\n",
-			str.RelayAllowDuplicate("allow.toml", "a.example:2")},
-		{"zero per ip", "max_per_ip = 0\n", str.RelayAllowBadLimit("allow.toml", "max_per_ip")},
-		{"negative conns", "max_conns = -1\n", str.RelayAllowBadLimit("allow.toml", "max_conns")},
+			str.RelayConfigDuplicate("relay.toml", "a.example:2")},
+		{"zero per ip", "max_per_ip = 0\n", str.RelayConfigBadLimit("relay.toml", "max_per_ip")},
+		{"negative conns", "max_conns = -1\n", str.RelayConfigBadLimit("relay.toml", "max_conns")},
 	} {
-		_, err := ParseAllowlist("allow.toml", []byte(c.toml))
+		_, err := ParseConfig("relay.toml", []byte(c.toml))
 		if err == nil || err.Error() != c.want {
 			t.Errorf("%s: err = %v, want %q", c.name, err, c.want)
 		}
@@ -81,7 +81,7 @@ func TestParseErrors(t *testing.T) {
 }
 
 func TestOriginsNormalized(t *testing.T) {
-	a, err := ParseAllowlist("allow.toml", []byte(`origins = ["Muck.Example.org.", "*.example.net", "localhost:8080"]`))
+	a, err := ParseConfig("relay.toml", []byte(`origins = ["Muck.Example.org.", "*.example.net", "localhost:8080"]`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,8 +91,8 @@ func TestOriginsNormalized(t *testing.T) {
 }
 
 func TestParseBadTOML(t *testing.T) {
-	_, err := ParseAllowlist("allow.toml", []byte("[[world]\n"))
-	if err == nil || !strings.HasPrefix(err.Error(), upTo(str.RelayAllowReading("allow.toml", errMark{}))) {
+	_, err := ParseConfig("relay.toml", []byte("[[world]\n"))
+	if err == nil || !strings.HasPrefix(err.Error(), upTo(str.RelayConfigReading("relay.toml", errMark{}))) {
 		t.Errorf("err = %v", err)
 	}
 }

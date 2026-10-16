@@ -27,14 +27,14 @@ func main() {
 func run(args []string, logw io.Writer) error {
 	fs := flag.NewFlagSet("kiln-relay", flag.ContinueOnError) //str:ok
 	listen := fs.String("listen", "", str.RelayFlagListen())  //str:ok
-	allow := fs.String("allow", "", str.RelayFlagAllow())     //str:ok
+	cfg := fs.String("config", "", str.RelayFlagConfig())     //str:ok
 	web := fs.String("web", "", str.RelayFlagWeb())           //str:ok
 	preset := fs.String("preset", "", str.RelayFlagPreset())  //str:ok
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *allow == "" {
-		return errors.New(str.RelayNeedAllow())
+	if *cfg == "" {
+		return errors.New(str.RelayNeedConfig())
 	}
 	for _, d := range []struct{ flag, dir string }{{"web", *web}, {"preset", *preset}} { //str:ok
 		if d.dir != "" {
@@ -49,7 +49,7 @@ func run(args []string, logw io.Writer) error {
 	}
 	logf := func(line string) { fmt.Fprintln(logw, time.Now().Format(time.DateTime), line) }
 	s := &relay.Server{Log: logf}
-	w, err := relay.WatchAllowlist(s, *allow)
+	w, err := relay.WatchConfig(s, *cfg)
 	if err != nil {
 		return err
 	}

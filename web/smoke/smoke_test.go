@@ -50,13 +50,13 @@ func launchWith(t *testing.T, pins func(port int) string) (ws *websocket.Conn, a
 	root, _ := filepath.Abs("../..")
 	static := buildPage(t, root)
 	muckPort := fakeMuck(t)
-	preset, allow := config(t, muckPort)
+	preset, cfg := config(t, muckPort)
 	if pins != nil {
 		if err := os.WriteFile(filepath.Join(preset, "known_hosts"), []byte(pins(muckPort)), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	page := startRelay(t, root, static, preset, allow)
+	page := startRelay(t, root, static, preset, cfg)
 	ws, tab := openTab(t, chrome, page+"?record")
 	return ws, func() *websocket.Conn { return tab(page) }
 }
@@ -441,8 +441,8 @@ func lines(c net.Conn, what string, n int) {
 	}
 }
 
-// config writes a preset with the fake world, and an allowlist for it.
-func config(t *testing.T, port int) (preset, allow string) {
+// config writes a preset with the fake world, and a relay config for it.
+func config(t *testing.T, port int) (preset, cfg string) {
 	t.Helper()
 	dir := t.TempDir()
 	preset = filepath.Join(dir, "preset")
@@ -453,16 +453,16 @@ func config(t *testing.T, port int) (preset, allow string) {
 	if err := os.WriteFile(filepath.Join(preset, "config", "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	allow = filepath.Join(dir, "allow.toml")
-	if err := os.WriteFile(allow, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port), 0o644); err != nil {
+	cfg = filepath.Join(dir, "relay.toml")
+	if err := os.WriteFile(cfg, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return preset, allow
+	return preset, cfg
 }
 
 // startRelay runs kiln-relay on a free port, serving the page and the
 // preset, and returns the page's URL.
-func startRelay(t *testing.T, root, static, preset, allow string) string {
+func startRelay(t *testing.T, root, static, preset, cfg string) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -476,7 +476,7 @@ func startRelay(t *testing.T, root, static, preset, allow string) string {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building kiln-relay: %v\n%s", err, out)
 	}
-	relay := exec.Command(bin, "-listen", addr, "-allow", allow, "-web", static, "-preset", preset)
+	relay := exec.Command(bin, "-listen", addr, "-config", cfg, "-web", static, "-preset", preset)
 	relay.Stdout, relay.Stderr = os.Stderr, os.Stderr
 	if err := relay.Start(); err != nil {
 		t.Fatal(err)

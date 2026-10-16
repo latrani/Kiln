@@ -28,7 +28,7 @@ const (
 	CodeBusy        websocket.StatusCode = 4503 // the relay is at max_conns
 )
 
-// Server is the relay's HTTP handler. Set an allowlist before serving.
+// Server is the relay's HTTP handler. Set a config before serving.
 type Server struct {
 	Dial              func(ctx context.Context, network, addr string) (net.Conn, error) // nil: TCP
 	Log               func(line string)                                                 // nil: silent
@@ -39,19 +39,19 @@ type Server struct {
 	// went away without a word (a sleeping laptop) frees its slot.
 	pingEvery, pingTimeout time.Duration // 0: 30s, 20s
 
-	allow atomic.Pointer[Allowlist]
+	cfg   atomic.Pointer[Config]
 	mu    sync.Mutex
 	open  map[netip.Prefix]int
 	total int
 }
 
-// SetAllowlist replaces the allowlist; connections already open stay open.
-func (s *Server) SetAllowlist(a *Allowlist) { s.allow.Store(a) }
+// SetConfig replaces the config; connections already open stay open.
+func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 
 // ServeHTTP upgrades to a WebSocket and, if the world in ?host=&port= is
 // allowed, pipes binary frames to and from it.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a := s.allow.Load()
+	a := s.cfg.Load()
 	if a == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -177,7 +177,7 @@ func (s *Server) keepAlive(ctx context.Context, c *websocket.Conn) {
 // clientIP is who's connecting: the peer, or, when the peer is a trusted
 // proxy, the last address in X-Forwarded-For (the one the proxy saw).
 // ok is false when the peer's address can't be read.
-func (s *Server) clientIP(r *http.Request, a *Allowlist) (ip netip.Addr, ok bool) {
+func (s *Server) clientIP(r *http.Request, a *Config) (ip netip.Addr, ok bool) {
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
 	if err != nil {
 		return netip.Addr{}, false
@@ -208,7 +208,7 @@ func bucket(ip netip.Addr) netip.Prefix {
 }
 
 // acquire takes a slot for ip, or returns the code to refuse with.
-func (s *Server) acquire(ip netip.Addr, a *Allowlist) websocket.StatusCode {
+func (s *Server) acquire(ip netip.Addr, a *Config) websocket.StatusCode {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.open == nil {

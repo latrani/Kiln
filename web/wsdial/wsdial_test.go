@@ -39,13 +39,13 @@ func TestCodesMatchRelay(t *testing.T) {
 // relayURL starts a relay allowing 127.0.0.1:port and returns its ws:// URL.
 func relayURL(t *testing.T, port int, plaintext bool) string {
 	t.Helper()
-	a, err := relay.ParseAllowlist("allow.toml", []byte(fmt.Sprintf(
+	a, err := relay.ParseConfig("relay.toml", []byte(fmt.Sprintf(
 		"[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\nplaintext = %v\n", port, plaintext)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := &relay.Server{FirstFrameTimeout: 300 * time.Millisecond}
-	s.SetAllowlist(a)
+	s.SetConfig(a)
 	hs := httptest.NewServer(s)
 	t.Cleanup(hs.Close)
 	return "ws" + strings.TrimPrefix(hs.URL, "http") + "/kiln/relay"

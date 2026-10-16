@@ -1,4 +1,4 @@
-# Copy to dev-allow.toml (gitignored) and list the worlds your
+# Copy to dev-relay.toml (gitignored) and list the worlds your
 # preset.local uses. See docs/web-relay.md.
 [[world]]
 host = "muck.example.org"

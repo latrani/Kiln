@@ -71,13 +71,13 @@ func echoGreeter(c net.Conn) {
 // ws:// URL, and its log.
 func relay(t *testing.T, allow string) (*Server, string, *logLines) {
 	t.Helper()
-	a, err := ParseAllowlist("allow.toml", []byte(allow))
+	a, err := ParseConfig("relay.toml", []byte(allow))
 	if err != nil {
 		t.Fatal(err)
 	}
 	logs := &logLines{}
 	s := &Server{Log: logs.add, FirstFrameTimeout: 300 * time.Millisecond}
-	s.SetAllowlist(a)
+	s.SetConfig(a)
 	hs := httptest.NewServer(s)
 	t.Cleanup(hs.Close)
 	return s, "ws" + strings.TrimPrefix(hs.URL, "http"), logs
@@ -316,7 +316,7 @@ func TestPerIPCapAndRelease(t *testing.T) {
 }
 
 func TestClientIPTrustsXFFOnlyFromProxies(t *testing.T) {
-	a, _ := ParseAllowlist("allow.toml", []byte(`trusted_proxies = ["127.0.0.1"]`))
+	a, _ := ParseConfig("relay.toml", []byte(`trusted_proxies = ["127.0.0.1"]`))
 	s := &Server{}
 	req := func(remote, xff string) *http.Request {
 		r := httptest.NewRequest("GET", "/", nil)
@@ -341,8 +341,8 @@ func TestClientIPTrustsXFFOnlyFromProxies(t *testing.T) {
 func TestUnreadablePeerRefused(t *testing.T) {
 	logs := &logLines{}
 	s := &Server{Log: logs.add}
-	a, _ := ParseAllowlist("allow.toml", []byte(world(1, true)))
-	s.SetAllowlist(a)
+	a, _ := ParseConfig("relay.toml", []byte(world(1, true)))
+	s.SetConfig(a)
 	r := httptest.NewRequest("GET", "/?host=127.0.0.1&port=1", nil)
 	r.RemoteAddr = "@"
 	w := httptest.NewRecorder()
@@ -356,7 +356,7 @@ func TestUnreadablePeerRefused(t *testing.T) {
 }
 
 func TestPerIPCapBucketsIPv6By64(t *testing.T) {
-	a, _ := ParseAllowlist("allow.toml", []byte("max_per_ip = 1\n"))
+	a, _ := ParseConfig("relay.toml", []byte("max_per_ip = 1\n"))
 	s := &Server{}
 	take := func(ip string) websocket.StatusCode { return s.acquire(netip.MustParseAddr(ip), a) }
 	if take("2001:db8:1:2::1") != 0 {
