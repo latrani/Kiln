@@ -86,6 +86,15 @@ type Start struct{}
 // running a turn on a timer.
 type Presence struct{ State app.Presence }
 
+// Sidebar is the sidebar's collapsed preference and the collapsed
+// badge's activity: the open characters' unread counts summed, and
+// whether any has an unread priority line.
+type Sidebar struct {
+	Collapsed bool
+	Unread    int
+	Priority  bool
+}
+
 // Closed is an open character gone.
 type Closed struct{ Key string }
 
@@ -174,6 +183,7 @@ type FilterEntry struct {
 type Effect struct{ app.Effect }
 
 func (Worlds) event()       {}
+func (Sidebar) event()      {}
 func (Order) event()        {}
 func (Char) event()         {}
 func (Closed) event()       {}

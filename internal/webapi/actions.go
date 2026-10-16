@@ -132,6 +132,8 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		a.HistoryClose()
 	case "history_toggle": //str:ok
 		effs = a.HistoryToggle()
+	case "sidebar": //str:ok
+		a.SetSidebarCollapsed(act.Shut)
 	case "history_scope": //str:ok
 		switch act.Text {
 		case "session": //str:ok

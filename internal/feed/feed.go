@@ -151,6 +151,8 @@ func (f *Feed) Turn(effs []app.Effect) []Event {
 	put(idInput, f.input(""))
 	put("history", history(a))
 	put("presence", Presence{State: a.Presence()})
+	unread, priority := a.Activity()
+	put("sidebar", Sidebar{Collapsed: a.SidebarCollapsed(), Unread: unread, Priority: priority})
 	put("active", Active{Key: a.Active()})
 	st := a.Status()
 	put("status", Status{Text: st.Text, Err: st.Err, Gen: st.Gen})
