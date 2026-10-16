@@ -575,6 +575,9 @@ func (m *Model) handleEvent(msg app.SessionMsg) tea.Cmd {
 	var follow []following // log modes whose cursor is on the newest line: a new line takes it along
 	if cs := m.chars[msg.Key]; cs != nil && msg.Ev.Kind == session.EventLine {
 		for _, b := range cs.browses() {
+			if b.Marking && b.scrolled { // reading back while selecting: the view and range stay put
+				continue
+			}
 			if b.Cursor == nil || b.Cursor == b.LastVisible() {
 				follow = append(follow, following{b, b.Last()})
 			}
@@ -1103,7 +1106,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 && msg.X-l.sw-1 >= c[0] && msg.X-l.sw-1 < c[1] {
 		if cs := m.cur(); cs != nil && cs.browse != nil {
-			cs.browse.Mark() // the Select chip is s
+			cs.browse.selectChip()
 			return nil
 		}
 		return m.historyToggle()

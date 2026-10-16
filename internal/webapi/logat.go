@@ -23,9 +23,15 @@ type LineTags struct {
 }
 
 // land is the callback for where k's log mode lands: it queues a LogAt
-// for the turn it happens in (see Run).
+// for the turn it happens in (see Run). The page's cursor goes there, so
+// a live range's end does too, as the TUI's found.
 func (l *Loop) land(k string) func(*app.LogLine) {
-	return func(ln *app.LogLine) { l.landed = append(l.landed, LogAt{Key: k, Seq: ln.Seq}) }
+	return func(ln *app.LogLine) {
+		if c := l.a.Char(k); c != nil && c.Log != nil {
+			c.Log.MarkTo(ln)
+		}
+		l.landed = append(l.landed, LogAt{Key: k, Seq: ln.Seq})
+	}
 }
 
 // takeLanded is the LogAt events queued since the last turn was sent.

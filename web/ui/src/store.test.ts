@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
-import { cursorOf, logAct, logClick, toggleLog } from "./log.ts";
+import { cursorOf, logAct, logClick, selectChip, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -499,6 +499,17 @@ test("a click while selecting is a shift-click: inside, it takes the line out an
   logClick(s, 1, { shift: true, gutter: true });
   assert.deepEqual(sent.slice(n + 1), [{ Do: "grow", Key: "fm/kit", Seq: 1 }, { Do: "mark_to", Key: "fm/kit", Seq: 1 }], "shift and the gutter change nothing");
   assert.equal(s.state.logView["fm/kit"].cursor, 1);
+});
+
+test("the Select chip is s, as the TUI's: it stops a search, and does nothing under a prompt", () => {
+  const { s, sent } = logged({ Find: "x", Searching: true });
+  s.setLogView("fm/kit", { prompt: { kind: "find", value: "x" } });
+  selectChip(s);
+  assert.deepEqual(sent, [{ Do: "stop_search", Key: "fm/kit" }]);
+  s.setLogView("fm/kit", { prompt: undefined });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "x", Selected: 0 }]);
+  selectChip(s);
+  assert.deepEqual(sent.at(-1), { Do: "mark", Key: "fm/kit", Seq: 3 });
 });
 
 // filtered is logged with a Filter: Untagged, a tag page with a child

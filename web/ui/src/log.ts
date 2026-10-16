@@ -229,6 +229,16 @@ export function toggleLog(store: Store): void {
   s.act?.({ Do: "log", Key: k });
 }
 
+// selectChip is a click on the Select chip: s, as the TUI's. It stops a
+// search reading older days, and does nothing under a prompt, as a click
+// on the log doesn't.
+export function selectChip(store: Store): void {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState;
+  if (g.Searching) s.act?.({ Do: "stop_search", Key: k });
+  if (s.logView[k]?.prompt) return;
+  logAct(store, "mark");
+}
+
 // logClick is a click on line seq, as the TUI's click: it stops a search
 // reading older days, and moves the cursor there. While selecting it's a
 // shift-click: inside the range it takes the line out (or back in),

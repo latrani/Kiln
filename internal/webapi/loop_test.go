@@ -1254,3 +1254,14 @@ func TestSettingsThatCantBeReadSayProblems(t *testing.T) {
 		t.Errorf("batch = %v", types(b))
 	}
 }
+
+// While selecting, a find's landing moves the range's end, as the TUI's
+// found does: the cursor goes there.
+func TestALandingMovesALiveRange(t *testing.T) {
+	h, seqs := logWith(t, "one", "two", "three")
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[2]))
+	b := h.act(fmt.Sprintf(`{"Do":"find","Key":"fm/kit","Term":"one","Seq":%d}`, seqs[2]))
+	if lg := event(b, "Log"); lg == nil || lg["Start"] != float64(seqs[0]) || lg["End"] != float64(seqs[2]) || lg["Marking"] != true {
+		t.Errorf("after find landed on one: %v", lg)
+	}
+}

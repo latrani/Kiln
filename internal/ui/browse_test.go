@@ -1537,3 +1537,48 @@ func TestBrowseHintsFollowTheState(t *testing.T) {
 		}
 	}
 }
+
+// While selecting with the view scrolled up by the wheel, a line arriving
+// neither pulls the view back down nor grows the range.
+func TestBrowseLiveLineLeavesAScrolledSelection(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	h.screen()
+	h.key("s")
+	for range 30 {
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: tea.MouseWheelUp}))
+	}
+	h.screen()
+	top, end := b.top, b.End
+	h.conn("fm/kit").Feed("Brand new line")
+	h.settle("fm/kit", func() bool { return b.Last().Entry.Text == "Brand new line" })
+	h.screen()
+	if b.top != top || b.End != end {
+		t.Errorf("a new line moved things: top %q (was %q), end %q (was %q)", b.top.Entry.Text, top.Entry.Text, b.End.Entry.Text, end.Entry.Text)
+	}
+}
+
+// The Select chip does nothing while a prompt is open, as a click on the
+// log doesn't: the selection can't change under the prompt.
+func TestBrowseSelectChipWaitsForAPrompt(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	h.key("/")
+	_, c := h.m.statusBar(l.rw)
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + c[0], Y: h.m.height - 1, Button: tea.MouseLeft})
+	if b.Marking || b.Start != nil {
+		t.Errorf("the chip started selecting under find's prompt: marking %v", b.Marking)
+	}
+}

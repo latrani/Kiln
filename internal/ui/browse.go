@@ -470,6 +470,18 @@ func highlightFind(plain, needle string) string {
 	return out.String()
 }
 
+// selectChip is a click on the Select chip: s, as a key would be. It
+// stops a search reading older days, and does nothing while a prompt is
+// open, as a click on the log doesn't.
+func (b *browse) selectChip() {
+	b.StopSearch()
+	if b.prompt != promptNone {
+		return
+	}
+	b.ClearStatus()
+	b.Mark()
+}
+
 // click handles a left click on row y of the right pane. Clicks are
 // ignored while a prompt is open so the selection can't change under it.
 func (b *browse) click(y int) {

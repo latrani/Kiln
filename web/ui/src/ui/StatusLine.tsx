@@ -1,5 +1,5 @@
 import { loadingText } from "../boot.ts";
-import { cursorOf, findStatus, logAct } from "../log.ts";
+import { cursorOf, findStatus, selectChip } from "../log.ts";
 import type { LogState } from "../log.ts";
 import { ask, dismiss } from "../notify.ts";
 import { historyShows, logShows } from "../store.ts";
@@ -59,7 +59,7 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
     <div class={`status ${roleClass("status")}`}>
       {g && ( // log mode's Select chip, as the TUI's: s
         <button class={`chip ${roleClass(g.Marking ? "status.select.on" : "status.select")}`} aria-pressed={!!g.Marking}
-          onMouseDown={(e) => e.preventDefault()} onClick={() => logAct(store, "mark")}>{str.viewSelectButton()}</button>
+          onMouseDown={(e) => e.preventDefault()} onClick={() => selectChip(store)}>{str.viewSelectButton()}</button>
       )}
       {chip && (
         <button class={`chip ${roleClass(on ? "status.history.on" : "status.history")}`} aria-pressed={on}
