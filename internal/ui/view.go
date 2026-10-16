@@ -80,6 +80,9 @@ func (m *Model) layout() layout {
 					l.inRows[i] = glyph.Search + rest
 				}
 			}
+			if m.a.History().Query() == "" && len(l.inRows) == 1 { // nothing typed: what to do instead
+				l.inRows[0] = glyph.Search + theme.Paint(theme.InputHint, fitName(str.ViewHistoryPlaceholder(), l.rw-gutterWidth))
+			}
 			hist, idx := m.historyRows(l.rw, min(max(1, maxIn-len(l.inRows)), max(1, len(m.a.History().Shown()))))
 			l.inRows, l.hist = append(hist, l.inRows...), idx
 			l.curRow += len(hist)
@@ -205,40 +208,61 @@ func (m *Model) statusMsg() string {
 	return msg
 }
 
+// statusChips is which columns of the statusline each chip takes,
+// [from, to); zero when it isn't drawn. main is the chip pinned right;
+// session and character are the halves of the history panel's scope
+// switch beside it.
+type statusChips struct{ main, session, character [2]int }
+
 // statusBar is the bottom bar: statusLine, and a chip pinned right: in
-// log mode Select, lit while selecting; otherwise History, while there's
-// an input to recall into. It says which columns the chip takes,
-// [from, to); zero when it isn't drawn.
-func (m *Model) statusBar(w int) (line string, chipAt [2]int) {
+// log mode Select, lit while selecting; otherwise History, while a
+// character's input is there to recall into, with the Session/Character
+// switch before it while the panel is up. The switch goes first when
+// there isn't room for both beside the message.
+func (m *Model) statusBar(w int) (line string, chips statusChips) {
 	msg := m.statusLine(w)
 	cs := m.cur()
-	var c string
+	var c, session, character string
 	switch {
-	case m.overviewing() || m.modal():
-		return msg, chipAt
-	case cs != nil && cs.browse != nil:
+	case m.overviewing() || m.modal() || cs == nil:
+		return msg, chips
+	case cs.browse != nil:
 		role := theme.StatusSelect
 		if cs.browse.Marking {
 			role = theme.StatusSelectOn
 		}
 		c = chip(role, str.ViewSelectButton())
-	case cs != nil && cs.NeedPW:
-		return msg, chipAt
+	case cs.NeedPW:
+		return msg, chips
 	default:
 		if _, _, asking := m.a.PendingSave(); asking {
-			return msg, chipAt
+			return msg, chips
 		}
 		role := theme.StatusHistory
 		if m.a.History().IsOpen() {
 			role = theme.StatusHistoryOn
 		}
 		c = chip(role, str.ViewHistoryButton())
+		if m.historyShows() {
+			sr, cr := theme.StatusScope, theme.StatusScopeOn
+			if m.a.HistoryScope() == app.ScopeSession {
+				sr, cr = cr, sr
+			}
+			session, character = chip(sr, str.ViewScopeSession()), chip(cr, str.ViewScopeCharacter())
+		}
 	}
 	cw := xansi.StringWidth(c)
 	if w-cw < 2 { // no room beside the message
-		return msg, chipAt
+		return msg, chips
 	}
-	return fitName(m.statusMsg(), w-cw-1) + " " + c, [2]int{w - cw, w}
+	chips.main = [2]int{w - cw, w}
+	sw, chw, sepW := xansi.StringWidth(session), xansi.StringWidth(character), xansi.StringWidth(str.Separator())
+	if session == "" || w-cw-sepW-sw-chw < 2 {
+		return fitName(m.statusMsg(), w-cw-1) + " " + c, chips
+	}
+	from := w - cw - sepW - sw - chw
+	chips.session, chips.character = [2]int{from, from + sw}, [2]int{from + sw, from + sw + chw}
+	return fitName(m.statusMsg(), from-1) + " " + session + character + str.Separator() + c, chips
 }
 
 // topH is the rows above the body: the top bar and its rule.

@@ -7,8 +7,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
+	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // sent is a harness with Kit connected, look and say hi sent.
@@ -59,8 +61,8 @@ func TestHistoryPanelKeys(t *testing.T) {
 func TestHistoryPanelClicks(t *testing.T) {
 	h := sent(t)
 	l := h.m.layout()
-	chipX := func() int { _, c := h.m.statusBar(l.rw); return l.sw + 1 + c[0] }
-	if _, c := h.m.statusBar(l.rw); c[1] == 0 || !strings.Contains(xansi.Strip(h.m.View().Content), str.ViewHistoryButton()) {
+	chipX := func() int { _, c := h.m.statusBar(l.rw); return l.sw + 1 + c.main[0] }
+	if _, c := h.m.statusBar(l.rw); c.main[1] == 0 || !strings.Contains(xansi.Strip(h.m.View().Content), str.ViewHistoryButton()) {
 		t.Fatal("no History chip in the statusline")
 	}
 	h.m.Update(tea.MouseClickMsg{X: chipX(), Y: h.m.height - 1, Button: tea.MouseLeft})
@@ -101,5 +103,115 @@ func TestHistoryPanelHeight(t *testing.T) {
 	h.key("up")
 	if l := h.m.layout(); len(l.hist) != 2 {
 		t.Errorf("two lines sent: %d rows; want two:\n%s", len(l.hist), h.screen())
+	}
+}
+
+// bottom is the statusline's text.
+func (h *harness) bottom() string {
+	rows := strings.Split(h.screen(), "\n")
+	return strings.TrimRight(rows[len(rows)-1], " ")
+}
+
+func TestHistoryScopeChips(t *testing.T) {
+	h := sent(t)
+	pair := chipText(str.ViewScopeSession()) + chipText(str.ViewScopeCharacter())
+	if strings.Contains(h.bottom(), pair) {
+		t.Fatalf("scope chips with the panel down: %q", h.bottom())
+	}
+	h.key("up")
+	if want := pair + str.Separator() + chipText(str.ViewHistoryButton()); !strings.HasSuffix(h.bottom()+" ", want) {
+		t.Errorf("statusline %q; want it to end %q", h.bottom(), want)
+	}
+	if bar := h.m.View().Content; !strings.Contains(bar, theme.Paint(theme.StatusScopeOn, chipText(str.ViewScopeCharacter()))) ||
+		!strings.Contains(bar, theme.Paint(theme.StatusScope, chipText(str.ViewScopeSession()))) {
+		t.Error("want Character lit, Session not")
+	}
+	h.key("esc")
+	if strings.Contains(h.bottom(), pair) {
+		t.Errorf("scope chips after closing: %q", h.bottom())
+	}
+}
+
+func TestHistoryScopeTab(t *testing.T) {
+	h := sent(t)
+	h.open("fm/rook")
+	h.m.switchTo("fm/kit")
+	h.m.chars["fm/rook"].Unread = 1
+	h.key("up")
+	h.press(tea.KeyTab, 0)
+	if h.m.a.HistoryScope() != app.ScopeSession || h.m.a.Active() != "fm/kit" {
+		t.Fatalf("Tab on the panel: scope %v, active %s; want session, still fm/kit", h.m.a.HistoryScope(), h.m.a.Active())
+	}
+	h.press(tea.KeyTab, tea.ModShift)
+	if h.m.a.HistoryScope() != app.ScopeCharacter {
+		t.Errorf("Shift+Tab: scope %v", h.m.a.HistoryScope())
+	}
+	h.key("esc")
+	h.press(tea.KeyTab, 0)
+	if h.m.a.Active() != "fm/rook" {
+		t.Errorf("Tab with the panel down: active %s; want the unread one", h.m.a.Active())
+	}
+}
+
+func TestHistoryScopeClick(t *testing.T) {
+	h := sent(t)
+	h.key("up")
+	l := h.m.layout()
+	click := func(span [2]int) {
+		h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + span[0], Y: h.m.height - 1, Button: tea.MouseLeft})
+	}
+	_, c := h.m.statusBar(l.rw)
+	click(c.session)
+	if h.m.a.HistoryScope() != app.ScopeSession || !h.m.a.History().IsOpen() {
+		t.Errorf("clicked Session: scope %v, open %v", h.m.a.HistoryScope(), h.m.a.History().IsOpen())
+	}
+	_, c = h.m.statusBar(l.rw)
+	click(c.character)
+	if h.m.a.HistoryScope() != app.ScopeCharacter {
+		t.Errorf("clicked Character: scope %v", h.m.a.HistoryScope())
+	}
+}
+
+func TestHistoryScopeNarrow(t *testing.T) {
+	h := sent(t)
+	h.key("up")
+	l := h.m.layout()
+	hist := xansi.StringWidth(chipText(str.ViewHistoryButton()))
+	all := hist + xansi.StringWidth(chipText(str.ViewScopeSession())+chipText(str.ViewScopeCharacter())+str.Separator())
+	w := hist + 2 + (all-hist)/2 // room for History beside a message, not the switch too
+	line, c := h.m.statusBar(w)
+	if c.main[1] == 0 || c.session != ([2]int{}) || c.character != ([2]int{}) || strings.Contains(xansi.Strip(line), str.ViewScopeSession()) {
+		t.Errorf("at %d of %d: %q, chips %+v; want History alone", w, l.rw, xansi.Strip(line), c)
+	}
+}
+
+func TestHistoryPlaceholder(t *testing.T) {
+	h := sent(t)
+	h.key("up")
+	last := func() string {
+		l := h.m.layout()
+		return strings.TrimRight(xansi.Strip(l.inRows[len(l.inRows)-1]), " ")
+	}
+	if got, want := last(), glyph.Search+str.ViewHistoryPlaceholder(); got != want {
+		t.Errorf("empty query row %q; want %q", got, want)
+	}
+	h.typeText("x")
+	if strings.Contains(last(), str.ViewHistoryPlaceholder()) {
+		t.Errorf("placeholder with a query: %q", last())
+	}
+}
+
+func TestHistoryChipNothingOpen(t *testing.T) {
+	h := newHarness(t, map[string]string{"sp": spWorld}) // nothing autoconnects
+	if h.m.cur() != nil {
+		t.Fatal("something's open")
+	}
+	h.key("up")
+	if strings.Contains(h.bottom(), str.ViewHistoryButton()) || h.m.a.History().IsOpen() {
+		t.Errorf("nothing open: statusline %q, panel open %v", h.bottom(), h.m.a.History().IsOpen())
+	}
+	h.open("sp/ash") // not connected
+	if !strings.Contains(h.bottom(), str.ViewHistoryButton()) {
+		t.Errorf("disconnected character: statusline %q; want History", h.bottom())
 	}
 }

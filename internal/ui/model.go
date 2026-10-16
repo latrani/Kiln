@@ -650,6 +650,9 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		m.switchBy(1)
 		return nil
 	case "tab", "shift+tab":
+		if m.picker == nil && m.historyShows() && (cs == nil || cs.browse == nil) { // the panel's scope
+			return m.historyScope(m.a.SwapHistoryScope())
+		}
 		if m.picker == nil { // the picker's forms move between fields with Tab
 			m.switchToUnread(map[string]int{"tab": 1, "shift+tab": -1}[k.String()])
 			return nil
@@ -1104,12 +1107,21 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		}
 		return nil
 	}
-	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 && msg.X-l.sw-1 >= c[0] && msg.X-l.sw-1 < c[1] {
-		if cs := m.cur(); cs != nil && cs.browse != nil {
-			cs.browse.selectChip()
-			return nil
+	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 {
+		x := msg.X - l.sw - 1
+		in := func(span [2]int) bool { return x >= span[0] && x < span[1] }
+		switch {
+		case in(c.session):
+			return m.historyScope(m.a.SetHistoryScope(app.ScopeSession))
+		case in(c.character):
+			return m.historyScope(m.a.SetHistoryScope(app.ScopeCharacter))
+		case in(c.main):
+			if cs := m.cur(); cs != nil && cs.browse != nil {
+				cs.browse.selectChip()
+				return nil
+			}
+			return m.historyToggle()
 		}
-		return m.historyToggle()
 	}
 	msg.Y -= l.top // body rows from here on
 	if m.overviewing() {

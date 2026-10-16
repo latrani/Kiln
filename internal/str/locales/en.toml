@@ -144,6 +144,13 @@ filter_button = "Filter"
 # The history panel: its button in the statusline, and what it says
 # when it has nothing to list.
 history_button = "History"
+# The two halves of the scope switch beside the History chip while the
+# panel is up: every input's lines since Kiln started, or this
+# character's own.
+scope_session = "Session"
+scope_character = "Character"
+# The history panel's search line while nothing's typed.
+history_placeholder = "type to search · tab to change scope"
 # Log mode's chip for select mode, at the right of the statusline.
 select_button = "Select"
 history_none = "no history yet"

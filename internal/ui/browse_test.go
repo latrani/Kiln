@@ -1495,7 +1495,7 @@ func TestBrowseSelectChip(t *testing.T) {
 	h.key("ctrl+l")
 	b := h.br()
 	l := h.m.layout()
-	bar := func() (string, [2]int) { s, c := h.m.statusBar(l.rw); return s, c }
+	bar := func() (string, [2]int) { s, c := h.m.statusBar(l.rw); return s, c.main }
 	s, c := bar()
 	if c[1] == 0 || !strings.Contains(s, theme.Paint(theme.StatusSelect, " "+str.ViewSelectButton()+" ")) || !strings.HasSuffix(rightRow(h, h.m.height-1), str.ViewSelectButton()) {
 		t.Fatalf("no Select chip in log mode: %q", s)
@@ -1577,7 +1577,7 @@ func TestBrowseSelectChipWaitsForAPrompt(t *testing.T) {
 	l := h.m.layout()
 	h.key("/")
 	_, c := h.m.statusBar(l.rw)
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + c[0], Y: h.m.height - 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: l.sw + 1 + c.main[0], Y: h.m.height - 1, Button: tea.MouseLeft})
 	if b.Marking || b.Start != nil {
 		t.Errorf("the chip started selecting under find's prompt: marking %v", b.Marking)
 	}

@@ -40,9 +40,9 @@ fm              │fm · Kit                                       ? focus  ·  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-74 fg=#e3d0a0; @75-79 faint,fg=#e3d0a0
                 │›say Evening, Ash.                                        21:20
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-73 bold,fg=#e3d0a0; @74-74 fg=#e3d0a0; @75-79 reverse,fg=#e3d0a0
-                │/                                                              
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#e3d0a0
+                │/type to search · tab to change scope                          
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-17 fg=#e3d0a0; @18-79 fg=#b1a68b
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │Connected since 21:14                                  History 
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-70 fg=#a0b7e3; @71-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
+                │Connected since 21:14           Session  Character  ·  History 
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-47 fg=#a0b7e3; @48-56 bold,fg=#c0cfed,bg=#0b1b3d; @57-67 bold,reverse,fg=#c0cfed,bg=#0b1b3d; @68-70 fg=#a0b7e3; @71-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
