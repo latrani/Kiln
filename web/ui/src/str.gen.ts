@@ -37,8 +37,8 @@ export function browseDateFormat(): string { return `times look like 2026-09-24 
 /** browse.date_prompt: go to (YYYY-MM-DD HH:MM):  */
 export function browseDatePrompt(): string { return `go to (YYYY-MM-DD HH:MM): `; }
 
-/** browse.exclude_needs_range: exclude works inside a marked range */
-export function browseExcludeNeedsRange(): string { return `exclude works inside a marked range`; }
+/** browse.exclude_needs_range: exclude works inside a selection */
+export function browseExcludeNeedsRange(): string { return `exclude works inside a selection`; }
 
 /** browse.file_exists: {file} exists; pick another name */
 export function browseFileExists(file: unknown): string { return `${file} exists; pick another name`; }

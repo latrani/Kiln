@@ -277,8 +277,11 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 		return
 	}
 	ci := slices.Index(v, b.Cursor)
-	if ci < 0 {
+	if ci < 0 { // hidden (or none): the nearest shown line, as Refilter, else the newest
 		ci = len(v) - 1
+		if n := b.NearestVisible(b.Cursor); b.Index(b.Cursor) >= 0 && n != nil {
+			ci = slices.Index(v, n)
+		}
 		b.SetCursor(v[ci])
 	}
 	// rows is how many rows v[i] takes with v[top] at the top, where its

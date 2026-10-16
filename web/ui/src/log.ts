@@ -183,8 +183,15 @@ export function logAct(store: Store, does: LogKey): void {
       if (!g.Selected) act({ Do: "export_name", Key: k, Format: "" });
       else store.setLogView(k, { prompt: { kind: "format" } });
       break;
-    case "mark": act({ Do: "mark", Key: k, Seq: here }); break;
-    case "exclude": act({ Do: "exclude", Key: k, Seq: here }); break;
+    case "mark": // selecting from now, or locked, before Go answers: a move right after counts
+      if (g.Searching) act({ Do: "stop_search", Key: k }); // as the TUI's keys
+      act({ Do: "mark", Key: k, Seq: here });
+      selecting(store, !g.Marking);
+      break;
+    case "exclude":
+      if (g.Searching) act({ Do: "stop_search", Key: k });
+      act({ Do: "exclude", Key: k, Seq: here });
+      break;
     case "older": act({ Do: "find_older", Key: k, Seq: here }); break;
     case "newer": act({ Do: "find_newer", Key: k, Seq: here }); break;
     case "copy": act({ Do: "copy", Key: k }); break;
@@ -192,7 +199,10 @@ export function logAct(store: Store, does: LogKey): void {
     case "back": // one thing at a time: a search, the panel, selecting, find, then log mode
       if (g.Searching) act({ Do: "stop_search", Key: k });
       else if (v.panel) closePanel(store);
-      else if (g.Marking) act({ Do: "end_mark", Key: k });
+      else if (g.Marking) {
+        act({ Do: "end_mark", Key: k });
+        selecting(store, false);
+      }
       else if (g.Find) act({ Do: "end_find", Key: k });
       else act({ Do: "log_close", Key: k });
       break;
@@ -227,6 +237,25 @@ export function toggleLog(store: Store): void {
     if (hide) return;
   }
   s.act?.({ Do: "log", Key: k });
+}
+
+// selecting says the page is selecting (or not) at once, ahead of Go's
+// Log event saying so, and drops an arrow left from the last selection.
+function selecting(store: Store, on: boolean): void {
+  const k = store.state.active;
+  store.set({ logs: { ...store.state.logs, [k]: { ...store.state.logs[k], Marking: on } } });
+  store.setLogView(k, { away: undefined });
+}
+
+// syncCursor keeps the cursor the page shows on the range's end while
+// selecting, as the TUI's: one never moved (the newest line, implicitly)
+// is pinned, and one on a line the filter now hides moves to the
+// nearest shown, taking the range's end along.
+export function syncCursor(store: Store): void {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState | undefined, v = s.logView[k];
+  if (!g?.Marking) return;
+  const c = cursorOf(g, v, s.logLines[k]?.lines ?? []);
+  if (c !== undefined && c !== v?.cursor) store.setLogView(k, { cursor: c });
 }
 
 // selectChip is a click on the Select chip: s, as the TUI's. It stops a

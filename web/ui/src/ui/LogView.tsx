@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { cursorOf, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, scrolled, segments, topFor, wantsOlder } from "../log.ts";
+import { cursorOf, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, scrolled, segments, syncCursor, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -96,6 +96,8 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   useEffect(() => {
     if (cursor !== undefined) act({ Do: "tags", Key: k, Seq: cursor });
   }, [k, cursor, cursorLine]);
+  // While selecting, the cursor shown is the range's end (syncCursor).
+  useLayoutEffect(() => syncCursor(store));
   // A key moved the cursor: it comes into view, as the TUI's.
   useLayoutEffect(() => {
     if (!v.follow) return;
@@ -121,7 +123,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
     if (place.current.at) store.logPlaces.set(k, place.current.at);
     const sc = scrolled(!!g.Marking, rowsOf(e), e.scrollTop, e.clientHeight, cursor);
-    if (sc.to !== undefined) store.setLogView(k, { cursor: sc.to });
+    if (sc.to !== undefined) store.setLogView(k, { cursor: sc.to, away: undefined });
     else if (sc.away?.seq !== v.away?.seq || sc.away?.dir !== v.away?.dir) store.setLogView(k, { away: sc.away });
     older(e);
   };

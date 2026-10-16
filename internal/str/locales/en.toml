@@ -260,7 +260,7 @@ open_connection = "+ Connection"
 reading_logs = "reading logs: {err}"
 range_start = "selecting: move to the other end, s to finish, Esc to drop"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
-exclude_needs_range = "exclude works inside a marked range"
+exclude_needs_range = "exclude works inside a selection"
 no_matches = "no matches for {find:%q}"
 # Find goes no further than the oldest (or newest) line; it doesn't wrap.
 no_older_matches = "no older matches for {find:%q}"

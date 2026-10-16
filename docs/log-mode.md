@@ -7,7 +7,7 @@
 | Key | Does |
 |---|---|
 | `↑`/`↓` (`k`/`j`), `PgUp`/`PgDn`, `Home`/`End` | Move; moving past the top loads older days |
-| Mouse wheel | Scroll a line at a time; the cursor stays put until it would scroll out of sight, then rides along at the edge. While selecting it stays put even out of sight, so scrolling never changes the range: a ▲ or ▼ by the time at the top or bottom says which way it went, and the next key brings it back into view |
+| Mouse wheel | Scroll a line at a time; the cursor stays put until it would scroll out of sight, then rides along at the edge. While selecting it stays put even out of sight, so scrolling never changes the range: a ▲ or ▼ by the time at the top or bottom says which way it went, and the next key that moves the cursor brings it back into view |
 | `g` | Go to a day and time (`2026-09-24 21:04`): the last line in or before that minute. The prompt starts with the current line's, for you to edit. A day alone (`2026-09-24`) goes to its first line |
 | `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. Find is a mode: while it's on, `n` goes on to the next older match and `N` back to the next newer one (neither wraps around), and the statusline shows the count, starting from the newest match, with a `+` while older history isn't loaded yet. While it reads older days the statusline says how far back it's got; any key cancels it, and `Esc` only cancels it. `Esc` turns find off, staying in log mode; `/` starts with the last term, so `/` then `Enter` brings it back, and an empty `Enter` turns it off too |
 | `f`, or click ` Filter ` | Open the filter panel (see below) |

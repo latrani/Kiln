@@ -1582,3 +1582,25 @@ func TestBrowseSelectChipWaitsForAPrompt(t *testing.T) {
 		t.Errorf("the chip started selecting under find's prompt: marking %v", b.Marking)
 	}
 }
+
+// While selecting, a cursor line hidden other than by the filter panel
+// (here, a text filter set behind log mode's back, as local_echo or a
+// rules reload might) gives way to the nearest shown line, not the
+// newest: the range's end stays near where it was.
+func TestBrowseHiddenCursorWhileSelectingGoesNearest(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	b := h.br()
+	h.keys("up", "up", "up", "s", "up") // anchored on scene1[3], cursor on scene1[2]
+	cursor := b.Cursor
+	b.Log.AddText("Rook") // hides the cursor's line, not the others with Rook in
+	if b.Shows(cursor) {
+		t.Skipf("the text filter didn't hide %q; pick another term", cursor.Entry.Text)
+	}
+	want := b.NearestVisible(cursor)
+	h.screen()
+	if b.Cursor != want || b.End != want && b.Start != want {
+		t.Errorf("cursor %q, range %q–%q; want both on the nearest shown line %q", b.Cursor.Entry.Text, b.Start.Entry.Text, b.End.Entry.Text, want.Entry.Text)
+	}
+}

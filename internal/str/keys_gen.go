@@ -31,7 +31,7 @@ func BrowseDateFormat() string { return get("browse.date_format", nil) }
 // BrowseDatePrompt is browse.date_prompt: "go to (YYYY-MM-DD HH:MM): "
 func BrowseDatePrompt() string { return get("browse.date_prompt", nil) }
 
-// BrowseExcludeNeedsRange is browse.exclude_needs_range: "exclude works inside a marked range"
+// BrowseExcludeNeedsRange is browse.exclude_needs_range: "exclude works inside a selection"
 func BrowseExcludeNeedsRange() string { return get("browse.exclude_needs_range", nil) }
 
 // BrowseFileExists is browse.file_exists: "{file} exists; pick another name"

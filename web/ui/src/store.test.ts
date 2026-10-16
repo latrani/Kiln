@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { glyphClick, panelAct, panelClick, togglePanel } from "./filter.ts";
-import { cursorOf, logAct, logClick, selectChip, toggleLog } from "./log.ts";
+import { cursorOf, logAct, logClick, selectChip, syncCursor, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
 import { listing, logShows, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -510,6 +510,47 @@ test("the Select chip is s, as the TUI's: it stops a search, and does nothing un
   s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "x", Selected: 0 }]);
   selectChip(s);
   assert.deepEqual(sent.at(-1), { Do: "mark", Key: "fm/kit", Seq: 3 });
+});
+
+test("s and Space stop a search reading older days, as the TUI's keys do", () => {
+  for (const does of ["mark", "exclude"] as const) {
+    const { s, sent } = logged({ Find: "x", Searching: true, Start: 3, End: 3, Selected: 1 });
+    logAct(s, does);
+    assert.deepEqual(sent[0], { Do: "stop_search", Key: "fm/kit" }, does);
+  }
+});
+
+test("s counts as selecting at once: a move before Go answers still moves the range's end", () => {
+  const { s, sent } = logged();
+  logAct(s, "mark");
+  logAct(s, "up");
+  assert.deepEqual(sent.slice(-2), [{ Do: "mark", Key: "fm/kit", Seq: 3 }, { Do: "mark_to", Key: "fm/kit", Seq: 2 }]);
+  logAct(s, "mark"); // and s again locks at once
+  logAct(s, "up");
+  assert.notEqual(sent.at(-1).Do, "mark_to");
+});
+
+test("starting or dropping a selection clears an arrow left from the last one", () => {
+  const { s } = logged();
+  s.setLogView("fm/kit", { away: { seq: 1, dir: "above" } });
+  logAct(s, "mark");
+  assert.equal(s.state.logView["fm/kit"].away, undefined, "s");
+  s.setLogView("fm/kit", { away: { seq: 1, dir: "above" } });
+  logAct(s, "back");
+  assert.equal(s.state.logView["fm/kit"].away, undefined, "Esc");
+});
+
+test("while selecting, the cursor the page shows is the range's end: a newest-line cursor is pinned, a hidden one moves to the nearest shown", () => {
+  const { s, sent } = logged({ Marking: true, Start: 3, End: 3, Selected: 1 });
+  syncCursor(s);
+  assert.equal(s.state.logView["fm/kit"].cursor, 3, "pinned where s was pressed");
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 1, Marking: true, Start: 3, End: 3, Hidden: [3] }]);
+  syncCursor(s);
+  assert.equal(s.state.logView["fm/kit"].cursor, 2);
+  assert.deepEqual(sent.at(-1), { Do: "mark_to", Key: "fm/kit", Seq: 2 });
+  const n = sent.length;
+  syncCursor(s);
+  assert.equal(sent.length, n, "nothing more once they agree");
 });
 
 // filtered is logged with a Filter: Untagged, a tag page with a child
