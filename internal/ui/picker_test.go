@@ -19,7 +19,7 @@ const spWorld = "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nn
 // sideRows is the sidebar's text, trimmed, down to the first blank row.
 func sideRows(h *harness) []string {
 	var out []string
-	for _, row := range strings.Split(h.screen(), "\n") {
+	for _, row := range strings.Split(h.screen(), "\n")[sideTitleH:] {
 		s := strings.TrimSpace(strings.SplitN(row, "│", 2)[0])
 		if s == "" {
 			break
@@ -108,7 +108,7 @@ func TestPickerArrows(t *testing.T) {
 func TestPickerClicks(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	click := func(y int) tea.Cmd {
-		_, cmd := h.m.Update(tea.MouseClickMsg{X: 4, Y: y, Button: tea.MouseLeft})
+		_, cmd := h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + y, Button: tea.MouseLeft})
 		return cmd
 	}
 	click(3) // rows: fm, Kit, a gap, + Connection
@@ -223,7 +223,7 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 		t.Errorf("Ctrl+O: picker opened or no status:\n%s", h.screen())
 	}
 	h.m.a.ClearStatus()
-	h.m.Update(tea.MouseClickMsg{X: 4, Y: 3, Button: tea.MouseLeft}) // rows: fm, Kit, a gap, + Connection
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + 3, Button: tea.MouseLeft}) // rows: fm, Kit, a gap, + Connection
 	if h.m.picker != nil || !strings.Contains(h.screen(), questionBlocksPicker) {
 		t.Errorf("click: picker opened or no status:\n%s", h.screen())
 	}
@@ -376,12 +376,12 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 			t.Errorf("cursor = %+v, want (%d, %d)", c, x, y)
 		}
 	}
-	cursorAt(2, 2)
+	cursorAt(2, sideTitleH+2)
 	h.typeText("O'Br ")
 	if got := strings.TrimSpace(sideRow(h, 2)); got != "O'Br" {
 		t.Errorf("the name field = %q", got)
 	}
-	cursorAt(6, 2)
+	cursorAt(6, sideTitleH+2)
 	var problem []string
 	for _, r := range h.m.pickerRows() {
 		if r.kind == rowAddCharError {
@@ -394,7 +394,7 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	if got := strings.TrimSpace(sideRow(h, 3)); got != problem[0] {
 		t.Errorf("row under the name field = %q, want the problem", got)
 	}
-	h.m.Update(tea.MouseClickMsg{X: 4, Y: 3, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + 3, Button: tea.MouseLeft})
 	if e := h.m.addingChar(); e == nil || e.form.value(0) != "O'Br" {
 		t.Error("a click on the problem should leave the name be")
 	}
@@ -424,7 +424,7 @@ func TestPickerAddCharacterScrolls(t *testing.T) {
 	if !strings.HasSuffix(name, got) || len(got) != sw-3 {
 		t.Errorf("the name field = %q, want the last %d of %q", got, sw-3, name)
 	}
-	if c := h.m.View().Cursor; c == nil || c.X != sw-1 || c.Y != 2 {
+	if c := h.m.View().Cursor; c == nil || c.X != sw-1 || c.Y != sideTitleH+2 {
 		t.Errorf("cursor = %+v, want the field's last column", c)
 	}
 	h.press(tea.KeyHome, 0)
@@ -436,7 +436,7 @@ func TestPickerAddCharacterScrolls(t *testing.T) {
 func TestPickerClickAddRows(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	click := func(y int) {
-		h.m.Update(tea.MouseClickMsg{X: 4, Y: y, Button: tea.MouseLeft})
+		h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + y, Button: tea.MouseLeft})
 	}
 	h.press('o', tea.ModCtrl) // rows: fm, Rook, + Character, + World
 	click(2)

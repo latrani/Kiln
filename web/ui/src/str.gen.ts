@@ -474,6 +474,9 @@ export function filterPrompt(): string { return `filter text: `; }
 /** filter.text_item: "{term}" */
 export function filterTextItem(term: unknown): string { return `"${term}"`; }
 
+/** filter.title: Filters */
+export function filterTitle(): string { return `Filters`; }
+
 /** filter.untagged: Untagged */
 export function filterUntagged(): string { return `Untagged`; }
 
@@ -545,6 +548,9 @@ export function pickerHint(): string { return `Enter to connect · Esc to close`
 
 /** picker.name: Name */
 export function pickerName(): string { return `Name`; }
+
+/** picker.title: All connections */
+export function pickerTitle(): string { return `All connections`; }
 
 /** relay.allow_bad_limit: allowlist {path}: {key} must be 1 or more */
 export function relayAllowBadLimit(path: unknown, key: unknown): string { return `allowlist ${path}: ${key} must be 1 or more`; }
@@ -892,6 +898,9 @@ export function viewConnectedSinceDay(day: unknown, time: unknown): string { ret
 
 /** view.connecting: Connecting… */
 export function viewConnecting(): string { return `Connecting…`; }
+
+/** view.connections_title: Connections */
+export function viewConnectionsTitle(): string { return `Connections`; }
 
 /** view.disconnected: Disconnected · Enter to connect */
 export function viewDisconnected(): string { return `Disconnected · Enter to connect`; }

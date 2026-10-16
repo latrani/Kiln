@@ -163,7 +163,7 @@ func (m *Model) sidebarView() sideView {
 		}
 	}
 	sv := sideView{rows: rows}
-	h := max(1, m.height)
+	h := max(1, m.height-sideTitleH)
 	total := len(sv.rows)
 	if total <= h {
 		m.sideTop = 0
@@ -275,3 +275,12 @@ func fitName(s string, w int) string {
 	}
 	return fit(xansi.Truncate(s, w, "…"), w)
 }
+
+// sideTitleH is the rows above the sidebar's list: its title, which
+// names the list (open connections, the picker's, or log mode's
+// filters).
+const sideTitleH = 1
+
+// sideTitle draws the sidebar's title: label across the column, w wide,
+// in r, so its underline spans it.
+func sideTitle(r theme.Role, label string, w int) string { return theme.Paint(r, fit(label, w)) }

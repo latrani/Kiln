@@ -1010,9 +1010,9 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 			switch msg.Button {
 			case tea.MouseWheelUp:
-				cs.browse.panelScroll(-3, m.height)
+				cs.browse.panelScroll(-3, m.height-sideTitleH)
 			case tea.MouseWheelDown:
-				cs.browse.panelScroll(3, m.height)
+				cs.browse.panelScroll(3, m.height-sideTitleH)
 			}
 			return nil
 		}
@@ -1062,12 +1062,15 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
+		if msg.Y < sideTitleH { // the title
+			return nil
+		}
 		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-			cs.browse.panelClick(msg.X, msg.Y, m.height)
+			cs.browse.panelClick(msg.X, msg.Y-sideTitleH, m.height-sideTitleH)
 			return nil
 		}
 		sv := m.sidebarView()
-		r, hint := sv.at(msg.Y)
+		r, hint := sv.at(msg.Y - sideTitleH)
 		switch {
 		case hint != 0:
 			m.scrollSidebar(hint * max(1, sv.avail-1))

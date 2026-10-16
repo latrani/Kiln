@@ -21,6 +21,7 @@
 "sidebar.add"          = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "sidebar.action"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "sidebar.more"         = { fg = "glaze.celadon-mid" }
+"sidebar.title"        = { bold = true, underline = true }
 
 "picker"                = { fg = "glaze.kaki-ink" }
 "picker.world"          = { bold = true }
@@ -28,6 +29,7 @@
 "picker.selected"       = { reverse = true }
 "picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
 "picker.error"          = { fg = "red" }
+"picker.title"          = { bold = true, underline = true }
 
 "divider"     = { fg = "glaze.celadon-line" }
 "rule.input"  = { fg = "glaze.gold-line" }
@@ -100,6 +102,7 @@
 "filter.button.on" = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "filter.add"       = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "filter.more"      = { fg = "glaze.cobalt-mid" }
+"filter.title"     = { bold = true, underline = true }
 
 "export" = { fg = "#d8d8d8", bg = "#1b1b1f" }
 

@@ -100,7 +100,7 @@ func TestClicksLandBelowTheTopBar(t *testing.T) {
 	if b.Cursor.Entry.Text != scene1[1] {
 		t.Errorf("a click on a log line's screen row selected %q", b.Cursor.Entry.Text)
 	}
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft}) // the sidebar doesn't shift: row 1 is Kit
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + 1, Button: tea.MouseLeft}) // the sidebar doesn't shift: row 1 is Kit
 	if h.m.a.Active() != "fm/kit" {
 		t.Errorf("sidebar click: active %s", h.m.a.Active())
 	}

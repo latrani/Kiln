@@ -125,6 +125,8 @@ connected = "connected"
 failed = "failed"
 
 [view]
+# The connection sidebar's title, its first row.
+connections_title = "Connections"
 nothing_open = "Hit Enter or Ctrl+O to choose a connection"
 no_characters = ""
 save_password = "Save password for {name} in {store}? [Y/n]"
@@ -313,6 +315,8 @@ tag_unstyled = "{tag} (unstyled)"
 
 # Log mode's filter panel, in the sidebar.
 [filter]
+# Log mode's filter panel's title, its first row.
+title = "Filters"
 hide = "Hide"
 only = "Only"
 add_text = "+ Text"
@@ -325,6 +329,8 @@ prompt = "filter text: "
 
 # The open-connection picker.
 [picker]
+# The picker's list's title, the sidebar's first row while it's open.
+title = "All connections"
 hint = "Enter to connect · Esc to close"
 add_char_hint = "Enter to connect · Esc to cancel"
 add_character = "+ Character"

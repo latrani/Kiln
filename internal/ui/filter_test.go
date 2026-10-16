@@ -20,7 +20,7 @@ import (
 // panelSide is the sidebar column's rows, trimmed.
 func panelSide(h *harness) []string {
 	var out []string
-	for _, row := range strings.Split(h.screen(), "\n") {
+	for _, row := range strings.Split(h.screen(), "\n")[sideTitleH:] {
 		out = append(out, strings.TrimSpace(strings.SplitN(row, "│", 2)[0]))
 	}
 	return out
@@ -162,7 +162,7 @@ func TestPanelClicks(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	f := h.kitFilter()
-	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
+	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH + y, Button: tea.MouseLeft}) }
 	// Rows: 0 Untagged, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
 	// 5 in, 6 buttons, 7 blank, 8 self, 9 buttons.
 	// Buttons for depth 0 start at column 2: "  Hide · Only".
@@ -194,7 +194,7 @@ func TestPanelClicksIgnoredDuringPrompt(t *testing.T) {
 	h.key("e")                              // export's format prompt
 	h.br().togglePanel()                    // panel open under the prompt
 	h.screen()
-	h.m.Update(tea.MouseClickMsg{X: 2, Y: 3, Button: tea.MouseLeft}) // page's Hide
+	h.m.Update(tea.MouseClickMsg{X: 2, Y: sideTitleH + 3, Button: tea.MouseLeft}) // page's Hide
 	h.key("p")                                                       // must not panic
 	if h.kitFilter().Active() {
 		t.Error("clicks should be ignored while a prompt is open")
@@ -211,8 +211,9 @@ func TestPanelScrolls(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side := panelSide(h)
-	// 12 tags × 3 rows + "+ Text" = 37 rows; 23 show above the hint.
-	if want := str.ViewMoreBelow(37 - 23); side[len(side)-1] != want {
+	// 12 tags × 3 rows + "+ Text" = 37 rows; 22 show under the title,
+	// above the hint.
+	if want := str.ViewMoreBelow(37 - 22); side[len(side)-1] != want {
 		t.Fatalf("last row = %q, want %q:\n%s", side[len(side)-1], want, h.screen())
 	}
 	for range 40 {

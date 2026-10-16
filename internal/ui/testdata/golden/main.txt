@@ -1,15 +1,15 @@
-fm              │fm · Kit                                       ? focus  ·  Log 
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
- Kit            │───────────────────────────────────────────────────────────────
-  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+Connections     │fm · Kit                                       ? focus  ·  Log 
+  @0-15 bold,underline,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+fm              │───────────────────────────────────────────────────────────────
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+ Kit            │                                                               
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
  × Rook      ● 3│                                                               
   @0-11 bold,fg=#a0e3e1; @12-12 fg=#a0e3e1; @13-13 bold,fg=#eed49f; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
  + Connection   │                                                               
   @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               

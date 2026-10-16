@@ -622,11 +622,10 @@ func manyChars(n int) string {
 }
 
 func TestSidebarScrolls(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 33 rows, 24 high
+	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 33 rows, 23 high under the title
 	h.openAll()
-	rows := func() []string { return strings.Split(h.screen(), "\n") }
-	side := func(y int) string { return strings.TrimSpace(strings.SplitN(rows()[y], "│", 2)[0]) }
-	if side(0) != "big" || side(22) != "× C21" || side(23) != "▼ 10 more" {
+	side := func(y int) string { return strings.TrimSpace(sideRow(h, y)) }
+	if side(0) != "big" || side(21) != "× C20" || side(22) != "▼ 11 more" {
 		t.Fatalf("top of list:\n%s", h.screen())
 	}
 
@@ -634,17 +633,17 @@ func TestSidebarScrolls(t *testing.T) {
 	for range 25 {
 		h.press(tea.KeyDown, tea.ModCtrl)
 	}
-	if h.m.a.Active() != "big/c25" || side(22) != "× C25" || side(0) != "▲ 5 more" {
+	if h.m.a.Active() != "big/c25" || side(21) != "× C25" || side(0) != "▲ 6 more" {
 		t.Fatalf("active %s not in view:\n%s", h.m.a.Active(), h.screen())
 	}
-	if side(23) != "▼ 6 more" {
-		t.Errorf("bottom row = %q", side(23))
+	if side(22) != "▼ 6 more" {
+		t.Errorf("bottom row = %q", side(22))
 	}
 
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(21) != "× C29" || side(22) != "" || side(23) != addLabel || side(0) != "▲ 10 more" {
+	if side(20) != "× C29" || side(21) != "" || side(22) != addLabel || side(0) != "▲ 11 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -655,20 +654,20 @@ func TestSidebarScrolls(t *testing.T) {
 	}
 
 	// Clicks map through the scroll offset; the hint scrolls a page.
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 1, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + 1, Button: tea.MouseLeft})
 	if want := "big/c" + strings.TrimPrefix(top, "× C"); h.m.a.Active() != want {
 		t.Errorf("clicked %q, active = %s", top, h.m.a.Active())
 	}
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH, Button: tea.MouseLeft})
 	if side(0) != "big" {
 		t.Errorf("clicking ▲ should page up to the top:\n%s", h.screen())
 	}
 }
 
 func TestSidebarNoHintsWhenItFits(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(21)}) // 24 rows, 24 high
+	h := newHarness(t, map[string]string{"big": manyChars(20)}) // 23 rows, 23 high under the title
 	h.openAll()
-	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C20") {
+	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C19") {
 		t.Errorf("screen:\n%s", s)
 	}
 }
@@ -735,11 +734,11 @@ func TestScrollPill(t *testing.T) {
 func TestSidebarClick(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook")
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // row 2 = Rook
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + 2, Button: tea.MouseLeft}) // row 2 = Rook
 	if h.m.a.Active() != "fm/rook" {
 		t.Errorf("active = %q", h.m.a.Active())
 	}
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft}) // the fm header: nothing happens
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH, Button: tea.MouseLeft}) // the fm header: nothing happens
 	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" || !strings.Contains(h.screen(), "× Kit") {
 		t.Errorf("header row = %q; worlds don't collapse:\n%s", got, h.screen())
 	}
@@ -874,7 +873,7 @@ func TestSavePasswordAnswerBindsToPromptingCharacter(t *testing.T) {
 	h.settle("fm/kit", func() bool { return h.m.chars["fm/kit"].NeedPW })
 	h.typeText("s3cret")
 	h.enter()
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // click Rook mid-question
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + 2, Button: tea.MouseLeft}) // click Rook mid-question
 	h.m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	if h.saved["fm/kit"] != "s3cret" || h.saved["fm/rook"] != "" {
 		t.Errorf("saved = %q, want only fm/kit", h.saved)
@@ -1030,7 +1029,7 @@ func TestDoubleClickSidebarConnects(t *testing.T) {
 	now := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
 	h.m.d.Now = func() time.Time { return now }
 	click := func() tea.Cmd {
-		_, cmd := h.m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // Rook
+		_, cmd := h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + 2, Button: tea.MouseLeft}) // Rook
 		return cmd
 	}
 	click()

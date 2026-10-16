@@ -440,14 +440,14 @@ func (m *Model) View() tea.View {
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 
-	side := theme.Sidebar
+	side, title, titleRole := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle
 	if m.listing() {
-		side = theme.Picker
+		side, title, titleRole = theme.Picker, str.PickerTitle(), theme.PickerTitle
 	}
 	var panel []string
 	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-		side = theme.Filter
-		panel = cs.browse.panelView(l.sw, m.height)
+		side, title, titleRole = theme.Filter, str.FilterTitle(), theme.FilterTitle
+		panel = cs.browse.panelView(l.sw, m.height-sideTitleH)
 	}
 	sv := m.sidebarView()
 	var b strings.Builder
@@ -455,9 +455,15 @@ func (m *Model) View() tea.View {
 		if y > 0 {
 			b.WriteByte('\n')
 		}
-		switch r, hint := sv.at(y); {
+		if y < sideTitleH {
+			b.WriteString(theme.Fill(side, sideTitle(titleRole, title, l.sw), l.sw))
+			b.WriteString(theme.Paint(theme.Divider, "│"))
+			b.WriteString(fit(right[y], l.rw) + style.Reset)
+			continue
+		}
+		switch r, hint := sv.at(y - sideTitleH); {
 		case panel != nil:
-			b.WriteString(theme.Fill(side, panel[y], l.sw))
+			b.WriteString(theme.Fill(side, panel[y-sideTitleH], l.sw))
 		case hint < 0:
 			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
 		case hint > 0:

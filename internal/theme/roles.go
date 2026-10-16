@@ -20,6 +20,7 @@ const (
 	SidebarAdd          Role = "sidebar.add"
 	SidebarAction       Role = "sidebar.action" // unused since the web build's sidebar footer went; kept so themes that set it still load
 	SidebarMore         Role = "sidebar.more"
+	SidebarTitle        Role = "sidebar.title" // its first row, "Connections"
 
 	Picker              Role = "picker" // area, in place of sidebar while it's open
 	PickerWorld         Role = "picker.world"
@@ -27,6 +28,7 @@ const (
 	PickerSelected      Role = "picker.selected"
 	PickerAdd           Role = "picker.add"
 	PickerError         Role = "picker.error" // under a name being added: why it won't do
+	PickerTitle         Role = "picker.title" // its list's first row
 
 	Divider    Role = "divider"
 	Rule       Role = "rule"
@@ -107,6 +109,7 @@ const (
 	FilterButtonOn Role = "filter.button.on"
 	FilterAdd      Role = "filter.add"
 	FilterMore     Role = "filter.more"
+	FilterTitle    Role = "filter.title" // its first row
 
 	Export Role = "export" // the HTML export's page colors
 )
@@ -114,8 +117,8 @@ const (
 // Roles is every role, each after its parent.
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
-	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore,
-	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError,
+	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle,
+	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle,
 	Divider, Rule, RuleInput, RuleForm, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
@@ -125,7 +128,7 @@ var Roles = []Role{
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints,
-	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle,
 	Export,
 }
 

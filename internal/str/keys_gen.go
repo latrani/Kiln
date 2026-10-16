@@ -539,6 +539,9 @@ func FilterPrompt() string { return get("filter.prompt", nil) }
 // FilterTextItem is filter.text_item: "\"{term}\""
 func FilterTextItem(term any) string { return get("filter.text_item", map[string]any{"term": term}) }
 
+// FilterTitle is filter.title: "Filters"
+func FilterTitle() string { return get("filter.title", nil) }
+
 // FilterUntagged is filter.untagged: "Untagged"
 func FilterUntagged() string { return get("filter.untagged", nil) }
 
@@ -624,6 +627,9 @@ func PickerHint() string { return get("picker.hint", nil) }
 
 // PickerName is picker.name: "Name"
 func PickerName() string { return get("picker.name", nil) }
+
+// PickerTitle is picker.title: "All connections"
+func PickerTitle() string { return get("picker.title", nil) }
 
 // RelayAllowBadLimit is relay.allow_bad_limit: "allowlist {path}: {key} must be 1 or more"
 func RelayAllowBadLimit(path, key any) string {
@@ -1087,6 +1093,9 @@ func ViewConnectedSinceDay(day, time any) string {
 
 // ViewConnecting is view.connecting: "Connecting…"
 func ViewConnecting() string { return get("view.connecting", nil) }
+
+// ViewConnectionsTitle is view.connections_title: "Connections"
+func ViewConnectionsTitle() string { return get("view.connections_title", nil) }
 
 // ViewDisconnected is view.disconnected: "Disconnected · Enter to connect"
 func ViewDisconnected() string { return get("view.disconnected", nil) }
