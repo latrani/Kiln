@@ -15,17 +15,17 @@ import (
 // other fields are its arguments. Lines are named by number (Seq, Start,
 // End).
 type Action struct {
-	Do                                                 string
-	Key, Text, Term, Tag, Day, Format, Name, ID, World string
-	Char                                               string
-	Seq, Start, End, Epoch, Cols, Rows                 int
-	N                                                  int // numbers input, submit and older (see feed.Input.Ack); step's distance; next_unread's direction; history_move's distance; history_pick's line
-	In, Shut, Save                                     bool
-	Err                                                bool // say's
-	Item                                               *scene.Item
-	WorldSettings                                      *config.WorldSettings
-	CharSettings                                       *config.CharacterSettings
-	Data                                               []byte // a file's bytes (restore), base64 in JSON
+	Do                                                  string
+	Key, Text, Term, Tag, When, Format, Name, ID, World string
+	Char                                                string
+	Seq, Start, End, Epoch, Cols, Rows                  int
+	N                                                   int // numbers input, submit and older (see feed.Input.Ack); step's distance; next_unread's direction; history_move's distance; history_pick's line
+	In, Shut, Save                                      bool
+	Err                                                 bool // say's
+	Item                                                *scene.Item
+	WorldSettings                                       *config.WorldSettings
+	CharSettings                                        *config.CharacterSettings
+	Data                                                []byte // a file's bytes (restore), base64 in JSON
 }
 
 // do carries out act. See step for what it returns.
@@ -299,7 +299,7 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	at := func(seq int) *app.LogLine { return lineAt(g, seq) }
 	switch act.Do {
 	case "log_older", "mark", "range", "extend", "exclude", "find", "find_older", "find_newer", "stop_search", //str:ok
-		"goto_date", "tags", "export_name", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
+		"goto", "tags", "export_name", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
 		if g == nil {
 			return nil, nil, true
 		}
@@ -335,8 +335,8 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		}
 	case "stop_search": //str:ok
 		g.StopSearch()
-	case "goto_date": //str:ok
-		effs = g.GotoDate(act.Day, l.land(act.Key))
+	case "goto": //str:ok
+		effs = g.GotoTime(act.When, l.land(act.Key))
 	case "tags": //str:ok
 		if ln := at(act.Seq); ln != nil {
 			styled := func(string) (string, bool) { return "", false }

@@ -411,6 +411,16 @@ test("the cursor: the newest line at first; a click, find landing or ↑/↓ mov
   assert.deepEqual(sent.slice(n), [{ Do: "log_older", Key: "fm/kit" }], "and asks for older history");
 });
 
+test("g starts go-to at the cursor's day and time, to edit", () => {
+  const { s } = logged();
+  s.apply([{ type: "LogLines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [1, 2].map((Seq) => ({ Seq, Kind: "server", Day: "2026-10-13", Clock: `21:0${Seq}`, Out: false, Plain: "x", Spans: null, Priority: false, Quiet: false }))}]);
+  logAct(s, "date");
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "date", value: "2026-10-13 21:02" });
+  s.setLogView("fm/kit", { prompt: undefined, cursor: 1 });
+  logAct(s, "date");
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "date", value: "2026-10-13 21:01" });
+});
+
 test("the cursor skips lines the filter hides; on one it hides, it goes to the next shown", () => {
   const { s } = logged({ Hidden: [2] });
   const cur = () => cursorOf(s.state.logs["fm/kit"] as LogState, s.state.logView["fm/kit"], s.state.logLines["fm/kit"].lines);

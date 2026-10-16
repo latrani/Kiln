@@ -427,10 +427,23 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 		t.Error("older days should remain to page in")
 	}
 	h.key("g")
+	if got := b.pin.Value(); got != app.WhenOf(b.Cursor) || got != "2026-09-24 10:29" {
+		t.Errorf("go-to starts with %q, want the cursor's day and time", got)
+	}
+	for range len(b.pin.Value()) { // typing edits what's there
+		h.press(tea.KeyBackspace, 0)
+	}
 	h.typeText("2026-09-21")
 	h.key("enter")
 	if b.Cursor.Entry.Text != "day 21 line 0" {
 		t.Errorf("date jump landed on %q", b.Cursor.Entry.Text)
+	}
+	h.key("g")
+	h.press(tea.KeyBackspace, 0) // 2026-09-21 08:0 …
+	h.typeText("9")              // … 08:09
+	h.key("enter")
+	if b.Cursor.Entry.Text != "day 21 line 9" {
+		t.Errorf("editing the time landed on %q", b.Cursor.Entry.Text)
 	}
 	if !b.HistDone || b.Lines[0].Day != "2026-09-21" {
 		t.Errorf("after loading everything: done %v, oldest %s", b.HistDone, b.Lines[0].Day)
@@ -438,7 +451,7 @@ func TestBrowsePagesOlderDaysAndDateJump(t *testing.T) {
 	h.key("g")
 	h.typeText("yesterday")
 	h.key("enter")
-	if !strings.Contains(h.screen(), "dates look like") {
+	if !strings.Contains(h.screen(), str.BrowseDateFormat()) {
 		t.Errorf("bad date not reported:\n%s", h.screen())
 	}
 }

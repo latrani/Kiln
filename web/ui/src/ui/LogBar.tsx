@@ -19,7 +19,12 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
   const p = v.prompt;
   const ref = useRef<HTMLInputElement>(null);
   const formatRef = useRef<HTMLDivElement>(null);
-  useEffect(() => (p?.kind === "format" ? formatRef.current : ref.current)?.focus(), [p?.kind]);
+  // The caret starts at the end, so go-to's day and time are there to
+  // edit, as the TUI's.
+  useEffect(() => {
+    (p?.kind === "format" ? formatRef.current : ref.current)?.focus();
+    ref.current?.setSelectionRange(ref.current.value.length, ref.current.value.length);
+  }, [p?.kind]);
   const lines = state.logLines[k]?.lines ?? [];
   const here = cursorOf(g, v, lines) ?? -1;
   const act = state.act ?? (() => {});
@@ -65,7 +70,7 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
       }
       const value = p.value.trim();
       if (p.kind === "find") act({ Do: "find", Key: k, Term: value, Seq: here });
-      else if (p.kind === "date") act({ Do: "goto_date", Key: k, Day: value });
+      else if (p.kind === "date") act({ Do: "goto", Key: k, When: value });
       else act({ Do: "export", Key: k, Format: p.format, Name: value });
       back();
     }
