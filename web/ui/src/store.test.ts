@@ -512,12 +512,39 @@ test("the Select chip is s, as the TUI's: it stops a search, and does nothing un
   assert.deepEqual(sent.at(-1), { Do: "mark", Key: "fm/kit", Seq: 3 });
 });
 
-test("s and Space stop a search reading older days, as the TUI's keys do", () => {
-  for (const does of ["mark", "exclude"] as const) {
+test("any log key stops a search reading older days first, then does its thing; Esc only stops it, as the TUI's (#206)", () => {
+  for (const does of ["up", "down", "mark", "exclude", "find", "older", "newer", "date", "filter", "export", "copy"] as const) {
     const { s, sent } = logged({ Find: "x", Searching: true, Start: 3, End: 3, Selected: 1 });
     logAct(s, does);
     assert.deepEqual(sent[0], { Do: "stop_search", Key: "fm/kit" }, does);
+    assert.ok(sent.length > 1 || s.state.logView["fm/kit"]?.prompt || s.state.logView["fm/kit"]?.focus || s.state.logView["fm/kit"]?.cursor, `${does} did its thing too`);
   }
+  const { s, sent } = logged({ Find: "x", Searching: true });
+  logAct(s, "back");
+  assert.deepEqual(sent, [{ Do: "stop_search", Key: "fm/kit" }], "find stays on, log mode open");
+});
+
+test("any panel key stops a search reading older days first, then does its thing; Esc only stops it, as the TUI's (#206)", () => {
+  const E = (Name: string) => ({ Item: { Name, Text: false, Untagged: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false });
+  const panel = () => {
+    const l = logged({ Find: "x", Searching: true });
+    l.s.apply([{ type: "Filter", Key: "fm/kit", Entries: [E("page"), E("ooc")] }]);
+    focusPanel(l.s);
+    return l;
+  };
+  for (const does of ["hide", "only"] as const) {
+    const { s, sent } = panel();
+    panelAct(s, does);
+    assert.deepEqual(sent.map((a) => a.Do), ["stop_search", does], does);
+  }
+  const f = panel();
+  panelAct(f.s, "log");
+  assert.deepEqual(f.sent, [{ Do: "stop_search", Key: "fm/kit" }]);
+  assert.equal(f.s.state.logView["fm/kit"].focus, undefined, "f gives the log focus too");
+  const esc = panel();
+  panelAct(esc.s, "close");
+  assert.deepEqual(esc.sent, [{ Do: "stop_search", Key: "fm/kit" }]);
+  assert.equal(esc.s.state.logView["fm/kit"].focus, "panel", "Esc leaves focus in the panel");
 });
 
 test("s counts as selecting at once: a move before Go answers still moves the range's end", () => {
