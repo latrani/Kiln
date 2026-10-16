@@ -276,6 +276,10 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 		return b.rowsFor(v[i], prev, w)
 	}
 	ti := slices.Index(v, b.top)
+	if b.scrolled && ti >= 0 && b.Marking { // the wheel only scrolls: the cursor is the range's end
+		b.top = v[min(ti, b.bottomTop(v, rows, h))] // and scrolled stays set until the cursor moves
+		return
+	}
 	if b.scrolled && ti >= 0 {
 		b.scrolled = false
 		ti = min(ti, b.bottomTop(v, rows, h)) // no scrolling past the newest line

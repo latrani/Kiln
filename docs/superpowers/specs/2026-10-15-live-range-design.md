@@ -73,6 +73,11 @@ lose their `End == nil` cases.
 
 ## TUI
 
+The wheel doesn't move a live range (changed after trying it): while
+marking, scrolling leaves the cursor where it is, out of view if need
+be, so looking around never shrinks the range or forgets exclusions.
+The next cursor move brings the view back to it.
+
 `browse.SetCursor` and `MoveCursor`, and every other place the cursor
 moves, call `MarkTo` while marking. One hook in `SetCursor` covers them
 if every move goes through it; the plan checks that. `click` checks
@@ -89,6 +94,10 @@ the mouse). The TUI's keys copy over:
 - While `Marking` (in the log state the page gets), each cursor move,
   from keys, a click or `dragCursor` as the browser scrolls, sends a new
   `mark_to` action with the seq. `Esc` sends a new `end_mark`.
+- While marking, scrolling doesn't drag the cursor (`dragCursor` is
+  skipped), as the TUI's wheel. PgUp/PgDn are the browser's scrolling,
+  so on the web paging doesn't stretch a live range; ↑/↓ and clicks
+  do. That's the browser's PgDn forcing it.
 - `logClick` checks `Marking` first, as the TUI's `click`: inside the
   range it sends `exclude`; outside, a new `grow` action, then moves
   the cursor.

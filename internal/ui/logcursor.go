@@ -12,9 +12,10 @@ import (
 
 // SetCursor puts the cursor on l: a key, a click, find, or the view
 // dragging it along. Every cursor move comes through here, so a live
-// range's end follows it.
+// range's end follows it, and a view the wheel left elsewhere while
+// marking comes back to it.
 func (b *browse) SetCursor(l *app.LogLine) {
-	b.Cursor = l
+	b.Cursor, b.scrolled = l, false
 	b.MarkTo(l)
 }
 

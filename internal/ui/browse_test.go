@@ -1434,3 +1434,41 @@ func TestBrowseLiveRangeFollowsLiveLines(t *testing.T) {
 		t.Errorf("range %v–%v; want the anchor to the new line", b.Start, b.End)
 	}
 }
+
+// While marking, the wheel only scrolls: the cursor, the range's end,
+// stays put (out of view if need be), so scrolling to look around never
+// changes the range or forgets what was taken out. A key moves on from
+// the cursor and brings it back into view.
+func TestBrowseWheelLeavesALiveRange(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	var lines []string
+	for i := range 80 {
+		lines = append(lines, fmt.Sprintf("Rook says, \"line %d\"", i))
+	}
+	h.writeLog(day24, lines...)
+	h.key("ctrl+l")
+	b := h.br()
+	l := h.m.layout()
+	wheel := func(button tea.MouseButton) {
+		h.drainLoads(h.m.handleWheel(tea.MouseWheelMsg{X: l.sw + 5, Y: 5, Button: button}))
+		h.screen()
+	}
+	h.screen()
+	h.keys("m", "up", "up", "up", "space", "up") // 75–79, 76 out
+	start, end, cursor := b.Start, b.End, b.Cursor
+	for range 30 {
+		wheel(tea.MouseWheelUp)
+	}
+	h.screen() // a redraw with nothing new keeps the view where it was scrolled
+	if b.Start != start || b.End != end || b.Cursor != cursor || !b.Excluded[b.Lines[76]] {
+		t.Fatalf("wheel moved the live range: %d–%d, cursor %d, 76 out %v", b.Index(b.Start), b.Index(b.End), b.Index(b.Cursor), b.Excluded[b.Lines[76]])
+	}
+	if slices.Contains(b.rowLines, cursor) {
+		t.Fatalf("scrolled 30 lines up, the cursor should be out of view:\n%s", h.screen())
+	}
+	h.key("up")
+	h.screen()
+	if b.Index(b.Cursor) != 74 || !slices.Contains(b.rowLines, b.Cursor) || b.Index(b.Start) != 74 {
+		t.Errorf("up after scrolling: cursor %d in view %v, start %d", b.Index(b.Cursor), slices.Contains(b.rowLines, b.Cursor), b.Index(b.Start))
+	}
+}
