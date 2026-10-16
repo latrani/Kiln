@@ -471,6 +471,16 @@ git commit -m "Log mode: a live range follows the cursor, clicks included (#191)
 
 ---
 
+### Task 2b: Select mode (TUI)
+
+Added after trying Task 2; the spec's "Select mode" section is the brief.
+
+**Files:** `internal/ui/browse.go` (`click`, `statusParts`, hints in `view`), `internal/ui/view.go` (`statusBar`: the Select chip in log mode), `internal/ui/model.go:1104` (chip click), `internal/theme/roles.go` + `default.toml` + `docs/themes.md` (`status.select`, `status.select.on`), `internal/str/locales/en.toml`, `docs/log-mode.md`, tests in `internal/ui/browse_test.go`, `status_test.go`, `filter_test.go`, `golden_test.go` (goldens updated for the hints and chip, on purpose).
+
+- [ ] Rewrite the click tests (TestBrowseMouse, TestBrowseMouseSelectsLikeFinder, the status_test click range, TestBrowseLiveRangeClicks's last step) to the new rule: outside select mode a click only moves the cursor. Add tests: the chip shows in log mode, lit while selecting, and a click on it starts and locks; hints per state; no count with nothing selected. Run; expect FAIL.
+- [ ] Implement; `go test ./...`; `-update` the log goldens and check only the hint row and the chip changed.
+- [ ] Commit with `Strings:` trailer.
+
 ### Task 3: Web
 
 **Files:**

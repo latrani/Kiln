@@ -129,3 +129,30 @@ the mouse). The TUI's keys copy over:
   marking only move the end; `Esc` with find on ends marking only.
 - Web: `logKey`'s `s`, `logClick` while marking, and the smoke test's
   click, `s`, click.
+
+## Select mode (after trying it)
+
+Selecting is a mode, with a chip, as History is.
+
+- Three states: **nothing selected**, **selecting** (the live range)
+  and **selected** (a locked range).
+- Outside select mode, every click (plain, shift, gutter) only moves
+  the cursor. Ranges come only from select mode.
+- A **Select** chip sits at the right of the bottom statusline in log
+  mode, where the History chip sits outside it, in new roles
+  `status.select` and `status.select.on` (lit while selecting).
+  Clicking it is `s`: it starts selecting from the cursor, or locks.
+  The lit chip replaces the statusline's `selecting` part.
+- The action bar's hints follow the state:
+  - nothing selected: `s select · / find · g date · f filter · esc back`
+  - selecting: `space exclude · s done · c copy · e export · esc drop`
+  - selected: `s select · space exclude · c copy · e export · / find · g date · f filter · esc back`
+  The filter panel's hints are unchanged.
+- The statusline's count shows only while there's a range: no
+  `0 selected`.
+- Filter stays in the top bar: the top bar says what you're looking at,
+  the bottom bar what you're doing.
+
+Strings: `browse.hints` gives way to `browse.hints_none`,
+`browse.hints_selecting` and `browse.hints_selected`; `browse.selecting`
+goes; `view.select_button` is new.
