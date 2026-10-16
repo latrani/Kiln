@@ -124,3 +124,12 @@ func (m *Model) historyToggle() tea.Cmd {
 	m.pullIdle()
 	return cmd
 }
+
+// historyScope runs effs, from setting the panel's scope (a click on a
+// half of the switch, or Tab), and brings the input up to date.
+func (m *Model) historyScope(effs []app.Effect) tea.Cmd {
+	cmd := m.run(effs)
+	m.pullInput(m.cur())
+	m.pullIdle()
+	return cmd
+}

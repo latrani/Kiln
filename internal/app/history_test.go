@@ -97,3 +97,23 @@ func TestHistoryPanelMovesPicksAndCloses(t *testing.T) {
 		t.Errorf("picked %q after selecting the first", v)
 	}
 }
+
+func TestHistorySessionScope(t *testing.T) {
+	all := &sentLog{}
+	kit, rook := History{all: all}, History{all: all}
+	kit.Add("look", at(0))
+	rook.Add("say hi", at(1))
+	kit.Add("look", at(2))
+	kit.Open("")
+	if got := texts(kit.Shown()); !slices.Equal(got, []string{"look"}) {
+		t.Errorf("character scope: %q", got)
+	}
+	all.scope, all.gen = ScopeSession, all.gen+1
+	if got := texts(kit.Shown()); !slices.Equal(got, []string{"say hi", "look"}) {
+		t.Errorf("session scope: %q; want every input's, each at its newest", got)
+	}
+	rook.Add("wave", at(3)) // another input sends while the panel's up
+	if got := texts(kit.Shown()); !slices.Equal(got, []string{"say hi", "look", "wave"}) {
+		t.Errorf("after another input sent: %q", got)
+	}
+}

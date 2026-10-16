@@ -141,7 +141,8 @@ a.s { text-decoration: underline; }
 .status { grid-area: status; min-height: 1lh; white-space: pre; overflow: hidden; border-top: 1px solid var(--role-rule-status-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
 /* The offer to allow notifications (notify.ts), and the History chip,
    at the right. */
-.status .offer, .status .chip { float: right; }
+.status .offer, .status .chip, .status .scope { float: right; }
+.status .scope .chip { float: none; }
 /* The splash, while another tab has Kiln: centered, a line between
    each part. */
 .splash { min-height: 100dvh; box-sizing: border-box; padding: 1lh 2ch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1lh; text-align: center; }

@@ -258,3 +258,103 @@ func TestDraftIsNeverThePassword(t *testing.T) {
 		t.Errorf("draft after %q", d)
 	}
 }
+
+// send submits text on k's input (k "": the active one, or the idle
+// input with nothing open).
+func send(a *App, k, text string) {
+	if k != "" {
+		a.Switch(k)
+	}
+	a.SetInput(text)
+	a.Submit()
+}
+
+func TestHistoryScopeAcrossChars(t *testing.T) {
+	a, _ := testApp(t)
+	send(a, "", "/notify off") // nothing open yet
+	openAll(t, a, "fm/kit", "fm/rook")
+	send(a, "fm/kit", "/notify on")
+	send(a, "fm/rook", "/notify off")
+	if a.HistoryScope() != ScopeCharacter {
+		t.Fatalf("scope starts %v", a.HistoryScope())
+	}
+	a.SwapHistoryScope()
+	a.HistoryOpen()
+	want := []string{"/notify on", "/notify off"} // the idle one's repeat collapses to its newest
+	if got := texts(a.History().Shown()); !slices.Equal(got, want) {
+		t.Errorf("rook, session scope: %q; want %q", got, want)
+	}
+	a.HistoryClose()
+	a.Switch("fm/kit")
+	a.HistoryOpen()
+	if a.HistoryScope() != ScopeSession || !slices.Equal(texts(a.History().Shown()), want) {
+		t.Errorf("kit: scope %v shown %q; the scope holds across switches and opens", a.HistoryScope(), texts(a.History().Shown()))
+	}
+}
+
+func TestHistoryScopeKeepsClosedChar(t *testing.T) {
+	a, _ := testApp(t)
+	openAll(t, a, "fm/kit", "fm/rook")
+	send(a, "fm/kit", "/notify on")
+	a.Close("fm/kit")
+	a.Switch("fm/rook")
+	a.SwapHistoryScope()
+	a.HistoryOpen()
+	if got := texts(a.History().Shown()); !slices.Equal(got, []string{"/notify on"}) {
+		t.Errorf("shown %q; a closed character's lines stay in the session", got)
+	}
+}
+
+func TestHistoryScopeNoPassword(t *testing.T) {
+	a, c, _ := submitApp(t, fmWorld)
+	kit := a.Char("fm/kit")
+	a.Handle(SessionMsg{Key: "fm/kit", Sess: kit.Sess, OK: true, Ev: session.Event{Kind: session.EventNeedPassword}})
+	a.SetInput("s3cret")
+	a.Submit()
+	if sent := c.Sent(); len(sent) == 0 || !strings.Contains(sent[len(sent)-1], "s3cret") {
+		t.Fatalf("sent %q; want the login to have gone out", sent)
+	}
+	a.SwapHistoryScope()
+	a.HistoryOpen()
+	if got := texts(a.History().Shown()); slices.Contains(got, "s3cret") {
+		t.Errorf("session scope shows the password: %q", got)
+	}
+}
+
+func TestHistoryScopeSelectsNewest(t *testing.T) {
+	a, _, _ := submitApp(t, fmWorld)
+	for _, s := range []string{"one", "two", "three"} {
+		send(a, "", s)
+	}
+	a.HistoryOpen()
+	a.HistoryMove(-2)
+	a.SwapHistoryScope()
+	if h := a.History(); h.Sel() != len(h.Shown())-1 {
+		t.Errorf("sel %d of %d; a new scope selects the newest", h.Sel(), len(h.Shown()))
+	}
+}
+
+func TestHistoryClosedWithNothingOpen(t *testing.T) {
+	a, _ := testApp(t)
+	send(a, "", "/notify off")
+	a.HistoryOpen()
+	if a.History().IsOpen() {
+		t.Error("the panel opened with nothing open")
+	}
+}
+
+func TestHistoryScopeSelectsNewestOnEveryPanel(t *testing.T) {
+	a, _ := testApp(t)
+	openAll(t, a, "fm/kit", "fm/rook")
+	for _, s := range []string{"/notify on", "/notify off", "/notify on"} {
+		send(a, "fm/kit", s)
+	}
+	a.HistoryOpen()
+	a.HistoryMove(-1)
+	a.Switch("fm/rook") // kit's panel stays up
+	a.SwapHistoryScope()
+	a.Switch("fm/kit")
+	if h := a.History(); !h.IsOpen() || h.Sel() != len(h.Shown())-1 {
+		t.Errorf("kit's panel: open %v, sel %d of %d; a new scope selects the newest everywhere", h.IsOpen(), h.Sel(), len(h.Shown()))
+	}
+}

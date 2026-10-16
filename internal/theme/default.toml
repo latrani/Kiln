@@ -64,6 +64,8 @@
 "status.filter.on" = { reverse = true }
 "status.history"    = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.history.on" = { reverse = true }
+"status.scope"      = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
+"status.scope.on"   = { reverse = true }
 "status.select"     = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.select.on"  = { reverse = true }
 "status.error"     = { fg = "red" }

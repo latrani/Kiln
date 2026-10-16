@@ -1103,6 +1103,9 @@ func ViewHistoryNoMatch() string { return get("view.history_no_match", nil) }
 // ViewHistoryNone is view.history_none: "no history yet"
 func ViewHistoryNone() string { return get("view.history_none", nil) }
 
+// ViewHistoryPlaceholder is view.history_placeholder: "type to search · tab to change scope"
+func ViewHistoryPlaceholder() string { return get("view.history_placeholder", nil) }
+
 // ViewLogButton is view.log_button: "Log"
 func ViewLogButton() string { return get("view.log_button", nil) }
 
@@ -1148,6 +1151,12 @@ func ViewPresenceUnknown() string { return get("view.presence_unknown", nil) }
 func ViewSavePassword(name, store any) string {
 	return get("view.save_password", map[string]any{"name": name, "store": store})
 }
+
+// ViewScopeCharacter is view.scope_character: "Character"
+func ViewScopeCharacter() string { return get("view.scope_character", nil) }
+
+// ViewScopeSession is view.scope_session: "Session"
+func ViewScopeSession() string { return get("view.scope_session", nil) }
 
 // ViewSelectButton is view.select_button: "Select"
 func ViewSelectButton() string { return get("view.select_button", nil) }

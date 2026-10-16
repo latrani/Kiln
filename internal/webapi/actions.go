@@ -132,6 +132,15 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		a.HistoryClose()
 	case "history_toggle": //str:ok
 		effs = a.HistoryToggle()
+	case "history_scope": //str:ok
+		switch act.Text {
+		case "session": //str:ok
+			effs = a.SetHistoryScope(app.ScopeSession)
+		case "character": //str:ok
+			effs = a.SetHistoryScope(app.ScopeCharacter)
+		default: // Tab: the other one
+			effs = a.SwapHistoryScope()
+		}
 	case "cancel": //str:ok
 		a.Unconfirm()
 		a.SkipLogin()

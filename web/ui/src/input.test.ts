@@ -74,3 +74,10 @@ test("typed outside a control, these go to the input: letters, dead keys, Option
   assert.equal(k("Tab"), false);
   assert.equal(k("d", { altKey: true }), false, "Alt+D on Windows or Linux: the browser's, not a letter");
 });
+
+test("Tab swaps the history panel's scope while it's up; otherwise it's the browser's", () => {
+  assert.equal(keyAction(k("Tab"), at("", 0), true), "history_scope");
+  assert.equal(keyAction(k("Tab", { shiftKey: true }), at("", 0), true), "history_scope");
+  assert.equal(keyAction(k("Tab"), at("", 0)), undefined);
+  assert.equal(keyAction(k("Tab", { ctrlKey: true }), at("", 0), true), undefined, "Ctrl+Tab is the browser's");
+});

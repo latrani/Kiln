@@ -908,6 +908,9 @@ export function viewHistoryNoMatch(): string { return `no match in history`; }
 /** view.history_none: no history yet */
 export function viewHistoryNone(): string { return `no history yet`; }
 
+/** view.history_placeholder: type to search · tab to change scope */
+export function viewHistoryPlaceholder(): string { return `type to search · tab to change scope`; }
+
 /** view.log_button: Log */
 export function viewLogButton(): string { return `Log`; }
 
@@ -949,6 +952,12 @@ export function viewPresenceUnknown(): string { return `? focus`; }
 
 /** view.save_password: Save password for {name} in {store}? [Y/n] */
 export function viewSavePassword(name: unknown, store: unknown): string { return `Save password for ${name} in ${store}? [Y/n]`; }
+
+/** view.scope_character: Character */
+export function viewScopeCharacter(): string { return `Character`; }
+
+/** view.scope_session: Session */
+export function viewScopeSession(): string { return `Session`; }
 
 /** view.select_button: Select */
 export function viewSelectButton(): string { return `Select`; }

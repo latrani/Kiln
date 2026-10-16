@@ -184,7 +184,18 @@ func TestOpenSubmitAndInput(t *testing.T) {
 		t.Errorf("the panel stayed up: %v", hist)
 	}
 	h.act(`{"Do":"input","Key":"fm/kit","Text":"draft","N":4}`)
-	h.act(`{"Do":"history_toggle"}`)
+	b = h.act(`{"Do":"history_toggle"}`)
+	if hist := event(b, "History"); hist == nil || hist["Scope"] != "character" {
+		t.Errorf("opened: %v; want character scope", hist)
+	}
+	b = h.act(`{"Do":"history_scope"}`) // Tab: the other scope
+	if hist := event(b, "History"); hist == nil || hist["Scope"] != "session" {
+		t.Errorf("swapped: %v", hist)
+	}
+	b = h.act(`{"Do":"history_scope","Text":"character"}`) // a click on a half
+	if hist := event(b, "History"); hist == nil || hist["Scope"] != "character" {
+		t.Errorf("set: %v", hist)
+	}
 	h.act(`{"Do":"input","Key":"fm/kit","Text":"no","N":5}`)
 	b = h.act(`{"Do":"history_close"}`)
 	if in := event(b, "Input"); in == nil || in["Text"] != "draft" {

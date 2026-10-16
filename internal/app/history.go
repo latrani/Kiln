@@ -11,28 +11,54 @@ type Sent struct {
 	At   time.Time
 }
 
+// Scope is which lines the history panels list: an input's own
+// (ScopeCharacter), or every input's since Kiln started (ScopeSession).
+type Scope int
+
+const (
+	ScopeCharacter Scope = iota
+	ScopeSession
+)
+
+// sentLog is every line sent from any input since Kiln started, oldest
+// first, and the panels' scope. gen goes up with each change, so a panel
+// knows to work out what it shows again.
+type sentLog struct {
+	lines []Sent
+	scope Scope
+	gen   int
+}
+
 // History is one input's sent lines, and its history panel: a list of
 // them, filtered by what's typed (the query), with one selected. The
 // zero value is empty and closed.
 type History struct {
-	logged []Sent // read from the logs, oldest first
-	run    []Sent // sent since Kiln started, oldest first
-	open   bool   // the panel is up
-	query  string // the input's text while the panel is up
-	draft  string // the input's text when the panel opened
-	back   int    // the selection, counted back from the newest shown
-	shown  []Sent // Shown's answer
-	stale  bool   // shown needs working out again
+	logged []Sent   // read from the logs, oldest first
+	run    []Sent   // sent since Kiln started, oldest first
+	all    *sentLog // every input's, shared; nil for none
+	allGen int      // all.gen when shown was worked out
+	open   bool     // the panel is up
+	query  string   // the input's text while the panel is up
+	draft  string   // the input's text when the panel opened
+	back   int      // the selection, counted back from the newest shown
+	shown  []Sent   // Shown's answer
+	stale  bool     // shown needs working out again
 }
 
-// Add records v, sent at at, unless it's empty or the same as the last
-// line.
+// Add records v, sent at at, unless it's empty, in this input's lines
+// and every input's, in each unless it's the same as that one's last.
 func (h *History) Add(v string, at time.Time) {
-	if v == "" || len(h.run) > 0 && h.run[len(h.run)-1].Text == v {
+	if v == "" {
 		return
 	}
-	h.run = append(h.run, Sent{Text: v, At: at})
-	h.stale = true
+	if len(h.run) == 0 || h.run[len(h.run)-1].Text != v {
+		h.run = append(h.run, Sent{Text: v, At: at})
+		h.stale = true
+	}
+	if l := h.all; l != nil && (len(l.lines) == 0 || l.lines[len(l.lines)-1].Text != v) {
+		l.lines = append(l.lines, Sent{Text: v, At: at})
+		l.gen++
+	}
 }
 
 // SetLogged replaces what was read from the logs with ss, oldest first.
@@ -95,13 +121,20 @@ func (h *History) Shown() []Sent {
 	if !h.open {
 		return nil
 	}
-	if h.shown != nil && !h.stale {
+	if h.shown != nil && !h.stale && (h.all == nil || h.all.gen == h.allGen) {
 		return h.shown
+	}
+	parts := [][]Sent{h.run, h.logged}
+	if h.all != nil {
+		h.allGen = h.all.gen
+		if h.all.scope == ScopeSession {
+			parts = [][]Sent{h.all.lines}
+		}
 	}
 	q := strings.ToLower(h.query)
 	seen := map[string]bool{}
 	h.shown = []Sent{}
-	for _, part := range [][]Sent{h.run, h.logged} {
+	for _, part := range parts {
 		for i := len(part) - 1; i >= 0; i-- {
 			s := part[i]
 			if seen[s.Text] || !strings.Contains(strings.ToLower(s.Text), q) {
