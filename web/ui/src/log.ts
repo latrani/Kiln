@@ -8,7 +8,7 @@ import * as str from "./str.gen.ts";
 
 // LogState is Go's Log event (feed.Log).
 export interface LogState {
-  Key: string; Open: boolean; Find: string; Status: string; StatusErr: boolean;
+  Key: string; Open: boolean; Find: string; LastFind?: string; Status: string; StatusErr: boolean;
   Searching: boolean; Loading: boolean; HistDone: boolean;
   Start?: number | null; End?: number | null; Selected: number;
   Excluded?: number[] | null; Hidden?: number[] | null; Matches?: number[] | null;
@@ -42,7 +42,7 @@ export function logRows(lines: LineData[], g: LogState): LogRow[] {
   return rows;
 }
 
-// findStatus is find's place for the top bar, as the TUI's FindStatus:
+// findStatus is find's place for the status line, as the TUI's FindStatus:
 // the term and which match at is, counted from the newest, of how many
 // (+ while older history may hold more); while it reads older days, how
 // far back it's got.
@@ -138,7 +138,7 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
 // time) or export's format; n and N step
 // find from the cursor; c copies; t says the cursor line's tags; f
 // opens or closes the filter panel; Esc stops a search, else closes the
-// panel, else log mode.
+// panel, else turns find off, else closes log mode.
 export function logAct(store: Store, does: LogKey): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState, v = s.logView[k] ?? { goN: 0 };
   const lines = s.logLines[k]?.lines ?? [];
@@ -156,7 +156,7 @@ export function logAct(store: Store, does: LogKey): void {
       if (to) store.setLogView(k, { cursor: to.Seq, follow: true });
       break;
     }
-    case "find": store.setLogView(k, { prompt: { kind: "find", value: g.Find } }); break;
+    case "find": store.setLogView(k, { prompt: { kind: "find", value: g.LastFind ?? "" } }); break; // the last term, so Enter brings it back
     case "date": { // starting from the cursor's day and time, to edit
       const l = lines.find((l) => l.Seq === here);
       store.setLogView(k, { prompt: { kind: "date", value: l?.Clock ? `${l.Day} ${l.Clock}` : "" } });
@@ -172,9 +172,10 @@ export function logAct(store: Store, does: LogKey): void {
     case "copy": act({ Do: "copy", Key: k }); break;
     case "tags": if (here >= 0) act({ Do: "tags", Key: k, Seq: here }); break;
     case "filter": togglePanel(store); break;
-    case "back":
+    case "back": // one thing at a time: a search, the panel, find, then log mode
       if (g.Searching) act({ Do: "stop_search", Key: k });
-      else if (v.panel) closePanel(store); // the panel first, as Esc backs out of one thing at a time
+      else if (v.panel) closePanel(store);
+      else if (g.Find) act({ Do: "end_find", Key: k });
       else act({ Do: "log_close", Key: k });
       break;
   }

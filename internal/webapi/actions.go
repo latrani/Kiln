@@ -298,7 +298,7 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	}
 	at := func(seq int) *app.LogLine { return lineAt(g, seq) }
 	switch act.Do {
-	case "log_older", "mark", "range", "extend", "exclude", "find", "find_older", "find_newer", "stop_search", //str:ok
+	case "log_older", "mark", "range", "extend", "exclude", "find", "find_older", "find_newer", "stop_search", "end_find", //str:ok
 		"goto", "tags", "export_name", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
 		if g == nil {
 			return nil, nil, true
@@ -335,6 +335,8 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		}
 	case "stop_search": //str:ok
 		g.StopSearch()
+	case "end_find": //str:ok
+		g.EndFind()
 	case "goto": //str:ok
 		effs = g.GotoTime(act.When, l.land(act.Key))
 	case "tags": //str:ok

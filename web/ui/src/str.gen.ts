@@ -46,11 +46,11 @@ export function browseFileExists(file: unknown): string { return `${file} exists
 /** browse.find_prompt: find:  */
 export function browseFindPrompt(): string { return `find: `; }
 
-/** browse.find_status: find: {find} {i}/{n} */
-export function browseFindStatus(find: unknown, i: unknown, n: number): string { return `find: ${find} ${i}/${n}`; }
+/** browse.find_status: find: {find} {i}/{n} · n/N */
+export function browseFindStatus(find: unknown, i: unknown, n: number): string { return `find: ${find} ${i}/${n} · n/N`; }
 
-/** browse.find_status_more: find: {find} {i}/{n}+ */
-export function browseFindStatusMore(find: unknown, i: unknown, n: number): string { return `find: ${find} ${i}/${n}+`; }
+/** browse.find_status_more: find: {find} {i}/{n}+ · n/N */
+export function browseFindStatusMore(find: unknown, i: unknown, n: number): string { return `find: ${find} ${i}/${n}+ · n/N`; }
 
 /** browse.format_prompt: export as (p)lain · (a)nsi · (h)tml   esc cancel */
 export function browseFormatPrompt(): string { return `export as (p)lain · (a)nsi · (h)tml   esc cancel`; }
@@ -58,8 +58,8 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints: m mark · space exclude · / find · n/N · g date · f filter · t tags · e export · c copy · esc back */
-export function browseHints(): string { return `m mark · space exclude · / find · n/N · g date · f filter · t tags · e export · c copy · esc back`; }
+/** browse.hints: m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back */
+export function browseHints(): string { return `m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -998,8 +998,8 @@ export function webLoadingSize(got: unknown, total: unknown): string { return `l
 /** web.log: Log */
 export function webLog(): string { return `Log`; }
 
-/** web.log_hints: click to select · shift-click extends · / find · n/N · g date · f filter · t tags · e export · c copy · esc back */
-export function webLogHints(): string { return `click to select · shift-click extends · / find · n/N · g date · f filter · t tags · e export · c copy · esc back`; }
+/** web.log_hints: click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back */
+export function webLogHints(): string { return `click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back`; }
 
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }

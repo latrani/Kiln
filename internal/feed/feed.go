@@ -336,7 +336,7 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 }
 
 func logState(k string, g *app.Log, format string) Log {
-	l := Log{Key: k, Open: true, Find: g.Find, Status: g.Status, StatusErr: g.StatusErr,
+	l := Log{Key: k, Open: true, Find: g.Find, LastFind: g.LastFind, Status: g.Status, StatusErr: g.StatusErr,
 		Searching: g.Searching, Loading: g.Loading, HistDone: g.HistDone, Selected: len(g.Selection()),
 		ExportFormat: format}
 	if g.Start != nil {

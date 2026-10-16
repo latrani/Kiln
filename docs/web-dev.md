@@ -14,7 +14,8 @@ hides it again, as it was). ↑/↓ or `j`/`k` move the cursor (the time
 in a different color), which starts on the newest line and rides along
 when you scroll. Select lines with the mouse: a click takes
 a line (the cursor going to it), Shift+click extends the range, dragging selects a run. While
-the log has focus, `/` finds, `n`/`N` step through matches, `g` goes
+the log has focus, `/` finds and `n`/`N` step through matches until Esc
+turns find off, `g` goes
 to a day and time (starting from the cursor's), `t` shows a line's tags, `c` copies and `e` exports (a
 download). `f` (or the `Filter` chip) opens the filter panel in the
 sidebar: ↑/↓ move, `h` hides and `o` shows only an entry, ←/→ fold a

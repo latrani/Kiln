@@ -39,7 +39,8 @@ type Log struct {
 	Lines      []*LogLine // oldest first
 	Start, End *LogLine   // the marked range; End nil while only Start is marked
 	Excluded   map[*LogLine]bool
-	Find       string
+	Find       string // the find term while find is on; "" when it's off
+	LastFind   string // the last term find had, kept when it ends, for the next find to start with
 	Status     string // log mode's message; the front end shows it and clears it
 	StatusErr  bool
 	HistDone   bool // every log day is loaded (or there is no history)
@@ -506,11 +507,22 @@ func (g *Log) matchAt(re *regexp.Regexp, l *LogLine) bool {
 	return g.Shows(l) && re.MatchString(g.shown(l))
 }
 
-// SetFind sets the find term and finds its nearest match at from or
-// older; see FindOlder.
+// SetFind turns find on with term and finds its nearest match at from
+// or older (see FindOlder); an empty term turns it off.
 func (g *Log) SetFind(term string, from *LogLine, found func(*LogLine)) []Effect {
-	g.Find = term
+	if term == "" {
+		g.EndFind()
+		return nil
+	}
+	g.Find, g.LastFind = term, term
 	return g.FindOlder(from, true, found)
+}
+
+// EndFind turns find off: no matches marked, n and N do nothing. Its
+// term stays as LastFind, for the next find to start with.
+func (g *Log) EndFind() {
+	g.Searching, g.pending = false, nil
+	g.Find = ""
 }
 
 // FindOlder finds the nearest match older than from (or at it, with
@@ -614,8 +626,8 @@ func (g *Log) matchPos(at *LogLine) (i, n int, more bool) {
 	return i, len(ms), !g.HistDone
 }
 
-// FindStatus is the find term and at's place among the matches, for the
-// top bar; "" without a find.
+// FindStatus is the find term and at's place among the matches, with
+// the keys that step through them, for the statusline; "" with find off.
 func (g *Log) FindStatus(at *LogLine) string {
 	if g.Find == "" {
 		return ""

@@ -42,12 +42,12 @@ func BrowseFileExists(file any) string {
 // BrowseFindPrompt is browse.find_prompt: "find: "
 func BrowseFindPrompt() string { return get("browse.find_prompt", nil) }
 
-// BrowseFindStatus is browse.find_status: "find: {find} {i}/{n}"
+// BrowseFindStatus is browse.find_status: "find: {find} {i}/{n} · n/N"
 func BrowseFindStatus(find, i any, n int) string {
 	return get("browse.find_status", map[string]any{"find": find, "i": i, "n": n})
 }
 
-// BrowseFindStatusMore is browse.find_status_more: "find: {find} {i}/{n}+"
+// BrowseFindStatusMore is browse.find_status_more: "find: {find} {i}/{n}+ · n/N"
 func BrowseFindStatusMore(find, i any, n int) string {
 	return get("browse.find_status_more", map[string]any{"find": find, "i": i, "n": n})
 }
@@ -60,7 +60,7 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "m mark · space exclude · / find · n/N · g date · f filter · t tags · e export · c copy · esc back"
+// BrowseHints is browse.hints: "m mark · space exclude · / find · g date · f filter · t tags · e export · c copy · esc back"
 func BrowseHints() string { return get("browse.hints", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
@@ -1207,7 +1207,7 @@ func WebLoadingSize(got, total any) string {
 // WebLog is web.log: "Log"
 func WebLog() string { return get("web.log", nil) }
 
-// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · n/N · g date · f filter · t tags · e export · c copy · esc back"
+// WebLogHints is web.log_hints: "click to select · shift-click extends · / find · g date · f filter · t tags · e export · c copy · esc back"
 func WebLogHints() string { return get("web.log_hints", nil) }
 
 // WebNeedsJs is web.needs_js: "Kiln needs JavaScript."

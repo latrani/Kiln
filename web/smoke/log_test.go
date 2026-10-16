@@ -53,7 +53,7 @@ func TestLog(t *testing.T) {
 	}
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "LogAt" && e.Key === "fake/second") && document.querySelector("mark")`, "found, marked")
-	waitFor(t, ev, `document.querySelector("header").textContent.includes(`+jsString(str.BrowseFindStatus("fake muck", 1, 1))+`)`, "the find status: one match, today's the only day")
+	waitFor(t, ev, `document.querySelector(".status").textContent.includes(`+jsString(str.BrowseFindStatus("fake muck", 1, 1))+`) && !document.querySelector("header").textContent.includes(`+jsString(str.BrowseFindStatus("fake muck", 1, 1))+`)`, "the find status in the status line: one match, today's the only day")
 
 	// Esc in find's prompt closes the prompt alone: log mode stays, focused.
 	waitFor(t, ev, `document.activeElement === `+logEl, "the log focused again")
@@ -92,7 +92,7 @@ func TestLog(t *testing.T) {
 	waitFor(t, ev, `document.querySelector(".logbar").textContent.includes(`+jsString(str.BrowseFormatPrompt())+`) && document.activeElement === document.querySelector(".logbar")`, "export's format prompt, focused")
 	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": "h", "text": "h"})
 	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": "h"})
-	waitFor(t, ev, `document.querySelector("#kiln-logprompt") && document.querySelector("#kiln-logprompt").value.endsWith(".html")`, "the file name, suggested")
+	waitFor(t, ev, `document.activeElement === document.querySelector("#kiln-logprompt") && document.activeElement.value.endsWith(".html")`, "the file name, suggested and focused")
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Effect" && e.effect === "SaveFile")`, "the download")
 
@@ -103,8 +103,17 @@ func TestLog(t *testing.T) {
 	ctrlL(t, ws)
 	waitFor(t, ev, `document.querySelector("mark")`, "back as it was")
 
-	// Esc closes it.
+	// Esc turns find off, log mode staying; / starts with its term again.
 	ev(logEl + `.focus()`)
+	pressKey(t, ws, "Escape", 27)
+	waitFor(t, ev, `!document.querySelector("mark") && document.querySelector(".log") && !document.querySelector(".status").textContent.includes(`+jsString(str.BrowseFindStatus("fake muck", 1, 1))+`)`, "find off, log mode open")
+	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": "/", "text": "/", "code": "Slash", "windowsVirtualKeyCode": 191})
+	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": "/", "code": "Slash", "windowsVirtualKeyCode": 191})
+	waitFor(t, ev, `document.activeElement === document.querySelector("#kiln-logprompt") && document.activeElement.value === "fake muck"`, "/ starts with the last term")
+	pressKey(t, ws, "Escape", 27)
+
+	// Esc again closes log mode.
+	waitFor(t, ev, `document.activeElement === `+logEl, "the log focused")
 	pressKey(t, ws, "Escape", 27)
 	waitFor(t, ev, `!document.querySelector(".log") && kilnPage.events.filter(e => e.type === "Log").at(-1).Open === false`, "closed")
 }

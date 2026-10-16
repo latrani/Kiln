@@ -133,7 +133,8 @@ type Lines struct {
 type Log struct {
 	Key                          string
 	Open                         bool
-	Find                         string
+	Find                         string // "" with find off
+	LastFind                     string // the term find last had, for the next to start with
 	Status                       string
 	StatusErr                    bool
 	Searching, Loading, HistDone bool
