@@ -87,8 +87,8 @@ the mouse). The TUI's keys copy over:
 
 - `browse.marking`, the statusline part: `marking`. New.
 - `browse.range_start` (`BrowseRangeStart`, the message `m` gives now)
-  is reworded to say how to finish: `marking: move to the other end, m to
-  finish, Esc to drop`, or close to it.
+  is reworded to say how to finish: `marking: move to the other end, m
+  to finish, Esc to drop`.
 
 ## Docs
 
