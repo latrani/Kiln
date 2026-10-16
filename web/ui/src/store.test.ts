@@ -507,9 +507,17 @@ test("the panel's keys act on the highlighted entry, as the TUI's", () => {
   assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: false });
   const n = sent.length;
   panelAct(s, "remove");
-  panelAct(s, "add");
-  assert.equal(sent.length, n, "a tag isn't removed; Enter only adds on + Text");
-  assert.equal(s.state.logView["fm/kit"].prompt, undefined);
+  assert.equal(sent.length, n, "a tag isn't removed");
+  panelAct(s, "enter");
+  assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true }, "Enter on a tag toggles its fold");
+  panelAct(s, "toggle");
+  assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true }, "Space too (Go hasn't said it's folded yet)");
+  assert.equal(s.state.logView["fm/kit"].prompt, undefined, "Enter only asks for a text on + Text");
+  panelAct(s, "down");
+  const m = sent.length;
+  panelAct(s, "toggle");
+  panelAct(s, "enter");
+  assert.equal(sent.length, m, "a tag with no children doesn't fold");
 });
 
 test("x on a text row removes it, the highlight moving down first; Enter on + Text asks for a text", () => {
@@ -520,7 +528,7 @@ test("x on a text row removes it, the highlight moving down first; Enter on + Te
   assert.equal(s.state.logView["fm/kit"].panel?.sel, "+");
   panelAct(s, "hide");
   assert.equal(sent.at(-1).Do, "remove_text", "+ Text has no Hide");
-  panelAct(s, "add");
+  panelAct(s, "enter");
   assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
 });
 

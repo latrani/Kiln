@@ -456,8 +456,8 @@ export function filterAddText(): string { return `+ Text`; }
 /** filter.hide: Hide */
 export function filterHide(): string { return `Hide`; }
 
-/** filter.hints: h hide · o only · ←→ fold · enter add · x remove · f close */
-export function filterHints(): string { return `h hide · o only · ←→ fold · enter add · x remove · f close`; }
+/** filter.hints: h hide · o only · space ←→ fold · enter add · x remove · f close */
+export function filterHints(): string { return `h hide · o only · space ←→ fold · enter add · x remove · f close`; }
 
 /** filter.only: Only */
 export function filterOnly(): string { return `Only`; }
@@ -1053,7 +1053,7 @@ export const glyph = {
   sys: "*",
   rule: "─",
   open: "▼",
-  collapsed: "►",
+  collapsed: "\u003e",
   filtered: "•",
   remove: "×",
   selected: "▌",
