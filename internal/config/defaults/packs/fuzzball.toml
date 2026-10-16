@@ -58,4 +58,4 @@ pattern = '<OOC>|\[OOC\]|\(OOC\)'
 "page"     = { fg = "catppuccin.blue", bold = true }
 "watchfor" = { fg = "catppuccin.maroon", bold = true }
 "system"   = { fg = "catppuccin.green", faint = true }
-"ooc"   = { fg = "catppuccin.mauve", faint = true }
+"ooc"      = { fg = "catppuccin.mauve", bold = true }
