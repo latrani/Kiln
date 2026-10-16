@@ -4,7 +4,6 @@ import type { PickRow } from "../picker.ts";
 import { sidebarRows } from "../sidebar.ts";
 import { listing, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
-import { titled } from "../layout.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { FilterPanel } from "./FilterPanel.tsx";
@@ -27,7 +26,7 @@ export function Sidebar({ state, store }: { state: State; store: Store }) {
   const go = (Key: string) => state.act?.({ Do: "switch", Key });
   return (
     <nav class={`side ${roleClass("sidebar")}`} aria-label={str.webCharacters()}>
-      <h2 class={`stitle ${roleClass("sidebar.title")}`}>{titled(str.viewConnectionsTitle())}</h2>
+      <SideTitle role="sidebar.title" rule="rule.sidebar" label={str.viewConnectionsTitle()} />
       <ul>
         {sidebarRows(state.order, state.chars).map((r) => {
           if (r.kind === "gap") return <li key="gap" aria-hidden="true"> </li>;
@@ -90,7 +89,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   }, [p.sel]);
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
-      <h2 class={`stitle ${roleClass("picker.title")}`}>{titled(str.pickerTitle())}</h2>
+      <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} />
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen
@@ -144,4 +143,14 @@ function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
     else if (r.kind !== "add_world") out.at(-1)?.rows.push(r);
   }
   return out;
+}
+
+// SideTitle is a sidebar list's title, as the TUI's: label over a rule
+// across the column in rule's color, in line with the top bar's. A press
+// on it does onPress (the filter panel's: focus to it).
+export function SideTitle({ role, rule, label, onPress }: { role: string; rule: string; label: string; onPress?: () => void }) {
+  return (
+    <h2 class={`stitle ${roleClass(role)}`} style={`--rule:var(--role-${rule.replaceAll(".", "-")}-fg)`}
+      onMouseDown={onPress && ((e) => { e.preventDefault(); onPress(); })}>{label}</h2>
+  );
 }

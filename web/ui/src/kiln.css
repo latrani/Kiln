@@ -21,7 +21,7 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side { grid-area: side; overflow-y: auto; }
 /* Each sidebar list's title, as the TUI's: its first row, underlined
    across the column. */
-.side .stitle { font: inherit; margin: 0; white-space: pre; overflow: hidden; }
+.side .stitle { font: inherit; margin: 0 0 calc(.5lh - .5px); padding-bottom: calc(.5lh - .5px); border-bottom: 1px solid var(--rule); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .filter-panel { display: flex; flex-direction: column; }
 .filter-panel ul { flex: 1 1 auto; }
 /* The panel's footer under a rule, wrapping between keys, as the TUI's. */

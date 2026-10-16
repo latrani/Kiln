@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
 import { focusPanel, panelAct } from "../filter.ts";
-import { titled } from "../layout.ts";
 import { logAct } from "../log.ts";
 import { switchAction } from "../presence.ts";
 import { Store } from "../store.ts";
@@ -27,11 +26,12 @@ const side = (h: string) => h.slice(h.indexOf("<nav"), h.indexOf("</nav>"));
 
 test("each sidebar list is titled: Connections, All connections in the picker, Filters in log mode", () => {
   const { s } = store(false);
-  assert.match(side(html(s)), new RegExp(`^<nav[^>]*><h2 class="stitle ${roleClass("sidebar.title")}">${titled(str.viewConnectionsTitle())}</h2>`));
+  const title = (role: string, rule: string, label: string) => `<h2 class="stitle ${roleClass(role)}" style="--rule:var(--role-${rule.replaceAll(".", "-")}-fg)">${label}</h2>`;
+  assert.ok(side(html(s)).includes(title("sidebar.title", "rule.sidebar", str.viewConnectionsTitle())), "over a rule in the sidebar's color");
   s.openPicker();
-  assert.match(side(html(s)), new RegExp(`<h2 class="stitle ${roleClass("picker.title")}">${titled(str.pickerTitle())}</h2>`));
+  assert.ok(side(html(s)).includes(title("picker.title", "rule.picker", str.pickerTitle())));
   const { s: l } = store(true);
-  assert.match(side(html(l)), new RegExp(`^<nav class="side filter-panel[^>]*><h2 class="stitle ${roleClass("filter.title")}">${titled(str.filterTitle())}</h2>`));
+  assert.ok(side(html(l)).includes(title("filter.title", "rule.filter", str.filterTitle())));
 });
 
 test("in log mode the panel is always there, on its first entry, and there's no Filter chip", () => {
@@ -42,15 +42,25 @@ test("in log mode the panel is always there, on its first entry, and there's no 
   assert.ok(!top.includes("status.filter") && (top.match(/<button/g) ?? []).length === 2, "presence and Log only");
 });
 
-test("footers follow focus: the log's while it has it (or nothing has), the panel's while it does", () => {
-  const foot = (h: string) => side(h).slice(side(h).indexOf(`class="ffoot`));
+test("footers follow focus, the unfocused side's faded; the panel's has the keys for the highlighted row", () => {
+  const text = (h: string) => h.replace(/<[^>]*>/g, "");
+  const foot = (h: string) => side(h).slice(side(h).indexOf(`<div class="ffoot`));
   const bar = (h: string) => h.slice(h.indexOf(`class="logbar`));
-  const { s } = store(true);
-  assert.ok(bar(html(s)).includes(str.browseHintsNone()) && foot(html(s)).includes(str.filterHintsAway().split(str.separator())[0]));
-  assert.ok(!foot(html(s)).includes("enter"), "the away footer has no shared keys");
+  const keys = (...ks: string[]) => ks.join(str.separator());
+  const { s } = store(true); // the highlight on Untagged
+  assert.ok(bar(html(s)).includes(`class="${roleClass("log.bar.hints")}">${str.browseHintsNone()}<`));
+  assert.ok(foot(html(s)).startsWith(`<div class="ffoot ${roleClass("filter.hints.away")}"`), "the panel's faded");
+  assert.equal(text(foot(html(s))), keys(str.filterKeyHide(), str.filterKeyOnly()));
   s.setLogView("fm/kit", { focus: "panel" });
-  assert.ok(bar(html(s)).includes(str.browseHintsNoneAway()));
-  for (const k of str.filterHints().split(str.separator())) assert.ok(foot(html(s)).includes(k), k);
+  assert.ok(bar(html(s)).includes(`class="${roleClass("log.bar.hints.away")}">${str.browseHintsNoneAway()}<`), "the log's faded");
+  assert.ok(foot(html(s)).startsWith(`<div class="ffoot ${roleClass("filter.hints")}"`));
+  assert.equal(text(foot(html(s))), keys(str.filterKeyHide(), str.filterKeyOnly(), str.filterKeyLog()));
+  s.setLogView("fm/kit", { panel: { sel: "g:page" } }); // has tags under it
+  assert.equal(text(foot(html(s))), keys(str.filterKeyHide(), str.filterKeyOnly(), str.filterKeyFold(), str.filterKeyLog()));
+  s.setLogView("fm/kit", { panel: { sel: "+" } });
+  assert.equal(text(foot(html(s))), keys(str.filterKeyAdd(), str.filterKeyLog()));
+  s.setLogView("fm/kit", { focus: undefined });
+  assert.equal(text(foot(html(s))), "", "nothing on + Text reaches it from the log");
 });
 
 test("f in the log focuses the panel; Esc (close) in the panel the log; the panel stays", () => {

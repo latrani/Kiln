@@ -49,7 +49,7 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
     document.querySelector<HTMLElement>(".log")?.focus();
   };
   if (!p) {
-    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{hints(g, v.focus === "panel")}</span></div>;
+    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass(v.focus === "panel" ? "log.bar.hints.away" : "log.bar.hints")}>{hints(g, v.focus === "panel")}</span></div>;
   }
   if (p.kind === "format") {
     const onKeyDown = (e: KeyboardEvent) => {

@@ -43,5 +43,10 @@ test("the panel's keys, as the TUI's; never with a modifier", () => {
     ["up", "down", "hide", "only", "shut", "open", "toggle", "enter", "remove", "remove", "close", "close"]);
   assert.equal(k("h", { ctrlKey: true }), undefined);
   assert.equal(k("o", { metaKey: true }), undefined);
-  assert.equal(k("j"), undefined, "no j/k on the web: arrows");
+});
+
+test("j and k move the highlight, as the TUI's (the log's are its own)", () => {
+  const k = (key: string) => filterKey({ key, ctrlKey: false, altKey: false, metaKey: false });
+  assert.equal(k("j"), "down");
+  assert.equal(k("k"), "up");
 });

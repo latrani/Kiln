@@ -55,13 +55,12 @@ export function moveSel(rows: PanelRow[], sel: string, delta: number): string {
 export type PanelKey = "up" | "down" | "hide" | "only" | "shut" | "open" | "toggle" | "enter" | "remove" | "close";
 
 const panelKeys: Record<string, PanelKey> = {
-  ArrowUp: "up", ArrowDown: "down", h: "hide", o: "only", ArrowLeft: "shut", ArrowRight: "open",
+  ArrowUp: "up", ArrowDown: "down", k: "up", j: "down", h: "hide", o: "only", ArrowLeft: "shut", ArrowRight: "open",
   " ": "toggle", Enter: "enter", x: "remove", Delete: "remove", Escape: "close", f: "close",
 };
 
-// filterKey is a key in the panel, as the TUI's panelKey: arrows, not
-// j/k (spec: the web has no cursor keys). A key with a modifier is the
-// browser's.
+// filterKey is a key in the panel, as the TUI's panelKey: arrows or j/k
+// move. A key with a modifier is the browser's.
 export function filterKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }): PanelKey | undefined {
   if (e.ctrlKey || e.altKey || e.metaKey) return undefined;
   return panelKeys[e.key];
