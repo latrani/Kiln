@@ -125,6 +125,7 @@ export interface State {
   sidebar?: { Collapsed: boolean; Unread: number; Priority: boolean }; // Go's Sidebar event: the collapsed preference and the badge
   narrow?: boolean; // the page is under 64 of its characters across: no sidebar column (App measures it)
   narrowOpen?: boolean; // the narrow sidebar is open; never saved
+  narrowPicked?: number; // when a row was last picked from the narrow sidebar (ms), for swallowsClick
   confirm?: boolean;
   history?: HistoryPanel; // the active input's history panel, as Go holds it
   saveQuestion?: any;
@@ -405,7 +406,7 @@ export class Store {
   // the narrow sidebar, picked from, closes.
   pickFromSidebar(key: string): void {
     this.state.act?.({ Do: "switch", Key: key });
-    this.set({ narrowOpen: false });
+    this.set({ narrowOpen: false, narrowPicked: this.state.narrowOpen ? Date.now() : this.state.narrowPicked });
   }
 
   // setPicker changes the open picker, keeping its highlight on a row the

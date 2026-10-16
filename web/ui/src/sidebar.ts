@@ -101,3 +101,14 @@ export function toggleSidebar(store: Store): void {
 export function sidebarKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean; shiftKey: boolean }): boolean {
   return e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "b";
 }
+
+// doubleClick is the longest gap between a double-click's clicks, as the
+// TUI's.
+const doubleClick = 400;
+
+// swallowsClick reports whether a click outside the sidebar is a
+// double-click's second, landing on what was under the narrow sidebar
+// its first click picked from and closed, as the TUI's: it does nothing.
+export function swallowsClick(s: State, now: number, inSidebar: boolean): boolean {
+  return !inSidebar && s.narrowPicked !== undefined && now - s.narrowPicked <= doubleClick;
+}

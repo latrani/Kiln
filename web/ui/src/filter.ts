@@ -79,7 +79,12 @@ export function focusPanel(store: Store): void {
 // the log, the panel staying.
 export function focusLog(store: Store): void {
   store.setLogView(store.state.active, { focus: undefined });
-  globalThis.document?.querySelector<HTMLElement>(".log")?.focus();
+  const doc = globalThis.document;
+  const log = () => doc?.querySelector<HTMLElement>(".log");
+  log()?.focus();
+  // Narrow, the log was hidden under the panel until the page draws
+  // again, and a hidden element takes no focus: try again then.
+  if (doc && doc.activeElement !== log()) setTimeout(() => log()?.focus());
 }
 
 // panelAct does what a panel key asks, as the TUI's panelKey: ↑/↓ move

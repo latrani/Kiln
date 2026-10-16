@@ -32,3 +32,13 @@ func (m *Model) narrowH() int {
 	l := m.layout()
 	return l.top + l.sbH
 }
+
+// pickedNarrow is a click picking a row: the narrow sidebar closes, and
+// a double-click's second click, landing on what was under it, does
+// nothing (see handleClick).
+func (m *Model) pickedNarrow() {
+	if m.narrow() && m.narrowOpen {
+		m.narrowPicked = m.d.Now()
+	}
+	m.narrowOpen = false
+}

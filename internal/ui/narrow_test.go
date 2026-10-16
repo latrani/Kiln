@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -139,5 +140,38 @@ func TestNarrowResize(t *testing.T) {
 	h.m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
 	if h.m.narrowShown() {
 		t.Error("narrow again came back open")
+	}
+}
+
+// The wheel over the open narrow panel scrolls the panel, not the log
+// hidden under it.
+func TestNarrowPanelWheel(t *testing.T) {
+	h := narrowHarness(t)
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	h.m.Update(tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelDown})
+	if h.br().scrolled {
+		t.Error("the wheel over the panel scrolled the hidden log")
+	}
+}
+
+// The second click of a double-click on a narrow row lands on what's
+// under it once the sidebar's closed: it does nothing.
+func TestNarrowDoubleClickDoesNothingUnder(t *testing.T) {
+	h := narrowHarness(t)
+	h.key("ctrl+b")
+	y := rowOf(h, "fm")
+	h.click(3, y)
+	h.screen()    // the overview, drawn: its parts are clickable
+	h.click(3, y) // on the overview now, where Kit's part is
+	if h.m.a.Active() != worldSel("fm") {
+		t.Errorf("the second click switched to %s; want fm's overview still", h.m.a.Active())
+	}
+	h.advance(doubleClick + time.Millisecond)
+	h.screen()
+	h.click(3, y)
+	if h.m.a.Active() == worldSel("fm") {
+		t.Error("a later click on the overview did nothing")
 	}
 }

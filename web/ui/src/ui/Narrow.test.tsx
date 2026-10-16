@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
-import { toggleSidebar } from "../sidebar.ts";
+import { swallowsClick, toggleSidebar } from "../sidebar.ts";
 import { Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 
@@ -52,4 +52,14 @@ test("narrow log mode: toggling is f, the panel open while it has focus", () => 
   assert.ok(html(s).includes("filter-panel"));
   toggleSidebar(s);
   assert.equal(s.state.logView["fm/kit"].focus, undefined);
+});
+
+test("a double-click's second click, outside the sidebar, does nothing once the first picked from it", () => {
+  const { s } = page();
+  toggleSidebar(s);
+  s.pickFromSidebar("fm/rook");
+  const at = s.state.narrowPicked!;
+  assert.equal(swallowsClick(s.state, at + 100, false), true);
+  assert.equal(swallowsClick(s.state, at + 100, true), false, "in the sidebar: a click as ever");
+  assert.equal(swallowsClick(s.state, at + 1000, false), false, "later: a click as ever");
 });

@@ -12,7 +12,7 @@ import { BottomPane } from "./BottomPane.tsx";
 import { LogView } from "./LogView.tsx";
 import { Scrollback } from "./Scrollback.tsx";
 import { Sidebar } from "./Sidebar.tsx";
-import { sideShown } from "../sidebar.ts";
+import { sideShown, swallowsClick } from "../sidebar.ts";
 import { Splash } from "./Splash.tsx";
 import { StatusLine } from "./StatusLine.tsx";
 import { TopBar } from "./TopBar.tsx";
@@ -43,7 +43,12 @@ export function App({ store }: { store: Store }) {
     <>
       <style dangerouslySetInnerHTML={{ __html: themeCSS(s.theme ?? recalled) }} />
       {s.phase === "locked" ? <Splash state={s} /> : (
-        <div ref={kiln} class={s.narrow ? (sideShown(s) ? "kiln narrow open" : "kiln narrow") : sideShown(s) ? "kiln" : "kiln collapsed"} style={{ "--side": sidebarCSS() }}>
+        <div ref={kiln} onClickCapture={(e) => {
+          if (swallowsClick(store.state, Date.now(), !!(e.target as Element).closest?.(".side"))) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }} class={s.narrow ? (sideShown(s) ? "kiln narrow open" : "kiln narrow") : sideShown(s) ? "kiln" : "kiln collapsed"} style={{ "--side": sidebarCSS() }}>
           {sideShown(s) && <Sidebar state={s} store={store} />}
           {sideShown(s) && !s.narrow && <div class="divider" />}
           {!(s.narrow && sideShown(s)) && <TopBar state={s} store={store} />}

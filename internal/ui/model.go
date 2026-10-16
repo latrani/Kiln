@@ -53,23 +53,24 @@ type Deps struct {
 
 // Model is the Bubble Tea model.
 type Model struct {
-	d           Deps
-	a           *app.App              // what Kiln decides; Model is its terminal front end
-	picker      *picker               // non-nil while the open-connection picker is open
-	idle        *Input                // the input box while nothing is open
-	chars       map[string]*charState // the open characters' views, keyed like the core's
-	width       int
-	height      int
-	resizeGen   int      // bumped per pane size change; see resizeMsg
-	pane        [2]int   // the pane size last given the core; see notePane
-	narrowOpen  bool     // the narrow sidebar is open; see narrowShown
-	sideTop     int      // first sidebar row shown when it overflows
-	sideShown   string   // active character last scrolled into view
-	quitKey     string   // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
-	quitGen     int      // bumped per arming; see quitExpiredMsg
-	logStatus   int      // the status Gen of a message log mode put up; its next key or click clears that one
-	statusTimed int      // the statusGen whose expiry is scheduled
-	lastClick   struct { // for spotting a double-click in the sidebar
+	d            Deps
+	a            *app.App              // what Kiln decides; Model is its terminal front end
+	picker       *picker               // non-nil while the open-connection picker is open
+	idle         *Input                // the input box while nothing is open
+	chars        map[string]*charState // the open characters' views, keyed like the core's
+	width        int
+	height       int
+	resizeGen    int       // bumped per pane size change; see resizeMsg
+	pane         [2]int    // the pane size last given the core; see notePane
+	narrowOpen   bool      // the narrow sidebar is open; see narrowShown
+	narrowPicked time.Time // when a click last picked from the narrow sidebar, closing it
+	sideTop      int       // first sidebar row shown when it overflows
+	sideShown    string    // active character last scrolled into view
+	quitKey      string    // "ctrl+c" or "ctrl+d" once pressed on an empty input; again quits
+	quitGen      int       // bumped per arming; see quitExpiredMsg
+	logStatus    int       // the status Gen of a message log mode put up; its next key or click clears that one
+	statusTimed  int       // the statusGen whose expiry is scheduled
+	lastClick    struct {  // for spotting a double-click in the sidebar
 		char string
 		at   time.Time
 	}
@@ -1031,6 +1032,10 @@ func (m *Model) browseBodyH() int { return max(1, m.height-topH-4) }
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()
 	cs := m.cur()
+	if w, h := m.sideBox(); msg.X < w && msg.Y < h { // first: narrow, it lies over the log
+		m.sideWheel(msg.Button)
+		return nil
+	}
 	if cs != nil && cs.browse != nil && msg.X >= l.rx {
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -1038,10 +1043,6 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		case tea.MouseWheelDown:
 			return m.run(cs.browse.scrollBy(m.scrollLines()))
 		}
-		return nil
-	}
-	if w, h := m.sideBox(); msg.X < w && msg.Y < h {
-		m.sideWheel(msg.Button)
 		return nil
 	}
 	if m.overviewing() && msg.X >= l.rx && msg.Y >= l.top && msg.Y-l.top < l.sbH {
@@ -1083,6 +1084,9 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	l := m.layout()
 	if w, h := m.sideBox(); msg.X < w && msg.Y < h {
 		return m.sideClick(msg.X, msg.Y)
+	}
+	if !m.narrowPicked.IsZero() && m.d.Now().Sub(m.narrowPicked) <= doubleClick {
+		return nil // a double-click's second click, on what was under the narrow sidebar: nothing
 	}
 	if msg.Y < l.top {
 		if msg.Y == 0 {
@@ -1253,6 +1257,9 @@ func (m *Model) sideClick(x, y int) tea.Cmd {
 	case r == nil:
 	case m.listing() && r.kind == rowAddCharError: // the name's problem: nothing
 	case m.listing(): // the rows are the picker's
+		if m.narrow() {
+			m.narrowPicked = m.d.Now() // choosing closes the picker, and the narrow sidebar with it
+		}
 		m.leaveEditor()
 		if k := selKey(*r); k != "" {
 			m.picker.sel = k
@@ -1264,14 +1271,14 @@ func (m *Model) sideClick(x, y int) tea.Cmd {
 	case r.kind == rowWorld:
 		m.switchTo(worldSel(r.world))
 		m.sideShown = m.a.Active() // clicked, so already in view
-		m.narrowOpen = false       // picked: the narrow sidebar closes
+		m.pickedNarrow()
 	case r.kind == rowGap: // gaps do nothing
 	case x == badgeX && closable(m.chars[r.char]):
 		m.close(r.char)
 	default:
 		m.switchTo(r.char)
 		m.sideShown = r.char // clicked, so already in view
-		m.narrowOpen = false // picked: the narrow sidebar closes
+		m.pickedNarrow()
 		now := m.d.Now()
 		double := m.lastClick.char == r.char && now.Sub(m.lastClick.at) <= doubleClick
 		m.lastClick.char, m.lastClick.at = r.char, now
