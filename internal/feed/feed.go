@@ -367,14 +367,18 @@ func history(a *app.App) History {
 	if a.Char(k) == nil {
 		k = "" // a world's overview, or nothing open: the idle input
 	}
+	scope := "character" //str:ok
+	if a.HistoryScope() == app.ScopeSession {
+		scope = "session" //str:ok
+	}
 	h := a.History()
 	if !h.IsOpen() {
-		return History{Key: k, Sel: -1}
+		return History{Key: k, Sel: -1, Scope: scope}
 	}
 	shown, now := h.Shown(), a.Now()
 	rows := make([]HistoryRow, len(shown))
 	for i, s := range shown {
 		rows[i] = HistoryRow{Text: s.Text, Clock: app.Clock(s.At, now)}
 	}
-	return History{Key: k, Open: true, Query: h.Query(), Rows: rows, Sel: h.Sel()}
+	return History{Key: k, Open: true, Query: h.Query(), Rows: rows, Sel: h.Sel(), Scope: scope}
 }

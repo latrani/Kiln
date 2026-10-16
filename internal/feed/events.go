@@ -63,12 +63,15 @@ type Input struct {
 // History is the active input's history panel (Key "" for the idle
 // input's): while Open, the sent lines it lists, oldest first, and the
 // selected one's index (-1 for none). Query is what they're filtered by.
+// Scope is which lines the panels list, open or not: "character" or
+// "session".
 type History struct {
 	Key   string
 	Open  bool
 	Query string
 	Rows  []HistoryRow
 	Sel   int
+	Scope string
 }
 
 // HistoryRow is one line in the history panel, and when it was sent, as
