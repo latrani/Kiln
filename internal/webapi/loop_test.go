@@ -1146,11 +1146,15 @@ func TestFindOlderLandsOnALaterTurn(t *testing.T) {
 	t.Error("no LogAt after reading the older day")
 }
 
-func TestGotoDateLands(t *testing.T) {
+func TestGotoLands(t *testing.T) {
 	h, seqs := logWith(t, "one", "two")
-	b := h.act(`{"Do":"goto_date","Key":"fm/kit","Day":"` + day.Format("2006-01-02") + `"}`)
+	b := h.act(`{"Do":"goto","Key":"fm/kit","When":"` + day.Format("2006-01-02") + `"}`)
 	if at := event(b, "LogAt"); at == nil || at["Seq"] != float64(seqs[0]) {
-		t.Errorf("goto: %v", at)
+		t.Errorf("goto a day: %v", at)
+	}
+	b = h.act(`{"Do":"goto","Key":"fm/kit","When":"` + day.Add(time.Hour).Local().Format("2006-01-02 15:04") + `"}`)
+	if at := event(b, "LogAt"); at == nil || at["Seq"] != float64(seqs[1]) {
+		t.Errorf("goto a time after both: %v", at)
 	}
 }
 

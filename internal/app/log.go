@@ -630,15 +630,62 @@ func (g *Log) FindStatus(at *LogLine) string {
 	return str.BrowseFindStatus(g.Find, i, n)
 }
 
-// GotoDate pages in history back to day (YYYY-MM-DD), then hands its
-// first visible line to show, for the front end to go to.
-func (g *Log) GotoDate(day string, show func(*LogLine)) []Effect {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
-		g.SetStatus(true, str.BrowseDateFormat())
+// Go-to's forms, in Go's reference-time notation: a day and a time of
+// day, as log mode draws them, or a day alone.
+const (
+	whenLayout = "2006-01-02 15:04" //str:ok a time layout
+	dayLayout  = "2006-01-02"       //str:ok a time layout
+)
+
+// WhenOf is l's day and time of day as go-to takes them: what its prompt
+// starts with.
+func WhenOf(l *LogLine) string { return l.Day + " " + TimeOfDay(l.Entry.Time) }
+
+// GotoTime pages in history back to when, then hands a line to show, for
+// the front end to go to: for a day and time ("2026-09-24 21:04"), the
+// last shown line in or before that minute (failing that, the first one
+// after it); for a day alone, the day's first shown line.
+func (g *Log) GotoTime(when string, show func(*LogLine)) []Effect {
+	when = strings.Join(strings.Fields(when), " ")
+	if t, err := time.ParseInLocation(whenLayout, when, time.Local); err == nil {
+		return g.gotoMinute(t, show)
+	}
+	if _, err := time.Parse(dayLayout, when); err == nil {
+		return g.gotoDay(when, show)
+	}
+	g.SetStatus(true, str.BrowseDateFormat())
+	return nil
+}
+
+// gotoMinute is GotoTime for a day and time: minute t.
+func (g *Log) gotoMinute(t time.Time, show func(*LogLine)) []Effect {
+	end := t.Add(time.Minute) // a line drawn at 21:04 is in 21:04, seconds and all
+	if (len(g.Lines) == 0 || !g.Lines[0].Entry.Time.Before(end)) && !g.HistDone {
+		return g.Older(func() []Effect { return g.gotoMinute(t, show) })
+	}
+	v := g.Visible()
+	if len(v) == 0 {
+		g.SetStatus(true, str.BrowseNoLogs())
 		return nil
 	}
+	to := v[0]
+	for _, l := range v {
+		if !l.Entry.Time.Before(end) {
+			break
+		}
+		to = l
+	}
+	if show != nil {
+		show(to)
+	}
+	g.Status = ""
+	return nil
+}
+
+// gotoDay is GotoTime for a day alone.
+func (g *Log) gotoDay(day string, show func(*LogLine)) []Effect {
 	if (len(g.Lines) == 0 || g.Lines[0].Day > day) && !g.HistDone {
-		return g.Older(func() []Effect { return g.GotoDate(day, show) })
+		return g.Older(func() []Effect { return g.gotoDay(day, show) })
 	}
 	for _, l := range g.Visible() {
 		if l.Day >= day {
@@ -655,7 +702,7 @@ func (g *Log) GotoDate(day string, show func(*LogLine)) []Effect {
 
 // DayLabel formats "2026-09-24" as "Thu Sep 24".
 func DayLabel(day string) string {
-	t, err := time.Parse("2006-01-02", day)
+	t, err := time.Parse(dayLayout, day)
 	if err != nil {
 		return day
 	}

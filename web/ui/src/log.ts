@@ -134,7 +134,8 @@ export function wantsOlder(g: { Loading: boolean; HistDone: boolean }, v: { scro
 
 // logAct does what a log-mode key asks, as the TUI's browse.key: ↑/↓
 // move the cursor a shown line (up from the oldest asks for older
-// history); a prompt for find, a date or export's format; n and N step
+// history); a prompt for find, go-to (starting from the cursor's day and
+// time) or export's format; n and N step
 // find from the cursor; c copies; t says the cursor line's tags; f
 // opens or closes the filter panel; Esc stops a search, else closes the
 // panel, else log mode.
@@ -156,7 +157,11 @@ export function logAct(store: Store, does: LogKey): void {
       break;
     }
     case "find": store.setLogView(k, { prompt: { kind: "find", value: g.Find } }); break;
-    case "date": store.setLogView(k, { prompt: { kind: "date", value: "" } }); break;
+    case "date": { // starting from the cursor's day and time, to edit
+      const l = lines.find((l) => l.Seq === here);
+      store.setLogView(k, { prompt: { kind: "date", value: l?.Clock ? `${l.Day} ${l.Clock}` : "" } });
+      break;
+    }
     case "export":
       // Nothing selected: Go says to mark a range, as the TUI's e.
       if (!g.Selected) act({ Do: "export_name", Key: k, Format: "" });

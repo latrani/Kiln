@@ -167,17 +167,44 @@ func TestStopSearchFindsNothing(t *testing.T) {
 	}
 }
 
-func TestGotoDateShowsTheDaysFirstLine(t *testing.T) {
+func TestGotoDayShowsTheDaysFirstLine(t *testing.T) {
 	a := logApp(t, 150, 150, 150)
 	g := a.OpenLog("fm/kit")
 	var shown *LogLine
-	drain(a, g.GotoDate("2026-09-22", func(l *LogLine) { shown = l }))
+	drain(a, g.GotoTime("2026-09-22", func(l *LogLine) { shown = l }))
 	if shown == nil || shown.Entry.Text != "09-22 0" {
 		t.Errorf("shown %v", shown)
 	}
-	g.GotoDate("2026/09/22", nil)
-	if g.Status != str.BrowseDateFormat() {
-		t.Errorf("bad date: %q", g.Status)
+	for _, bad := range []string{"2026/09/22", "2026-09-22 9", "2026-09-22 09:00:00", "yesterday"} {
+		g.Status = ""
+		g.GotoTime(bad, nil)
+		if g.Status != str.BrowseDateFormat() {
+			t.Errorf("%q: status %q", bad, g.Status)
+		}
+	}
+}
+
+// A day and time goes to the last line in or before that minute,
+// paging in the day it's on; one before every line, to the oldest.
+func TestGotoTimeShowsTheLineAtOrBefore(t *testing.T) {
+	a := logApp(t, 150, 150, 150) // a line a minute from 09:00
+	g := a.OpenLog("fm/kit")
+	var shown *LogLine
+	show := func(l *LogLine) { shown = l }
+	for _, c := range []struct{ when, want string }{
+		{"2026-09-22 09:10", "09-22 10"},     // its own minute
+		{" 2026-09-22   09:10 ", "09-22 10"}, // spacing doesn't matter
+		{"2026-09-23 12:00", "09-23 149"},    // after the day's last line: that line
+		{"2026-09-22 08:00", "09-22 0"},      // before everything: the oldest
+	} {
+		shown = nil
+		drain(a, g.GotoTime(c.when, show))
+		if shown == nil || shown.Entry.Text != c.want {
+			t.Errorf("%q went to %v, want %q", c.when, shown, c.want)
+		}
+	}
+	if l := g.Lines[10]; WhenOf(l) != "2026-09-22 09:10" {
+		t.Errorf("WhenOf = %q", WhenOf(l))
 	}
 }
 
