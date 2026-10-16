@@ -101,7 +101,11 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 	}
 	b.ClearStatus()
 	switch browseKeys[s] {
-	case actBack:
+	case actBack: // find first, as Esc backs out of one thing at a time
+		if b.Find != "" {
+			b.EndFind()
+			return nil, false
+		}
 		return nil, true
 	case actUp:
 		return b.run(b.MoveCursor(-1)), false
@@ -119,9 +123,9 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		b.Mark()
 	case actExclude:
 		b.ToggleExclude(b.Cursor)
-	case actFind:
+	case actFind: // starting with the last term, so / and Enter bring it back
 		b.prompt = promptFind
-		b.pin.SetValue(b.Find)
+		b.pin.SetValue(b.LastFind)
 	case actNextMatch: // n goes on the way find goes: older
 		return b.run(b.FindOlder(false)), false
 	case actPrevMatch:
@@ -145,6 +149,17 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		}
 	}
 	return nil, false
+}
+
+// statusParts is what log mode's statusline says with no message up:
+// find, while it's on, then how many lines are selected; most specific
+// first, so a narrow screen cuts the least.
+func (b *browse) statusParts() string {
+	parts := []string{str.ViewSelected(len(b.Selection()))}
+	if f := b.FindStatus(); f != "" {
+		parts = append([]string{f}, parts...)
+	}
+	return strings.Join(parts, str.Separator())
 }
 
 // lineTags says which tags l has, and for each one without a style of

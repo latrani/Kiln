@@ -91,12 +91,15 @@ test("a prompt: find's label and field; the format prompt names the default", ()
   assert.ok(fmt.includes('role="group" aria-labelledby="kiln-format"') && fmt.includes(`<span id="kiln-format">${str.browseFormatPrompt()}</span>`), "named for a screen reader as it takes focus");
 });
 
-test("top bar: the find status and the Log chip, lit; status line: the log's status, else how many selected", () => {
+test("top bar: the Log chip, lit; status line: the log's status, else find's and how many selected", () => {
   const html = pageWith({ Find: "apple", Matches: [1], Selected: 3 });
   const top = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
-  assert.ok(top.includes(str.browseFindStatus("apple", 1, 1)), "counted from the cursor, on the newest line");
+  assert.ok(!top.includes(str.browseFindStatus("apple", 1, 1)), "find's status is the status line's");
   assert.match(top, new RegExp(`<button class="${roleClass("status.log.on")}"[^>]*>${str.viewLogButton()}</button>`));
-  assert.ok(html.slice(html.indexOf('class="status')).includes(str.viewSelected(3)));
+  assert.ok(html.slice(html.indexOf('class="status')).includes(str.browseFindStatus("apple", 1, 1) + str.separator() + str.viewSelected(3)),
+    "find first, counted from the cursor (on the newest line)");
+  const fs = str.browseFindStatus("", 0, 0), keys = fs.slice(fs.lastIndexOf(str.separator()) + str.separator().length);
+  assert.ok(!pageWith({ Selected: 3 }).includes(keys), "find off: no find, and not its keys");
   // Log mode's messages come as the status (Go moves them there, as the
   // TUI's takeLogStatus); the log's own field isn't drawn.
   const stale = pageWith({ Status: "stale", Selected: 2 });
@@ -109,7 +112,7 @@ test("not in log mode, the Log chip is unlit", () => {
   assert.match(render(<App store={s} />), new RegExp(`<button class="${roleClass("status.log")}"[^>]*>${str.viewLogButton()}</button>`));
 });
 
-test("Esc stops a search reading older days, not log mode; otherwise it closes log mode", () => {
+test("Esc stops a search reading older days, then turns find off, then closes log mode", () => {
   const sent: any[] = [];
   const s = new Store();
   s.set({ phase: "running", act: (o: object) => sent.push(o) });
@@ -119,7 +122,12 @@ test("Esc stops a search reading older days, not log mode; otherwise it closes l
   assert.deepEqual(sent.at(-1), { Do: "stop_search", Key: "fm/kit" });
   s.apply([{ type: "Log", Key: "fm/kit", Open: true, Searching: false, Find: "x" }]);
   logAct(s, "back");
+  assert.deepEqual(sent.at(-1), { Do: "end_find", Key: "fm/kit" });
+  s.apply([{ type: "Log", Key: "fm/kit", Open: true, Searching: false, Find: "", LastFind: "x" }]);
+  logAct(s, "back");
   assert.deepEqual(sent.at(-1), { Do: "log_close", Key: "fm/kit" });
+  logAct(s, "find");
+  assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "find", value: "x" }, "/ starts with the last term");
 });
 
 test("with the panel open: the panel's hints; the filter prompt's label and field", () => {

@@ -180,8 +180,9 @@ func fit(s string, w int) string {
 }
 
 // statusLine is the bottom bar: a status message while there is one
-// (log mode's included; see takeLogStatus), else in log mode how many
-// lines are selected, else the connection. Nothing in it changes by the
+// (log mode's included; see takeLogStatus), else in log mode its find
+// and how many lines are selected (see statusParts), else the
+// connection. Nothing in it changes by the
 // minute.
 func (m *Model) statusLine(w int) string { return fitName(m.statusMsg(), w) }
 
@@ -195,7 +196,7 @@ func (m *Model) statusMsg() string {
 	case msg != "":
 	case cs == nil:
 	case cs.browse != nil:
-		msg = str.ViewSelected(len(cs.browse.Selection()))
+		msg = cs.browse.statusParts()
 	case cs.State == session.Connected:
 		msg = app.ConnectedSince(cs.ConnectedAt, m.d.Now())
 	default:
@@ -231,8 +232,8 @@ func (m *Model) statusBar(w int) (line string, histChip [2]int) {
 // topH is the rows above the body: the top bar and its rule.
 const topH = 2
 
-// topBar draws the top status bar: the character and, in log mode, its
-// find status on the left; on the right, pinned, the presence chip, the
+// topBar draws the top status bar: the character on the left; on the
+// right, pinned, the presence chip, the
 // Filter chip (log mode) and the Log chip at the far right, a spaced dot
 // between each. It says which columns each chip takes, [from, to); zero
 // when it isn't drawn whole.
@@ -264,9 +265,6 @@ func (m *Model) topBarFor(w int, p app.Presence) (line string, logChip, filterCh
 	parts := []part{{chip(presRole, presLabel), &presenceChip}}
 	if b := cs.browse; b != nil {
 		logRole = theme.StatusLogOn
-		if f := b.FindStatus(); f != "" {
-			left += "   " + f
-		}
 		role := theme.StatusFilter
 		if b.Panel != nil {
 			role = theme.StatusFilterOn

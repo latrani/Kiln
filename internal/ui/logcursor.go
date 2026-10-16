@@ -81,7 +81,8 @@ func (b *browse) FindNewer() {
 	}
 }
 
-// FindStatus is the find term and the cursor's match, for the top bar.
+// FindStatus is the find term and the cursor's match, for the
+// statusline.
 func (b *browse) FindStatus() string { return b.Log.FindStatus(b.Cursor) }
 
 // GotoTime goes to when's line (see app.Log.GotoTime) and puts it at

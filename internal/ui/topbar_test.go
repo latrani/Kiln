@@ -31,9 +31,12 @@ func TestTopBar(t *testing.T) {
 	h.key("enter")
 	top = rightRow(h, 0)
 	want := chipText(str.ViewFilterButton()) + str.Separator() + chipText(str.ViewLogButton())
-	if !strings.HasPrefix(top, "fm"+str.Separator()+"Kit") || !strings.Contains(top, str.BrowseFindStatus("Mira", 1, 1)) ||
+	if !strings.HasPrefix(top, "fm"+str.Separator()+"Kit") || strings.Contains(top, str.BrowseFindStatus("Mira", 1, 1)) ||
 		!strings.HasSuffix(top+" ", want) {
-		t.Errorf("log top bar = %q, want name, find status, then %q", top, want)
+		t.Errorf("log top bar = %q, want name (find's status is the statusline's), then %q", top, want)
+	}
+	if bottom := rightRow(h, h.m.height-1); !strings.HasPrefix(bottom, str.BrowseFindStatus("Mira", 1, 1)) {
+		t.Errorf("statusline = %q, want find's status first", bottom)
 	}
 	if strings.Contains(h.screen(), "→") {
 		t.Errorf("the date range should be gone:\n%s", h.screen())

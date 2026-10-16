@@ -346,8 +346,63 @@ func TestBrowseFindSaysWhileSearching(t *testing.T) {
 		t.Errorf("want %q:\n%s", want, h.screen())
 	}
 	h.key("esc")
+	if h.br() != b || b.Find != "" {
+		t.Fatal("with no search, Esc ends find first")
+	}
+	h.key("esc")
 	if h.br() != nil {
-		t.Error("with no search, Esc leaves log mode")
+		t.Error("with no search or find, Esc leaves log mode")
+	}
+}
+
+// Find is a mode: n and N work while it's on, and its count and keys
+// are in the statusline. Esc turns it off, leaving log mode open, and n
+// and N do nothing; / starts with the last term, so Enter brings it
+// back. An empty Enter turns it off too.
+func TestFindIsAMode(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, "Rook waves.", "Ash waves.", "Kit waves.", "Rook nods.")
+	h.key("ctrl+l")
+	b := h.br()
+	status := func() string { return rightRow(h, h.m.height-1) }
+	h.key("/")
+	h.typeText("waves")
+	h.key("enter")
+	if b.Cursor.Entry.Text != "Kit waves." || !strings.HasPrefix(status(), str.BrowseFindStatus("waves", 1, 3)) {
+		t.Fatalf("find: cursor %q, statusline %q", b.Cursor.Entry.Text, status())
+	}
+	h.key("n")
+	if b.Cursor.Entry.Text != "Ash waves." {
+		t.Fatalf("n went to %q", b.Cursor.Entry.Text)
+	}
+	h.key("esc")
+	if h.br() != b || b.Find != "" || strings.Contains(status(), str.BrowseFindStatus("waves", 2, 3)) {
+		t.Fatalf("Esc should end find, staying in log mode: statusline %q", status())
+	}
+	h.key("n")
+	h.key("N")
+	if b.Cursor.Entry.Text != "Ash waves." {
+		t.Errorf("n and N moved with find off: %q", b.Cursor.Entry.Text)
+	}
+	fs := str.BrowseFindStatus("", 0, 0)
+	if keys := fs[strings.LastIndex(fs, str.Separator())+len(str.Separator()):]; strings.Contains(h.screen(), keys) {
+		t.Errorf("%s shown with find off:\n%s", keys, h.screen())
+	}
+	h.key("/")
+	if b.pin.Value() != "waves" {
+		t.Errorf("/ starts with %q, want the last term", b.pin.Value())
+	}
+	h.key("enter")
+	if b.Find != "waves" || !strings.HasPrefix(status(), str.BrowseFindStatus("waves", 2, 3)) {
+		t.Errorf("Enter should bring find back: statusline %q", status())
+	}
+	h.key("/")
+	for range len("waves") {
+		h.press(tea.KeyBackspace, 0)
+	}
+	h.key("enter")
+	if b.Find != "" || b.LastFind != "waves" {
+		t.Errorf("an empty find should end it, keeping the term: %q, %q", b.Find, b.LastFind)
 	}
 }
 

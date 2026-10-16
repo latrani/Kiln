@@ -1,4 +1,5 @@
 import { loadingText } from "../boot.ts";
+import { cursorOf, findStatus } from "../log.ts";
 import type { LogState } from "../log.ts";
 import { ask, dismiss } from "../notify.ts";
 import { historyShows, logShows } from "../store.ts";
@@ -10,6 +11,15 @@ import { roleClass } from "../theme.ts";
 // says it.
 function stateName(s: number): string {
   return [str.stateDisconnected(), str.stateConnecting(), str.stateConnected(), str.stateFailed()][s] ?? str.stateDisconnected();
+}
+
+// logStatus is log mode's status line with no news, as the TUI's
+// statusParts: find's status while it's on, then how many lines are
+// selected; most specific first.
+function logStatus(state: State, g: LogState): string {
+  const lines = state.logLines[state.active]?.lines ?? [];
+  const find = findStatus(g, cursorOf(g, state.logView[state.active], lines), lines);
+  return [find, str.viewSelected(g.Selected)].filter(Boolean).join(str.separator());
 }
 
 // StatusLine is the bottom row. Two live regions are always there, so
@@ -32,12 +42,13 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
   } else if (!state.saving) polite = str.webNotSaving();
   const loading = state.phase === "loading" && state.progress;
   // With no news, the character showing's connection, as the TUI's; in
-  // log mode how many lines are selected. (Log mode's messages come as
-  // the status: Go moves them there, as the TUI's takeLogStatus.)
+  // log mode find's status while it's on, then how many lines are
+  // selected. (Log mode's messages come as the status: Go moves them
+  // there, as the TUI's takeLogStatus.)
   const c = state.chars[state.active];
   const g = c && logShows(state, state.active) ? (state.logs[state.active] as LogState) : undefined;
   const conn = state.phase === "running" && !state.status?.Text && c
-    ? (g ? str.viewSelected(g.Selected) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
+    ? (g ? logStatus(state, g) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
     : "";
   const chip = state.phase === "running" && !state.picker && !state.active.startsWith("=") && !g && !state.inputs[state.active]?.NeedPW;
   const on = historyShows(state);
