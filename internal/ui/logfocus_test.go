@@ -8,6 +8,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 // logHarness is Kit in log mode over scene1.
@@ -152,9 +153,15 @@ func TestLogModeNoSwitching(t *testing.T) {
 // separator; "" with no rule above one.
 func panelFooter(h *harness) string {
 	side := panelSide(h)
-	for i, r := range side {
-		if r != "" && strings.Trim(r, glyph.Rule) == "" {
-			return strings.Join(side[i+1:], str.Separator())
+	for i := len(side) - 1; i > 0; i-- { // the footer's rule: the last one
+		if r := side[i]; r != "" && strings.Trim(r, glyph.Rule) == "" {
+			var keys []string
+			for _, k := range side[i+1:] {
+				if k != "" {
+					keys = append(keys, k)
+				}
+			}
+			return strings.Join(keys, str.Separator())
 		}
 	}
 	return ""
@@ -163,22 +170,56 @@ func panelFooter(h *harness) string {
 // logBar is log mode's action bar, trimmed.
 func logBar(h *harness) string { return rightRow(h, h.m.height-3) }
 
+// keys joins hint keys as a footer shows them.
+func keys(ks ...string) string { return strings.Join(ks, str.Separator()) }
+
 func TestLogFooters(t *testing.T) {
-	h := logHarness(t)
-	if logBar(h) != str.BrowseHintsNone() || panelFooter(h) != str.FilterHintsAway() {
+	h := logHarness(t) // the highlight on Untagged: no fold, add or remove
+	if logBar(h) != str.BrowseHintsNone() || panelFooter(h) != keys(str.FilterKeyHide(), str.FilterKeyOnly()) {
 		t.Errorf("log focused: bar %q, panel footer %q", logBar(h), panelFooter(h))
 	}
+	drawn := h.m.View().Content
+	if !strings.Contains(drawn, theme.Paint(theme.LogHints, str.BrowseHintsNone())) || !strings.Contains(drawn, theme.Paint(theme.FilterHintsAway, fit(keys(str.FilterKeyHide(), str.FilterKeyOnly()), h.m.layout().sw))) {
+		t.Error("log focused: want the log's hints plain, the panel's faded")
+	}
 	h.key("f")
-	if logBar(h) != str.BrowseHintsNoneAway() || panelFooter(h) != str.FilterHints() {
+	if logBar(h) != str.BrowseHintsNoneAway() || panelFooter(h) != keys(str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyLog()) {
 		t.Errorf("panel focused: bar %q, panel footer %q", logBar(h), panelFooter(h))
+	}
+	if !strings.Contains(h.m.View().Content, theme.Paint(theme.LogHintsAway, str.BrowseHintsNoneAway())) {
+		t.Error("panel focused: want the log's hints faded")
+	}
+	h.key("down") // page, which has tags under it
+	if want := keys(str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyFold(), str.FilterKeyLog()); panelFooter(h) != want {
+		t.Errorf("on a parent: footer %q, want %q", panelFooter(h), want)
+	}
+	h.key("f")
+	if want := keys(str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyFoldAway()); panelFooter(h) != want {
+		t.Errorf("on a parent, the log focused: footer %q, want %q", panelFooter(h), want)
+	}
+	h.key("f")
+	h.br().AddText("lighthouse")
+	for !h.br().Panel.Sel.Item.Text {
+		h.key("down")
+	}
+	if want := keys(str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyRemove(), str.FilterKeyLog()); panelFooter(h) != want {
+		t.Errorf("on a text: footer %q, want %q", panelFooter(h), want)
+	}
+	h.key("down") // + Text
+	if want := keys(str.FilterKeyAdd(), str.FilterKeyLog()); panelFooter(h) != want {
+		t.Errorf("on + Text: footer %q, want %q", panelFooter(h), want)
 	}
 	h.key("s")
 	if logBar(h) != str.BrowseHintsSelectingAway() {
 		t.Errorf("selecting, panel focused: bar %q", logBar(h))
 	}
-	h.key("s")
-	if logBar(h) != str.BrowseHintsSelectedAway() {
-		t.Errorf("a range, panel focused: bar %q", logBar(h))
+}
+
+func TestLogModeTitleClickFocusesPanel(t *testing.T) {
+	h := logHarness(t)
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
+	if !h.br().panelFocus {
+		t.Error("a click on the panel's title should focus the panel")
 	}
 }
 

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	xansi "github.com/charmbracelet/x/ansi"
 
@@ -279,8 +280,13 @@ func fitName(s string, w int) string {
 // sideTitleH is the rows above the sidebar's list: its title, which
 // names the list (open connections, the picker's, or log mode's
 // filters).
-const sideTitleH = 1
+const sideTitleH = 2
 
-// sideTitle draws the sidebar's title: label across the column, w wide,
-// in r, so its underline spans it.
-func sideTitle(r theme.Role, label string, w int) string { return theme.Paint(r, fit(label, w)) }
+// sideTitle draws the sidebar's title row y (0 or 1), w wide: label in
+// r, then a rule across the column in rule, as the top bar's beside it.
+func sideTitle(y int, r, rule theme.Role, label string, w int) string {
+	if y == 0 {
+		return theme.Paint(r, fit(label, w))
+	}
+	return theme.Paint(rule, strings.Repeat(glyph.Rule, w))
+}

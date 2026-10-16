@@ -58,20 +58,20 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints_none: s select · / find · g date · f filters · esc back */
-export function browseHintsNone(): string { return `s select · / find · g date · f filters · esc back`; }
+/** browse.hints_none: s select · / find · g date · f filters */
+export function browseHintsNone(): string { return `s select · / find · g date · f filters`; }
 
 /** browse.hints_none_away: s select · / find · g date */
 export function browseHintsNoneAway(): string { return `s select · / find · g date`; }
 
-/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filters · esc back */
-export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filters · esc back`; }
+/** browse.hints_selected: s select · space exclude · c copy · e export · / find · g date · f filters */
+export function browseHintsSelected(): string { return `s select · space exclude · c copy · e export · / find · g date · f filters`; }
 
 /** browse.hints_selected_away: s select · c copy · e export · / find · g date */
 export function browseHintsSelectedAway(): string { return `s select · c copy · e export · / find · g date`; }
 
-/** browse.hints_selecting: space exclude · s done · c copy · e export · esc drop */
-export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export · esc drop`; }
+/** browse.hints_selecting: space exclude · s done · c copy · e export */
+export function browseHintsSelecting(): string { return `space exclude · s done · c copy · e export`; }
 
 /** browse.hints_selecting_away: s done · c copy · e export */
 export function browseHintsSelectingAway(): string { return `s done · c copy · e export`; }
@@ -471,11 +471,26 @@ export function filterAddText(): string { return `+ Text`; }
 /** filter.hide: Hide */
 export function filterHide(): string { return `Hide`; }
 
-/** filter.hints: h hide · o only · space ←→ fold · enter add · x remove · f esc log */
-export function filterHints(): string { return `h hide · o only · space ←→ fold · enter add · x remove · f esc log`; }
+/** filter.key_add: enter add */
+export function filterKeyAdd(): string { return `enter add`; }
 
-/** filter.hints_away: h hide · o only · ←→ fold · x remove */
-export function filterHintsAway(): string { return `h hide · o only · ←→ fold · x remove`; }
+/** filter.key_fold: space ←→ fold */
+export function filterKeyFold(): string { return `space ←→ fold`; }
+
+/** filter.key_fold_away: ←→ fold */
+export function filterKeyFoldAway(): string { return `←→ fold`; }
+
+/** filter.key_hide: h hide */
+export function filterKeyHide(): string { return `h hide`; }
+
+/** filter.key_log: f log */
+export function filterKeyLog(): string { return `f log`; }
+
+/** filter.key_only: o only */
+export function filterKeyOnly(): string { return `o only`; }
+
+/** filter.key_remove: x remove */
+export function filterKeyRemove(): string { return `x remove`; }
 
 /** filter.only: Only */
 export function filterOnly(): string { return `Only`; }

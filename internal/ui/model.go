@@ -1068,7 +1068,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	l := m.layout()
 	if msg.X < l.sw {
-		if msg.Y < sideTitleH { // the title
+		if msg.Y < sideTitleH { // the title: the panel's side, in log mode
+			if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.prompt == promptNone {
+				cs.browse.panelFocus = true
+			}
 			return nil
 		}
 		if cs := m.cur(); cs != nil && cs.browse != nil && cs.browse.Panel != nil {

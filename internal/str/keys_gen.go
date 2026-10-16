@@ -60,19 +60,19 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHintsNone is browse.hints_none: "s select · / find · g date · f filters · esc back"
+// BrowseHintsNone is browse.hints_none: "s select · / find · g date · f filters"
 func BrowseHintsNone() string { return get("browse.hints_none", nil) }
 
 // BrowseHintsNoneAway is browse.hints_none_away: "s select · / find · g date"
 func BrowseHintsNoneAway() string { return get("browse.hints_none_away", nil) }
 
-// BrowseHintsSelected is browse.hints_selected: "s select · space exclude · c copy · e export · / find · g date · f filters · esc back"
+// BrowseHintsSelected is browse.hints_selected: "s select · space exclude · c copy · e export · / find · g date · f filters"
 func BrowseHintsSelected() string { return get("browse.hints_selected", nil) }
 
 // BrowseHintsSelectedAway is browse.hints_selected_away: "s select · c copy · e export · / find · g date"
 func BrowseHintsSelectedAway() string { return get("browse.hints_selected_away", nil) }
 
-// BrowseHintsSelecting is browse.hints_selecting: "space exclude · s done · c copy · e export · esc drop"
+// BrowseHintsSelecting is browse.hints_selecting: "space exclude · s done · c copy · e export"
 func BrowseHintsSelecting() string { return get("browse.hints_selecting", nil) }
 
 // BrowseHintsSelectingAway is browse.hints_selecting_away: "s done · c copy · e export"
@@ -536,11 +536,26 @@ func FilterAddText() string { return get("filter.add_text", nil) }
 // FilterHide is filter.hide: "Hide"
 func FilterHide() string { return get("filter.hide", nil) }
 
-// FilterHints is filter.hints: "h hide · o only · space ←→ fold · enter add · x remove · f esc log"
-func FilterHints() string { return get("filter.hints", nil) }
+// FilterKeyAdd is filter.key_add: "enter add"
+func FilterKeyAdd() string { return get("filter.key_add", nil) }
 
-// FilterHintsAway is filter.hints_away: "h hide · o only · ←→ fold · x remove"
-func FilterHintsAway() string { return get("filter.hints_away", nil) }
+// FilterKeyFold is filter.key_fold: "space ←→ fold"
+func FilterKeyFold() string { return get("filter.key_fold", nil) }
+
+// FilterKeyFoldAway is filter.key_fold_away: "←→ fold"
+func FilterKeyFoldAway() string { return get("filter.key_fold_away", nil) }
+
+// FilterKeyHide is filter.key_hide: "h hide"
+func FilterKeyHide() string { return get("filter.key_hide", nil) }
+
+// FilterKeyLog is filter.key_log: "f log"
+func FilterKeyLog() string { return get("filter.key_log", nil) }
+
+// FilterKeyOnly is filter.key_only: "o only"
+func FilterKeyOnly() string { return get("filter.key_only", nil) }
+
+// FilterKeyRemove is filter.key_remove: "x remove"
+func FilterKeyRemove() string { return get("filter.key_remove", nil) }
 
 // FilterOnly is filter.only: "Only"
 func FilterOnly() string { return get("filter.only", nil) }

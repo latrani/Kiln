@@ -30,12 +30,14 @@ const (
 	PickerError         Role = "picker.error" // under a name being added: why it won't do
 	PickerTitle         Role = "picker.title" // its list's first row
 
-	Divider    Role = "divider"
-	Rule       Role = "rule"
-	RuleInput  Role = "rule.input"  // above the input area
-	RuleForm   Role = "rule.form"   // above it while a form is up
-	RuleFilter Role = "rule.filter" // above the filter panel's footer
-	RuleStatus Role = "rule.status" // above the statusline
+	Divider     Role = "divider"
+	Rule        Role = "rule"
+	RuleInput   Role = "rule.input"   // above the input area
+	RuleForm    Role = "rule.form"    // above it while a form is up
+	RuleFilter  Role = "rule.filter"  // under the filter panel's title, and above its footer
+	RuleSidebar Role = "rule.sidebar" // under the sidebar's title
+	RulePicker  Role = "rule.picker"  // under the picker list's title
+	RuleStatus  Role = "rule.status"  // above the statusline
 
 	Scrollback           Role = "scrollback" // never an area: server text keeps the terminal background
 	ScrollbackDay        Role = "scrollback.day"
@@ -89,27 +91,29 @@ const (
 	FormButton          Role = "form.button" // the primary one: Save
 	FormButtonSecondary Role = "form.button.secondary"
 
-	Log         Role = "log"
-	LogTime     Role = "log.time"
-	LogCursor   Role = "log.cursor"
-	LogAway     Role = "log.cursor.away" // the ▲/▼ by the time while the cursor is scrolled out of view
-	LogSelected Role = "log.selected"
-	LogExcluded Role = "log.excluded"
-	LogFind     Role = "log.find"
-	LogDay      Role = "log.day"
-	LogLoading  Role = "log.loading"
-	LogBar      Role = "log.bar" // area
-	LogHints    Role = "log.bar.hints"
+	Log          Role = "log"
+	LogTime      Role = "log.time"
+	LogCursor    Role = "log.cursor"
+	LogAway      Role = "log.cursor.away" // the ▲/▼ by the time while the cursor is scrolled out of view
+	LogSelected  Role = "log.selected"
+	LogExcluded  Role = "log.excluded"
+	LogFind      Role = "log.find"
+	LogDay       Role = "log.day"
+	LogLoading   Role = "log.loading"
+	LogBar       Role = "log.bar" // area
+	LogHints     Role = "log.bar.hints"
+	LogHintsAway Role = "log.bar.hints.away" // its keys while the filter panel has focus
 
-	Filter         Role = "filter" // area, in place of sidebar while log mode's filter panel is open
-	FilterItem     Role = "filter.item"
-	FilterSelected Role = "filter.selected"
-	FilterButton   Role = "filter.button"
-	FilterButtonOn Role = "filter.button.on"
-	FilterAdd      Role = "filter.add"
-	FilterMore     Role = "filter.more"
-	FilterTitle    Role = "filter.title" // its first row
-	FilterHints    Role = "filter.hints" // its footer's keys
+	Filter          Role = "filter" // area, in place of sidebar while log mode's filter panel is open
+	FilterItem      Role = "filter.item"
+	FilterSelected  Role = "filter.selected"
+	FilterButton    Role = "filter.button"
+	FilterButtonOn  Role = "filter.button.on"
+	FilterAdd       Role = "filter.add"
+	FilterMore      Role = "filter.more"
+	FilterTitle     Role = "filter.title"      // its first row
+	FilterHints     Role = "filter.hints"      // its footer's keys
+	FilterHintsAway Role = "filter.hints.away" // its footer's keys while the log has focus
 
 	Export Role = "export" // the HTML export's page colors
 )
@@ -119,7 +123,7 @@ var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle,
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle,
-	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleStatus,
+	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleSidebar, RulePicker, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
@@ -127,8 +131,8 @@ var Roles = []Role{
 	Status, StatusLog, StatusLogOn, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
-	LogFind, LogDay, LogLoading, LogBar, LogHints,
-	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle, FilterHints,
+	LogFind, LogDay, LogLoading, LogBar, LogHints, LogHintsAway,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle, FilterHints, FilterHintsAway,
 	Export,
 }
 

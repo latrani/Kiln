@@ -622,10 +622,10 @@ func manyChars(n int) string {
 }
 
 func TestSidebarScrolls(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 33 rows, 23 high under the title
+	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 33 rows, 22 high under the title
 	h.openAll()
 	side := func(y int) string { return strings.TrimSpace(sideRow(h, y)) }
-	if side(0) != "big" || side(21) != "× C20" || side(22) != "▼ 11 more" {
+	if side(0) != "big" || side(20) != "× C19" || side(21) != "▼ 12 more" {
 		t.Fatalf("top of list:\n%s", h.screen())
 	}
 
@@ -633,17 +633,17 @@ func TestSidebarScrolls(t *testing.T) {
 	for range 25 {
 		h.press(tea.KeyDown, tea.ModCtrl)
 	}
-	if h.m.a.Active() != "big/c25" || side(21) != "× C25" || side(0) != "▲ 6 more" {
+	if h.m.a.Active() != "big/c25" || side(20) != "× C25" || side(0) != "▲ 7 more" {
 		t.Fatalf("active %s not in view:\n%s", h.m.a.Active(), h.screen())
 	}
-	if side(22) != "▼ 6 more" {
-		t.Errorf("bottom row = %q", side(22))
+	if side(21) != "▼ 6 more" {
+		t.Errorf("bottom row = %q", side(21))
 	}
 
 	// The wheel scrolls freely; re-rendering doesn't snap back to active.
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
-	if side(20) != "× C29" || side(21) != "" || side(22) != addLabel || side(0) != "▲ 11 more" {
+	if side(19) != "× C29" || side(20) != "" || side(21) != addLabel || side(0) != "▲ 12 more" {
 		t.Errorf("wheel down to the end:\n%s", h.screen())
 	}
 	h.m.Update(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelUp})
@@ -665,9 +665,9 @@ func TestSidebarScrolls(t *testing.T) {
 }
 
 func TestSidebarNoHintsWhenItFits(t *testing.T) {
-	h := newHarness(t, map[string]string{"big": manyChars(20)}) // 23 rows, 23 high under the title
+	h := newHarness(t, map[string]string{"big": manyChars(19)}) // 22 rows, 22 high under the title
 	h.openAll()
-	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C19") {
+	if s := h.screen(); strings.Contains(s, "more") || !strings.Contains(s, "C18") {
 		t.Errorf("screen:\n%s", s)
 	}
 }

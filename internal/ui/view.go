@@ -427,13 +427,13 @@ func (m *Model) View() tea.View {
 		cursor = tea.NewCursor(l.sw+1+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 
-	side, title, titleRole := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle
+	side, title, titleRole, titleRule := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar
 	if m.listing() {
-		side, title, titleRole = theme.Picker, str.PickerTitle(), theme.PickerTitle
+		side, title, titleRole, titleRule = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker
 	}
 	var panel []string
 	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
-		side, title, titleRole = theme.Filter, str.FilterTitle(), theme.FilterTitle
+		side, title, titleRole, titleRule = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter
 		panel = cs.browse.panelView(l.sw, m.height-sideTitleH)
 	}
 	sv := m.sidebarView()
@@ -443,7 +443,7 @@ func (m *Model) View() tea.View {
 			b.WriteByte('\n')
 		}
 		if y < sideTitleH {
-			b.WriteString(theme.Fill(side, sideTitle(titleRole, title, l.sw), l.sw))
+			b.WriteString(theme.Fill(side, sideTitle(y, titleRole, titleRule, title, l.sw), l.sw))
 			b.WriteString(theme.Paint(theme.Divider, "│"))
 			b.WriteString(fit(right[y], l.rw) + style.Reset)
 			continue

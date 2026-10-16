@@ -303,9 +303,10 @@ find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
 # The action bar's keys, by state: nothing selected, selecting, a range
 # selected. These are while the log has focus; f moves it to the filters.
-hints_none = "s select · / find · g date · f filters · esc back"
-hints_selecting = "space exclude · s done · c copy · e export · esc drop"
-hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filters · esc back"
+# Esc backs out everywhere, so no hint says so.
+hints_none = "s select · / find · g date · f filters"
+hints_selecting = "space exclude · s done · c copy · e export"
+hints_selected = "s select · space exclude · c copy · e export · / find · g date · f filters"
 # The same while the filters have focus: only the keys that still reach
 # the log from there.
 hints_none_away = "s select · / find · g date"
@@ -329,10 +330,18 @@ add_text = "+ Text"
 untagged = "Untagged"
 # A text row's name in the panel.
 text_item = "\"{term}\""
-# The filter panel's footer: its keys while it has focus (f or Esc
-# gives the log focus), and those that reach it while the log has.
-hints = "h hide · o only · space ←→ fold · enter add · x remove · f esc log"
-hints_away = "h hide · o only · ←→ fold · x remove"
+# The filter panel's footer: the keys that work on the highlighted row,
+# joined with the separator. Hide and Only on any but + Text; fold on a
+# tag with tags under it (Space only while the panel has focus); add on
+# + Text, and remove on a text, while it has focus; then f, giving the
+# log focus.
+key_hide = "h hide"
+key_only = "o only"
+key_fold = "space ←→ fold"
+key_fold_away = "←→ fold"
+key_add = "enter add"
+key_remove = "x remove"
+key_log = "f log"
 prompt = "filter text: "
 
 # The open-connection picker.

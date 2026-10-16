@@ -11,6 +11,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
@@ -454,8 +455,12 @@ func TestSidebarTitle(t *testing.T) {
 		t.Errorf("row 0 = %q; want the title", got)
 	}
 	l := h.m.layout()
-	if raw := strings.Split(h.m.View().Content, "\n")[0]; !strings.Contains(raw, theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw))) {
-		t.Errorf("row 0 %q; want the title underlined across the column", raw)
+	rows := strings.Split(h.m.View().Content, "\n")
+	if !strings.Contains(rows[0], theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw))) {
+		t.Errorf("row 0 %q; want the title", rows[0])
+	}
+	if !strings.Contains(rows[1], theme.Paint(theme.RuleSidebar, strings.Repeat(glyph.Rule, l.sw))) {
+		t.Errorf("row 1 %q; want a rule across the column under the title", rows[1])
 	}
 	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" {
 		t.Errorf("first list row = %q; want the first world", got)
@@ -483,8 +488,9 @@ func TestPickerListTitle(t *testing.T) {
 	if got := strings.TrimSpace(screenSide(h, 0)); got != str.PickerTitle() {
 		t.Errorf("row 0 = %q; want the picker's title", got)
 	}
-	if raw := strings.Split(h.m.View().Content, "\n")[0]; !strings.Contains(raw, theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) {
-		t.Errorf("row 0 %q; want it painted as the picker's title", raw)
+	if raw := strings.Split(h.m.View().Content, "\n"); !strings.Contains(raw[0], theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) ||
+		!strings.Contains(raw[1], theme.Paint(theme.RulePicker, strings.Repeat(glyph.Rule, h.m.layout().sw))) {
+		t.Errorf("rows 0-1 %q; want the picker's title and its rule", raw[:2])
 	}
 	y := sideRowOf(h, "sp")
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: y, Button: tea.MouseLeft})

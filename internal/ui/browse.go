@@ -456,7 +456,11 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		rows = append(rows, theme.Fill(theme.LogBar, label+text, w))
 		curX, curY, showCur = xansi.StringWidth(label)+x, h-2, true
 	default: // messages go to the bottom bar
-		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, b.hints()), w))
+		hints := theme.LogHints
+		if b.panelFocus { // the keys aren't the log's: faded
+			hints = theme.LogHintsAway
+		}
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(hints, b.hints()), w))
 	}
 	rows = append(rows, theme.Paint(theme.RuleStatus, strings.Repeat(glyph.Rule, w)))
 	return rows, curX, curY, showCur

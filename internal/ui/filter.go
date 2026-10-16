@@ -184,8 +184,12 @@ func (b *browse) panelView(w, h int) []string {
 	out := b.panelList(w, listH)
 	if len(foot) > 0 {
 		out = append(out, theme.Paint(theme.RuleFilter, strings.Repeat(glyph.Rule, w)))
+		role := theme.FilterHints
+		if !b.panelFocus { // the keys aren't the panel's: faded
+			role = theme.FilterHintsAway
+		}
 		for _, r := range foot {
-			out = append(out, theme.Paint(theme.FilterHints, fit(r, w)))
+			out = append(out, theme.Paint(role, fit(r, w)))
 		}
 	}
 	return out
@@ -394,21 +398,73 @@ func footerRows(hints string, w int) []string {
 	return rows
 }
 
-// panelHints is the panel's footer: its keys while it has focus, those
-// that reach it from the log while the log has.
-func (b *browse) panelHints() string {
-	if b.panelFocus {
-		return str.FilterHints()
+// footKind is what a panel row is, for the keys that work on it.
+type footKind int
+
+const (
+	footLeaf   footKind = iota // a tag with none under it, or Untagged
+	footParent                 // a tag with tags under it: it folds
+	footText                   // a text: it's removed
+	footAdd                    // + Text: it adds
+)
+
+// panelKeys is the footer's keys for a row of kind k: those that work on
+// it from the side that has focus (focus: the panel), then f while the
+// panel has it.
+func panelKeys(k footKind, focus bool) []string {
+	var keys []string
+	if k != footAdd {
+		keys = append(keys, str.FilterKeyHide(), str.FilterKeyOnly())
 	}
-	return str.FilterHintsAway()
+	switch {
+	case k == footParent && focus:
+		keys = append(keys, str.FilterKeyFold())
+	case k == footParent:
+		keys = append(keys, str.FilterKeyFoldAway())
+	case k == footText:
+		keys = append(keys, str.FilterKeyRemove())
+	case k == footAdd && focus:
+		keys = append(keys, str.FilterKeyAdd())
+	}
+	if focus {
+		keys = append(keys, str.FilterKeyLog())
+	}
+	return keys
 }
 
-// panelFooter is the footer's rows for a column w wide and h tall: at
-// most a third of it, and never so many the list gets fewer than
-// minPanelList rows; the last keys go first.
+// selKind is footKind for the highlighted row.
+func (b *browse) selKind() footKind {
+	sel := b.Panel.Sel
+	switch {
+	case sel.Add:
+		return footAdd
+	case sel.Item.Text:
+		return footText
+	}
+	for _, e := range b.entries() {
+		if e.sel() == sel && e.Parent {
+			return footParent
+		}
+	}
+	return footLeaf
+}
+
+// panelFooter is the footer's rows for a column w wide and h tall: the
+// keys for the highlighted row, in as many rows as the most any row
+// needs, so the list doesn't change height as the highlight moves; at
+// most a third of the column, and never so many the list gets fewer
+// than minPanelList rows (the last keys go first).
 func (b *browse) panelFooter(w, h int) []string {
-	rows := footerRows(b.panelHints(), w)
-	n := min(len(rows), h/3, h-1-minPanelList) // the rule takes a row
+	sep := str.Separator()
+	need := 0
+	for k := footLeaf; k <= footAdd; k++ {
+		need = max(need, len(footerRows(strings.Join(panelKeys(k, b.panelFocus), sep), w)))
+	}
+	rows := footerRows(strings.Join(panelKeys(b.selKind(), b.panelFocus), sep), w)
+	n := min(need, h/3, h-1-minPanelList) // the rule takes a row
+	for len(rows) < n {
+		rows = append(rows, "")
+	}
 	return rows[:max(0, n)]
 }
 

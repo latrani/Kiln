@@ -1,15 +1,15 @@
 Connections     │fm · Kit                                       ? focus  ·  Log 
-  @0-15 bold,underline,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
-fm              │───────────────────────────────────────────────────────────────
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
- Kit            │›home                                                          
-  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 faint
-                │›say I'll be at the lighthouse.                                
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-47 faint
- + Connection   │─── history ends Wed Sep 23 22:05 ───                          
-  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-53 faint
-                │* connected to muck.test:8888                                  
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
+  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+────────────────│───────────────────────────────────────────────────────────────
+  @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+fm              │›home                                                          
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 faint
+ Kit            │›say I'll be at the lighthouse.                                
+  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-47 faint
+                │─── history ends Wed Sep 23 22:05 ───                          
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-53 faint
+ + Connection   │* connected to muck.test:8888                                  
+  @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
                 │›page Rook = around?                                           
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-36 faint
                 │›:waves.                                                       

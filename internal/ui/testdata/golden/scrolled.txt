@@ -1,15 +1,15 @@
 Connections     │fm · Kit                                       ? focus  ·  Log 
-  @0-15 bold,underline,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
-fm              │───────────────────────────────────────────────────────────────
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
- Kit            │line 5 https://kiln.test/5                                     
+  @0-15 bold,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+────────────────│───────────────────────────────────────────────────────────────
+  @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+fm              │line 5 https://kiln.test/5                                     
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
+ Kit            │line 6 https://kiln.test/6                                     
   @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
-                │line 6 https://kiln.test/6                                     
+                │line 7 https://kiln.test/7                                     
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
- + Connection   │line 7 https://kiln.test/7                                     
+ + Connection   │line 8 https://kiln.test/8                                     
   @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
-                │line 8 https://kiln.test/8                                     
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 9 https://kiln.test/9                                     
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 10 https://kiln.test/10                                   
