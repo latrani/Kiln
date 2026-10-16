@@ -37,10 +37,11 @@ sidebar (wide) or closes it (narrow).
 Collapsed or closed, `≡` (`glyph.Menu`) is the first thing in the top
 bar, at its left. A click opens the sidebar again.
 
-**The badge.** Beside the world sidebar's `≡` (not the filter panel's),
-to its right: `•` while any character has unread lines, then, while any
-have priority lines, the total count of them, in the priority role. The
-name after it shifts right as the badge grows. The core counts priority
+**The badge.** Right after the world sidebar's `≡` (not the filter
+panel's), with no spaces: `●` (`glyph.Priority`, the sidebar's own dot)
+while any character has unread lines, then, while any have priority
+lines, the total count of them, in the priority role: `≡●3`. The name
+after it shifts right as the badge grows. The core counts priority
 lines per character (today it only has a flag); the badge sums them.
 
 **Ctrl+B** toggles the sidebar in both modes, in both front ends, as
@@ -51,8 +52,10 @@ lines per character (today it only has a flag); the badge sums them.
 The filter panel is the sidebar, so it collapses and opens the same
 way, with no badge on its `≡`.
 
-- **Wide, collapsed:** `f` still moves focus. Moving focus to the
-  panel expands it, so you never type into a panel you can't see.
+- **Wide, collapsed:** `f` still moves focus. While the panel has
+  focus it shows, so you never type into a panel you can't see; when
+  focus goes back to the log it collapses again. Collapsing is what you
+  chose, so it stays the saved state.
 - **Narrow:** `f` opens the panel with focus in it, or closes it with
   focus back on the log, so it does what it does in wide mode, plus
   the opening. `Ctrl+B`, `≡` and `‹` do the same as `f`.
@@ -60,7 +63,8 @@ way, with no badge on its `≡`.
 ## The picker and choosing
 
 - `Ctrl+O` (and `/open`) opens the sidebar for the picker, in either
-  mode.
+  mode. In wide mode, collapsed, it shows only while the picker is up
+  and collapses again after: collapsing is what you chose.
 - **Narrow:** picking a character closes the sidebar, as does picking a
   world's overview. Escaping the picker closes it too.
 
@@ -101,7 +105,7 @@ agree:
 - New strings: none for the glyphs. The badge's count is a number, and
   its meaning goes in a screen-reader label on the web only.
 - New roles: `status.menu` for `≡`, `status.activity` for the badge's
-  `•` (the count uses `sidebar.priority`), `sidebar.collapse` for `‹`.
+  `●` (the count uses `sidebar.priority`), `sidebar.collapse` for `‹`.
   They go in `roles.go`, `default.toml` and `docs/themes.md`.
 
 ## Web
@@ -134,10 +138,6 @@ gets the panel's collapse and narrow behavior.
 
 - **`‹` at the right end of the title row:** is that where you
   pictured "the mirror of the ›"?
-- **The badge reads `≡ • 3`:** the dot for unread, then the priority
-  count.
-- **In wide mode, collapsed, `Ctrl+O`:** this spec expands the sidebar
-  and *keeps* it expanded, saving that. Should it instead expand only
-  while the picker is up, and collapse again after?
-- **In wide mode, collapsed, `f`:** moving focus to the panel expands
-  it. Same question: does it stay expanded?
+- **The badge's `●` is in its own role (`status.activity`),** not the
+  sidebar's priority color, so "something's unread" doesn't read as
+  "something's a priority". The count after it uses the priority color.
