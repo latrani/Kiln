@@ -37,12 +37,13 @@ sidebar (wide) or closes it (narrow).
 Collapsed or closed, `≡` (`glyph.Menu`) is the first thing in the top
 bar, at its left. A click opens the sidebar again.
 
-**The badge.** Right after the world sidebar's `≡` (not the filter
-panel's), with no spaces: `●` (`glyph.Priority`, the sidebar's own dot)
-while any character has unread lines, then, while any have priority
-lines, the total count of them, in the priority role: `≡●3`. The name
-after it shifts right as the badge grows. The core counts priority
-lines per character (today it only has a flag); the badge sums them.
+**The badge.** After the world sidebar's `≡` (not the filter panel's),
+a space, then the sum of the character rows' activity: `●` if any row
+shows one (a priority line unread), then the total of the rows' unread
+counts, in the same roles as the rows (`sidebar.priority`,
+`sidebar.unread`): `≡ ●12`, or `≡ 12` with nothing a priority, or just
+`≡` with nothing unread. The name after it shifts right as the badge
+grows.
 
 **Ctrl+B** toggles the sidebar in both modes, in both front ends, as
 `≡` and `‹` do.
@@ -87,9 +88,9 @@ agree:
   and the web each give it their file system), and is read at start
   through `Deps.LoadState`. A missing or unreadable file means "not
   collapsed", and the statusline says why if it couldn't be read.
-- `Char.PriorityLines int` beside `Unread`, counted where `Priority` is
-  set today and cleared with it. `App.Activity() (unread bool,
-  priority int)` sums every open character's.
+- `App.Activity() (unread int, priority bool)`: the open characters'
+  unread counts summed, and whether any has a priority line among them,
+  for the badge.
 - Whether the screen is narrow, and whether the narrow sidebar is
   open, are each front end's. The core doesn't know the width.
 
@@ -104,8 +105,8 @@ agree:
   the input box (word movement is `Alt+B`).
 - New strings: none for the glyphs. The badge's count is a number, and
   its meaning goes in a screen-reader label on the web only.
-- New roles: `status.menu` for `≡`, `status.activity` for the badge's
-  `●` (the count uses `sidebar.priority`), `sidebar.collapse` for `‹`.
+- New roles: `status.menu` for `≡` and `sidebar.collapse` for `‹`. The
+  badge uses the rows' `sidebar.priority` and `sidebar.unread`.
   They go in `roles.go`, `default.toml` and `docs/themes.md`.
 
 ## Web
@@ -114,7 +115,7 @@ agree:
   CSS for the layout, with the page reading the same query for the
   behavior.
 - `≡` is a `<button aria-expanded>` labelled "Sidebar", with the badge
-  inside its accessible name ("Sidebar, unread, 3 priority"). `‹` is a
+  inside its accessible name ("Sidebar, 12 unread, priority"). `‹` is a
   button labelled "Collapse sidebar". Both labels are new catalog
   strings.
 - **Narrow and open:** the sidebar is a region that replaces the top bar
@@ -133,11 +134,3 @@ gets the panel's collapse and narrow behavior.
 - Swipe gestures on phones.
 - The rest of #125's part 4 (a phone-shaped input area, the on-screen
   keyboard's effect on height). Those come with phone testing.
-
-## To confirm with Indi
-
-- **`‹` at the right end of the title row:** is that where you
-  pictured "the mirror of the ›"?
-- **The badge's `●` is in its own role (`status.activity`),** not the
-  sidebar's priority color, so "something's unread" doesn't read as
-  "something's a priority". The count after it uses the priority color.
