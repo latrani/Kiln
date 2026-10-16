@@ -438,56 +438,19 @@ func (m *Model) View() tea.View {
 		cursor = tea.NewCursor(l.rx+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 
-	side, title, titleRole, titleRule, chev := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar, theme.SidebarCollapse
-	if m.listing() {
-		side, title, titleRole, titleRule, chev = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker, theme.PickerCollapse
+	sideRows, sideCur := m.sideRows(m.sideBox())
+	if sideCur != nil {
+		cursor = sideCur
 	}
-	var panel []string
-	if cs != nil && cs.browse != nil && cs.browse.Panel != nil && l.sw > 0 { // collapsed: nothing to lay out
-		side, title, titleRole, titleRule, chev = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter, theme.FilterCollapse
-		panel = cs.browse.panelView(l.sw, m.height-sideTitleH)
-	}
-	sv := m.sidebarView()
 	var b strings.Builder
 	for y := 0; y < m.height; y++ {
 		if y > 0 {
 			b.WriteByte('\n')
 		}
-		if l.sw == 0 { // collapsed: the right pane is all there is
-			if y < len(right) {
-				b.WriteString(fit(right[y], l.rw) + style.Reset)
-			}
-			continue
-		}
-		if y < sideTitleH {
-			if y == 0 && !m.sideForced() && m.canToggle() { // ‹ at the title's right
-				b.WriteString(theme.Fill(side, theme.Paint(titleRole, fit(title, l.sw-1))+theme.Paint(chev, glyph.Collapse), l.sw))
-			} else {
-				b.WriteString(theme.Fill(side, sideTitle(y, titleRole, titleRule, title, l.sw), l.sw))
-			}
+		if y < len(sideRows) {
+			b.WriteString(sideRows[y])
 			b.WriteString(theme.Paint(theme.Divider, "│"))
-			b.WriteString(fit(right[y], l.rw) + style.Reset)
-			continue
 		}
-		switch r, hint := sv.at(y - sideTitleH); {
-		case panel != nil:
-			b.WriteString(theme.Fill(side, panel[y-sideTitleH], l.sw))
-		case hint < 0:
-			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), l.sw)), l.sw))
-		case hint > 0:
-			b.WriteString(theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), l.sw)), l.sw))
-		case r != nil && m.listing():
-			b.WriteString(theme.Fill(side, m.pickerLine(*r, l.sw), l.sw))
-			if e := m.addingChar(); e != nil && r.kind == rowAddChar && r.world == e.world {
-				_, x := nameField(e.form, l.sw)
-				cursor = tea.NewCursor(x, y)
-			}
-		case r != nil:
-			b.WriteString(theme.Fill(side, m.sidebarLine(*r, l.sw), l.sw))
-		default:
-			b.WriteString(theme.Fill(side, "", l.sw))
-		}
-		b.WriteString(theme.Paint(theme.Divider, "│"))
 		if y < len(right) {
 			b.WriteString(fit(right[y], l.rw) + style.Reset)
 		}
@@ -562,4 +525,63 @@ func stateName(s session.State) string {
 		return str.StateFailed()
 	}
 	return str.StateDisconnected()
+}
+
+// sideBox is the sidebar's rectangle, w by h from the screen's top left:
+// its column while it shows; nothing (0, 0) while it doesn't.
+func (m *Model) sideBox() (w, h int) {
+	if l := m.layout(); l.sw > 0 {
+		return l.sw, m.height
+	}
+	return 0, 0
+}
+
+// sideRows draws the sidebar into w by h: its title (‹ at the right while
+// it can collapse) over its rule, then the open characters, the picker's
+// list, or log mode's filter panel, each row filled in its area's role.
+// cursor is the add-character field's, in the box; nil with none.
+func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
+	if w <= 0 || h <= 0 {
+		return nil, nil
+	}
+	cs := m.cur()
+	side, title, titleRole, titleRule, chev := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar, theme.SidebarCollapse
+	if m.listing() {
+		side, title, titleRole, titleRule, chev = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker, theme.PickerCollapse
+	}
+	var panel []string
+	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
+		side, title, titleRole, titleRule, chev = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter, theme.FilterCollapse
+		panel = cs.browse.panelView(w, h-sideTitleH)
+	}
+	sv := m.sidebarView()
+	for y := range h {
+		if y < sideTitleH {
+			if y == 0 && !m.sideForced() && m.canToggle() { // ‹ at the title's right
+				rows = append(rows, theme.Fill(side, theme.Paint(titleRole, fit(title, w-1))+theme.Paint(chev, glyph.Collapse), w))
+			} else {
+				rows = append(rows, theme.Fill(side, sideTitle(y, titleRole, titleRule, title, w), w))
+			}
+			continue
+		}
+		switch r, hint := sv.at(y - sideTitleH); {
+		case panel != nil:
+			rows = append(rows, theme.Fill(side, panel[y-sideTitleH], w))
+		case hint < 0:
+			rows = append(rows, theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), w)), w))
+		case hint > 0:
+			rows = append(rows, theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), w)), w))
+		case r != nil && m.listing():
+			rows = append(rows, theme.Fill(side, m.pickerLine(*r, w), w))
+			if e := m.addingChar(); e != nil && r.kind == rowAddChar && r.world == e.world {
+				_, x := nameField(e.form, w)
+				cursor = tea.NewCursor(x, y)
+			}
+		case r != nil:
+			rows = append(rows, theme.Fill(side, m.sidebarLine(*r, w), w))
+		default:
+			rows = append(rows, theme.Fill(side, "", w))
+		}
+	}
+	return rows, cursor
 }

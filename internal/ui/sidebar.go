@@ -164,7 +164,11 @@ func (m *Model) sidebarView() sideView {
 		}
 	}
 	sv := sideView{rows: rows}
-	h := max(1, m.height-sideTitleH)
+	_, bh := m.sideBox()
+	if bh == 0 { // not shown: as its column would be (the picker pages by it)
+		bh = m.height
+	}
+	h := max(1, bh-sideTitleH)
 	total := len(sv.rows)
 	if total <= h {
 		m.sideTop = 0
