@@ -982,6 +982,16 @@ func StatusRestored(n int) string { return count("status.restored", n, map[strin
 // StatusSkippedLogin is status.skipped_login: "skipped login"
 func StatusSkippedLogin() string { return get("status.skipped_login", nil) }
 
+// StatusStateNotSaved is status.state_not_saved: "Kiln's state couldn't be saved: {err}"
+func StatusStateNotSaved(err error) string {
+	return get("status.state_not_saved", map[string]any{"err": err})
+}
+
+// StatusStateUnreadable is status.state_unreadable: "Kiln's saved state couldn't be read: {err}"
+func StatusStateUnreadable(err error) string {
+	return get("status.state_unreadable", map[string]any{"err": err})
+}
+
 // StatusThemeNotLoaded is status.theme_not_loaded: "theme not loaded: {err}"
 func StatusThemeNotLoaded(err error) string {
 	return get("status.theme_not_loaded", map[string]any{"err": err})

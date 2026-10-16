@@ -47,6 +47,7 @@ type Deps struct {
 	Remote         bool                                            // over ssh: links can't open on your screen, so a click copies them
 	NoAutoconnect  bool                                            // start with nothing open, whatever the characters' autoconnect says
 	Raw            func(seq string) tea.Cmd                        // writes straight to the terminal; default tea.Raw
+	StateFile      string                                          // Kiln's own state between runs; "": nothing is saved
 	Now            func() time.Time
 }
 
@@ -139,7 +140,8 @@ func New(d Deps, cfg *config.Config) *Model {
 	m.a = app.New(app.Deps{
 		ConfigDir: d.ConfigDir, KnownHosts: d.KnownHosts, SavePassword: d.SavePassword,
 		LogRoot: d.LogRoot, Load: d.Load, DeletePassword: d.DeletePassword, Dial: d.Dial, NewLog: d.NewLog, Password: d.Password,
-		Now: func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
+		Now:       func() time.Time { return m.d.Now() }, // late-bound: tests swap the clock
+		StateFile: d.StateFile,
 	})
 	m.applyWith(func() (app.ConfigResult, bool) { return m.a.ApplyConfig(cfg), true })
 	m.shownPresence = m.a.Presence()

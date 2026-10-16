@@ -823,6 +823,12 @@ export function statusRestored(n: number): string {
 /** status.skipped_login: skipped login */
 export function statusSkippedLogin(): string { return `skipped login`; }
 
+/** status.state_not_saved: Kiln's state couldn't be saved: {err} */
+export function statusStateNotSaved(err: unknown): string { return `Kiln's state couldn't be saved: ${e(err)}`; }
+
+/** status.state_unreadable: Kiln's saved state couldn't be read: {err} */
+export function statusStateUnreadable(err: unknown): string { return `Kiln's saved state couldn't be read: ${e(err)}`; }
+
 /** status.theme_not_loaded: theme not loaded: {err} */
 export function statusThemeNotLoaded(err: unknown): string { return `theme not loaded: ${e(err)}`; }
 

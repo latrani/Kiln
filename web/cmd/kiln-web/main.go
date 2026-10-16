@@ -96,7 +96,8 @@ func run(k js.Value, p page) error {
 	writers := map[logstore.Layout]*logstore.Writer{}
 	a := app.New(app.Deps{
 		ConfigDir:  cfgDir,
-		LogRoot:    filepath.Join(dataDir, "logs"), //str:ok
+		LogRoot:    filepath.Join(dataDir, "logs"),       //str:ok
+		StateFile:  filepath.Join(dataDir, "state.json"), //str:ok
 		KnownHosts: kh,
 		Load:       config.Load,
 		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {

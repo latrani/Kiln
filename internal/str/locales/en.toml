@@ -221,6 +221,10 @@ day_year = "Mon Jan 2 2006"
 day_time = "Mon Jan 2 15:04"
 
 [status]
+# Kiln's own state file (state.json in its data folder: whether the
+# sidebar is collapsed) couldn't be read at start, or written.
+state_unreadable = "Kiln's saved state couldn't be read: {err}"
+state_not_saved = "Kiln's state couldn't be saved: {err}"
 bad_action = "the page sent something Kiln can't use: {err}"
 char_error = "{key}: {err}"
 config_not_reloaded = "config not reloaded: {err}"
