@@ -157,13 +157,16 @@ func (a *App) HistoryToggle() []Effect {
 // Kiln quits.
 func (a *App) HistoryScope() Scope { return a.sent.scope }
 
-// SetHistoryScope has the history panels list s's lines; the active
-// panel selects its newest.
+// SetHistoryScope has the history panels list s's lines; each panel
+// selects its newest.
 func (a *App) SetHistoryScope(s Scope) []Effect {
 	if s != a.sent.scope {
 		a.sent.scope = s
 		a.sent.gen++
-		a.History().back = 0
+		a.idleHist.back = 0
+		for _, c := range a.chars {
+			c.History.back = 0
+		}
 	}
 	return a.moreSent()
 }

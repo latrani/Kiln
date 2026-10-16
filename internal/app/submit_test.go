@@ -306,11 +306,14 @@ func TestHistoryScopeKeepsClosedChar(t *testing.T) {
 }
 
 func TestHistoryScopeNoPassword(t *testing.T) {
-	a, _, _ := submitApp(t, fmWorld)
+	a, c, _ := submitApp(t, fmWorld)
 	kit := a.Char("fm/kit")
 	a.Handle(SessionMsg{Key: "fm/kit", Sess: kit.Sess, OK: true, Ev: session.Event{Kind: session.EventNeedPassword}})
 	a.SetInput("s3cret")
 	a.Submit()
+	if sent := c.Sent(); len(sent) == 0 || !strings.Contains(sent[len(sent)-1], "s3cret") {
+		t.Fatalf("sent %q; want the login to have gone out", sent)
+	}
 	a.SwapHistoryScope()
 	a.HistoryOpen()
 	if got := texts(a.History().Shown()); slices.Contains(got, "s3cret") {
@@ -337,5 +340,21 @@ func TestHistoryClosedWithNothingOpen(t *testing.T) {
 	a.HistoryOpen()
 	if a.History().IsOpen() {
 		t.Error("the panel opened with nothing open")
+	}
+}
+
+func TestHistoryScopeSelectsNewestOnEveryPanel(t *testing.T) {
+	a, _ := testApp(t)
+	openAll(t, a, "fm/kit", "fm/rook")
+	for _, s := range []string{"/notify on", "/notify off", "/notify on"} {
+		send(a, "fm/kit", s)
+	}
+	a.HistoryOpen()
+	a.HistoryMove(-1)
+	a.Switch("fm/rook") // kit's panel stays up
+	a.SwapHistoryScope()
+	a.Switch("fm/kit")
+	if h := a.History(); !h.IsOpen() || h.Sel() != len(h.Shown())-1 {
+		t.Errorf("kit's panel: open %v, sel %d of %d; a new scope selects the newest everywhere", h.IsOpen(), h.Sel(), len(h.Shown()))
 	}
 }
