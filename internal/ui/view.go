@@ -23,6 +23,7 @@ const (
 
 type layout struct {
 	sw, rw int // sidebar width; right pane width
+	rx     int // the screen column the right pane starts at: past the sidebar and its divider
 	top    int // rows above the body: the top bar and its rule
 	sbH    int // scrollback rows
 	inRows []string
@@ -43,7 +44,8 @@ func SidebarWidth(w int) int {
 
 func (m *Model) layout() layout {
 	l := layout{sw: SidebarWidth(m.width), top: topH}
-	l.rw = max(1, m.width-l.sw-1)
+	l.rx = l.sw + 1
+	l.rw = max(1, m.width-l.rx)
 	if m.overviewing() { // no input box: the overview has the pane down to the statusline
 		l.sbH = max(1, m.height-l.top-2) // top bar and rule; rule + statusline
 		return l
@@ -386,7 +388,7 @@ func (m *Model) View() tea.View {
 		bar, _ := m.statusBar(l.rw)
 		right = append(right, theme.Fill(theme.Status, bar, l.rw))
 		if show {
-			cursor = tea.NewCursor(l.sw+1+x, l.top+y)
+			cursor = tea.NewCursor(l.rx+x, l.top+y)
 		}
 	} else if cs == nil {
 		right = append(right, make([]string, l.sbH)...)
@@ -424,7 +426,7 @@ func (m *Model) View() tea.View {
 		}
 		bar, _ := m.statusBar(l.rw)
 		right = append(right, theme.Paint(theme.RuleStatus, rule), theme.Fill(theme.Status, bar, l.rw))
-		cursor = tea.NewCursor(l.sw+1+l.curCol, l.top+l.sbH+1+l.curRow)
+		cursor = tea.NewCursor(l.rx+l.curCol, l.top+l.sbH+1+l.curRow)
 	}
 
 	side, title, titleRole, titleRule := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar

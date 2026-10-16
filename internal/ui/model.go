@@ -1002,7 +1002,7 @@ func (m *Model) browseBodyH() int { return max(1, m.height-topH-4) }
 func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 	l := m.layout()
 	cs := m.cur()
-	if cs != nil && cs.browse != nil && msg.X > l.sw {
+	if cs != nil && cs.browse != nil && msg.X >= l.rx {
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			return m.run(cs.browse.scrollBy(-m.scrollLines()))
@@ -1029,7 +1029,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if m.overviewing() && msg.X > l.sw && msg.Y >= l.top && msg.Y-l.top < l.sbH {
+	if m.overviewing() && msg.X >= l.rx && msg.Y >= l.top && msg.Y-l.top < l.sbH {
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			m.scrollOverview(-m.scrollLines())
@@ -1038,7 +1038,7 @@ func (m *Model) handleWheel(msg tea.MouseWheelMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if cs == nil || msg.X <= l.sw || msg.Y < l.top || msg.Y-l.top >= l.sbH {
+	if cs == nil || msg.X < l.rx || msg.Y < l.top || msg.Y-l.top >= l.sbH {
 		return nil
 	}
 	switch msg.Button {
@@ -1114,12 +1114,12 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	if msg.Y < l.top {
 		if msg.Y == 0 {
-			m.topClick(msg.X-l.sw-1, was)
+			m.topClick(msg.X-l.rx, was)
 		}
 		return nil
 	}
 	if _, c := m.statusBar(l.rw); msg.Y == m.height-1 {
-		x := msg.X - l.sw - 1
+		x := msg.X - l.rx
 		in := func(span [2]int) bool { return x >= span[0] && x < span[1] }
 		switch {
 		case in(c.session):
@@ -1155,23 +1155,23 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 		cs.sb.ToBottom()
 		return nil
 	}
-	if cs != nil && msg.Y < l.sbH && msg.X > l.sw {
-		if p, ok := cs.sb.At(msg.Y, msg.X-l.sw-1); ok {
+	if cs != nil && msg.Y < l.sbH && msg.X >= l.rx {
+		if p, ok := cs.sb.At(msg.Y, msg.X-l.rx); ok {
 			cs.sb.StartSelect(p) // a drag selects; a click opens a link
 		}
 		return nil
 	}
-	if y := msg.Y - l.sbH - 1; l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+	if y := msg.Y - l.sbH - 1; l.prompt && y >= 0 && y < len(l.inRows) && msg.X >= l.rx {
 		if f := m.shownForm(); f != nil {
-			f.click(msg.X-l.sw-1, l.inTop+y)
+			f.click(msg.X-l.rx, l.inTop+y)
 		}
 		return nil
 	}
-	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X > l.sw {
+	if y := msg.Y - l.sbH - 1; !l.prompt && y >= 0 && y < len(l.inRows) && msg.X >= l.rx {
 		if y < len(l.hist) {
 			return m.historyClick(l.hist[y])
 		}
-		m.input().StartSelect(msg.X-l.sw-1-gutterWidth, l.inTop+y-len(l.hist)) // past the separator and gutter
+		m.input().StartSelect(msg.X-l.rx-gutterWidth, l.inTop+y-len(l.hist)) // past the separator and gutter
 	}
 	return nil
 }
@@ -1182,10 +1182,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 func (m *Model) handleDrag(msg tea.Mouse) {
 	l := m.layout()
 	msg.Y -= l.top // body rows
-	x := max(0, msg.X-l.sw-1)
+	x := max(0, msg.X-l.rx)
 	if cs := m.cur(); cs != nil && msg.Button == tea.MouseNone {
 		cs.sb.Hover(nil)
-		if msg.X > l.sw && msg.Y < l.sbH && cs.browse == nil {
+		if msg.X >= l.rx && msg.Y < l.sbH && cs.browse == nil {
 			if p, ok := cs.sb.At(msg.Y, x); ok {
 				cs.sb.Hover(&p)
 			}
