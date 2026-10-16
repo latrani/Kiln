@@ -74,13 +74,13 @@ func (m *Model) layout() layout {
 		}
 		l.inRows = rows[top:min(len(rows), top+maxIn)]
 		l.inTop, l.curRow, l.curCol = top, r-top, c
-		if m.a.History().IsOpen() { // the panel takes the rest of the input's most, over the query
+		if m.a.History().IsOpen() { // the panel sits over the query, as tall as its lines, up to the rest of the input's most
 			for i, r := range l.inRows {
 				if rest, ok := strings.CutPrefix(r, gutterMark); ok { // a query, not a line bound for the server
 					l.inRows[i] = glyph.Search + rest
 				}
 			}
-			hist, idx := m.historyRows(l.rw, max(1, maxIn-len(l.inRows)))
+			hist, idx := m.historyRows(l.rw, min(max(1, maxIn-len(l.inRows)), max(1, len(m.a.History().Shown()))))
 			l.inRows, l.hist = append(hist, l.inRows...), idx
 			l.curRow += len(hist)
 		}

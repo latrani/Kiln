@@ -101,13 +101,13 @@ a.s { text-decoration: underline; }
 .logbar input { flex: 1; min-width: 1ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
 .bottom { grid-area: bottom; min-height: 1lh; max-height: 50dvh; overflow-y: auto; border-top: 1px solid var(--role-rule-input-fg); margin-top: calc(.5lh - .5px); padding-top: calc(.5lh - .5px); }
 .bottom.form { border-top-color: var(--role-rule-form-fg); }
-/* The history panel, as the TUI's: the bottom pane at its most, the list
-   over the input, a line a row with its time at the right, the selected
+/* The history panel, as the TUI's: the bottom pane as tall as its lines,
+   up to its most, the list over the input, a line a row with its time at the right, the selected
    one's › in the gutter; the "more" badge at the list's bottom right
    while it's scrolled up off the newest. */
-.bottom.histories { height: 50dvh; display: flex; flex-direction: column; overflow: hidden; }
-.history { flex: 1; min-height: 0; position: relative; }
-.history .list { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+.bottom.histories { display: flex; flex-direction: column; overflow: hidden; }
+.history { min-height: 0; position: relative; display: flex; flex-direction: column; }
+.history .list { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 .history .list > :first-child { margin-top: auto; }
 .hrow { display: flex; white-space: pre; margin-left: 1ch; position: relative; cursor: pointer; }
 .hrow .htext { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

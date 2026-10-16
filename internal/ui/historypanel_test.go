@@ -84,3 +84,22 @@ func TestHistoryPanelClicks(t *testing.T) {
 		t.Error("the chip didn't close the panel")
 	}
 }
+
+func TestHistoryPanelHeight(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	h.key("up")
+	if l := h.m.layout(); len(l.hist) != 1 || !strings.Contains(h.screen(), str.ViewHistoryNone()) {
+		t.Errorf("no history: %d rows; want one, the hint:\n%s", len(l.hist), h.screen())
+	}
+	h.key("esc")
+	for _, s := range []string{"look", "say hi"} {
+		h.typeText(s)
+		h.enter()
+	}
+	h.key("up")
+	if l := h.m.layout(); len(l.hist) != 2 {
+		t.Errorf("two lines sent: %d rows; want two:\n%s", len(l.hist), h.screen())
+	}
+}
