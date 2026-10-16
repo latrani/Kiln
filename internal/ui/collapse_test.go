@@ -140,3 +140,35 @@ func TestCtrlBWithPanelFocused(t *testing.T) {
 		t.Errorf("collapsed %v, panel focus %v, sw %d; want collapsed with the log focused", h.m.a.SidebarCollapsed(), h.m.chars["fm/kit"].browse.panelFocus, h.m.layout().sw)
 	}
 }
+
+// runAll runs cmd and feeds what it says back in, batches and all, one
+// level deep: enough for a debounce tick.
+func (h *harness) runAll(cmd tea.Cmd) {
+	if cmd == nil {
+		return
+	}
+	switch msg := cmd().(type) {
+	case tea.BatchMsg:
+		for _, c := range msg {
+			if c != nil {
+				h.m.Update(c())
+			}
+		}
+	default:
+		h.m.Update(msg)
+	}
+}
+
+// Collapsing changes the pane's width without the terminal changing:
+// the server hears the new width, as it does after a resize.
+func TestCollapseReportsWidth(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld}) // 80×24
+	h.init()
+	h.settle("fm/kit", h.connected("fm/kit"))
+	c := h.conn("fm/kit")
+	_, cmd := h.m.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl})
+	h.runAll(cmd)
+	if got := c.Sizes(); got[len(got)-1] != [2]int{80, 24} {
+		t.Errorf("sizes after collapsing = %v; want the whole width last", got)
+	}
+}

@@ -79,3 +79,15 @@ func TestActivity(t *testing.T) {
 		t.Errorf("Activity = %d, %v; want 3, false (no unread priority line)", n, p)
 	}
 }
+
+// A file holding JSON that isn't an object (null, say) is unreadable,
+// not a crash on the first save.
+func TestStateFileNotAnObject(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "state.json")
+	os.WriteFile(file, []byte("null"), 0o600)
+	a := stateApp(file)
+	a.SetSidebarCollapsed(true)
+	if !stateApp(file).SidebarCollapsed() {
+		t.Error("not saved over a null file")
+	}
+}

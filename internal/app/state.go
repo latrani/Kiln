@@ -33,6 +33,9 @@ func (a *App) loadState() {
 	if err == nil {
 		err = json.Unmarshal(b, &a.state.fields)
 	}
+	if err == nil && a.state.fields == nil { // null: not an object
+		err = errors.New(string(b))
+	}
 	if err != nil {
 		a.state.fields = map[string]json.RawMessage{}
 		a.SetStatus(true, str.StatusStateUnreadable(err))

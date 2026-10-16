@@ -150,13 +150,13 @@ function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
 // on it does onPress (the filter panel's: focus to it).
 export function SideTitle({ role, rule, label, onPress, collapse }: { role: string; rule: string; label: string; onPress?: () => void; collapse?: { role: string; state: State; store: Store } }) {
   return (
-    <h2 class={`stitle ${roleClass(role)}`} style={`--rule:var(--role-${rule.replaceAll(".", "-")}-fg)`}
+    <div class={`stitle ${roleClass(role)}`} style={`--rule:var(--role-${rule.replaceAll(".", "-")}-fg)`}
       onMouseDown={onPress && ((e) => { e.preventDefault(); onPress(); })}>
-      <span class="stext">{label}</span>
+      <h2 class="stext">{label}</h2>
       {collapse && !sideForced(collapse.state) && (
-        <button class={roleClass(collapse.role)} aria-label={str.webCollapseSidebar()} onMouseDown={(e) => e.stopPropagation()}
+        <button class={roleClass(collapse.role)} aria-label={str.webCollapseSidebar()} aria-expanded="true" onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggleSidebar(collapse.store)}>{str.glyph.collapse}</button>
       )}
-    </h2>
+    </div>
   );
 }
