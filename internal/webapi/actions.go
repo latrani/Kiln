@@ -12,13 +12,12 @@ import (
 )
 
 // Action is one thing the page asks for, as JSON: Do names it and the
-// other fields are its arguments. Lines are named by number (Seq, Start,
-// End).
+// other fields are its arguments. Lines are named by number (Seq).
 type Action struct {
 	Do                                                  string
 	Key, Text, Term, Tag, When, Format, Name, ID, World string
 	Char                                                string
-	Seq, Start, End, Epoch, Cols, Rows                  int
+	Seq, Epoch, Cols, Rows                              int
 	N                                                   int // numbers input, submit and older (see feed.Input.Ack); step's distance; next_unread's direction; history_move's distance; history_pick's line
 	In, Shut, Save                                      bool
 	Err                                                 bool // say's
@@ -298,7 +297,7 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	}
 	at := func(seq int) *app.LogLine { return lineAt(g, seq) }
 	switch act.Do {
-	case "log_older", "mark", "range", "extend", "exclude", "find", "find_older", "find_newer", "stop_search", "end_find", //str:ok
+	case "log_older", "mark", "mark_to", "grow", "end_mark", "exclude", "find", "find_older", "find_newer", "stop_search", "end_find", //str:ok
 		"goto", "tags", "export_name", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
 		if g == nil {
 			return nil, nil, true
@@ -314,15 +313,12 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		effs = g.Older(nil)
 	case "mark": //str:ok
 		g.Mark(at(act.Seq))
-	case "range": //str:ok
-		if s, e := at(act.Start), at(act.End); s != nil && e != nil {
-			g.NewRange(s, e)
-			g.RangeStatus()
-		}
-	case "extend": //str:ok
-		if ln := at(act.Seq); ln != nil && g.Start != nil {
-			g.ExtendTo(ln)
-		}
+	case "mark_to": //str:ok
+		g.MarkTo(at(act.Seq))
+	case "grow": //str:ok
+		g.GrowTo(at(act.Seq))
+	case "end_mark": //str:ok
+		g.EndMark()
 	case "exclude": //str:ok
 		g.ToggleExclude(at(act.Seq))
 	case "find": //str:ok

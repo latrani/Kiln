@@ -302,12 +302,6 @@ func click2(t *testing.T, ws *websocket.Conn, ev func(string) string, el string)
 	clickN(t, ws, ev, el, 2, 0)
 }
 
-// shiftClick is a click on el with Shift held.
-func shiftClick(t *testing.T, ws *websocket.Conn, ev func(string) string, el string) {
-	t.Helper()
-	clickN(t, ws, ev, el, 1, 8) // Shift, in DevTools' modifier bits
-}
-
 func clickN(t *testing.T, ws *websocket.Conn, ev func(string) string, el string, n, modifiers int) {
 	t.Helper()
 	var at struct{ X, Y float64 }

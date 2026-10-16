@@ -79,8 +79,35 @@ const bottom = (html: string) => html.slice(html.indexOf('class="bottom'), html.
 test("the bottom pane: log mode's hints, in the bar's roles", () => {
   const b = bottom(pageWith({}));
   assert.ok(b.includes(roleClass("log.bar")) && b.includes(roleClass("log.bar.hints")));
-  assert.ok(b.includes(str.webLogHints()));
+  assert.ok(b.includes(str.browseHintsNone()));
   assert.ok(!b.includes("<textarea"), "no chat input in log mode");
+});
+
+test("the hints follow select mode, as the TUI's: nothing selected, selecting, selected", () => {
+  assert.ok(bottom(pageWith({})).includes(str.browseHintsNone()));
+  assert.ok(bottom(pageWith({ Marking: true, Start: 1, End: 1, Selected: 1 })).includes(str.browseHintsSelecting()));
+  assert.ok(bottom(pageWith({ Start: 1, End: 1, Selected: 1 })).includes(str.browseHintsSelected()));
+});
+
+test("the status line: no count with nothing selected; the Select chip, lit while selecting, not History", () => {
+  const status = (html: string) => html.slice(html.indexOf('class="status'));
+  assert.ok(!status(pageWith({})).includes(str.viewSelected(0)));
+  assert.ok(status(pageWith({ Start: 1, End: 1, Selected: 1 })).includes(str.viewSelected(1)));
+  assert.match(status(pageWith({})), new RegExp(`<button class="chip ${roleClass("status.select")}"[^>]*aria-pressed="false"[^>]*>${str.viewSelectButton()}</button>`));
+  assert.match(status(pageWith({ Marking: true, Start: 1, End: 1, Selected: 1 })), new RegExp(`<button class="chip ${roleClass("status.select.on")}"[^>]*aria-pressed="true"`));
+  assert.ok(!status(pageWith({})).includes(str.viewHistoryButton()));
+});
+
+test("a cursor scrolled out of view: an arrow in place of the space after the time it went by", () => {
+  const m = main(page({ Marking: true, Start: 3, End: 3, Selected: 1 }));
+  assert.ok(!m.includes(str.glyph.cursorAbove) && !m.includes(str.glyph.cursorBelow));
+  const s = new Store();
+  s.set({ phase: "running", act: () => {} });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" },
+    { type: "LogLines", Key: "fm/kit", Epoch: 1, Op: "reset", Lines: [L(1, "2026-10-12", "an apple"), L(2, "2026-10-13", "a pear")] },
+    { type: "Log", Key: "fm/kit", Open: true, Find: "", HistDone: true, Selected: 1, Marking: true, Start: 2, End: 2 }]);
+  s.setLogView("fm/kit", { away: { seq: 1, dir: "below" } });
+  assert.match(main(render(<App store={s} />)), new RegExp(`data-seq="1"[^>]*><span class="${roleClass("log.time")}">12:01</span><span class="${roleClass("log.cursor.away")}">${str.glyph.cursorBelow}</span><span class="gutter">`));
 });
 
 test("a prompt: find's label and field; the format prompt names the default", () => {
@@ -92,14 +119,14 @@ test("a prompt: find's label and field; the format prompt names the default", ()
 });
 
 test("top bar: the Log chip, lit; status line: the log's status, else find's and how many selected", () => {
-  const html = pageWith({ Find: "apple", Matches: [1], Selected: 3 });
+  const html = pageWith({ Find: "apple", Matches: [1], Start: 1, End: 1, Selected: 3 });
   const top = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
   assert.ok(!top.includes(str.browseFindStatus("apple", 1, 1)), "find's status is the status line's");
   assert.match(top, new RegExp(`<button class="${roleClass("status.log.on")}"[^>]*>${str.viewLogButton()}</button>`));
   assert.ok(html.slice(html.indexOf('class="status')).includes(str.browseFindStatus("apple", 1, 1) + str.separator() + str.viewSelected(3)),
     "find first, counted from the cursor (on the newest line)");
   const fruit = str.browseLineTags("fruit");
-  const tagged = pageWith({ Find: "apple", Matches: [1], Selected: 3 }, { tags: { seq: 1, text: fruit } });
+  const tagged = pageWith({ Find: "apple", Matches: [1], Start: 1, End: 1, Selected: 3 }, { tags: { seq: 1, text: fruit } });
   assert.ok(tagged.slice(tagged.indexOf('class="status')).includes([str.browseFindStatus("apple", 1, 1), fruit, str.viewSelected(3)].join(str.separator())),
     "Go's word on the cursor line's tags, between find and how many are selected");
   assert.ok(!pageWith({}, { tags: { seq: 9, text: fruit } }).includes(fruit), "not for a line that isn't the cursor's");
@@ -107,7 +134,7 @@ test("top bar: the Log chip, lit; status line: the log's status, else find's and
   assert.ok(!pageWith({ Selected: 3 }).includes(keys), "find off: no find, and not its keys");
   // Log mode's messages come as the status (Go moves them there, as the
   // TUI's takeLogStatus); the log's own field isn't drawn.
-  const stale = pageWith({ Status: "stale", Selected: 2 });
+  const stale = pageWith({ Status: "stale", Start: 1, End: 1, Selected: 2 });
   assert.ok(!stale.includes("stale") && stale.slice(stale.indexOf('class="status')).includes(str.viewSelected(2)));
 });
 

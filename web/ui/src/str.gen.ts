@@ -1007,9 +1007,6 @@ export function webLoadingSize(got: unknown, total: unknown): string { return `l
 /** web.log: Log */
 export function webLog(): string { return `Log`; }
 
-/** web.log_hints: click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back */
-export function webLogHints(): string { return `click to select · shift-click extends · / find · g date · f filter · e export · c copy · esc back`; }
-
 /** web.needs_js: Kiln needs JavaScript. */
 export function webNeedsJs(): string { return `Kiln needs JavaScript.`; }
 

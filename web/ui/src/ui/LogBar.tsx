@@ -37,7 +37,7 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
     document.querySelector<HTMLElement>(".log")?.focus();
   };
   if (!p) {
-    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{v.panel ? str.filterHints() : str.webLogHints()}</span></div>;
+    return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass("log.bar.hints")}>{v.panel ? str.filterHints() : g.Marking ? str.browseHintsSelecting() : g.Start != null ? str.browseHintsSelected() : str.browseHintsNone()}</span></div>;
   }
   if (p.kind === "format") {
     const onKeyDown = (e: KeyboardEvent) => {

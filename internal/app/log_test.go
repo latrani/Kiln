@@ -410,7 +410,6 @@ func TestCopyExportAndOtherRangesLock(t *testing.T) {
 		"copy":     func() { g.Copy() },
 		"export":   func() { g.ExportReady() },
 		"newrange": func() { g.NewRange(g.Lines[0], g.Lines[1]) },
-		"extend":   func() { g.ExtendTo(g.Lines[3]) },
 	} {
 		g.Mark(g.Lines[1])
 		g.MarkTo(g.Lines[2])

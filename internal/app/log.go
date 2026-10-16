@@ -396,18 +396,6 @@ func (g *Log) RangeStatus() {
 	g.SetStatus(false, str.BrowseLinesInRange(g.Index(g.End)-g.Index(g.Start)+1))
 }
 
-// ExtendTo grows the range to take in l, from whichever end is nearer.
-// A live range locks first.
-func (g *Log) ExtendTo(l *LogLine) {
-	g.lock()
-	if g.Index(l) < g.Index(g.Start) {
-		g.Start = l
-	} else if g.Index(l) > g.Index(g.End) {
-		g.End = l
-	}
-	g.RangeStatus()
-}
-
 // ToggleExclude takes l out of the range, or puts it back.
 func (g *Log) ToggleExclude(l *LogLine) {
 	if l == nil || !g.InRange(l) {

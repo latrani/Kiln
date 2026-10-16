@@ -40,7 +40,7 @@ func TestLog(t *testing.T) {
 	ctrlL(t, ws)
 	logEl := `document.querySelector(".log")`
 	waitFor(t, ev, `document.activeElement === `+logEl+` && document.querySelector(".lrow")`, "log mode, focused, with lines")
-	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.WebLogHints()), "the hints")
+	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.BrowseHintsNone()), "the hints")
 
 	// / opens find; typing goes to the prompt, not log mode's letters;
 	// Enter finds; Esc in a prompt closes only the prompt.
@@ -67,20 +67,27 @@ func TestLog(t *testing.T) {
 		t.Error("Esc in a prompt closed log mode")
 	}
 
-	// A click selects a line (and is where find goes from next: find
-	// searches older from where you are, as the TUI's); a shift-click on
-	// another extends the range.
+	// A click moves the cursor (where find goes from next: find searches
+	// older from where you are, as the TUI's) and selects nothing. s, or
+	// the Select chip, starts selecting from it; while selecting a click
+	// outside the range grows it, one inside takes a line out (and again
+	// puts it back), and s locks it. No Shift anywhere.
 	rows := `[...document.querySelectorAll(".lrow")]`
+	selected := func(sel string) string { return sel + `.querySelector(".gutter").textContent === ` + jsString(glyph.Selected) }
 	click(t, ws, ev, rows+`[0]`)
-	waitFor(t, ev, rows+`[0].querySelector(".gutter").textContent === `+jsString(glyph.Selected), "the first line selected")
-	shiftClick(t, ws, ev, rows+`.at(-1)`)
-	waitFor(t, ev, rows+`.every(r => r.querySelector(".gutter").textContent === `+jsString(glyph.Selected)+`)`, "the range runs to the last line")
-	// A shift-click inside the range takes that line out, and again puts
-	// it back.
-	shiftClick(t, ws, ev, rows+`[1]`)
+	waitFor(t, ev, rows+`[0].querySelector(".r-log-cursor") && !(`+selected(rows+`[0]`)+`)`, "the cursor moved, nothing selected")
+	click(t, ws, ev, `document.querySelector(".status .chip")`)
+	waitFor(t, ev, selected(rows+`[0]`)+` && document.querySelector(".status .chip").getAttribute("aria-pressed") === "true"`, "selecting, the chip lit")
+	click(t, ws, ev, rows+`.at(-1)`)
+	waitFor(t, ev, rows+`.every(r => `+selected("r")+`)`, "the range grown to the last line")
+	click(t, ws, ev, rows+`[1]`)
 	waitFor(t, ev, rows+`[1].querySelector(".gutter").textContent === `+jsString(glyph.Excluded), "the middle line taken out")
-	shiftClick(t, ws, ev, rows+`[1]`)
-	waitFor(t, ev, rows+`.every(r => r.querySelector(".gutter").textContent === `+jsString(glyph.Selected)+`)`, "and back in")
+	click(t, ws, ev, rows+`[1]`)
+	waitFor(t, ev, rows+`.every(r => `+selected("r")+`)`, "and back in")
+	ev(logEl + `.focus()`)
+	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": "s", "text": "s"})
+	devtools(t, ws, "Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": "s"})
+	waitFor(t, ev, `document.querySelector(".status .chip").getAttribute("aria-pressed") === "false" && `+rows+`.every(r => `+selected("r")+`)`, "s locks it")
 
 	// c copies (the effect reaches the page); e, then h, then Enter:
 	// a download of the export.

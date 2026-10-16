@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
-import { cursorOf, dragCursor, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, segments, topFor, wantsOlder } from "../log.ts";
+import { cursorOf, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, scrolled, segments, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -16,11 +16,11 @@ function seqOf(n: Node | null): number | undefined {
 // LogView is log mode in the main area, as the TUI's: the history,
 // oldest first, a rule before each day, each line's time and gutter (the
 // range's ▌, an excluded line's ░), find's matches marked. Nothing is
-// read aloud: it's history (spec). The mouse selects as the TUI's: a
-// click takes a line, Shift+click extends the range (or inside it takes
-// a line out or back), a click on the gutter takes a line out; dragging
-// selects a run, as text selection does. Its letters work while it has
-// focus (spec). Near the top it asks for older history, keeping your
+// read aloud: it's history (spec). A click moves the cursor; while
+// selecting it grows the range or takes a line out, as the TUI's (see
+// logClick). A drag is the browser's own text selection. While selecting,
+// a cursor scrolled out of view leaves an arrow by the time of the line
+// nearest it. Its letters work while it has focus (spec). Near the top it asks for older history, keeping your
 // place; find and go-to-date bring their line into view.
 export function LogView({ state, store }: { state: State; store: Store }) {
   const k = state.active;
@@ -120,32 +120,17 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     const e = el.current!;
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
     if (place.current.at) store.logPlaces.set(k, place.current.at);
-    const to = dragCursor(rowsOf(e), e.scrollTop, e.clientHeight, cursor);
-    if (to !== undefined) store.setLogView(k, { cursor: to });
+    const sc = scrolled(!!g.Marking, rowsOf(e), e.scrollTop, e.clientHeight, cursor);
+    if (sc.to !== undefined) store.setLogView(k, { cursor: sc.to });
+    else if (sc.away?.seq !== v.away?.seq || sc.away?.dir !== v.away?.dir) store.setLogView(k, { away: sc.away });
     older(e);
   };
   const onClick = (e: MouseEvent) => {
-    if (window.getSelection()?.isCollapsed === false) return; // a drag: onMouseUp took it
+    if (window.getSelection()?.isCollapsed === false) return; // a drag: the browser's text selection
     const seq = seqOf(e.target as Node);
     if (seq === undefined) return;
     const inRange = (e.target as Element).closest(".lrow")?.querySelector(".gutter")?.textContent !== " ";
     logClick(store, seq, { shift: e.shiftKey, gutter: !!(e.target as Element).closest(".gutter"), inRange });
-  };
-  // Shift+click is log mode's (extend, or take a line out), not the
-  // browser's text selection growing, which would read as a drag.
-  const onMouseDown = (e: MouseEvent) => {
-    if (e.shiftKey) e.preventDefault();
-  };
-  // A drag selects the lines it covers, as a range.
-  const onMouseUp = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !el.current?.contains(sel.anchorNode)) return;
-    const a = seqOf(sel.anchorNode), b = seqOf(sel.focusNode);
-    if (a !== undefined && b !== undefined) {
-      if (g.Searching) act({ Do: "stop_search", Key: k });
-      act({ Do: "range", Key: k, Start: a, End: b });
-      store.setLogView(k, { cursor: b });
-    }
   };
   const onKeyDown = (e: KeyboardEvent) => {
     const does = logKey(e);
@@ -156,7 +141,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
 
   return (
     <main class="body">
-      <div class="log" ref={el} tabindex={0} role="region" aria-label={str.webLog()} onScroll={onScroll} onMouseDown={onMouseDown} onClick={onClick} onMouseUp={onMouseUp} onKeyDown={onKeyDown}>
+      <div class="log" ref={el} tabindex={0} role="region" aria-label={str.webLog()} onScroll={onScroll} onClick={onClick} onKeyDown={onKeyDown}>
         {g.Loading && <div class={roleClass("log.loading")}>{str.browseLoading()}</div>}
         {!lines.length && g.HistDone && <div class={roleClass("log.loading")}>{str.browseNoLogs()}</div>}
         {logRows(lines, g).map((r) => {
@@ -173,7 +158,11 @@ export function LogView({ state, store }: { state: State; store: Store }) {
             : <span class="ltext"><Line line={l} tags={tags} /></span>;
           return (
             <div key={l.Seq} class="lrow" data-seq={l.Seq}>
-              <span class={roleClass(l.Seq === cursor ? "log.cursor" : "log.time")}>{l.Clock ?? ""}</span> {gutter} {text}
+              <span class={roleClass(l.Seq === cursor ? "log.cursor" : "log.time")}>{l.Clock ?? ""}</span>
+              {g.Marking && v.away?.seq === l.Seq
+                ? <span class={roleClass("log.cursor.away")}>{v.away.dir === "above" ? str.glyph.cursorAbove : str.glyph.cursorBelow}</span>
+                : " "}
+              {gutter} {text}
             </div>
           );
         })}

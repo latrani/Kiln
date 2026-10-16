@@ -77,6 +77,7 @@ export interface LogView {
   follow?: boolean;
   tags?: { seq: number; text: string }; // Go's word on a line's tags (LineTags), for the status line while it's the cursor's
   panel?: { sel: string; follow?: boolean }; // the filter panel, open, and its highlight (filter.ts)
+  away?: { seq: number; dir: "above" | "below" }; // while selecting, the cursor scrolled out of view: which way, by which line (log.ts scrolled)
 }
 
 // HistoryPanel is the History event: the active input's history panel
@@ -478,9 +479,13 @@ export class Store {
     this.state.act?.(action);
   }
 
-  // setLogView changes k's log view.
+  // setLogView changes k's log view. A cursor move while selecting moves
+  // the range's end, as the TUI's SetCursor.
   setLogView(k: string, patch: Partial<LogView>): void {
+    const was = this.state.logView[k]?.cursor;
     this.set({ logView: { ...this.state.logView, [k]: { ...(this.state.logView[k] ?? { goN: 0 }), ...patch } } });
+    if (patch.cursor !== undefined && patch.cursor !== was && (this.state.logs[k] as { Marking?: boolean } | undefined)?.Marking)
+      this.state.act?.({ Do: "mark_to", Key: k, Seq: patch.cursor });
   }
 
   // set changes the page's own state.
