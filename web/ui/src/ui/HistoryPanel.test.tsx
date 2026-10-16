@@ -43,3 +43,34 @@ test("the History chip is in the status line, lit while the panel's up; the pane
   assert.ok(!bottom(other).includes(`class="history"`));
   assert.ok(other.includes(`class="chip ${roleClass("status.history")}" aria-pressed="false">`));
 });
+
+test("while the panel's up, the Session/Character switch sits before History, the scope's half lit; not while it's down", () => {
+  const half = (role: string, on: boolean, label: string) => `<button class="chip ${roleClass(role)}" aria-pressed="${on}">${label}</button>`;
+  const status = (html: string) => html.slice(html.indexOf(`<div class="status`));
+  const ch = status(page({ Scope: "character" }));
+  assert.ok(ch.includes(`<span class="scope">${half("status.scope", false, str.viewScopeSession())}${half("status.scope.on", true, str.viewScopeCharacter())}<span>${str.separator()}</span></span>`), ch);
+  assert.ok(ch.indexOf(str.viewHistoryButton()) < ch.indexOf(`class="scope"`), "History floats rightmost, first");
+  const se = status(page({ Scope: "session" }));
+  assert.ok(se.includes(half("status.scope.on", true, str.viewScopeSession())) && se.includes(half("status.scope", false, str.viewScopeCharacter())));
+  assert.ok(!status(page({ Open: false })).includes(str.viewScopeSession()));
+});
+
+test("the empty search line says what to do", () => {
+  assert.ok(bottom(page()).includes(`placeholder="${str.viewHistoryPlaceholder()}"`));
+});
+
+test("no History chip with nothing open", () => {
+  const s = new Store();
+  s.set({ phase: "running", act: () => {} });
+  s.apply([{ type: "History", Key: "", Open: false, Query: "", Rows: null, Sel: -1, Scope: "character" }]);
+  assert.ok(!render(<App store={s} />).includes(str.viewHistoryButton()));
+});
+
+test("on a disconnected character the panel's search line is still a query, as the TUI's", () => {
+  const s = new Store();
+  s.set({ phase: "running", act: () => {} });
+  s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 0 }, { type: "Active", Key: "fm/kit" },
+    { type: "History", Key: "fm/kit", Open: true, Query: "", Rows: rows, Sel: 1, Scope: "character" }]);
+  const b = bottom(render(<App store={s} />));
+  assert.ok(b.includes(`placeholder="${str.viewHistoryPlaceholder()}"`) && !b.includes(str.viewDisconnected()), b);
+});

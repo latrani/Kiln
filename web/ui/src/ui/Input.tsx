@@ -80,9 +80,9 @@ export function Input({ state, store }: { state: State; store: Store }) {
     else value = typing.text(key) ?? value;
   }
   const ranges = over(value, c);
-  const said = value ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does
-  const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›
   const panel = historyShows(state);
+  const said = value || panel ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does; the panel's query is a query
+  const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›
 
   useEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
@@ -125,6 +125,9 @@ export function Input({ state, store }: { state: State; store: Store }) {
       case "history_close":
         typing?.act({ Do: "history_close" });
         return;
+      case "history_scope":
+        typing?.act({ Do: "history_scope" });
+        return;
       case "cancel":
         typing?.act({ Do: "cancel" });
         document.querySelector<HTMLElement>("main .pill")?.click(); // back to live, from a pause or a scroll
@@ -157,7 +160,7 @@ export function Input({ state, store }: { state: State; store: Store }) {
           {value.split("\n").map((l, i) => <div data-mark={!said && (i === 0 || !flat) ? (panel ? str.glyph.search : str.glyph.echo) : undefined}>{l}</div>)}
         </div>
         {ranges.length > 0 && <Overflow text={value} ranges={ranges} />}
-        <textarea ref={ref} rows={1} value={value} placeholder={said}
+        <textarea ref={ref} rows={1} value={value} placeholder={said ?? (panel && !value ? str.viewHistoryPlaceholder() : undefined)}
           aria-label={c ? str.webInput(c.Name) : str.webInputIdle()} disabled={state.phase === "stopped"}
           spellcheck={false} autocomplete="off" onInput={onInput} onKeyDown={onKeyDown} />
       </div>

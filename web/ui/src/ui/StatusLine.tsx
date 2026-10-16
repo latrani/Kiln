@@ -32,7 +32,8 @@ function logStatus(state: State, g: LogState): string {
 // read chunk by chunk it would be a flood. While the browser won't show
 // notifications, a button asks it to, with a × to stop offering. The
 // History chip, at the right while there's an input to recall into, as
-// the TUI's, opens and closes the history panel; lit while it's up. In
+// the TUI's, opens and closes the history panel; lit while it's up, with
+// the Session/Character switch before it, the scope's half lit. In
 // log mode the Select chip is there instead: s, lit while selecting.
 export function StatusLine({ state, store }: { state: State; store: Store }) {
   const err = roleClass("status.error");
@@ -53,8 +54,13 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
   const conn = state.phase === "running" && !state.status?.Text && c
     ? (g ? logStatus(state, g) : c.State === 2 ? c.ConnectedSince : stateName(c.State))
     : "";
-  const chip = state.phase === "running" && !state.picker && !state.active.startsWith("=") && !g && !state.inputs[state.active]?.NeedPW;
+  const chip = state.phase === "running" && !!c && !state.picker && !g && !state.inputs[state.active]?.NeedPW;
   const on = historyShows(state);
+  const scope = state.history?.Scope;
+  const half = (s: "session" | "character", label: string) => (
+    <button class={`chip ${roleClass(scope === s ? "status.scope.on" : "status.scope")}`} aria-pressed={scope === s}
+      onMouseDown={(e) => e.preventDefault()} onClick={() => state.act?.({ Do: "history_scope", Text: s })}>{label}</button>
+  );
   return (
     <div class={`status ${roleClass("status")}`}>
       {g && ( // log mode's Select chip, as the TUI's: s
@@ -64,6 +70,9 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
       {chip && (
         <button class={`chip ${roleClass(on ? "status.history.on" : "status.history")}`} aria-pressed={on}
           onMouseDown={(e) => e.preventDefault()} onClick={() => state.act?.({ Do: "history_toggle" })}>{str.viewHistoryButton()}</button>
+      )}
+      {chip && on && ( // the panel's scope, before History, as the TUI's: Tab swaps it
+        <span class="scope">{half("session", str.viewScopeSession())}{half("character", str.viewScopeCharacter())}<span>{str.separator()}</span></span>
       )}
       {loading && <span>{loadingText(state.progress!.got, state.progress!.total)}</span>}
       {conn && <span>{conn}{polite && str.separator()}</span>}

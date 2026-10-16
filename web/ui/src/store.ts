@@ -89,6 +89,7 @@ export interface HistoryPanel {
   Query: string;
   Rows: { Text: string; Clock: string }[] | null;
   Sel: number;
+  Scope: "character" | "session"; // which lines the panels list, open or not
 }
 
 // historyShows reports whether the history panel is up in the input
