@@ -1,19 +1,23 @@
-# Live range marking in log mode
+# Live range selecting in log mode
+
+Renamed after trying it: the mode is *selecting*, on `s` (it was
+marking, on `m`). The core keeps its names (`Marking`, `Mark`,
+`MarkTo`, `EndMark`): they mark a range's ends.
 
 Issue #191.
 
 ## Why
 
-Marking a range in log mode works from the keyboard (`m`, page, `m`)
+Marking a range in log mode works from the keyboard (`s`, page, `s`)
 but not with the mouse: a plain click starts a new one-line range, so
-click, `m`, click throws the start away. Shift-click extends a range,
+click, `s`, click throws the start away. Shift-click extends a range,
 but many terminals keep Shift+mouse for their own text selection, and
 Blink on iOS has no way to send it. Marking has to work with plain
 clicks and keys alone.
 
 ## Behavior
 
-`m` starts a **live range** on the cursor's line: that line is the
+`s` starts a **live range** on the cursor's line: that line is the
 anchor, and the range's other end follows the cursor however it moves
 (`↑`/`↓`, `j`/`k`, `PgUp`/`PgDn`, `Home`/`End`, `g`, `n`/`N`, a click,
 the wheel dragging the cursor along at the edge). Moving above the
@@ -21,10 +25,10 @@ anchor puts the range above it; the anchor never moves.
 
 While the range is live:
 
-- The statusline shows it as it shows find: a `marking` part first,
+- The statusline shows it as it shows find: a `selecting` part first,
   then the cursor line's tags, then the selected count, which changes
   as the cursor moves.
-- `m` locks the range where it is.
+- `s` locks the range where it is.
 - `c` and `e` lock it and act on it.
 - `Esc` drops the range and stays in log mode, as `Esc` turns find off
   without leaving. With both on, `Esc` ends marking first.
@@ -42,7 +46,7 @@ While the range is live:
 
 Once locked, nothing changes from today: a click starts a new one-line
 range, shift-click extends the range or toggles a line in it, a gutter
-click toggles its line, and `m` starts a new live range on the cursor.
+click toggles its line, and `s` starts a new live range on the cursor.
 
 The live range looks like a locked one: the same selected and excluded
 styles. Only the statusline tells them apart.
@@ -89,10 +93,10 @@ or leaves log mode.
 
 ## Web
 
-The web gets `m`, which it doesn't have today (log.ts left marking to
+The web gets `s`, which it doesn't have today (log.ts left marking to
 the mouse). The TUI's keys copy over:
 
-- `m` sends `mark` with the cursor's seq.
+- `s` sends `mark` with the cursor's seq.
 - While `Marking` (in the log state the page gets), each cursor move,
   from keys, a click or `dragCursor` as the browser scrolls, sends a new
   `mark_to` action with the seq. `Esc` sends a new `end_mark`.
@@ -107,21 +111,21 @@ the mouse). The TUI's keys copy over:
 
 ## Strings
 
-- `browse.marking`, the statusline part: `marking`. New.
-- `browse.range_start` (`BrowseRangeStart`, the message `m` gives now)
-  is reworded to say how to finish: `marking: move to the other end, m
+- `browse.selecting`, the statusline part: `selecting`. New.
+- `browse.range_start` (`BrowseRangeStart`, the message `s` gives now)
+  is reworded to say how to finish: `selecting: move to the other end, s
   to finish, Esc to drop`.
 
 ## Docs
 
-`docs/log-mode.md`: the `m` and click rows, and `Esc`.
+`docs/log-mode.md`: the `s` and click rows, and `Esc`.
 
 ## Testing
 
 - Core: `Mark`, `MarkTo` above and below the anchor, exclusions dropped
   on shrink, `Esc`/`EndMark`, `c`/`e` locking.
-- TUI: `m`, PgDn twice, `m` covers the lines between; `m`, click, `m`
+- TUI: `s`, PgDn twice, `s` covers the lines between; `s`, click, `s`
   covers anchor to the clicked line; shift-click and gutter click while
   marking only move the end; `Esc` with find on ends marking only.
-- Web: `logKey`'s `m`, `logClick` while marking, and the smoke test's
-  click, `m`, click.
+- Web: `logKey`'s `s`, `logClick` while marking, and the smoke test's
+  click, `s`, click.

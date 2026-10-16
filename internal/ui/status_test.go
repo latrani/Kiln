@@ -87,7 +87,7 @@ func TestLogMessagesInBottomBar(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("up", "m", "up", "m") // a range: "2 lines in range"
+	h.keys("up", "s", "up", "s") // a range: "2 lines in range"
 	rows := strings.Split(h.screen(), "\n")
 	bottom := strings.TrimSpace(strings.SplitN(rows[len(rows)-1], "│", 2)[1])
 	hints := rows[len(rows)-3]
@@ -113,7 +113,7 @@ func TestNewestMessageWins(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("up", "m", "up", "m") // "2 lines in range"
+	h.keys("up", "s", "up", "s") // "2 lines in range"
 	h.m.setStatus(false, str.StatusConfigReloaded())
 	if got := strings.TrimSpace(ansi.Strip(h.m.statusLine(60))); got != str.StatusConfigReloaded() {
 		t.Errorf("bottom bar = %q, want the newer message", got)

@@ -124,7 +124,7 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 		return b.run(b.ToTop()), false
 	case actBottom:
 		b.ToBottom()
-	case actMark:
+	case actSelect:
 		b.Mark()
 	case actExclude:
 		b.ToggleExclude(b.Cursor)
@@ -159,7 +159,7 @@ func (b *browse) key(k tea.KeyPressMsg, pageH int) (tea.Cmd, bool) {
 func (b *browse) statusParts() string {
 	var parts []string
 	if b.Marking {
-		parts = append(parts, str.BrowseMarking())
+		parts = append(parts, str.BrowseSelecting())
 	}
 	if f := b.FindStatus(); f != "" {
 		parts = append(parts, f)

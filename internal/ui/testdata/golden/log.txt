@@ -40,7 +40,7 @@ fm              │fm · Kit                            ? focus  ·  Filter  · 
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 reverse; @25-28 reverse
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │m mark · space exclude · / find · g date · f filter · e export 
+                │s select · space exclude · / find · g date · f filter · e expor
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#b1a68b
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd

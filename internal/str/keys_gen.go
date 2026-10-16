@@ -60,7 +60,7 @@ func BrowseFormatPromptDefault(format any) string {
 	return get("browse.format_prompt_default", map[string]any{"format": format})
 }
 
-// BrowseHints is browse.hints: "m mark · space exclude · / find · g date · f filter · e export · c copy · esc back"
+// BrowseHints is browse.hints: "s select · space exclude · / find · g date · f filter · e export · c copy · esc back"
 func BrowseHints() string { return get("browse.hints", nil) }
 
 // BrowseLineTags is browse.line_tags: "tags: {tags}"
@@ -76,11 +76,8 @@ func BrowseLinesInRange(n int) string {
 // BrowseLoading is browse.loading: "loading older history…"
 func BrowseLoading() string { return get("browse.loading", nil) }
 
-// BrowseMarkRange is browse.mark_range: "mark a range with m (only received lines export)"
+// BrowseMarkRange is browse.mark_range: "select a range with s (only received lines export)"
 func BrowseMarkRange() string { return get("browse.mark_range", nil) }
-
-// BrowseMarking is browse.marking: "marking"
-func BrowseMarking() string { return get("browse.marking", nil) }
 
 // BrowseNoExportDir is browse.no_export_dir: "no export_dir configured · give a full path"
 func BrowseNoExportDir() string { return get("browse.no_export_dir", nil) }
@@ -115,7 +112,7 @@ func BrowseNothingLeft() string { return get("browse.nothing_left", nil) }
 // BrowseNothingToExport is browse.nothing_to_export: "nothing to export"
 func BrowseNothingToExport() string { return get("browse.nothing_to_export", nil) }
 
-// BrowseRangeStart is browse.range_start: "marking: move to the other end, m to finish, Esc to drop"
+// BrowseRangeStart is browse.range_start: "selecting: move to the other end, s to finish, Esc to drop"
 func BrowseRangeStart() string { return get("browse.range_start", nil) }
 
 // BrowseReadingLogs is browse.reading_logs: "reading logs: {err}"
@@ -136,6 +133,9 @@ func BrowseSearchCancelled() string { return get("browse.search_cancelled", nil)
 func BrowseSearching(find, day any) string {
 	return get("browse.searching", map[string]any{"find": find, "day": day})
 }
+
+// BrowseSelecting is browse.selecting: "selecting"
+func BrowseSelecting() string { return get("browse.selecting", nil) }
 
 // BrowseTagAs is browse.tag_as: "{tag} (styled as {styled})"
 func BrowseTagAs(tag, styled any) string {

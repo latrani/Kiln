@@ -256,9 +256,9 @@ open_connection = "+ Connection"
 # Log mode (browse, in the code).
 [browse]
 reading_logs = "reading logs: {err}"
-range_start = "marking: move to the other end, m to finish, Esc to drop"
-# The statusline's part while a range is live (m, then moving).
-marking = "marking"
+range_start = "selecting: move to the other end, s to finish, Esc to drop"
+# The statusline's part while a range is live (s, then moving).
+selecting = "selecting"
 lines_in_range = { one = "1 line in range", other = "{n} lines in range" }
 exclude_needs_range = "exclude works inside a marked range"
 no_matches = "no matches for {find:%q}"
@@ -277,7 +277,7 @@ no_export_dir = "no export_dir configured · give a full path"
 nothing_to_export = "nothing to export"
 file_exists = "{file} exists; pick another name"
 saved = "saved {path}"
-mark_range = "mark a range with m (only received lines export)"
+mark_range = "select a range with s (only received lines export)"
 copied = { one = "copied 1 line", other = "copied {n} lines" }
 nothing_left = "nothing left to export"
 find_prompt = "find: "
@@ -293,7 +293,7 @@ find_status = "find: {find} {i}/{n} · n/N"
 # As find_status, while older history not yet loaded may hold more.
 find_status_more = "find: {find} {i}/{n}+ · n/N"
 loading = "loading older history…"
-hints = "m mark · space exclude · / find · g date · f filter · e export · c copy · esc back"
+hints = "s select · space exclude · / find · g date · f filter · e export · c copy · esc back"
 # In the statusline: the cursor line's tags, and for one with no style
 # of its own, the tag up its slashes whose style it takes. Nothing shows
 # for a line with none.

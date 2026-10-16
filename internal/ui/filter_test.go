@@ -189,7 +189,7 @@ func TestPanelClicksIgnoredDuringPrompt(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("up", "m", "up", "up", "m", "f") // a range, then the panel
+	h.keys("up", "s", "up", "up", "s", "f") // a range, then the panel
 	h.key("esc")                            // close the panel
 	h.key("e")                              // export's format prompt
 	h.br().togglePanel()                    // panel open under the prompt

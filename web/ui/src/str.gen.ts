@@ -58,8 +58,8 @@ export function browseFormatPrompt(): string { return `export as (p)lain · (a)n
 /** browse.format_prompt_default: export as (p)lain · (a)nsi · (h)tml · enter {format}   esc cancel */
 export function browseFormatPromptDefault(format: unknown): string { return `export as (p)lain · (a)nsi · (h)tml · enter ${format}   esc cancel`; }
 
-/** browse.hints: m mark · space exclude · / find · g date · f filter · e export · c copy · esc back */
-export function browseHints(): string { return `m mark · space exclude · / find · g date · f filter · e export · c copy · esc back`; }
+/** browse.hints: s select · space exclude · / find · g date · f filter · e export · c copy · esc back */
+export function browseHints(): string { return `s select · space exclude · / find · g date · f filter · e export · c copy · esc back`; }
 
 /** browse.line_tags: tags: {tags} */
 export function browseLineTags(tags: unknown): string { return `tags: ${tags}`; }
@@ -75,11 +75,8 @@ export function browseLinesInRange(n: number): string {
 /** browse.loading: loading older history… */
 export function browseLoading(): string { return `loading older history…`; }
 
-/** browse.mark_range: mark a range with m (only received lines export) */
-export function browseMarkRange(): string { return `mark a range with m (only received lines export)`; }
-
-/** browse.marking: marking */
-export function browseMarking(): string { return `marking`; }
+/** browse.mark_range: select a range with s (only received lines export) */
+export function browseMarkRange(): string { return `select a range with s (only received lines export)`; }
 
 /** browse.no_export_dir: no export_dir configured · give a full path */
 export function browseNoExportDir(): string { return `no export_dir configured · give a full path`; }
@@ -108,8 +105,8 @@ export function browseNothingLeft(): string { return `nothing left to export`; }
 /** browse.nothing_to_export: nothing to export */
 export function browseNothingToExport(): string { return `nothing to export`; }
 
-/** browse.range_start: marking: move to the other end, m to finish, Esc to drop */
-export function browseRangeStart(): string { return `marking: move to the other end, m to finish, Esc to drop`; }
+/** browse.range_start: selecting: move to the other end, s to finish, Esc to drop */
+export function browseRangeStart(): string { return `selecting: move to the other end, s to finish, Esc to drop`; }
 
 /** browse.reading_logs: reading logs: {err} */
 export function browseReadingLogs(err: unknown): string { return `reading logs: ${e(err)}`; }
@@ -125,6 +122,9 @@ export function browseSearchCancelled(): string { return `search cancelled`; }
 
 /** browse.searching: find: {find} · searching back to {day}… esc to stop */
 export function browseSearching(find: unknown, day: unknown): string { return `find: ${find} · searching back to ${day}… esc to stop`; }
+
+/** browse.selecting: selecting */
+export function browseSelecting(): string { return `selecting`; }
 
 /** browse.tag_as: {tag} (styled as {styled}) */
 export function browseTagAs(tag: unknown, styled: unknown): string { return `${tag} (styled as ${styled})`; }

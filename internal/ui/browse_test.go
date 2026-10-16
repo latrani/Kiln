@@ -132,7 +132,7 @@ func TestBrowseKeepsStatusline(t *testing.T) {
 	if !strings.Contains(rows[len(rows)-3], firstPart(str.BrowseHints())) {
 		t.Errorf("action bar should sit a rule above the statusline:\n%s", h.screen())
 	}
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	if got := last(); got != str.BrowseLinesInRange(2) {
 		t.Errorf("statusline = %q", got)
 	}
@@ -155,8 +155,8 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	h.m.a.Config().ExportDir = exportDir
 	h.key("ctrl+l")
 	// Cursor starts on the last line (Rook yawns). Mark 21:01..21:05.
-	h.keys("up", "m")                   // Rook says lighthouse = end
-	h.keys("up", "up", "up", "up", "m") // Sable = start (marks may go either way)
+	h.keys("up", "s")                   // Rook says lighthouse = end
+	h.keys("up", "up", "up", "up", "s") // Sable = start (marks may go either way)
 	h.keys("down", "space")             // exclude the page
 	b := h.br()
 	var got []string
@@ -196,7 +196,7 @@ func TestBrowseExportNeedsRange(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("e")
-	if !strings.Contains(h.screen(), "mark a range with m") {
+	if !strings.Contains(h.screen(), str.BrowseMarkRange()) {
 		t.Errorf("screen:\n%s", h.screen())
 	}
 	if cmd, _ := h.br().key(tea.KeyPressMsg{Code: 'c', Text: "c"}, h.m.browseBodyH()); cmd != nil {
@@ -208,7 +208,7 @@ func TestBrowseCopy(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	if cmd := h.key("c"); cmd == nil {
 		t.Fatal("copy returned no command")
 	}
@@ -533,7 +533,7 @@ func TestBrowseMarksSurvivePaging(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	b := h.br()
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	start, end := b.Start, b.End
 	h.key("home") // loads everything older
 	if b.Start != start || b.End != end || len(b.Selection()) != 2 {
@@ -798,7 +798,7 @@ func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.m.a.Config().ExportDir = filepath.Join(home, "scenes")
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	b := h.br()
 	b.format = "plain"
 	b.save("~/Desktop/a.txt")
@@ -820,7 +820,7 @@ func TestSaveWithoutExportDirRefusesRelativePath(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.m.a.Config().ExportDir = ""
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")
+	h.keys("s", "up", "s")
 	b := h.br()
 	b.format = "plain"
 	b.save("scene.txt")
@@ -851,7 +851,7 @@ func TestExportNameAndFormatSettings(t *testing.T) {
 	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\nexport_name = \"{world}/{name} {date}\"\nexport_format = \"html\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	h.key("ctrl+l")
-	h.keys("m", "up", "m", "e")
+	h.keys("s", "up", "s", "e")
 	if !strings.Contains(h.screen(), "enter html") {
 		t.Errorf("preselected format not offered:\n%s", h.screen())
 	}
@@ -970,7 +970,7 @@ func TestLogModeKeptAcrossToggle(t *testing.T) {
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.key("ctrl+l")
-	h.keys("up", "up", "m")
+	h.keys("up", "up", "s")
 	h.key("f")
 	h.key("down")
 	b := h.br()
@@ -1294,14 +1294,18 @@ func TestBrowseLiveRangeKeys(t *testing.T) {
 	b := h.br()
 	last := len(b.Lines) - 1
 	h.key("m")
+	if b.Marking {
+		t.Fatal("m no longer selects; s does")
+	}
+	h.key("s")
 	h.keys("up", "up")
 	if !b.Marking || b.Index(b.Start) != last-2 || b.Index(b.End) != last {
 		t.Fatalf("live: marking %v, %d–%d", b.Marking, b.Index(b.Start), b.Index(b.End))
 	}
-	if bar := ansi.Strip(h.m.statusLine(80)); !strings.Contains(bar, str.BrowseMarking()) || !strings.Contains(bar, str.ViewSelected(len(b.Selection()))) {
+	if bar := ansi.Strip(h.m.statusLine(80)); !strings.Contains(bar, str.BrowseSelecting()) || !strings.Contains(bar, str.ViewSelected(len(b.Selection()))) {
 		t.Errorf("statusline %q: want marking and the live count", bar)
 	}
-	h.key("m")
+	h.key("s")
 	h.key("up")
 	if b.Marking || b.Index(b.Start) != last-2 {
 		t.Errorf("locked range moved: marking %v, start %d", b.Marking, b.Index(b.Start))
@@ -1321,7 +1325,7 @@ func TestBrowseLiveRangePagesOlder(t *testing.T) {
 	h.key("ctrl+l")
 	b := h.br()
 	end := b.Cursor
-	h.key("m")
+	h.key("s")
 	h.key("home") // ToTop: moves again as each older day arrives
 	if !b.HistDone || b.Start != b.Lines[0] || b.End != end {
 		t.Errorf("range %q–%q; want the oldest line to the anchor", b.Start.Entry.Text, b.End.Entry.Text)
@@ -1355,7 +1359,7 @@ func TestBrowseLiveRangeClicks(t *testing.T) {
 	}
 	span := func() (int, int) { return b.Index(b.Start), b.Index(b.End) }
 	click(2, false)
-	h.key("m")
+	h.key("s")
 	click(4, false)
 	if s, e := span(); !b.Marking || s != 2 || e != 4 {
 		t.Fatalf("click below while marking: marking %v, %d–%d", b.Marking, s, e)
@@ -1377,7 +1381,7 @@ func TestBrowseLiveRangeClicks(t *testing.T) {
 	if s, e := span(); s != 2 || e != 4 {
 		t.Errorf("down after growing up: %d–%d; want 2–4", s, e)
 	}
-	h.key("m")
+	h.key("s")
 	click(0, false)
 	if s, e := span(); s != 0 || e != 0 {
 		t.Error("a click after locking should start a new one-line range")
@@ -1393,7 +1397,7 @@ func TestBrowseEscEndsMarkingFirst(t *testing.T) {
 	h.key("/")
 	h.typeText("rook")
 	h.key("enter")
-	h.keys("m", "up")
+	h.keys("s", "up")
 	h.key("esc")
 	if b.Marking || b.Start != nil || b.Find == "" || h.br() == nil {
 		t.Fatalf("esc: marking %v, start %v, find %q, open %v", b.Marking, b.Start, b.Find, h.br() != nil)
@@ -1409,7 +1413,7 @@ func TestBrowseLiveRangeSurvivesToggle(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("m", "up")
+	h.keys("s", "up")
 	h.key("ctrl+l")
 	h.key("ctrl+l")
 	b := h.br()
@@ -1427,7 +1431,7 @@ func TestBrowseLiveRangeFollowsLiveLines(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.key("ctrl+l")
 	b := h.br()
-	h.key("m")
+	h.key("s")
 	anchor := b.Start
 	h.conn("fm/kit").Feed("Brand new line")
 	h.settle("fm/kit", func() bool { return strings.Contains(h.screen(), "Brand new line") })
@@ -1455,7 +1459,7 @@ func TestBrowseWheelLeavesALiveRange(t *testing.T) {
 		h.screen()
 	}
 	h.screen()
-	h.keys("m", "up", "up", "up", "space", "up") // 75–79, 76 out
+	h.keys("s", "up", "up", "up", "space", "up") // 75–79, 76 out
 	start, end, cursor := b.Start, b.End, b.Cursor
 	for range 30 {
 		wheel(tea.MouseWheelUp)
@@ -1514,7 +1518,7 @@ func TestBrowseArrowPointsToAnOffscreenCursor(t *testing.T) {
 	if s := strings.Join(body(), "\n"); strings.Contains(s, glyph.CursorAbove) || strings.Contains(s, glyph.CursorBelow) {
 		t.Fatalf("an arrow with the cursor in view:\n%s", s)
 	}
-	h.keys("m", "up")
+	h.keys("s", "up")
 	wheel(tea.MouseWheelUp, 30)
 	if row := lineRow(body(), false); !strings.Contains(row, glyph.CursorBelow) {
 		t.Errorf("cursor below the view: last line %q, want %s by its time", row, glyph.CursorBelow)

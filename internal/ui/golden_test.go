@@ -243,7 +243,7 @@ func TestGoldenLog(t *testing.T) {
 	h := goldenHarness(t)
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.keys("m", "up", "m")                                            // a range
+	h.keys("s", "up", "s")                                            // a range
 	h.kitFilter().PressOnly(scene.Item{Name: "page"}, h.br().Items()) // the Filter chip on
 	h.key("/")
 	h.typeText(kilntest.FindTerm) // the page the chip shows
