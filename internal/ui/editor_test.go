@@ -48,12 +48,12 @@ func TestEditWorldFromPicker(t *testing.T) {
 		t.Fatalf("no world editor:\n%s", h.screen())
 	}
 	s := h.screen()
-	if !strings.Contains(s, "│Host: muck.test") || !strings.Contains(s, "► "+extraLabel) || strings.Contains(s, maxBytesLabel) {
+	if !strings.Contains(s, "│Host: muck.test") || !strings.Contains(s, glyphCollapsed+" "+extraLabel) || strings.Contains(s, maxBytesLabel) {
 		t.Errorf("editor should show the basics, extras folded:\n%s", s)
 	}
 	h.focusOn(extraLabel)
 	h.enter() // unfold
-	if s := h.screen(); !strings.Contains(s, "▼ "+extraLabel) || !strings.Contains(s, reconnectLabel) {
+	if s := h.screen(); !strings.Contains(s, glyphOpen+" "+extraLabel) || !strings.Contains(s, reconnectLabel) {
 		t.Fatalf("extras didn't unfold:\n%s", s)
 	}
 	h.focusOn(maxBytesLabel)
@@ -74,6 +74,52 @@ func TestEditWorldFromPicker(t *testing.T) {
 	}
 	if kit := h.m.chars["fm/kit"]; kit.Ch.MaxLineBytes != 400 || !kit.Ch.LocalEcho {
 		t.Errorf("open character not updated: %+v", kit.Ch)
+	}
+}
+
+// More settings folds as the filter panel's tags do: Space and Enter
+// toggle it, ←/→ shut and open it, and a click on its glyph toggles it.
+func TestEditorMoreSettingsFolds(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.press('o', tea.ModCtrl)
+	h.press(tea.KeyUp, 0) // fm's header
+	h.press('t', tea.ModCtrl)
+	f := h.m.picker.edit.form
+	h.focusOn(extraLabel)
+	for _, step := range []struct {
+		key  string
+		want bool
+	}{{"right", true}, {"right", true}, {"left", false}, {"space", true}, {"enter", false}} {
+		h.key(step.key)
+		if f.expanded != step.want {
+			t.Fatalf("after %s, expanded = %v:\n%s", step.key, f.expanded, h.screen())
+		}
+	}
+	h.focusOn(saveLabel)
+	// The header's column and row on screen: the input area grows as it
+	// unfolds, so it moves.
+	at := func(g string) (x, y int) {
+		for i, row := range strings.Split(h.screen(), "\n") {
+			if j := strings.Index(row, g+" "+extraLabel); j >= 0 {
+				return len([]rune(row[:j])), i
+			}
+		}
+		t.Fatalf("no %s header:\n%s", g, h.screen())
+		return 0, 0
+	}
+	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}) }
+	x, y := at(glyphCollapsed)
+	click(x+2, y) // the label isn't the control
+	if f.expanded {
+		t.Fatalf("a click on the label unfolded:\n%s", h.screen())
+	}
+	click(x, y)
+	if !f.expanded || f.fields[f.focus].label != extraLabel {
+		t.Fatalf("a click on the glyph should unfold and focus the header:\n%s", h.screen())
+	}
+	click(at(glyphOpen))
+	if f.expanded {
+		t.Errorf("a second click should fold it again:\n%s", h.screen())
 	}
 }
 

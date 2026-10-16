@@ -36,9 +36,9 @@ test("fields are real controls with labels: text, a checkbox, radios; no select"
   assert.ok(!html.includes("<select"));
 });
 
-test("More settings is a details element, closed, with the TUI's ►", () => {
+test("More settings is a details element, closed, with the TUI's >", () => {
   const html = open();
-  assert.match(html, /<details(?![^>]*\sopen)[^>]*>\s*<summary[^>]*><span aria-hidden="true">►<\/span>/);
+  assert.match(html, new RegExp(`<details(?![^>]*\\sopen)[^>]*>\\s*<summary[^>]*><span aria-hidden="true" class="dglyph">${str.glyph.collapsed}</span>`));
   assert.ok(html.includes(str.editorExtra()));
 });
 
@@ -71,7 +71,7 @@ test("for screen readers: the summary's glyph is hidden; a choice's id and error
     s.sendEditor({ Do: "save_world" });
     s.apply([{ type: "Problems", Op: "save_world", World: "fm", Char: "", Problems: [{ Field: "reconnect", Msg: "no" }] }]);
   });
-  assert.match(html, /<details[^>]*\sopen[^>]*>\s*<summary[^>]*><span aria-hidden="true">▼<\/span>/, "opened for the refused choice inside it");
+  assert.match(html, /<details[^>]*\sopen[^>]*>\s*<summary[^>]*><span aria-hidden="true" class="dglyph">▼<\/span>/, "opened for the refused choice inside it");
   assert.match(html, /<input type="radio" id="ed-reconnect"[^>]*value="off"[^>]*checked/, "focusing the field lands on what's chosen");
   assert.match(html, /<input type="radio"[^>]*value="on"[^>]*aria-invalid="true"[^>]*aria-describedby="ed-reconnect-err"/, "each radio carries the error");
 });

@@ -10,7 +10,7 @@ const (
 	Sys        = "*" // before Kiln's own lines
 	Rule       = "─" // rules, and around a day's label
 	Open       = "▼" // an open disclosure
-	Collapsed  = "►" // a shut one
+	Collapsed  = ">" // a shut one
 	Filtered   = "•" // a shut parent with a filter set under it
 	Remove     = "×" // removes or closes what it's on
 	Selected   = "▌" // a selected line in log mode
