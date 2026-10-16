@@ -116,7 +116,6 @@ A preset is laid out like a `/backup` zip, in a folder of its own, say
 ```
 /etc/kiln-relay/preset/
   config/worlds/fm.toml
-  known_hosts            # pins for self-signed worlds (above)
 ```
 
 `config/` is Kiln's config folder: worlds, and any other config file you

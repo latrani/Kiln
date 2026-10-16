@@ -761,7 +761,7 @@ func RelayFlagConfig() string { return get("relay.flag_config", nil) }
 // RelayFlagListen is relay.flag_listen: "address to listen on (default 127.0.0.1:7801)"
 func RelayFlagListen() string { return get("relay.flag_listen", nil) }
 
-// RelayFlagPreset is relay.flag_preset: "serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)"
+// RelayFlagPreset is relay.flag_preset: "serve these files at /kiln/preset/ for the page to preload (config/…)"
 func RelayFlagPreset() string { return get("relay.flag_preset", nil) }
 
 // RelayFlagWeb is relay.flag_web: "serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)"

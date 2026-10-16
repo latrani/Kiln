@@ -647,8 +647,8 @@ export function relayFlagConfig(): string { return `the relay's config file (rel
 /** relay.flag_listen: address to listen on (default 127.0.0.1:7801) */
 export function relayFlagListen(): string { return `address to listen on (default 127.0.0.1:7801)`; }
 
-/** relay.flag_preset: serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts) */
-export function relayFlagPreset(): string { return `serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)`; }
+/** relay.flag_preset: serve these files at /kiln/preset/ for the page to preload (config/…) */
+export function relayFlagPreset(): string { return `serve these files at /kiln/preset/ for the page to preload (config/…)`; }
 
 /** relay.flag_web: serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web) */
 export function relayFlagWeb(): string { return `serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)`; }

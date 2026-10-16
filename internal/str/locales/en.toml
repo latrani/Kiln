@@ -430,7 +430,7 @@ manifest_failed = "listing the preset: {err}"
 flag_listen = "address to listen on (default 127.0.0.1:7801)"
 flag_config = "the relay's config file (relay.toml)"
 flag_web = "serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)"
-flag_preset = "serve these files at /kiln/preset/ for the page to preload (config/… and known_hosts)"
+flag_preset = "serve these files at /kiln/preset/ for the page to preload (config/…)"
 
 # The web page's own text (like every entry, also in web/ui/src/str.gen.ts).
 [web]
