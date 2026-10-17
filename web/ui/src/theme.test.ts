@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import fixture from "./testdata/fold.json" with { type: "json" };
 import { color, fold, forgetTheme, latte, lookCSS, macchiato, recallTheme, rememberTheme, roleClass, themeCSS } from "./theme.ts";
 import type { Span, TagLook, ThemeEvent } from "./types.ts";
@@ -85,6 +87,27 @@ test("the line glyphs are variables, in every sheet", () => {
     const css = themeCSS(ev(a));
     assert.ok(css.includes(`--g-echo:${JSON.stringify(str.glyph.echo)}`), a);
     assert.ok(css.includes(`--g-sys:${JSON.stringify(str.glyph.sys)}`) && css.includes(`--g-rule:${JSON.stringify(str.glyph.rule)}`), a);
+  }
+});
+
+test("every rule's color the page draws with is a variable in every sheet", () => {
+  const ui = join(process.cwd(), "src", "ui");
+  const src = readFileSync(join(process.cwd(), "src", "kiln.css"), "utf8") +
+    readdirSync(ui).filter((f) => f.endsWith(".tsx") && !f.endsWith(".test.tsx")).map((f) => readFileSync(join(ui, f), "utf8")).join("");
+  const used = new Set([...src.matchAll(/--role-([a-z-]+)-fg\b/g)].map((m) => m[0]));
+  for (const m of src.matchAll(/\brule="([a-z.]+)"/g)) used.add(`--role-${m[1].replaceAll(".", "-")}-fg`);
+  assert.ok(used.has("--role-rule-sidebar-fg"), [...used].join(" "));
+  for (const a of ["dark", "light", "auto"] as const) {
+    const css = themeCSS(ev(a));
+    for (const v of used) assert.ok(css.includes(`${v}:`), `${a}: ${v}`);
+  }
+});
+
+test("log mode's gutter glyphs, a row each, are variables in every sheet", () => {
+  for (const a of ["dark", "light", "auto"] as const) {
+    const css = themeCSS(ev(a));
+    assert.ok(css.includes(`--g-selected-rows:"\\A ${str.glyph.selected}\\A ${str.glyph.selected}`), a);
+    assert.ok(css.includes(`--g-excluded-rows:"\\A ${str.glyph.excluded}\\A ${str.glyph.excluded}`), a);
   }
 });
 

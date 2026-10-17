@@ -47,12 +47,19 @@ export const roleClass = (role: string): string => "r-" + role.replaceAll(".", "
 // The roles a class can't reach, drawn through variables in kiln.css:
 // the rules and the divider (borders), and the input's and forms' hints
 // (placeholders).
-const lineRoles = ["rule", "rule.input", "rule.form", "rule.status", "divider", "input.hint", "form.hint"];
+const lineRoles = ["rule", "rule.input", "rule.form", "rule.filter", "rule.sidebar", "rule.picker", "rule.status", "divider", "input.hint", "form.hint"];
 
-// The glyphs kiln.css draws: around Kiln's own lines, and a focused
-// choice's ◄ ►.
+// The glyphs kiln.css draws: around Kiln's own lines, a focused
+// choice's ◄ ►, and log mode's gutter glyph on a line's wrapped rows
+// (each on its own row, more than a line will wrap to).
 const glyphs = `--g-echo:${JSON.stringify(str.glyph.echo)};--g-sys:${JSON.stringify(str.glyph.sys)};--g-rule:${JSON.stringify(str.glyph.rule)}` +
-  `;--g-prev:${JSON.stringify(str.glyph.choicePrev)};--g-next:${JSON.stringify(str.glyph.choiceNext)}`;
+  `;--g-prev:${JSON.stringify(str.glyph.choicePrev)};--g-next:${JSON.stringify(str.glyph.choiceNext)}` +
+  `;--g-selected-rows:${rows(str.glyph.selected)};--g-excluded-rows:${rows(str.glyph.excluded)}`;
+
+// rows is g on each of the rows under a line's first, as a CSS string.
+function rows(g: string): string {
+  return `"${`\\A ${g}`.repeat(1000)}"`;
+}
 
 function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
   const vars = [`color-scheme:${scheme}`, `--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`), glyphs];
