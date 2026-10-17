@@ -711,3 +711,21 @@ func TestResumeBehindTheBufferSaysWhere(t *testing.T) {
 		t.Errorf("missed %+v, want no lines, data from 5", w2)
 	}
 }
+
+// The closing page's beacon can land after the new page has resumed (a
+// reload): it mustn't shorten the new page's hold.
+func TestLateBeaconAfterResume(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	q.expect(wire.Resumed)
+	beacon(t, base, p.token) // the old page's, late
+	q.c.CloseNow()
+	eventually(t, "never held twice", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
+	if closed(w, 500*time.Millisecond) {
+		t.Error("a late beacon shortened the resumed page's hold")
+	}
+}

@@ -51,6 +51,7 @@ type held struct {
 	gen      int         // detaches so far; a timer names the one it's for
 	expires  time.Time   // when the hold runs out, while detached
 	short    bool        // its page said it closed: hold for short_hold
+	resumed  time.Time   // when a page last resumed it
 	warned   bool        // logged dropping since the last attach
 	closed   bool
 }
@@ -185,6 +186,9 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 		h.timer = nil
 	}
 	away := time.Since(h.detached)
+	if resumed {
+		h.resumed = time.Now()
+	}
 	end := h.buf.end()
 	h.cond.Broadcast()
 	h.mu.Unlock()
@@ -438,6 +442,10 @@ func (s *Server) resume(c *websocket.Conn, ip netip.Addr) {
 	h.attach(c, ip, m.Got, true)
 }
 
+// beaconGrace is how long after a resume a beacon is taken to be the
+// page that was replaced saying goodbye late (sendBeacon doesn't wait).
+const beaconGrace = 5 * time.Second
+
 // shorten holds h only for short_hold from now, or less if its hold runs
 // out sooner: its page said it closed.
 func (h *held) shorten() {
@@ -447,6 +455,10 @@ func (h *held) shorten() {
 	if h.closed {
 		h.mu.Unlock()
 		return
+	}
+	if h.ws != nil && time.Since(h.resumed) < beaconGrace {
+		h.mu.Unlock()
+		return // the closing page's beacon, landing after the page that replaced it resumed
 	}
 	h.short = true
 	if h.ws == nil && h.timer != nil && time.Until(h.expires) > short {
