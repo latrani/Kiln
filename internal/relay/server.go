@@ -42,6 +42,9 @@ type Server struct {
 	// doesn't answer within pingTimeout is closed, so a browser that
 	// went away without a word (a sleeping laptop) frees its slot.
 	pingEvery, pingTimeout time.Duration // 0: 30s, 20s
+	// worldWriteTimeout is how long a write to a world may wait for it
+	// to read; past it the world is let go. 0: 30s.
+	worldWriteTimeout time.Duration
 
 	cfg      atomic.Pointer[Config]
 	mu       sync.Mutex

@@ -540,3 +540,82 @@ func TestResumeIsNotANewSlot(t *testing.T) {
 	q := resumePage(t, base, p.token, 0, "")
 	q.expect(wire.Resumed)
 }
+
+// bare is a held connection with no sockets, for testing the buffer
+// accounting directly.
+func bare(s *Server) *held {
+	h := &held{s: s, token: newToken(), world: "fm:1", ip: local}
+	h.cond = sync.NewCond(&h.mu)
+	s.mu.Lock()
+	if s.holds == nil {
+		s.holds = map[string]*held{}
+	}
+	s.holds[h.token] = h
+	s.mu.Unlock()
+	return h
+}
+
+// Over the total cap, the relay drops from the biggest hold that can
+// drop, not just the biggest.
+func TestTotalCapSkipsHoldsThatCantDrop(t *testing.T) {
+	a, _ := ParseConfig("relay.toml", []byte("max_total_buffer_mb = 1\n"))
+	s := &Server{}
+	s.SetConfig(a)
+	prompt := bytes.Repeat([]byte("x"), 60000) // no line end: can't drop
+	for range 18 {
+		s.take(bare(s), prompt)
+	}
+	b := bare(s)
+	s.take(b, bytes.Repeat([]byte("x\n"), 5000))
+	if b.buf.dropped == 0 {
+		t.Error("the hold that could drop didn't")
+	}
+}
+
+// A hold's timer from an earlier detach mustn't end a later one: detach,
+// resume, detach again, and the first timer fires late.
+func TestAnOldHoldTimerDoesNothing(t *testing.T) {
+	a, _ := ParseConfig("relay.toml", []byte(""))
+	s := &Server{}
+	s.SetConfig(a)
+	h := bare(s)
+	h.tc, _ = net.Pipe()
+	h.mu.Lock()
+	h.gen = 2 // detached twice
+	h.mu.Unlock()
+	h.expire(1)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		t.Error("the first detach's timer let go of the second detach's hold")
+	}
+}
+
+// A world that stops reading can't hold a resume up: writes to it give
+// up, and the page hears the world went.
+func TestStuckWorldDoesntBlockResume(t *testing.T) {
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	port := serveEach(t, tcpListener(t), func(net.Conn) { <-stop }) // never reads
+	s, base, _ := relay(t, world(port, ""))
+	s.worldWriteTimeout = 200 * time.Millisecond
+	p := openPage(t, base, port)
+	chunk := strings.Repeat("x", 64<<10)
+	go func() {
+		for range 256 { // far past what the kernel will buffer
+			if p.c.Write(context.Background(), websocket.MessageBinary, []byte(chunk)) != nil {
+				return
+			}
+		}
+	}()
+	time.Sleep(500 * time.Millisecond)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	done := make(chan frame, 1)
+	go func() { done <- q.next() }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the resume waited on a world that doesn't read")
+	}
+}

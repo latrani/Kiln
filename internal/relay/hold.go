@@ -46,6 +46,7 @@ type held struct {
 	ws       *attachment // nil while detached
 	detached time.Time
 	timer    *time.Timer // the hold, while detached
+	gen      int         // detaches so far; a timer names the one it's for
 	warned   bool        // logged dropping since the last attach
 	closed   bool
 }
@@ -113,24 +114,32 @@ func (s *Server) take(h *held, p []byte) {
 	h.droppedLocked(dropped)
 	h.cond.Broadcast()
 	h.mu.Unlock()
+	// Drop from the biggest hold that can; one whose buffer has no line
+	// end yet is passed over.
+	stuck := map[*held]bool{}
 	for s.buffered > cfg.TotalBufferCap() {
 		var big *held
 		for _, o := range s.holds {
+			if stuck[o] {
+				continue
+			}
 			o.mu.Lock()
 			if big == nil || o.buf.size() > big.buf.size() {
 				big = o
 			}
 			o.mu.Unlock()
 		}
+		if big == nil {
+			return
+		}
 		big.mu.Lock()
 		before, dropped := big.buf.size(), big.buf.dropped
-		ok := big.buf.dropLine()
+		if !big.buf.dropLine() {
+			stuck[big] = true
+		}
 		s.buffered += big.buf.size() - before
 		big.droppedLocked(dropped)
 		big.mu.Unlock()
-		if !ok {
-			return
-		}
 	}
 }
 
@@ -217,11 +226,15 @@ func (h *held) read(a *attachment, ack *wire.Acker) {
 				h.upMu.Unlock()
 				return
 			}
+			h.tc.SetWriteDeadline(time.Now().Add(or(h.s.worldWriteTimeout, 30*time.Second)))
 			n, err := h.tc.Write(b)
 			h.up += int64(n)
 			h.upMu.Unlock()
 			if err != nil {
-				continue // the world is ending; readWorld says so
+				// The world is ending, or has stopped reading: either way
+				// it's let go, and readWorld tells the page.
+				h.tc.Close()
+				continue
 			}
 			ack.Received(n)
 			continue
@@ -304,8 +317,9 @@ func (h *held) detach(a *attachment) {
 	a.gone = true
 	h.ws = nil
 	h.detached = time.Now()
-	hold := cfg.HoldFor()
-	h.timer = time.AfterFunc(hold, func() { h.expire(a) })
+	h.gen++
+	gen := h.gen
+	h.timer = time.AfterFunc(cfg.HoldFor(), func() { h.expire(gen) })
 	h.cond.Broadcast()
 	h.mu.Unlock()
 	a.cancel()
@@ -316,10 +330,10 @@ func (h *held) detach(a *attachment) {
 	s.logf(str.RelayHeld(ip, h.world))
 }
 
-// expire lets h go if it's still detached since a.
-func (h *held) expire(a *attachment) {
+// expire lets h go if it's still in the detach gen began.
+func (h *held) expire(gen int) {
 	h.mu.Lock()
-	still := h.ws == nil && !h.closed
+	still := h.ws == nil && !h.closed && h.gen == gen
 	h.mu.Unlock()
 	if still {
 		h.finish(true)
