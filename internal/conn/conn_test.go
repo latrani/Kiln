@@ -10,9 +10,11 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"io"
 	"math/big"
 	"net"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -55,7 +57,7 @@ func collect(t *testing.T, c *Conn) []string {
 			if !ok {
 				return got
 			}
-			got = append(got, l)
+			got = append(got, l.Text)
 		case <-timeout:
 			t.Fatal("timed out waiting for lines")
 		}
@@ -283,5 +285,74 @@ func TestTLSPinMismatchThroughDialContext(t *testing.T) {
 	var pin *PinMismatchError
 	if !errors.As(err, &pin) {
 		t.Fatalf("err = %v, want PinMismatchError", err)
+	}
+}
+
+// recConn is a relay-style connection: reads come as records.
+type recConn struct {
+	net.Conn
+	recs chan Record
+}
+
+func (r recConn) ReadRecord() (Record, error) {
+	rec, ok := <-r.recs
+	if !ok {
+		return Record{}, io.EOF
+	}
+	return rec, nil
+}
+
+func dialRecords(t *testing.T, recs ...Record) *Conn {
+	t.Helper()
+	a, b := net.Pipe()
+	t.Cleanup(func() { a.Close(); b.Close() })
+	go io.Copy(io.Discard, b)
+	ch := make(chan Record, len(recs))
+	for _, r := range recs {
+		ch <- r
+	}
+	close(ch)
+	c, err := Dial(context.Background(), Options{Host: "fm", Port: 1,
+		DialContext: func(context.Context, string, string) (net.Conn, error) { return recConn{a, ch}, nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func collectLines(t *testing.T, c *Conn) []Line {
+	t.Helper()
+	var got []Line
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case l, ok := <-c.Lines():
+			if !ok {
+				return got
+			}
+			got = append(got, l)
+		case <-timeout:
+			t.Fatal("timed out waiting for lines")
+		}
+	}
+}
+
+func TestRecordsCarryTimes(t *testing.T) {
+	t1, t2 := time.UnixMilli(1000), time.UnixMilli(2000)
+	c := dialRecords(t, Record{Data: []byte("a\r\nb"), At: t1}, Record{Data: []byte("\r\n"), At: t2})
+	got := collectLines(t, c)
+	want := []Line{{Text: "a", At: t1}, {Text: "b", At: t2}}
+	if !slices.Equal(got, want) {
+		t.Errorf("lines %+v, want %+v", got, want)
+	}
+}
+
+func TestNotesComeBetweenLines(t *testing.T) {
+	t1 := time.UnixMilli(1000)
+	c := dialRecords(t, Record{Data: []byte("a\r\n"), At: t1}, Record{Note: "n", At: t1}, Record{Data: []byte("b\r\n"), At: t1})
+	got := collectLines(t, c)
+	want := []Line{{Text: "a", At: t1}, {Text: "n", At: t1, Note: true}, {Text: "b", At: t1}}
+	if !slices.Equal(got, want) {
+		t.Errorf("lines %+v, want %+v", got, want)
 	}
 }

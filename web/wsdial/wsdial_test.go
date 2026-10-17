@@ -82,7 +82,7 @@ func firstLine(t *testing.T, c *conn.Conn) (string, error) {
 		if !ok {
 			return "", c.Err()
 		}
-		return l, nil
+		return l.Text, nil
 	case <-time.After(5 * time.Second):
 		t.Fatal("nothing arrived")
 		return "", nil

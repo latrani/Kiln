@@ -23,7 +23,7 @@ import (
 
 // fakeConn is a scripted LineConn.
 type fakeConn struct {
-	lines     chan string
+	lines     chan conn.Line
 	err       error
 	mu        sync.Mutex
 	sent      []string
@@ -31,14 +31,14 @@ type fakeConn struct {
 }
 
 func newFakeConn(lines ...string) *fakeConn {
-	f := &fakeConn{lines: make(chan string, len(lines)+1)}
+	f := &fakeConn{lines: make(chan conn.Line, len(lines)+1)}
 	for _, l := range lines {
-		f.lines <- l
+		f.lines <- conn.Line{Text: l}
 	}
 	return f
 }
-func (f *fakeConn) Lines() <-chan string { return f.lines }
-func (f *fakeConn) Err() error           { return f.err }
+func (f *fakeConn) Lines() <-chan conn.Line { return f.lines }
+func (f *fakeConn) Err() error              { return f.err }
 func (f *fakeConn) Close() error {
 	f.closeOnce.Do(func() { close(f.lines) })
 	return nil
@@ -913,5 +913,68 @@ func TestResizeReportsAfterNAWS(t *testing.T) {
 	}
 	if i, j := bytes.Index(got, resized), bytes.Index(got, []byte("marker")); i < 0 || i > j {
 		t.Errorf("server received %v, want %v before the marker", got, resized)
+	}
+}
+
+// timedSession runs a session for Rook (no login) over fc, its clock
+// reading *now.
+func timedSession(t *testing.T, fc *fakeConn, now *time.Time) (*Session, *memLog) {
+	t.Helper()
+	log := &memLog{}
+	rook := kit
+	rook.Login = ""
+	s := New(Options{
+		Char: rook,
+		Dial: func(context.Context) (LineConn, error) { return fc, nil },
+		Log:  log,
+		Now:  func() time.Time { return *now },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	return s, log
+}
+
+func lineEvent(text string) func(Event) bool {
+	return func(e Event) bool { return e.Kind == EventLine && e.Entry.Text == text }
+}
+
+func TestLinesUseTheirTimes(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	fc := newFakeConn()
+	s, _ := timedSession(t, fc, &now)
+	arrived := now.Add(time.Hour)
+	now = now.Add(2 * time.Hour) // read by the session after the send below
+	fc.lines <- conn.Line{Text: "earlier", At: arrived}
+	if e := waitFor(t, s, lineEvent("earlier")); !e.Entry.Time.Equal(arrived) {
+		t.Errorf("logged at %v, want %v (when it arrived, not now)", e.Entry.Time, arrived)
+	}
+}
+
+func TestNotesAreSys(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	fc := newFakeConn()
+	s, _ := timedSession(t, fc, &now)
+	fc.lines <- conn.Line{Text: "resumed", At: now, Note: true}
+	if e := waitFor(t, s, lineEvent("resumed")); e.Entry.Dir != logstore.Sys {
+		t.Errorf("a note logged as %q, want sys", e.Entry.Dir)
+	}
+}
+
+func TestEntryTimesNeverGoBackwards(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	fc := newFakeConn()
+	s, _ := timedSession(t, fc, &now)
+	if _, err := s.Send("look"); err != nil {
+		t.Fatal(err)
+	}
+	fc.lines <- conn.Line{Text: "stale", At: now.Add(-30 * time.Minute)}
+	if e := waitFor(t, s, lineEvent("stale")); !e.Entry.Time.Equal(now) {
+		t.Errorf("a line older than the last entry logged at %v, want %v", e.Entry.Time, now)
+	}
+	fc.lines <- conn.Line{Text: "fresh", At: now.Add(5 * time.Minute)}
+	if e := waitFor(t, s, lineEvent("fresh")); !e.Entry.Time.Equal(now.Add(5 * time.Minute)) {
+		t.Errorf("a newer line logged at %v, want its own time", e.Entry.Time)
 	}
 }

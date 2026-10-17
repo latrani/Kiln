@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
 )
 
 // Conn is a scripted server connection: Feed puts a line on it, Sent is
 // what was sent, Sizes the window sizes reported.
 type Conn struct {
-	lines     chan string
+	lines     chan conn.Line
 	prompts   chan string
 	mu        sync.Mutex
 	sent      []string
@@ -25,16 +26,16 @@ type Conn struct {
 }
 
 func NewConn() *Conn {
-	return &Conn{lines: make(chan string, 100), prompts: make(chan string, 1)}
+	return &Conn{lines: make(chan conn.Line, 100), prompts: make(chan string, 1)}
 }
 
-func (c *Conn) Lines() <-chan string   { return c.lines }
-func (c *Conn) Prompts() <-chan string { return c.prompts }
-func (c *Conn) Err() error             { return nil }
-func (c *Conn) Close() error           { c.closeOnce.Do(func() { close(c.lines) }); return nil }
+func (c *Conn) Lines() <-chan conn.Line { return c.lines }
+func (c *Conn) Prompts() <-chan string  { return c.prompts }
+func (c *Conn) Err() error              { return nil }
+func (c *Conn) Close() error            { c.closeOnce.Do(func() { close(c.lines) }); return nil }
 
 // Feed has the server send line.
-func (c *Conn) Feed(line string) { c.lines <- line }
+func (c *Conn) Feed(line string) { c.lines <- conn.Line{Text: line} }
 
 // FeedPrompt has the server send an unterminated prompt.
 func (c *Conn) FeedPrompt(p string) { c.prompts <- p }

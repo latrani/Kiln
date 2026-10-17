@@ -54,7 +54,7 @@ type Event struct {
 // LineConn is the part of *conn.Conn a session uses. Lines must be closed
 // when the connection ends, including after Close.
 type LineConn interface {
-	Lines() <-chan string
+	Lines() <-chan conn.Line
 	Err() error
 	Send(line string) error
 	Close() error
@@ -122,6 +122,23 @@ type Session struct {
 	redact   *regexp.Regexp // matches typed login lines; nil if no template
 	width    int            // last size from Resize; 0 = never set
 	height   int
+	last     time.Time // the newest entry's time
+}
+
+// stamp is the time for a new entry that arrived at (zero: now), never
+// before the last entry's, so a line held by a relay can't put the log
+// out of order.
+func (s *Session) stamp(at time.Time) time.Time {
+	if at.IsZero() {
+		at = s.o.Now()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if at.Before(s.last) {
+		at = s.last
+	}
+	s.last = at
+	return at
 }
 
 // New returns a Session; call Run to start it.
@@ -232,7 +249,7 @@ func (s *Session) Send(line string) (logstore.Entry, error) {
 		s.quitting = true
 		s.mu.Unlock()
 	}
-	e := logstore.Entry{Time: s.o.Now(), Dir: logstore.Out, Text: s.redacted(line)}
+	e := logstore.Entry{Time: s.stamp(time.Time{}), Dir: logstore.Out, Text: s.redacted(line)}
 	if err := s.o.Log.Append(e); err != nil {
 		return e, &LogError{Err: err}
 	}
@@ -252,7 +269,7 @@ func (s *Session) Login(password string) (logstore.Entry, error) {
 	if err := c.Send(wire); err != nil {
 		return logstore.Entry{}, err
 	}
-	e := logstore.Entry{Time: s.o.Now(), Dir: logstore.Out, Text: logged}
+	e := logstore.Entry{Time: s.stamp(time.Time{}), Dir: logstore.Out, Text: logged}
 	if err := s.o.Log.Append(e); err != nil {
 		return e, &LogError{Err: err}
 	}
@@ -442,7 +459,7 @@ func (s *Session) pump(ctx context.Context, c LineConn) {
 	for {
 		select {
 		case p := <-prompts:
-			s.emit(Event{Kind: EventPrompt, Entry: logstore.Entry{Time: s.o.Now(), Dir: logstore.In, Text: p}})
+			s.emit(Event{Kind: EventPrompt, Entry: logstore.Entry{Time: s.stamp(time.Time{}), Dir: logstore.In, Text: p}})
 		case <-ctx.Done():
 			c.Close()
 			for range c.Lines() { // drain so the reader goroutine exits
@@ -452,7 +469,11 @@ func (s *Session) pump(ctx context.Context, c LineConn) {
 			if !ok {
 				return
 			}
-			s.logLine(logstore.In, line)
+			d := logstore.In
+			if line.Note {
+				d = logstore.Sys
+			}
+			s.logLineAt(d, line.Text, line.At)
 		}
 	}
 }
@@ -533,8 +554,11 @@ func (s *Session) resizeLocked() {
 
 // logLine logs first, then tells the UI, so a UI failure never loses data.
 // Only Run's goroutine calls it.
-func (s *Session) logLine(d logstore.Dir, text string) {
-	e := logstore.Entry{Time: s.o.Now(), Dir: d, Text: text}
+func (s *Session) logLine(d logstore.Dir, text string) { s.logLineAt(d, text, time.Time{}) }
+
+// logLineAt is logLine for a line that arrived at (zero: now).
+func (s *Session) logLineAt(d logstore.Dir, text string, at time.Time) {
+	e := logstore.Entry{Time: s.stamp(at), Dir: d, Text: text}
 	if err := s.o.Log.Append(e); err != nil {
 		s.emit(Event{Kind: EventLogError, Err: err})
 	}
