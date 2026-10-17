@@ -524,6 +524,8 @@ notify_unsupported = "this browser can't show notifications (on an iPhone or iPa
 # the push carries nothing.
 push_title = "Kiln"
 push_body = "activity while you were away"
+# The name under Kiln's icon on a Home Screen (the web app manifest).
+app_name = "Kiln"
 # The browser tab's title; with unread lines, how many.
 title = "Kiln"
 title_unread = "({n}) Kiln"

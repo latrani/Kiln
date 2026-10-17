@@ -1366,6 +1366,9 @@ func WebAnnounce(name, line any) string {
 	return get("web.announce", map[string]any{"name": name, "line": line})
 }
 
+// WebAppName is web.app_name: "Kiln"
+func WebAppName() string { return get("web.app_name", nil) }
+
 // WebCharPriority is web.char_priority: "{name}, {n} unread, including priority"
 func WebCharPriority(name any, n int) string {
 	return get("web.char_priority", map[string]any{"name": name, "n": n})
