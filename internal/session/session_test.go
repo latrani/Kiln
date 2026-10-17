@@ -978,3 +978,118 @@ func TestEntryTimesNeverGoBackwards(t *testing.T) {
 		t.Errorf("a newer line logged at %v, want its own time", e.Entry.Time)
 	}
 }
+
+// keepConn records each Keep with how many entries the log had then.
+type keepConn struct {
+	*fakeConn
+	log     *memLog
+	resumed bool
+	mu      sync.Mutex
+	kept    [][2]int64 // off, log length
+}
+
+func (k *keepConn) Keep(off int64) {
+	k.log.mu.Lock()
+	n := len(k.log.entries)
+	k.log.mu.Unlock()
+	k.mu.Lock()
+	k.kept = append(k.kept, [2]int64{off, int64(n)})
+	k.mu.Unlock()
+}
+
+func (k *keepConn) Resumed() bool { return k.resumed }
+
+func (k *keepConn) keeps() [][2]int64 {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return slices.Clone(k.kept)
+}
+
+func runKeep(t *testing.T, kc *keepConn, dials ...LineConn) *Session {
+	t.Helper()
+	i := 0
+	s := New(Options{
+		Char: kit,
+		Dial: func(context.Context) (LineConn, error) {
+			if i == 0 {
+				i++
+				return kc, nil
+			}
+			return dials[min(i, len(dials))-1], nil
+		},
+		Log:      kc.log,
+		Password: func() (string, error) { return "pw", nil },
+		Backoff:  func(int) time.Duration { return time.Millisecond },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go s.Run(ctx)
+	return s
+}
+
+func TestKeepAfterTheLog(t *testing.T) {
+	kc := &keepConn{fakeConn: newFakeConn(), log: &memLog{}}
+	s := runKeep(t, kc)
+	waitFor(t, s, isState(Connected))
+	kc.lines <- conn.Line{Text: "Rook waves.", Off: 42}
+	waitFor(t, s, lineEvent("Rook waves."))
+	ks := kc.keeps()
+	if len(ks) != 1 || ks[0][0] != 42 {
+		t.Fatalf("keeps %v, want one at 42", ks)
+	}
+	kc.log.mu.Lock()
+	logged := slices.IndexFunc(kc.log.entries, func(e logstore.Entry) bool { return e.Text == "Rook waves." })
+	kc.log.mu.Unlock()
+	if logged < 0 || ks[0][1] <= int64(logged) {
+		t.Errorf("kept with %d entries logged, before the line (entry %d)", ks[0][1], logged)
+	}
+}
+
+func TestNoKeepWithoutOffset(t *testing.T) {
+	kc := &keepConn{fakeConn: newFakeConn(), log: &memLog{}}
+	s := runKeep(t, kc)
+	waitFor(t, s, isState(Connected))
+	kc.lines <- conn.Line{Text: "no offset"}
+	waitFor(t, s, lineEvent("no offset"))
+	if ks := kc.keeps(); len(ks) != 0 {
+		t.Errorf("keeps %v for a line with no offset", ks)
+	}
+}
+
+func TestResumedSkipsLogin(t *testing.T) {
+	kc := &keepConn{fakeConn: newFakeConn(), log: &memLog{}, resumed: true}
+	s := runKeep(t, kc)
+	waitFor(t, s, isState(Connected))
+	kc.lines <- conn.Line{Text: "still here"}
+	waitFor(t, s, lineEvent("still here"))
+	if sent := kc.Sent(); len(sent) != 0 {
+		t.Errorf("a resumed connection sent %q", sent)
+	}
+	for _, l := range kc.log.Texts() {
+		if strings.Contains(l, upTo(str.SessionConnected(mark, 0))) {
+			t.Errorf("a resumed connection logged %q", l)
+		}
+	}
+	if len(kc.log.sessions) != 0 {
+		t.Errorf("a resumed connection started a new log session")
+	}
+}
+
+func TestResumedThenDroppedLogsInNextTime(t *testing.T) {
+	kc := &keepConn{fakeConn: newFakeConn(), log: &memLog{}, resumed: true}
+	next := newFakeConn()
+	s := runKeep(t, kc, next)
+	waitFor(t, s, isState(Connected))
+	kc.Close()
+	waitFor(t, s, isState(Connected))
+	eventually(t, "never logged in", func() bool { return len(next.Sent()) == 1 })
+}
+
+func eventually(t *testing.T, what string, ok func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); !ok(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal(what)
+		}
+	}
+}

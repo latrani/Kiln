@@ -60,6 +60,14 @@ type LineConn interface {
 	Close() error
 }
 
+// keeper is implemented by connections a page can pick up again in a
+// fresh tab: Keep says every line up to stream offset off is in the log.
+type keeper interface{ Keep(off int64) }
+
+// resumer is implemented by connections that can be a held one picked up
+// again: Resumed is true when this one was, so it's already logged in.
+type resumer interface{ Resumed() bool }
+
 // prompter is implemented by connections that report unterminated
 // prompts (*conn.Conn does).
 type prompter interface {
@@ -403,12 +411,18 @@ func (s *Session) Run(ctx context.Context) {
 		attempt = 0
 		s.setConn(c)
 		ch := s.Char()
-		if l, ok := s.o.Log.(sessioner); ok {
-			l.NewSession()
+		// A held connection picked up again carries on where it was: the
+		// same log session, already logged in.
+		if r, ok := c.(resumer); ok && r.Resumed() {
+			s.state(Connected, nil)
+		} else {
+			if l, ok := s.o.Log.(sessioner); ok {
+				l.NewSession()
+			}
+			s.sys(str.SessionConnected(ch.Host, ch.Port))
+			s.state(Connected, nil)
+			s.login(c)
 		}
-		s.sys(str.SessionConnected(ch.Host, ch.Port))
-		s.state(Connected, nil)
-		s.login(c)
 		s.pump(ctx, c)
 		s.setConn(nil)
 		if ctx.Err() != nil {
@@ -474,6 +488,9 @@ func (s *Session) pump(ctx context.Context, c LineConn) {
 				d = logstore.Sys
 			}
 			s.logLineAt(d, line.Text, line.At)
+			if k, ok := c.(keeper); ok && line.Off > 0 {
+				k.Keep(line.Off) // after the log has it
+			}
 		}
 	}
 }
