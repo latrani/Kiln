@@ -350,3 +350,27 @@ func TestQueuedSnapshotOnlyAcksItsToken(t *testing.T) {
 		t.Errorf("another token's snapshot acked this one: the relay has %q", r)
 	}
 }
+
+// When the browser stops saving (a save failed), offsets waiting on a
+// save are acked, and later ones at once: the relay mustn't fill up
+// waiting for saves that won't come.
+func TestSavingOffAcksWhatWaits(t *testing.T) {
+	w := newWorld(t)
+	u := relayFor(t, w)
+	s := Open(filepath.Join(t.TempDir(), "relay.json"), true)
+	c, err := s.Dial(context.Background(), u, "fm/kit", charFor(w))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.conn(t).Write([]byte("1\r\n"))
+	got := lines(t, c, 1)
+	c.Keep(got[0].Off)
+	s.Sync()
+	s.SavingOff()
+	time.Sleep(200 * time.Millisecond)
+	e, _ := s.Get("fm/kit")
+	wsdial.DetachAll()
+	if r := replayFromZero(t, u, w, e.Token); len(r) != 0 {
+		t.Errorf("after saving stopped, the relay still had %q", r)
+	}
+}

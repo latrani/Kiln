@@ -140,8 +140,9 @@ export async function boot(store: Store): Promise<void> {
 
   let saving = true;
   // A sync saves now; Go hears when it has landed (synced), which is when
-  // it may tell the relay it can forget what it sent (resume.Store).
-  const fs = createFS({ onChange: (p: string) => persist?.changed(p), onSync: (p: string) => persist?.flush().then(() => g.kiln?.synced?.(p)) });
+  // it may tell the relay it can forget what it sent (resume.Store). A
+  // save that fails isn't synced: storageFailed tells Go saving stopped.
+  const fs = createFS({ onChange: (p: string) => persist?.changed(p), onSync: (p: string) => persist?.flush().then((ok: boolean) => { if (ok) g.kiln?.synced?.(p); }) });
   try {
     const db = idbStore(indexedDB);
     await db.open();

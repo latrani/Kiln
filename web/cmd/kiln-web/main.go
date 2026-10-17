@@ -147,6 +147,7 @@ func run(k js.Value, p page) error {
 		return nil
 	}))
 	k.Set("storageFailed", js.FuncOf(func(js.Value, []js.Value) any { //str:ok
+		held.SavingOff()
 		l.Say(true, str.WebNotSaving())
 		return nil
 	}))

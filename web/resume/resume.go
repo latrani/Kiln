@@ -131,6 +131,20 @@ func (s *Store) Sync() {
 	}
 }
 
+// SavingOff is the browser no longer saving (a save failed): offsets
+// waiting on a save are acked now, and later ones at once, so the relay
+// doesn't hold everything for saves that won't come.
+func (s *Store) SavingOff() {
+	s.mu.Lock()
+	s.saving = false
+	queue := s.queue
+	s.queue = nil
+	s.mu.Unlock()
+	for _, snap := range queue {
+		s.ack(snap)
+	}
+}
+
 // Synced is the page saying a save that path's fsync asked for has
 // landed. For this store's file, the oldest Sync's offsets are acked.
 // Saves land in the order they were asked for.
