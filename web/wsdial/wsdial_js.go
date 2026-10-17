@@ -5,15 +5,12 @@ package wsdial
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"sync"
 	"syscall/js"
-	"time"
 
 	"github.com/coder/websocket"
 
-	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -29,97 +26,91 @@ func Dialer(relayURL string, tls bool) func(ctx context.Context, network, addr s
 		if err != nil {
 			return nil, err
 		}
-		return dial(ctx, u)
+		return dialLink(ctx, openSocket, u, resumeTarget(relayURL))
 	}
 }
 
-// pageConn is a browser WebSocket as a net.Conn. Writes don't wait for
-// the browser to send (MUCK traffic is small), and deadlines are ignored:
-// nothing in Kiln's connection sets one it relies on.
-type pageConn struct {
+// pageSocket is the page's WebSocket as a socket. Writes don't wait for
+// the browser to send (MUCK traffic is small).
+type pageSocket struct {
 	ws    js.Value
 	funcs []js.Func
+	wake  chan struct{} // a message or the close came
 
-	mu     sync.Mutex
-	cond   *sync.Cond
-	open   bool // the socket opened
-	ready  bool // the relay reached the world (its open frame came)
-	buf    []byte
-	closed bool
-	err    error // what Read and Write return once closed and drained
+	mu   sync.Mutex
+	msgs []message
+	err  error // the close, once it comes
 }
 
-func dial(ctx context.Context, u string) (net.Conn, error) {
-	c := &pageConn{ws: js.Global().Get("WebSocket").New(u)} //str:ok
-	c.cond = sync.NewCond(&c.mu)
-	c.ws.Set("binaryType", "arraybuffer") //str:ok
-	settled := make(chan struct{})
-	var once sync.Once
-	settle := func() { once.Do(func() { close(settled) }) }
-	c.on("open", func(js.Value) { //str:ok
-		c.mu.Lock()
-		c.open = true
-		c.mu.Unlock()
-	})
-	c.on("message", func(e js.Value) { //str:ok
+type message struct {
+	typ  websocket.MessageType
+	data []byte
+}
+
+// openSocket opens a WebSocket to url and waits for it to open.
+func openSocket(ctx context.Context, url string) (socket, error) {
+	s := &pageSocket{ws: js.Global().Get("WebSocket").New(url), wake: make(chan struct{}, 1)} //str:ok
+	s.ws.Set("binaryType", "arraybuffer")                                                     //str:ok
+	opened := make(chan bool, 1)
+	s.on("open", func(js.Value) { opened <- true }) //str:ok
+	s.on("message", func(e js.Value) {              //str:ok
+		var m message
 		if d := e.Get("data"); d.Type() == js.TypeString { //str:ok
-			if d.String() == wire.Open {
-				c.mu.Lock()
-				c.ready = true
-				c.mu.Unlock()
-				settle()
-			}
-			return
+			m = message{websocket.MessageText, []byte(d.String())}
+		} else {
+			b := js.Global().Get("Uint8Array").New(d) //str:ok
+			m = message{websocket.MessageBinary, make([]byte, b.Length())}
+			js.CopyBytesToGo(m.data, b)
 		}
-		b := js.Global().Get("Uint8Array").New(e.Get("data")) //str:ok
-		p := make([]byte, b.Length())
-		js.CopyBytesToGo(p, b)
-		c.mu.Lock()
-		c.buf = append(c.buf, p...)
-		c.mu.Unlock()
-		c.cond.Broadcast()
+		s.mu.Lock()
+		s.msgs = append(s.msgs, m)
+		s.mu.Unlock()
+		s.poke()
 	})
-	// An error event is always followed by close, which settles things.
-	c.on("close", func(e js.Value) { //str:ok
-		code := websocket.StatusCode(e.Get("code").Int())                                  //str:ok
-		var err error = websocket.CloseError{Code: code, Reason: e.Get("reason").String()} //str:ok
-		if code == websocket.StatusNormalClosure || code == websocket.StatusGoingAway {
-			err = io.EOF
+	// An error event is always followed by close.
+	s.on("close", func(e js.Value) { //str:ok
+		s.mu.Lock()
+		if s.err == nil {
+			s.err = websocket.CloseError{Code: websocket.StatusCode(e.Get("code").Int()), Reason: e.Get("reason").String()} //str:ok
 		}
-		c.shut(explain(err))
-		c.release()
-		settle()
+		s.mu.Unlock()
+		s.poke()
+		select {
+		case opened <- false:
+		default:
+		}
+		s.release()
 	})
 	select {
-	case <-settled:
+	case ok := <-opened:
+		if !ok {
+			return nil, errors.New(str.ConnRelayDown())
+		}
+		return s, nil
 	case <-ctx.Done():
-		c.Close()
+		s.CloseNow()
 		return nil, ctx.Err()
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	switch {
-	case c.ready:
-		return c, nil
-	case !c.open:
-		return nil, errors.New(str.ConnRelayDown())
-	case c.err == io.EOF:
-		return nil, errors.New(str.ConnRelayDropped())
-	}
-	return nil, c.err // the relay's refusal, explained
 }
 
-func (c *pageConn) on(event string, f func(js.Value)) {
+func (s *pageSocket) on(event string, f func(js.Value)) {
 	jf := js.FuncOf(func(_ js.Value, a []js.Value) any { f(a[0]); return nil })
-	c.funcs = append(c.funcs, jf)
-	c.ws.Call("addEventListener", event, jf) //str:ok
+	s.funcs = append(s.funcs, jf)
+	s.ws.Call("addEventListener", event, jf) //str:ok
+}
+
+func (s *pageSocket) poke() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
 }
 
 // release frees the event handlers once the socket has closed, when no
 // more events can come. The close handler is still running, so it waits
 // for that to return.
-func (c *pageConn) release() {
-	funcs := c.funcs
+func (s *pageSocket) release() {
+	funcs := s.funcs
 	go func() {
 		for _, f := range funcs {
 			f.Release()
@@ -127,59 +118,59 @@ func (c *pageConn) release() {
 	}()
 }
 
-// shut marks the conn closed with err, unless it already was.
-func (c *pageConn) shut(err error) {
-	c.mu.Lock()
-	if !c.closed {
-		c.closed, c.err = true, err
-	}
-	c.mu.Unlock()
-	c.cond.Broadcast()
-}
-
-func (c *pageConn) Read(p []byte) (int, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for len(c.buf) == 0 && !c.closed {
-		c.cond.Wait()
-	}
-	if len(c.buf) > 0 {
-		n := copy(p, c.buf)
-		c.buf = c.buf[n:]
-		return n, nil
-	}
-	return 0, c.err
-}
-
-func (c *pageConn) Write(p []byte) (int, error) {
-	c.mu.Lock()
-	closed, err := c.closed, c.err
-	c.mu.Unlock()
-	if closed {
-		if err == io.EOF {
-			err = net.ErrClosed
+func (s *pageSocket) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
+	for {
+		s.mu.Lock()
+		if len(s.msgs) > 0 {
+			m := s.msgs[0]
+			s.msgs = s.msgs[1:]
+			s.mu.Unlock()
+			return m.typ, m.data, nil
 		}
-		return 0, err
+		err := s.err
+		s.mu.Unlock()
+		if err != nil {
+			return 0, nil, err
+		}
+		select {
+		case <-s.wake:
+		case <-ctx.Done():
+			return 0, nil, ctx.Err()
+		}
+	}
+}
+
+func (s *pageSocket) Write(_ context.Context, typ websocket.MessageType, p []byte) error {
+	s.mu.Lock()
+	err := s.err
+	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if typ == websocket.MessageText {
+		s.ws.Call("send", string(p)) //str:ok
+		return nil
 	}
 	b := js.Global().Get("Uint8Array").New(len(p)) //str:ok
 	js.CopyBytesToJS(b, p)
-	c.ws.Call("send", b) //str:ok
-	return len(p), nil
-}
-
-func (c *pageConn) Close() error {
-	c.shut(net.ErrClosed)
-	c.ws.Call("close") //str:ok
+	s.ws.Call("send", b) //str:ok
 	return nil
 }
 
-func (c *pageConn) LocalAddr() net.Addr                { return pageAddr{} }
-func (c *pageConn) RemoteAddr() net.Addr               { return pageAddr{} }
-func (c *pageConn) SetDeadline(t time.Time) error      { return nil }
-func (c *pageConn) SetReadDeadline(t time.Time) error  { return nil }
-func (c *pageConn) SetWriteDeadline(t time.Time) error { return nil }
+func (s *pageSocket) Close(code websocket.StatusCode, reason string) error {
+	s.ws.Call("close", int(code), reason) //str:ok
+	return nil
+}
 
-type pageAddr struct{}
-
-func (pageAddr) Network() string { return "websocket" } //str:ok
-func (pageAddr) String() string  { return "websocket" } //str:ok
+// CloseNow closes s at once, as far as Kiln is concerned: Read returns
+// now, without waiting for the browser's close event.
+func (s *pageSocket) CloseNow() error {
+	s.mu.Lock()
+	if s.err == nil {
+		s.err = net.ErrClosed
+	}
+	s.mu.Unlock()
+	s.poke()
+	s.ws.Call("close") //str:ok
+	return nil
+}
