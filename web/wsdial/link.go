@@ -177,7 +177,7 @@ func resumeLink(ctx context.Context, open opener, resumeURL string, held Held, d
 		return nil, errors.New(str.ConnRelayDropped())
 	}
 	l := newLink(open, resumeURL, held.Token, s, durable)
-	l.got, l.kept, l.outBase, l.resumed = held.Kept, held.Kept, m.Got, true
+	l.got, l.outBase, l.resumed = held.Kept, m.Got, true
 	if l.ack != nil {
 		l.ack = wire.NewAcker(held.Kept, l.sendAck)
 	}
