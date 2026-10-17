@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clearAway, subscribe, unsubscribe } from "./push.ts";
+import { clearAway, forget, subscribe } from "./push.ts";
 
 const key = "BPtHpXmY3r9rWzQh2a6vN0KQe2o0a0d5rFv7yJkVZ3c1aJm2b8u0p0xT9vF3m4wq7XG6YfQ6M3nZ5kL1sD2hR0c";
 const keyBytes = () => Uint8Array.from(Buffer.from(key, "base64url"));
@@ -75,11 +75,15 @@ test("a relay without a key, a browser without push, or a refused subscribe: not
   assert.deepEqual(f.sent, []);
 });
 
-test("unsubscribing drops the subscription", async () => {
+test("forgetting drops the subscription, the kept page and the worker", async () => {
   const f = fakes({ existing: keyBytes() });
-  await unsubscribe(f.opts.sw);
+  const done: string[] = [];
+  (await f.opts.sw!.getRegistration() as any).unregister = async () => { done.push("unregister"); return true; };
+  const caches = { async delete(n: string) { done.push(`delete ${n}`); return true; } } as unknown as CacheStorage;
+  await forget(f.opts.sw, caches);
   assert.deepEqual(f.calls, ["unsubscribe"]);
-  await unsubscribe(undefined);
+  assert.deepEqual(done, ["delete kiln", "unregister"]);
+  await forget(undefined, undefined);
 });
 
 test("coming back clears the away notification, and only that one", async () => {

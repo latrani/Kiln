@@ -10,6 +10,9 @@
 // it and coming back clears it.
 export const awayTag = "kiln-away"; // str:ok notification tag
 
+// cacheName is the cache the worker keeps the page in (sw.ts).
+export const cacheName = "kiln"; // str:ok cache name
+
 export interface Subscriber {
   keyURL: URL; // the relay's ?push_key=1
   sw: ServiceWorkerContainer | undefined;
@@ -43,11 +46,14 @@ export async function subscribe(o: Subscriber): Promise<void> {
   }
 }
 
-// unsubscribe ends this browser's subscription: /reset.
-export async function unsubscribe(sw: ServiceWorkerContainer | undefined): Promise<void> {
+// forget ends this browser's subscription, drops the page kept for
+// offline and unregisters the worker: /reset.
+export async function forget(sw: ServiceWorkerContainer | undefined, caches: CacheStorage | undefined = globalThis.caches): Promise<void> {
   try {
-    const sub = await (await sw?.getRegistration())?.pushManager?.getSubscription();
-    await sub?.unsubscribe();
+    const reg = await sw?.getRegistration();
+    await (await reg?.pushManager?.getSubscription())?.unsubscribe();
+    await caches?.delete(cacheName);
+    await reg?.unregister();
   } catch (e) {
     console.error("push", e); // str:ok log tag
   }

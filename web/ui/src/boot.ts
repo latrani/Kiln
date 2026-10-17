@@ -138,6 +138,9 @@ export async function boot(store: Store): Promise<void> {
     });
   }
   store.set({ phase: "loading", progress: { got: 0 } });
+  // The service worker keeps the page for a launch with no network (and
+  // shows pushes). None off localhost without https.
+  navigator.serviceWorker?.register("sw.js").catch((e) => console.error("sw", e)); // str:ok file name, log tag
 
   let saving = true;
   // A sync saves now; Go hears when it has landed (synced), which is when
@@ -189,8 +192,8 @@ export async function boot(store: Store): Promise<void> {
   // tab waits out the wipe (reset.ts).
   // A reset lets every character go first: nothing will be left to pick
   // them back up.
-  // It ends the push subscription too: nothing's left to push about.
-  const resets = resetter({ wipe: async () => { g.kiln?.closeLinks?.(); await push.unsubscribe(navigator.serviceWorker); await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
+  // It ends the push subscription and the kept page too, and the worker.
+  const resets = resetter({ wipe: async () => { g.kiln?.closeLinks?.(); await push.forget(navigator.serviceWorker); await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
   store.set({ reset: resets.reset });
   // dropLinks kills the WebSockets to the relay without a word, as a dying
   // network does; Kiln resumes them.
