@@ -15,8 +15,8 @@ type PanelEntry struct {
 	FoldedAway bool // under a folded parent: a list shows it only once that opens
 }
 
-// Entries is what the panel lists: tags (each child of a folded parent
-// marked FoldedAway), then text rows.
+// Entries is what the panel lists: categories, then flags (each child of
+// a folded parent marked FoldedAway), then text rows.
 func (g *Log) Entries() []PanelEntry { return g.EntriesOf(g.Items()) }
 
 // EntriesOf is Entries for items already in hand.

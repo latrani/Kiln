@@ -6,7 +6,7 @@ import { Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
 
-const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Untagged: false }, Depth: Name.split("/").length - 1, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
+const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Uncategorized: false }, Depth: Name.split("/").length - 1, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
 const page = (entries: object[], sel = "u") => {
   const s = new Store();
   s.set({ phase: "running", act: () => {} });
@@ -16,7 +16,7 @@ const page = (entries: object[], sel = "u") => {
   const html = render(<App store={s} />);
   return html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
 };
-const entries = [E("", { Item: { Name: "", Text: false, Untagged: true } }), E("page", { Parent: true, Hidden: true }), E("page/ooc", { Only: true }), E("x", { Item: { Name: "x", Text: true, Untagged: false }, Depth: 0 })];
+const entries = [E("", { Item: { Name: "", Text: false, Uncategorized: true } }), E("page", { Parent: true, Hidden: true }), E("page/ooc", { Only: true }), E("x", { Item: { Name: "x", Text: true, Uncategorized: false }, Depth: 0 })];
 
 test("the panel takes the sidebar's place, named Filter, in the filter role", () => {
   const nav = page(entries);

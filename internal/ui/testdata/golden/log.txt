@@ -2,8 +2,8 @@ Filters        ‹│fm · Kit                                       ? focus  ·
   @0-14 bold,fg=#a0e3e1; @15-15 fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,reverse,fg=#c0cfed,bg=#0b1b3d
 ────────────────│───────────────────────────────────────────────────────────────
   @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
- Untagged       │                                                               
-  @0-0 fg=#a0e3e1; @1-8 reverse,fg=#a0e3e1; @9-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+ Uncategorized  │                                                               
+  @0-0 fg=#a0e3e1; @1-13 reverse,fg=#a0e3e1; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
   Hide · Only   │                                                               
   @0-1 fg=#a0e3e1; @2-5 bold,fg=#c0edeb,bg=#0b3d3b; @6-8 fg=#a0e3e1; @9-12 fg=#8bb1b0; @13-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
@@ -14,20 +14,20 @@ Filters        ‹│fm · Kit                                       ? focus  ·
   @0-1 fg=#a0e3e1; @2-5 fg=#8bb1b0; @6-8 fg=#a0e3e1; @9-12 bold,fg=#c0edeb,bg=#0b3d3b; @13-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
- self           │                                                               
+ sent           │                                                               
   @0-0 fg=#a0e3e1; @1-4 bold,fg=#a0e3e1; @5-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
   Hide · Only   │                                                               
   @0-1 fg=#a0e3e1; @2-5 bold,fg=#c0edeb,bg=#0b3d3b; @6-8 fg=#a0e3e1; @9-12 fg=#8bb1b0; @13-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+ self           │                                                               
+  @0-0 fg=#a0e3e1; @1-4 bold,fg=#a0e3e1; @5-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+  Hide · Only   │                                                               
+  @0-1 fg=#a0e3e1; @2-5 fg=#8bb1b0; @6-8 fg=#a0e3e1; @9-12 fg=#8bb1b0; @13-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
  + Text         │                                                               
   @0-0 fg=#a0e3e1; @1-6 bold,fg=#c0edeb,bg=#0b3d3b; @7-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               

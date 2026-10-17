@@ -52,11 +52,11 @@ func entryNames(es []PanelEntry) []string {
 func TestEntriesListFoldedAwayChildren(t *testing.T) {
 	_, g := panelLog(t)
 	es := g.Entries()
-	if got := entryNames(es); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q"}) || !es[0].Parent || es[1].Depth != 1 {
+	if got := entryNames(es); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q", "sent"}) || !es[0].Parent || es[1].Depth != 1 {
 		t.Fatalf("entries %q, %+v; want p folded, its children listed folded away", got, es[:2])
 	}
 	g.Fold("p", false)
-	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q"}) {
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q", "sent"}) {
 		t.Errorf("unfolded: %q", got)
 	}
 	g.Fold("q", true) // no children: nothing to fold
@@ -71,7 +71,7 @@ func TestFoldsOutliveLogMode(t *testing.T) {
 	g.Fold("p", false)
 	a.CloseLog("fm/kit")
 	g = a.OpenLog("fm/kit")
-	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q"}) {
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q", "sent"}) {
 		t.Errorf("after reopening: %q; p should stay unfolded", got)
 	}
 }
@@ -87,7 +87,7 @@ func TestTextRowsAddAndRemove(t *testing.T) {
 	if !g.RemoveText("one") || g.RemoveText("one") {
 		t.Fatal("RemoveText should report only a term it removed")
 	}
-	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q", "text:three"}) {
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q", "sent", "text:three"}) {
 		t.Errorf("entries after removing one: %q", got)
 	}
 }
@@ -103,5 +103,20 @@ func TestHideAndOnlyThroughTheLog(t *testing.T) {
 	g.PressOnly(scene.Item{Name: "p/a"})
 	if !g.FilteredUnder("p", g.Items()) {
 		t.Error("p's folded children don't show as filtered")
+	}
+}
+
+// Flags come after the categories: self always, and a tag the world's
+// flags list names, with everything under it.
+func TestPanelListsFlagsAfterCategories(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": "flags = [\"p\"]\n" + tagWorld})
+	openAll(t, a, "fm/kit")
+	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, logDay, "A one", "B two", "Q three", "Rook waves to Kit.")
+	g := a.OpenLog("fm/kit")
+	g.Entries()
+	g.Fold("p", false)
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"", "q", "sent", "p", "p/a", "p/b", "self"}) {
+		t.Errorf("entries %q; want Uncategorized and the categories, then the flags", got)
 	}
 }

@@ -4,16 +4,16 @@ import { filterKey, fixSel, moveSel, panelRows } from "./filter.ts";
 import type { FilterEntry } from "./filter.ts";
 import * as str from "./str.gen.ts";
 
-const E = (Name: string, more: Partial<FilterEntry> & { Text?: boolean; Untagged?: boolean } = {}): FilterEntry => {
-  const { Text = false, Untagged = false, ...rest } = more;
-  return { Item: { Name, Text, Untagged }, Depth: Name.split("/").length - 1, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...rest };
+const E = (Name: string, more: Partial<FilterEntry> & { Text?: boolean; Uncategorized?: boolean } = {}): FilterEntry => {
+  const { Text = false, Uncategorized = false, ...rest } = more;
+  return { Item: { Name, Text, Uncategorized }, Depth: Name.split("/").length - 1, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...rest };
 };
 
 test("the panel lists entries less those folded away, + Text last; names as the TUI's", () => {
-  const rows = panelRows([E("", { Untagged: true, Depth: 0 }), E("page", { Parent: true }), E("page/ooc"), E("page/ic", { FoldedAway: true }), E("hello world", { Text: true, Depth: 0 })]);
+  const rows = panelRows([E("", { Uncategorized: true, Depth: 0 }), E("page", { Parent: true }), E("page/ooc"), E("page/ic", { FoldedAway: true }), E("hello world", { Text: true, Depth: 0 })]);
   assert.deepEqual(rows.map((r) => r.key), ["u", "g:page", "g:page/ooc", "t:hello world", "+"]);
   const names = rows.flatMap((r) => (r.kind === "entry" ? [r.name] : []));
-  assert.deepEqual(names, [str.filterUntagged(), "page", "ooc", str.filterTextItem("hello world")]);
+  assert.deepEqual(names, [str.filterUncategorized(), "page", "ooc", str.filterTextItem("hello world")]);
 });
 
 test("glyphs: ▼ open, > folded (• when something under it is filtered), × on a text row", () => {

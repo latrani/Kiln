@@ -1,11 +1,13 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
@@ -21,8 +23,10 @@ func TestRender(t *testing.T) {
 		want string
 	}{
 		{"plain", in("hi"), nil, false, "hi\x1b[0m"},
-		{"sent", logstore.Entry{Dir: logstore.Out, Text: ":grins."}, nil, false, "\x1b[2m> :grins.\x1b[0m"},
-		{"sys", logstore.Entry{Dir: logstore.Sys, Text: "connected"}, nil, false, "\x1b[2m* connected\x1b[0m"},
+		{"sent", logstore.Entry{Dir: logstore.Out, Text: ":grins."},
+			[]style.Run{{Start: 0, End: 9, SGR: "\x1b[2m"}}, false, "\x1b[2m> :grins.\x1b[0m"},
+		{"sys", logstore.Entry{Dir: logstore.Sys, Text: "connected"},
+			[]style.Run{{Start: 0, End: 11, SGR: "\x1b[2m"}}, false, "\x1b[2m* connected\x1b[0m"},
 		{"styled priority", in("Mira pages: hi"),
 			[]style.Run{{Start: 0, End: 14, SGR: "\x1b[1;38;2;255;159;67m"}}, true,
 			"» \x1b[1;38;2;255;159;67mMira pages: hi\x1b[0m"},
@@ -43,6 +47,18 @@ func TestRender(t *testing.T) {
 				t.Errorf("render = %q, want %q", got, c.want)
 			}
 		})
+	}
+}
+
+// A sent line wears the sent tag's look, "> " and all, and a sys line
+// the kiln tag's, "* " and all.
+func TestKilnRuns(t *testing.T) {
+	hl := rules.New(theme.Builtin())
+	for _, e := range []logstore.Entry{{Dir: logstore.Out, Text: ":grins."}, {Dir: logstore.Sys, Text: "connected"}} {
+		want := []style.Run{{Start: 0, End: len("> ") + len(e.Text), SGR: "\x1b[2m"}} // the built-in theme's sent and kiln: faint
+		if got := kilnRuns(hl, e); !slices.Equal(got, want) {
+			t.Errorf("kilnRuns(%c) = %+v, want %+v", e.Dir, got, want)
+		}
 	}
 }
 

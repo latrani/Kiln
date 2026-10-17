@@ -33,7 +33,7 @@ Settings are inherited in this order: **defaults → packs (in `use` order) → 
 | `autoconnect` | any level | Connect when Kiln starts |
 | `reconnect` | any level | Retry with backoff after a drop or failed connect (default `false`: stay disconnected until `/connect`; some MUCKs ask clients not to reconnect on their own) |
 | `notify` | any level | What notifies while you're away: `"all"`, `"first"` (default: the first line, then priority lines), `"priority"` or `"none"` |
-| `local_echo` | any level | Show what you send in the scrollback and the log view (default `false`; the server usually echoes poses, and sent lines are always logged) |
+| `local_echo` | any level | Show what you send in the scrollback, and start log mode with the `sent` tag shown (default `false`; the server usually echoes poses, and sent lines are always logged) |
 | `name`, `aliases` | character | Your in-game name and the others that count as you |
 
 ## Certificates

@@ -105,6 +105,9 @@ bad_max_line_bytes = "max_line_bytes must be positive"
 bad_newline_mode = 'newline_mode must be "batch" or "flatten"'
 classify_needs_tag = "classify rule {n}: tag or tags is required"
 classify_bad_pattern = "classify rule {n} ({tags}): {err}"
+classify_reserved_tag = "classify rule {n}: {tag:%q} is Kiln's own tag"
+flag_is_category = "flags: {tag:%q} is what a line is, so it can't be a flag"
+flag_nested = "flags: {tag:%q} is under another tag; a flag is a whole tag, with everything under it"
 unknown_key = "{file}: unknown key {key:%q}"
 no_character_in_world = "{world} has no character {id:%q}"
 missing_character_table = "{file}: can't find character {id:%q}'s settings"
@@ -337,7 +340,7 @@ hide = "Hide"
 only = "Only"
 add_text = "+ Text"
 # The row for lines with no tags.
-untagged = "Untagged"
+uncategorized = "Uncategorized"
 # A text row's name in the panel.
 text_item = "\"{term}\""
 # The filter panel's footer: the keys that work on the highlighted row,

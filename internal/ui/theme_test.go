@@ -16,6 +16,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -147,8 +148,6 @@ status = { bg = "#010203" }
 func TestScrollbackUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": goldenWorld}) // before the theme: New loads the built-in
 	th := withTheme(t, `[ui]
-"scrollback.sys" = { fg = "#0a0b0c" }
-"scrollback.echo" = { fg = "#0d0e0f" }
 "scrollback.pill" = { fg = "#101112" }
 link = { fg = "#131415" }`)
 	h.init()
@@ -157,7 +156,7 @@ link = { fg = "#131415" }`)
 	h.typeText(":waves.")
 	h.enter()
 	s := h.drawn()
-	for _, role := range []theme.Role{theme.ScrollbackSys, theme.ScrollbackEcho, theme.Link} {
+	for _, role := range []theme.Role{theme.Link} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("scrollback doesn't draw %s", role)
 		}
@@ -237,9 +236,10 @@ func TestThemeReloads(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.typeText(":waves.")
 	h.enter()
-	writeUserTheme(t, h, "extends = \"kiln\"\n[ui]\n\"scrollback.echo\" = { fg = \"#0a0b0c\" }\n")
+	writeUserTheme(t, h, "extends = \"kiln\"\n[tags]\nsent = { fg = \"#0a0b0c\" }\n")
 	h.m.Update(reloadMsg{})
-	want := theme.Active().SGR(theme.ScrollbackEcho)
+	_, sent, _ := theme.Active().Tag(classify.SentTag)
+	want := sent.Style.SGR()
 	if want != "\x1b[2;38;2;10;11;12m" {
 		t.Fatalf("theme not reloaded: %q", want)
 	}

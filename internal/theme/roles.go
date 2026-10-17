@@ -45,7 +45,6 @@ const (
 	ScrollbackDay        Role = "scrollback.day"
 	ScrollbackHistoryEnd Role = "scrollback.history_end"
 	ScrollbackLoading    Role = "scrollback.loading"
-	ScrollbackEcho       Role = "scrollback.echo"
 	ScrollbackSys        Role = "scrollback.sys"
 	ScrollbackPill       Role = "scrollback.pill"
 	ScrollbackSelection  Role = "scrollback.selection"
@@ -128,7 +127,7 @@ var Roles = []Role{
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle, SidebarCollapse,
 	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle, PickerCollapse,
 	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleSidebar, RulePicker, RuleStatus,
-	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackEcho, ScrollbackSys,
+	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,

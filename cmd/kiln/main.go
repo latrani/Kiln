@@ -225,7 +225,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 				fmt.Fprintln(os.Stderr, theme.Paint(theme.ScrollbackSys, "* "+str.CliNotSent(err)))
 				continue
 			}
-			fmt.Println(render(e, nil, false))
+			fmt.Println(render(e, kilnRuns(hl, e), false))
 		}
 		stop() // stdin closed: quit
 	}()
@@ -236,10 +236,13 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 		case session.EventLine:
 			var runs []style.Run
 			priority := false
-			if ev.Entry.Dir == logstore.In {
+			switch ev.Entry.Dir {
+			case logstore.In:
 				plain := ansi.Strip(ansi.Sanitize(ev.Entry.Text)) // as render draws it
 				tags := cls.Tags(plain)
 				runs, priority = hl.Runs(plain, tags), judge.Of(tags).Priority
+			case logstore.Out, logstore.Sys:
+				runs = kilnRuns(hl, ev.Entry)
 			}
 			fmt.Println(render(ev.Entry, runs, priority))
 		case session.EventLogError:

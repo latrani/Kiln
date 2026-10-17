@@ -22,6 +22,7 @@ export interface LineData {
   Out: boolean;
   Plain: string;
   Spans: Span[] | null;
+  Tags?: { Name: string }[] | null;
   Priority: boolean;
   Quiet: boolean;
 }

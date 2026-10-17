@@ -249,8 +249,17 @@ export function configClassifyBadPattern(n: number, tags: unknown, err: unknown)
 /** config.classify_needs_tag: classify rule {n}: tag or tags is required */
 export function configClassifyNeedsTag(n: number): string { return `classify rule ${n}: tag or tags is required`; }
 
+/** config.classify_reserved_tag: classify rule {n}: {tag:%q} is Kiln's own tag */
+export function configClassifyReservedTag(n: number, tag: unknown): string { return `classify rule ${n}: ${q(tag)} is Kiln's own tag`; }
+
 /** config.duplicate_character_id: {where}: id already used */
 export function configDuplicateCharacterId(where: unknown): string { return `${where}: id already used`; }
+
+/** config.flag_is_category: flags: {tag:%q} is what a line is, so it can't be a flag */
+export function configFlagIsCategory(tag: unknown): string { return `flags: ${q(tag)} is what a line is, so it can't be a flag`; }
+
+/** config.flag_nested: flags: {tag:%q} is under another tag; a flag is a whole tag, with everything under it */
+export function configFlagNested(tag: unknown): string { return `flags: ${q(tag)} is under another tag; a flag is a whole tag, with everything under it`; }
 
 /** config.host_required: {file}: host is required */
 export function configHostRequired(file: unknown): string { return `${file}: host is required`; }
@@ -527,8 +536,8 @@ export function filterTextItem(term: unknown): string { return `"${term}"`; }
 /** filter.title: Filters */
 export function filterTitle(): string { return `Filters`; }
 
-/** filter.untagged: Untagged */
-export function filterUntagged(): string { return `Untagged`; }
+/** filter.uncategorized: Uncategorized */
+export function filterUncategorized(): string { return `Uncategorized`; }
 
 /** form.next_field: Use enter or arrows to move between fields · {hint} */
 export function formNextField(hint: unknown): string { return `Use enter or arrows to move between fields · ${hint}`; }

@@ -9,11 +9,12 @@ export interface Tags {
   light: Record<string, TagLook>;
 }
 
-// Kiln's own lines wear their roles; kiln.css draws their glyphs.
+// Dividers wear their roles; kiln.css draws the glyphs. Sent lines and
+// Kiln's own wear their tags instead; see kilnStyle.
 const kindClass: Record<LineData["Kind"], string> = {
   server: "l-server",
-  echo: "l-echo " + roleClass("scrollback.echo"),
-  sys: "l-sys " + roleClass("scrollback.sys"),
+  echo: "l-echo",
+  sys: "l-sys",
   day: "l-day " + roleClass("scrollback.day"),
   history_end: "l-history_end " + roleClass("scrollback.history_end"),
 };
@@ -57,9 +58,20 @@ export function sameLine(a: Pick<LineProps, "line" | "tags"> & Partial<LineProps
   return a.line === b.line && a.tags === b.tags && a.class === b.class && a.seq === b.seq;
 }
 
+// kilnStyle is a sent line's or Kiln's own line's whole-line tag looks,
+// worn by the line itself so the glyph kiln.css draws before it takes
+// them too, as the TUI's does. Its tags match nothing, so match-scoped
+// looks don't apply.
+function kilnStyle(line: LineData, tags: Tags): string {
+  if (line.Kind !== "echo" && line.Kind !== "sys") return "";
+  const names = (line.Tags ?? []).map((t) => t.Name).filter((n) => !tags.dark[n]?.Match);
+  return names.length ? spanStyle({ Text: "", Tags: names }, tags.dark, tags.light) : "";
+}
+
 function LineView({ line, tags, class: extra, seq }: LineProps) {
+  const style = kilnStyle(line, tags);
   return (
-    <div class={"line " + kindClass[line.Kind] + (extra ? " " + extra : "")} data-seq={seq}>
+    <div class={"line " + kindClass[line.Kind] + (style ? " s" : "") + (extra ? " " + extra : "")} style={style || undefined} data-seq={seq}>
       {(line.Spans ?? []).map((s, i) => <SpanView key={i} s={s} tags={tags} />)}
     </div>
   );

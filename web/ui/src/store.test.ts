@@ -525,7 +525,7 @@ test("any log key stops a search reading older days first, then does its thing; 
 });
 
 test("any panel key stops a search reading older days first, then does its thing; Esc only stops it, as the TUI's (#206)", () => {
-  const E = (Name: string) => ({ Item: { Name, Text: false, Untagged: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false });
+  const E = (Name: string) => ({ Item: { Name, Text: false, Uncategorized: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false });
   const panel = () => {
     const l = logged({ Find: "x", Searching: true });
     l.s.apply([{ type: "Filter", Key: "fm/kit", Entries: [E("page"), E("ooc")] }]);
@@ -580,12 +580,12 @@ test("while selecting, the cursor the page shows is the range's end: a newest-li
   assert.equal(sent.length, n, "nothing more once they agree");
 });
 
-// filtered is logged with a Filter: Untagged, a tag page with a child
+// filtered is logged with a Filter: Uncategorized, a tag page with a child
 // page/ooc, and a text row "x".
 const filtered = (log: object = {}) => {
   const r = logged(log);
-  const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Untagged: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
-  r.s.apply([{ type: "Filter", Key: "fm/kit", Entries: [E("", { Item: { Name: "", Text: false, Untagged: true } }), E("page", { Parent: true }), E("page/ooc", { Depth: 1 }), E("x", { Item: { Name: "x", Text: true, Untagged: false } })] }]);
+  const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Uncategorized: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
+  r.s.apply([{ type: "Filter", Key: "fm/kit", Entries: [E("", { Item: { Name: "", Text: false, Uncategorized: true } }), E("page", { Parent: true }), E("page/ooc", { Depth: 1 }), E("x", { Item: { Name: "x", Text: true, Uncategorized: false } })] }]);
   return r;
 };
 
@@ -602,9 +602,9 @@ test("the panel's keys act on the highlighted entry, as the TUI's", () => {
   panelAct(s, "down");
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page", follow: true });
   panelAct(s, "hide");
-  assert.deepEqual(sent.at(-1), { Do: "hide", Key: "fm/kit", Item: { Name: "page", Text: false, Untagged: false } });
+  assert.deepEqual(sent.at(-1), { Do: "hide", Key: "fm/kit", Item: { Name: "page", Text: false, Uncategorized: false } });
   panelAct(s, "only");
-  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page", Text: false, Untagged: false } });
+  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page", Text: false, Uncategorized: false } });
   panelAct(s, "shut");
   assert.deepEqual(sent.at(-1), { Do: "fold", Key: "fm/kit", Tag: "page", Shut: true });
   panelAct(s, "open");
@@ -689,7 +689,7 @@ test("clicks: a name highlights its entry; Hide and Only press too; + Text asks 
   panelClick(s, "g:page");
   assert.deepEqual(s.state.logView["fm/kit"].panel, { sel: "g:page" });
   panelClick(s, "g:page/ooc", "only");
-  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page/ooc", Text: false, Untagged: false } });
+  assert.deepEqual(sent.at(-1), { Do: "only", Key: "fm/kit", Item: { Name: "page/ooc", Text: false, Uncategorized: false } });
   assert.equal(s.state.logView["fm/kit"].panel?.sel, "g:page/ooc");
   panelClick(s, "+", "add");
   assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "filter", value: "" });
