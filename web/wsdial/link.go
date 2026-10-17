@@ -235,6 +235,13 @@ func resumeLink(ctx context.Context, open opener, resumeURL string, held Held, d
 		return nil, explain(err)
 	}
 	m, err := wire.Decode(b)
+	if typ == websocket.MessageText && err == nil && m.T == wire.Refused {
+		s.CloseNow()
+		if wire.CodeGone == websocket.StatusCode(m.Code) {
+			return nil, ErrLetGo
+		}
+		return nil, explain(wire.RefusalError(m))
+	}
 	if typ != websocket.MessageText || err != nil || m.T != wire.Resumed {
 		s.CloseNow()
 		return nil, errors.New(str.ConnRelayDropped())
@@ -266,6 +273,10 @@ func dialLink(ctx context.Context, open opener, target, resumeURL string, durabl
 		return nil, explain(err)
 	}
 	m, err := wire.Decode(b)
+	if typ == websocket.MessageText && err == nil && m.T == wire.Refused {
+		s.CloseNow()
+		return nil, explain(wire.RefusalError(m))
+	}
 	if typ != websocket.MessageText || err != nil || m.T != wire.Open || m.Token == "" {
 		s.CloseNow()
 		return nil, errors.New(str.ConnRelayDropped())
@@ -472,6 +483,10 @@ func (l *Link) tryResume() (socket, wire.Msg, error) {
 		return nil, wire.Msg{}, err
 	}
 	m, err := wire.Decode(b)
+	if typ == websocket.MessageText && err == nil && m.T == wire.Refused {
+		s.CloseNow()
+		return nil, wire.Msg{}, wire.RefusalError(m) // resume reads its code
+	}
 	if typ != websocket.MessageText || err != nil || m.T != wire.Resumed {
 		s.CloseNow()
 		return nil, wire.Msg{}, errors.New(str.ConnRelayDropped())

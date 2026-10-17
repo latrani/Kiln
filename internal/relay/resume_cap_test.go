@@ -24,14 +24,17 @@ func silentResume(t *testing.T, base string) *websocket.Conn {
 	return c
 }
 
-// closedWith is the code c was closed with within wait, or -1 if it's
-// still open.
+// closedWith is the code c was refused or closed with within wait, or
+// -1 if it's still open.
 func closedWith(c *websocket.Conn, wait time.Duration) websocket.StatusCode {
 	ctx, cancel := context.WithTimeout(context.Background(), wait)
 	defer cancel()
-	_, _, err := c.Read(ctx)
+	typ, b, err := c.Read(ctx)
 	if ctx.Err() != nil {
 		return -1
+	}
+	if m, _ := wire.Decode(b); err == nil && typ == websocket.MessageText && m.T == wire.Refused {
+		return websocket.StatusCode(m.Code)
 	}
 	return websocket.CloseStatus(err)
 }

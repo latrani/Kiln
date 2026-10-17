@@ -109,7 +109,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)
 			return
 		case wire.CodeBusy:
-			s.logf(str.RelayRefusedResuming(ip))
+			s.logf(str.RelayRefusedResumingBusy(ip))
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -137,22 +137,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wl, ok := a.Lookup(host, port)
 	if !ok {
 		s.logf(str.RelayRefusedNotListed(ip, addr))
-		c.Close(wire.CodeNotListed, "")
+		refuse(c, wire.CodeNotListed, "")
 		return
 	}
 	if wl.Plaintext && r.URL.Query().Get("tls") == "1" {
 		s.logf(str.RelayRefusedNoTls(ip, addr))
-		c.Close(wire.CodeNoTLS, "")
+		refuse(c, wire.CodeNoTLS, "")
 		return
 	}
 	switch s.acquire(ip, a) {
 	case wire.CodeTooMany:
 		s.logf(str.RelayRefusedTooMany(ip, addr))
-		c.Close(wire.CodeTooMany, "")
+		refuse(c, wire.CodeTooMany, "")
 		return
 	case wire.CodeBusy:
 		s.logf(str.RelayRefusedBusy(ip, addr))
-		c.Close(wire.CodeBusy, "")
+		refuse(c, wire.CodeBusy, "")
 		return
 	}
 	addr = net.JoinHostPort(wl.Host, strconv.Itoa(port))
@@ -168,7 +168,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if errors.As(err, &pin) {
 				why = str.RelayCertNotPinned() // the log has the fingerprints
 			}
-			c.Close(wire.CodeBadCert, why)
+			refuse(c, wire.CodeBadCert, why)
 			s.release(ip)
 			return
 		}
@@ -176,7 +176,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dcancel()
 	if err != nil {
 		s.logf(str.RelayRefusedUnreachable(ip, addr, err))
-		c.Close(wire.CodeUnreachable, reason(err))
+		refuse(c, wire.CodeUnreachable, reason(err))
 		s.release(ip)
 		return
 	}
@@ -309,6 +309,18 @@ func (s *Server) acquire(ip netip.Addr, a *Config) websocket.StatusCode {
 	s.open[b]++
 	s.total++
 	return 0
+}
+
+// refuseWait bounds sending a refusal.
+const refuseWait = 2 * time.Second
+
+// refuse tells c's page why it's refused, then hangs up: a close
+// handshake would wait on a sender that needn't answer.
+func refuse(c *websocket.Conn, code websocket.StatusCode, why string) {
+	ctx, cancel := context.WithTimeout(context.Background(), refuseWait)
+	defer cancel()
+	c.Write(ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Refused, Code: int(code), Why: why}))
+	c.CloseNow()
 }
 
 // waitResume counts a resume socket from ip that hasn't named its hold
