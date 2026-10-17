@@ -47,6 +47,7 @@ func TestServiceWorkerShowsPush(t *testing.T) {
 	allow := `[...document.querySelectorAll("button")].find(b => b.textContent === ` + jsString(str.WebNotifyAllow()) + `)`
 	waitFor(t, ev, allow, "the offer to allow notifications")
 	devtools(t, ws, "Browser.grantPermissions", map[string]any{"permissions": []string{"notifications"}, "origin": origin})
+	waitFor(t, ev, `Notification.permission === "granted"`, "notifications allowed")
 	ev(allow + `.click()`)
 	waitFor(t, ev, `performance.getEntriesByType("resource").some(e => e.name.includes("push_key=1") && e.responseStatus === 200)`, "the page getting the relay's key")
 	waitFor(t, ev, `navigator.serviceWorker.getRegistration().then(r => !!r?.active)`, "the service worker running")
@@ -67,9 +68,17 @@ func TestServiceWorkerShowsPush(t *testing.T) {
 	json.Unmarshal(devtools(t, ws, "Target.createTarget", map[string]any{"url": "about:blank"}), &blank)
 	devtools(t, ws, "Target.activateTarget", map[string]any{"targetId": blank.TargetID})
 	waitFor(t, ev, `!document.hasFocus()`, "Kiln's tab losing focus")
-	devtools(t, ws, "ServiceWorker.deliverPushMessage", map[string]any{"origin": origin, "registrationId": id, "data": ""})
+	// The worker may hear of the focus change a moment later than the
+	// page, and a push before then shows nothing: push until one shows.
 	want, _ := json.Marshal([][]string{{str.WebPushTitle(), str.WebPushBody()}})
-	waitFor(t, ev, notes+`.then(s => s === `+jsString(string(want))+`)`, "the away notification")
+	shown := notes + `.then(s => s === ` + jsString(string(want)) + `)`
+	for deadline := time.Now().Add(20 * time.Second); ev(shown) != "true"; {
+		if time.Now().After(deadline) {
+			t.Fatalf("the away notification never showed; notifications: %s", ev(notes))
+		}
+		devtools(t, ws, "ServiceWorker.deliverPushMessage", map[string]any{"origin": origin, "registrationId": id, "data": ""})
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 // registration is the DevTools id of the service worker registered for
