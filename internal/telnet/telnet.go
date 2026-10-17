@@ -69,6 +69,14 @@ func NewParser(width, height int) *Parser {
 	return &Parser{width: clamp16(width), height: clamp16(height)}
 }
 
+// Skip forgets a command or subnegotiation cut off partway, as when bytes
+// in the middle of the stream were dropped: the next byte is data.
+// Negotiated options stay.
+func (p *Parser) Skip() {
+	p.st = stData
+	p.sbBuf = p.sbBuf[:0]
+}
+
 // UTF8 reports whether UTF-8 was negotiated via CHARSET.
 func (p *Parser) UTF8() bool { return p.utf8 }
 

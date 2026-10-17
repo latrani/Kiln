@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -63,6 +64,23 @@ func TestParseTrust(t *testing.T) {
 	}
 }
 
+func TestParseHoldAndBuffers(t *testing.T) {
+	a, err := ParseConfig("relay.toml", []byte(sample))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.HoldFor() != 24*time.Hour || a.BufferCap() != 4<<20 || a.TotalBufferCap() != 256<<20 {
+		t.Errorf("defaults = %v, %d, %d; want 24h, 4 MiB, 256 MiB", a.HoldFor(), a.BufferCap(), a.TotalBufferCap())
+	}
+	a, err = ParseConfig("relay.toml", []byte("hold = \"90m\"\nmax_buffer_mb = 1\nmax_total_buffer_mb = 8\n"+sample))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.HoldFor() != 90*time.Minute || a.BufferCap() != 1<<20 || a.TotalBufferCap() != 8<<20 {
+		t.Errorf("set = %v, %d, %d; want 90m, 1 MiB, 8 MiB", a.HoldFor(), a.BufferCap(), a.TotalBufferCap())
+	}
+}
+
 func TestTrusted(t *testing.T) {
 	a, _ := ParseConfig("relay.toml", []byte(sample))
 	for ip, want := range map[string]bool{
@@ -103,6 +121,11 @@ func TestParseErrors(t *testing.T) {
 			str.RelayConfigPlaintextTrust("relay.toml", "a.example")},
 		{"zero per ip", "max_per_ip = 0\n", str.RelayConfigBadLimit("relay.toml", "max_per_ip")},
 		{"negative conns", "max_conns = -1\n", str.RelayConfigBadLimit("relay.toml", "max_conns")},
+		{"hold word", "hold = \"soon\"\n", str.RelayConfigBadHold("relay.toml", "soon")},
+		{"hold negative", "hold = \"-1h\"\n", str.RelayConfigBadHold("relay.toml", "-1h")},
+		{"hold zero", "hold = \"0s\"\n", str.RelayConfigBadHold("relay.toml", "0s")},
+		{"negative buffer", "max_buffer_mb = -1\n", str.RelayConfigBadLimit("relay.toml", "max_buffer_mb")},
+		{"zero total buffer", "max_total_buffer_mb = 0\n", str.RelayConfigBadLimit("relay.toml", "max_total_buffer_mb")},
 	} {
 		_, err := ParseConfig("relay.toml", []byte(c.toml))
 		if err == nil || err.Error() != c.want {

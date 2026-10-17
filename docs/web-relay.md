@@ -65,6 +65,11 @@ trusted_proxies = ["127.0.0.1"]
 max_per_ip = 8
 # Connections in all.
 max_conns = 256
+# How long a connection is held after its page goes away (below), and
+# how much is kept for each one meanwhile, and for all of them, in MB.
+hold = "24h"
+max_buffer_mb = 4
+max_total_buffer_mb = 256
 
 [[world]]
 host = "muck.example.org"
@@ -88,9 +93,31 @@ URLs. A host and port may appear in only one `[[world]]`.
 The relay reloads the file when it changes, following a symlink to its
 target. If the new file has an error, it logs it and keeps the old one.
 
-The relay pings each open connection every 30 seconds and closes one
-that doesn't answer, so a browser that vanished (a laptop gone to sleep)
-doesn't hold a slot until nginx's timeout.
+The relay pings each open connection every 30 seconds and holds one
+that doesn't answer (below), so a browser that vanished (a laptop gone
+to sleep) is noticed before nginx's timeout.
+
+## Held connections
+
+When a page's WebSocket dies without Kiln saying it's done (a phone
+switching apps or losing its network, a tab suspended in the
+background), the relay keeps the world connection open and holds it
+for `hold` (24 hours unless you set it). Kiln picks it back up when it
+comes back: no reconnect, no log-in, and the lines that arrived
+meanwhile come in with the times they reached the relay. A player
+quitting or closing the character lets the world go at once.
+
+- A held connection still counts against `max_per_ip` and `max_conns`
+  until it ends. Picking it up from a new address (wifi to cellular)
+  moves its count there.
+- While held, what the world sends is kept in memory, up to
+  `max_buffer_mb` per connection and `max_total_buffer_mb` in all. Past
+  that the oldest lines go (from the fullest connection, for the total),
+  and the player is told how many they missed.
+- If the hold runs out, the relay closes the world connection; Kiln
+  says the relay let go, and does what the character's `reconnect`
+  setting says.
+- Restarting the relay lets every held connection go.
 
 ## TLS trust
 

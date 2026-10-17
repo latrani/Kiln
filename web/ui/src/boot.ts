@@ -182,7 +182,9 @@ export async function boot(store: Store): Promise<void> {
   // tab waits out the wipe (reset.ts).
   const resets = resetter({ wipe: async () => { await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
   store.set({ reset: resets.reset });
-  g.kilnPage = record ? { act, events, sent } : { act };
+  // dropLinks kills the WebSockets to the relay without a word, as a dying
+  // network does; Kiln resumes them.
+  g.kilnPage = record ? { act, events, sent, dropLinks: () => g.kiln?.dropLinks?.() } : { act };
 
   const saveDrafts = () => act({ Do: "save_drafts" });
   // Another tab taking over: save drafts first (Go writes and syncs the
@@ -195,6 +197,10 @@ export async function boot(store: Store): Promise<void> {
   const leaving = () => { saveDrafts(); persist?.flush(); };
   addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") leaving(); });
   addEventListener("pagehide", leaving);
+  // Back in view: a socket a suspended tab left can look open but be dead,
+  // so Go checks each and resumes any that doesn't answer.
+  addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") g.kiln?.wake?.(); });
+  addEventListener("pageshow", () => g.kiln?.wake?.());
 
   await loadScript("wasm_exec.js");
   const relay = new URL("relay", location.href);

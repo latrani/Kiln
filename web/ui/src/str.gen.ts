@@ -312,6 +312,14 @@ export function connBadFingerprint(fp: unknown): string { return `malformed sha2
 /** conn.cert_changed: certificate for {host} changed: pinned {pinned}, got {got} */
 export function connCertChanged(host: unknown, pinned: unknown, got: unknown): string { return `certificate for ${host} changed: pinned ${pinned}, got ${got}`; }
 
+/** conn.missed: one: missed 1 line while away · the relay's buffer was full · other: missed {n} lines while away · the relay's buffer was full */
+export function connMissed(n: number): string {
+  switch (plural.select(n)) {
+    case "one": return `missed 1 line while away · the relay's buffer was full`;
+    default: return `missed ${n} lines while away · the relay's buffer was full`;
+  }
+}
+
 /** conn.no_certificate: server sent no certificate */
 export function connNoCertificate(): string { return `server sent no certificate`; }
 
@@ -330,17 +338,29 @@ export function connRelayDown(): string { return `couldn't reach the web relay`;
 /** conn.relay_dropped: lost the connection to the web relay */
 export function connRelayDropped(): string { return `lost the connection to the web relay`; }
 
+/** conn.relay_let_go: the web relay let go of this connection */
+export function connRelayLetGo(): string { return `the web relay let go of this connection`; }
+
+/** conn.relay_lost: lost the web relay · trying to get the connection back */
+export function connRelayLost(): string { return `lost the web relay · trying to get the connection back`; }
+
 /** conn.relay_no_tls: the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator */
 export function connRelayNoTls(): string { return `the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator`; }
 
 /** conn.relay_not_listed: this world isn't on the web relay's list */
 export function connRelayNotListed(): string { return `this world isn't on the web relay's list`; }
 
+/** conn.relay_replaced: another page picked up this connection */
+export function connRelayReplaced(): string { return `another page picked up this connection`; }
+
 /** conn.relay_too_many: too many connections from your address · close one and try again */
 export function connRelayTooMany(): string { return `too many connections from your address · close one and try again`; }
 
 /** conn.relay_unreachable: the relay couldn't reach this world: {reason} */
 export function connRelayUnreachable(reason: unknown): string { return `the relay couldn't reach this world: ${reason}`; }
+
+/** conn.resumed: resumed · away {away} */
+export function connResumed(away: unknown): string { return `resumed · away ${away}`; }
 
 /** date.day: Mon Jan 2 */
 export function dateDay(): string { return `Mon Jan 2`; }
@@ -591,6 +611,9 @@ export function relayCertNotPinned(): string { return `it doesn't match the pin 
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
+/** relay.config_bad_hold: {path}: hold {value:%q} isn't a length of time · use one like "24h" or "90m" */
+export function relayConfigBadHold(path: unknown, value: unknown): string { return `${path}: hold ${q(value)} isn't a length of time · use one like "24h" or "90m"`; }
+
 /** relay.config_bad_limit: {path}: {key} must be 1 or more */
 export function relayConfigBadLimit(path: unknown, key: unknown): string { return `${path}: ${key} must be 1 or more`; }
 
@@ -644,6 +667,9 @@ export function relayConfigReloadFailed(err: unknown): string { return `config n
 /** relay.config_unknown_key: {path}: unknown setting {key:%q} */
 export function relayConfigUnknownKey(path: unknown, key: unknown): string { return `${path}: unknown setting ${q(key)}`; }
 
+/** relay.dropping: dropping lines {ip} → {world:%q}: buffer full */
+export function relayDropping(ip: unknown, world: unknown): string { return `dropping lines ${ip} → ${q(world)}: buffer full`; }
+
 /** relay.flag_config: the relay's config file (relay.toml) */
 export function relayFlagConfig(): string { return `the relay's config file (relay.toml)`; }
 
@@ -655,6 +681,12 @@ export function relayFlagPreset(): string { return `serve these files at /kiln/p
 
 /** relay.flag_web: serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web) */
 export function relayFlagWeb(): string { return `serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)`; }
+
+/** relay.held: held {ip} → {world:%q} */
+export function relayHeld(ip: unknown, world: unknown): string { return `held ${ip} → ${q(world)}`; }
+
+/** relay.hold_expired: let go {ip} → {world:%q}: held {dur} with no one back */
+export function relayHoldExpired(ip: unknown, world: unknown, dur: unknown): string { return `let go ${ip} → ${q(world)}: held ${dur} with no one back`; }
 
 /** relay.listening: kiln-relay listening on {addr} */
 export function relayListening(addr: unknown): string { return `kiln-relay listening on ${addr}`; }
@@ -677,6 +709,9 @@ export function relayRefusedBadPeer(peer: unknown): string { return `refused ${q
 /** relay.refused_busy: refused {ip} → {world:%q}: relay full (max_conns) */
 export function relayRefusedBusy(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: relay full (max_conns)`; }
 
+/** relay.refused_gone: refused {ip}: no held connection for that token */
+export function relayRefusedGone(ip: unknown): string { return `refused ${ip}: no held connection for that token`; }
+
 /** relay.refused_no_tls: refused {ip} → {world:%q}: client asked for TLS, world is plaintext */
 export function relayRefusedNoTls(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: client asked for TLS, world is plaintext`; }
 
@@ -688,6 +723,9 @@ export function relayRefusedTooMany(ip: unknown, world: unknown): string { retur
 
 /** relay.refused_unreachable: refused {ip} → {world:%q}: {err} */
 export function relayRefusedUnreachable(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: ${e(err)}`; }
+
+/** relay.resumed: resumed {ip} → {world:%q} after {away} */
+export function relayResumed(ip: unknown, world: unknown, away: unknown): string { return `resumed ${ip} → ${q(world)} after ${away}`; }
 
 /** relay.serving_page: serving the page at {url} */
 export function relayServingPage(url: unknown): string { return `serving the page at ${url}`; }

@@ -1,6 +1,7 @@
 // Package wsdial dials MUCKs through kiln-relay: a WebSocket to the relay,
-// used as a plain net.Conn. The relay does TLS with the world; telnet
-// happens in Kiln. In the browser it uses the page's WebSocket
+// speaking internal/relay/wire, as a net.Conn that survives the WebSocket
+// dying (link.go). The relay does TLS with the world; telnet happens in
+// Kiln. In the browser it uses the page's WebSocket
 // directly (wsdial_js.go); elsewhere coder/websocket (wsdial_other.go),
 // which is how it's tested natively.
 package wsdial
@@ -12,23 +13,9 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
-
-// The close codes kiln-relay refuses with. They match internal/relay's
-// Code* constants (TestCodesMatchRelay); they're copied so the browser
-// build doesn't link the relay's server code.
-const (
-	codeNotListed   websocket.StatusCode = 4403
-	codeNoTLS       websocket.StatusCode = 4426
-	codeTooMany     websocket.StatusCode = 4429
-	codeUnreachable websocket.StatusCode = 4502
-	codeBusy        websocket.StatusCode = 4503
-	codeBadCert     websocket.StatusCode = 4526
-)
-
-// openFrame is relay.OpenFrame: the relay has reached the world.
-const openFrame = "open" //str:ok protocol token
 
 // CertError is the relay refusing the world's certificate. It won't
 // change by retrying, so it's Permanent: the session waits for the
@@ -64,6 +51,16 @@ func target(relayURL, addr string, tls bool) (string, error) {
 	return u.String(), nil
 }
 
+// resumeTarget is the relay URL a held connection resumes at.
+func resumeTarget(relayURL string) string {
+	u, err := url.Parse(relayURL)
+	if err != nil {
+		return relayURL
+	}
+	u.RawQuery = url.Values{"resume": {"1"}}.Encode()
+	return u.String()
+}
+
 // explain turns the relay's refusals, and other unexpected closes, into
 // errors people can read. Normal closures pass through.
 func explain(err error) error {
@@ -72,17 +69,17 @@ func explain(err error) error {
 		return err
 	}
 	switch ce.Code {
-	case codeNotListed:
+	case wire.CodeNotListed:
 		return str.Wrap(str.ConnRelayNotListed(), err)
-	case codeNoTLS:
+	case wire.CodeNoTLS:
 		return str.Wrap(str.ConnRelayNoTls(), err)
-	case codeBadCert:
+	case wire.CodeBadCert:
 		return &CertError{err}
-	case codeTooMany:
+	case wire.CodeTooMany:
 		return str.Wrap(str.ConnRelayTooMany(), err)
-	case codeUnreachable:
+	case wire.CodeUnreachable:
 		return str.Wrap(str.ConnRelayUnreachable(ce.Reason), err)
-	case codeBusy:
+	case wire.CodeBusy:
 		return str.Wrap(str.ConnRelayBusy(), err)
 	case websocket.StatusNormalClosure, websocket.StatusGoingAway:
 		return err

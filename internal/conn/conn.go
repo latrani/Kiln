@@ -37,11 +37,37 @@ type Options struct {
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
+// Line is a line from the world, or, with Note, a line about the
+// connection (a relay saying it resumed).
+type Line struct {
+	Text string
+	At   time.Time // when it arrived; zero: when it's read
+	Note bool
+}
+
+// Record is one read from a connection that comes through a relay: bytes
+// the world sent and when they reached the relay, or (Data empty) a note
+// about the connection.
+type Record struct {
+	Data []byte
+	At   time.Time
+	Note string
+	// Gap says bytes before this one were dropped: a line or telnet
+	// sequence half-read before it is gone.
+	Gap bool
+}
+
+// RecordReader is a net.Conn that reads Records. Dial reads one through
+// ReadRecord when it doesn't do TLS over it.
+type RecordReader interface {
+	ReadRecord() (Record, error)
+}
+
 // Conn is an open connection. Received lines arrive on Lines().
 type Conn struct {
 	nc      net.Conn
-	chunks  chan []byte
-	lines   chan string
+	chunks  chan Record
+	lines   chan Line
 	prompts chan string
 	mu      sync.Mutex // guards writes and parser
 	parser  *telnet.Parser
@@ -81,8 +107,8 @@ func Dial(ctx context.Context, o Options) (*Conn, error) {
 	}
 	c := &Conn{
 		nc:      nc,
-		chunks:  make(chan []byte, 16),
-		lines:   make(chan string, 64),
+		chunks:  make(chan Record, 16),
+		lines:   make(chan Line, 64),
 		prompts: make(chan string, 1),
 		parser:  telnet.NewParser(o.Width, o.Height),
 	}
@@ -122,11 +148,22 @@ func tlsConfig(o Options, hostport string) *tls.Config {
 // readLoop only reads; processLoop does everything else so it can also
 // wake up on a timer to report prompts.
 func (c *Conn) readLoop() {
+	if rr, ok := c.nc.(RecordReader); ok {
+		for {
+			rec, err := rr.ReadRecord()
+			if err != nil {
+				c.readErr = err
+				close(c.chunks)
+				return
+			}
+			c.chunks <- rec
+		}
+	}
 	buf := make([]byte, 16*1024)
 	for {
 		n, err := c.nc.Read(buf)
 		if n > 0 {
-			c.chunks <- append([]byte(nil), buf[:n]...)
+			c.chunks <- Record{Data: append([]byte(nil), buf[:n]...)}
 		}
 		if err != nil {
 			c.readErr = err
@@ -141,12 +178,13 @@ func (c *Conn) processLoop() {
 	timer := time.NewTimer(PromptDelay)
 	timer.Stop()
 	lastPrompt := ""
+	var at time.Time // the last record's
 	for {
 		select {
-		case chunk, ok := <-c.chunks:
+		case rec, ok := <-c.chunks:
 			if !ok {
 				for _, line := range s.flush() {
-					c.lines <- line
+					c.lines <- Line{Text: line, At: at}
 				}
 				if !errors.Is(c.readErr, io.EOF) {
 					c.err = c.readErr
@@ -154,15 +192,27 @@ func (c *Conn) processLoop() {
 				close(c.lines)
 				return
 			}
+			at = rec.At
+			if rec.Gap {
+				s = splitter{}
+				c.mu.Lock()
+				c.parser.Skip()
+				c.mu.Unlock()
+				timer.Stop()
+			}
+			if rec.Note != "" {
+				c.lines <- Line{Text: rec.Note, At: rec.At, Note: true}
+				continue
+			}
 			c.mu.Lock()
-			data, reply := c.parser.Feed(chunk)
+			data, reply := c.parser.Feed(rec.Data)
 			if len(reply) > 0 {
 				c.nc.Write(reply)
 			}
 			c.mu.Unlock()
 			lines := s.push(data)
 			for _, line := range lines {
-				c.lines <- line
+				c.lines <- Line{Text: line, At: rec.At}
 			}
 			if len(lines) > 0 {
 				lastPrompt = ""
@@ -187,7 +237,7 @@ func (c *Conn) processLoop() {
 
 // Lines delivers received lines. It is closed when the connection ends;
 // Err then reports why (nil for a clean close by the server).
-func (c *Conn) Lines() <-chan string { return c.lines }
+func (c *Conn) Lines() <-chan Line { return c.lines }
 
 // Prompts delivers unterminated lines (e.g. "Password: ") that have sat
 // idle for PromptDelay. They are not lines: when the rest arrives, the

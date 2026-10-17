@@ -24,16 +24,9 @@ import (
 
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/relay"
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
-
-func TestCodesMatchRelay(t *testing.T) {
-	if codeNotListed != relay.CodeNotListed || codeNoTLS != relay.CodeNoTLS ||
-		codeTooMany != relay.CodeTooMany || codeUnreachable != relay.CodeUnreachable ||
-		codeBusy != relay.CodeBusy || codeBadCert != relay.CodeBadCert || openFrame != relay.OpenFrame {
-		t.Error("wsdial's close codes drifted from internal/relay's")
-	}
-}
 
 // relayURL starts a relay allowing 127.0.0.1:port and returns its ws://
 // URL. trust is "" for a plaintext world, "ca", or a pin.
@@ -89,7 +82,7 @@ func firstLine(t *testing.T, c *conn.Conn) (string, error) {
 		if !ok {
 			return "", c.Err()
 		}
-		return l, nil
+		return l.Text, nil
 	case <-time.After(5 * time.Second):
 		t.Fatal("nothing arrived")
 		return "", nil
@@ -162,10 +155,10 @@ func TestExplain(t *testing.T) {
 		code websocket.StatusCode
 		want string // "" leaves the error as it was
 	}{
-		{codeTooMany, str.ConnRelayTooMany()},
-		{codeBusy, str.ConnRelayBusy()},
-		{codeNoTLS, str.ConnRelayNoTls()},
-		{codeBadCert, str.ConnRelayBadCert("bye")},
+		{wire.CodeTooMany, str.ConnRelayTooMany()},
+		{wire.CodeBusy, str.ConnRelayBusy()},
+		{wire.CodeNoTLS, str.ConnRelayNoTls()},
+		{wire.CodeBadCert, str.ConnRelayBadCert("bye")},
 		{websocket.StatusAbnormalClosure, str.ConnRelayDropped()},
 		{websocket.StatusInternalError, str.ConnRelayDropped()},
 		{websocket.StatusNormalClosure, ""},

@@ -62,9 +62,13 @@ func main() {
 	k.Set("check", js.FuncOf(func(_ js.Value, a []js.Value) any { //str:ok
 		return webapi.CheckField(a[0].String(), a[1].String())
 	}))
-	k.Set("maxBackup", backup.MaxFile) //str:ok
-	js.Global().Set("kiln", k)         //str:ok
-	js.Global().Call("kilnReady")      //str:ok
+	// The page calls wake when it comes back into view, when a suspended
+	// tab's WebSockets can look open but be dead. dropLinks is for tests.
+	k.Set("wake", js.FuncOf(func(js.Value, []js.Value) any { wsdial.Wake(); return nil }))         //str:ok
+	k.Set("dropLinks", js.FuncOf(func(js.Value, []js.Value) any { wsdial.DropAll(); return nil })) //str:ok
+	k.Set("maxBackup", backup.MaxFile)                                                             //str:ok
+	js.Global().Set("kiln", k)                                                                     //str:ok
+	js.Global().Call("kilnReady")                                                                  //str:ok
 	p := <-started
 	if err := run(k, p); err != nil {
 		js.Global().Get("console").Call("error", str.CliError(err)) //str:ok

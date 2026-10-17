@@ -12,7 +12,7 @@ import (
 func TestConnRecordsAndFeeds(t *testing.T) {
 	c := NewConn()
 	c.Feed("hello")
-	if got := <-c.Lines(); got != "hello" {
+	if got := (<-c.Lines()).Text; got != "hello" {
 		t.Errorf("Lines gave %q", got)
 	}
 	c.Send("look")

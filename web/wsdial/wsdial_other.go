@@ -4,12 +4,9 @@ package wsdial
 
 import (
 	"context"
-	"errors"
 	"net"
 
 	"github.com/coder/websocket"
-
-	"github.com/latrani/Kiln/internal/str"
 )
 
 // Dialer returns a conn.Options.DialContext that reaches addr through the
@@ -22,34 +19,15 @@ func Dialer(relayURL string, tls bool) func(ctx context.Context, network, addr s
 		if err != nil {
 			return nil, err
 		}
-		c, _, err := websocket.Dial(ctx, u, nil)
-		if err != nil {
-			return nil, err
-		}
-		c.SetReadLimit(1 << 20)
-		typ, b, err := c.Read(ctx)
-		if err != nil {
-			c.CloseNow()
-			return nil, explain(err)
-		}
-		if typ != websocket.MessageText || string(b) != openFrame {
-			c.CloseNow()
-			return nil, errors.New(str.ConnRelayDropped())
-		}
-		// The connection outlives ctx, which only bounds the dial.
-		return relayConn{websocket.NetConn(context.Background(), c, websocket.MessageBinary)}, nil
+		return dialLink(ctx, openSocket, u, resumeTarget(relayURL))
 	}
 }
 
-// relayConn explains the relay's refusals.
-type relayConn struct{ net.Conn }
-
-func (c relayConn) Read(p []byte) (int, error) {
-	n, err := c.Conn.Read(p)
-	return n, explain(err)
-}
-
-func (c relayConn) Write(p []byte) (int, error) {
-	n, err := c.Conn.Write(p)
-	return n, explain(err)
+func openSocket(ctx context.Context, url string) (socket, error) {
+	c, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.SetReadLimit(1 << 20)
+	return c, nil
 }

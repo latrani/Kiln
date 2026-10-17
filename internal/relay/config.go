@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -47,9 +48,28 @@ type Config struct {
 	MaxPerIP int `toml:"max_per_ip"`
 	// MaxConns caps connections in all. 0: 256.
 	MaxConns int `toml:"max_conns"`
+	// Hold is how long a world connection is kept after its WebSocket
+	// dies without the page closing it, as time.ParseDuration reads it.
+	// "": 24h.
+	Hold string `toml:"hold"`
+	// MaxBufferMB caps what's buffered for one connection, and
+	// MaxTotalBufferMB for the whole relay; past them the oldest lines
+	// are dropped. 0: 4 and 256.
+	MaxBufferMB      int `toml:"max_buffer_mb"`
+	MaxTotalBufferMB int `toml:"max_total_buffer_mb"`
 
 	proxies []netip.Prefix
+	hold    time.Duration
 }
+
+// HoldFor is how long a detached connection is held.
+func (a *Config) HoldFor() time.Duration { return or(a.hold, 24*time.Hour) }
+
+// BufferCap is the most bytes buffered for one connection.
+func (a *Config) BufferCap() int { return or(a.MaxBufferMB, 4) << 20 }
+
+// TotalBufferCap is the most bytes buffered across the relay.
+func (a *Config) TotalBufferCap() int { return or(a.MaxTotalBufferMB, 256) << 20 }
 
 // LoadConfig reads and checks the allowlist at path.
 func LoadConfig(path string) (*Config, error) {
@@ -108,10 +128,17 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 	for _, l := range []struct {
 		key string
 		v   int
-	}{{"max_per_ip", a.MaxPerIP}, {"max_conns", a.MaxConns}} { //str:ok
+	}{{"max_per_ip", a.MaxPerIP}, {"max_conns", a.MaxConns}, {"max_buffer_mb", a.MaxBufferMB}, {"max_total_buffer_mb", a.MaxTotalBufferMB}} { //str:ok
 		if md.IsDefined(l.key) && l.v < 1 {
 			return nil, errors.New(str.RelayConfigBadLimit(path, l.key))
 		}
+	}
+	if a.Hold != "" {
+		d, err := time.ParseDuration(a.Hold)
+		if err != nil || d <= 0 {
+			return nil, errors.New(str.RelayConfigBadHold(path, a.Hold))
+		}
+		a.hold = d
 	}
 	for _, s := range a.TrustedProxies {
 		p, err := parsePrefix(s)

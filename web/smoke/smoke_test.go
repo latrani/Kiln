@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -374,6 +375,9 @@ func buildPage(t *testing.T, root string) string {
 // fakeMuck serves TLS on a free port with a self-signed certificate:
 // a greeting, then `You say, "L"` for each line L. It returns the port
 // and the certificate's pin.
+// muckAccepts counts the connections fake MUCKs have taken.
+var muckAccepts atomic.Int32
+
 func fakeMuck(t *testing.T) (port int, pin string) {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -399,6 +403,7 @@ func fakeMuck(t *testing.T) (port int, pin string) {
 			if err != nil {
 				return
 			}
+			muckAccepts.Add(1)
 			go func() {
 				defer c.Close()
 				fmt.Fprint(c, "Welcome to the fake MUCK\r\n")

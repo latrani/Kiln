@@ -1,5 +1,12 @@
 # Copy to dev-relay.toml (gitignored) and list the worlds your
 # preset.local uses. See docs/web-relay.md.
+
+# How long a connection is held after the page goes away, and how much
+# is buffered for it meanwhile (the defaults):
+# hold = "24h"
+# max_buffer_mb = 4
+# max_total_buffer_mb = 256
+
 [[world]]
 host = "muck.example.org"
 ports = [8899]

@@ -363,6 +363,11 @@ func ConnCertChanged(host, pinned, got any) string {
 	return get("conn.cert_changed", map[string]any{"host": host, "pinned": pinned, "got": got})
 }
 
+// ConnMissed is conn.missed, by count:
+//   - one: "missed 1 line while away · the relay's buffer was full"
+//   - other: "missed {n} lines while away · the relay's buffer was full"
+func ConnMissed(n int) string { return count("conn.missed", n, map[string]any{"n": n}) }
+
 // ConnNoCertificate is conn.no_certificate: "server sent no certificate"
 func ConnNoCertificate() string { return get("conn.no_certificate", nil) }
 
@@ -385,11 +390,20 @@ func ConnRelayDown() string { return get("conn.relay_down", nil) }
 // ConnRelayDropped is conn.relay_dropped: "lost the connection to the web relay"
 func ConnRelayDropped() string { return get("conn.relay_dropped", nil) }
 
+// ConnRelayLetGo is conn.relay_let_go: "the web relay let go of this connection"
+func ConnRelayLetGo() string { return get("conn.relay_let_go", nil) }
+
+// ConnRelayLost is conn.relay_lost: "lost the web relay · trying to get the connection back"
+func ConnRelayLost() string { return get("conn.relay_lost", nil) }
+
 // ConnRelayNoTls is conn.relay_no_tls: "the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator"
 func ConnRelayNoTls() string { return get("conn.relay_no_tls", nil) }
 
 // ConnRelayNotListed is conn.relay_not_listed: "this world isn't on the web relay's list"
 func ConnRelayNotListed() string { return get("conn.relay_not_listed", nil) }
+
+// ConnRelayReplaced is conn.relay_replaced: "another page picked up this connection"
+func ConnRelayReplaced() string { return get("conn.relay_replaced", nil) }
 
 // ConnRelayTooMany is conn.relay_too_many: "too many connections from your address · close one and try again"
 func ConnRelayTooMany() string { return get("conn.relay_too_many", nil) }
@@ -398,6 +412,9 @@ func ConnRelayTooMany() string { return get("conn.relay_too_many", nil) }
 func ConnRelayUnreachable(reason any) string {
 	return get("conn.relay_unreachable", map[string]any{"reason": reason})
 }
+
+// ConnResumed is conn.resumed: "resumed · away {away}"
+func ConnResumed(away any) string { return get("conn.resumed", map[string]any{"away": away}) }
 
 // DateDay is date.day: "Mon Jan 2"
 func DateDay() string { return get("date.day", nil) }
@@ -676,6 +693,11 @@ func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
 }
 
+// RelayConfigBadHold is relay.config_bad_hold: "{path}: hold {value:%q} isn't a length of time · use one like \"24h\" or \"90m\""
+func RelayConfigBadHold(path, value any) string {
+	return get("relay.config_bad_hold", map[string]any{"path": path, "value": value})
+}
+
 // RelayConfigBadLimit is relay.config_bad_limit: "{path}: {key} must be 1 or more"
 func RelayConfigBadLimit(path, key any) string {
 	return get("relay.config_bad_limit", map[string]any{"path": path, "key": key})
@@ -758,6 +780,11 @@ func RelayConfigUnknownKey(path, key any) string {
 	return get("relay.config_unknown_key", map[string]any{"path": path, "key": key})
 }
 
+// RelayDropping is relay.dropping: "dropping lines {ip} → {world:%q}: buffer full"
+func RelayDropping(ip, world any) string {
+	return get("relay.dropping", map[string]any{"ip": ip, "world": world})
+}
+
 // RelayFlagConfig is relay.flag_config: "the relay's config file (relay.toml)"
 func RelayFlagConfig() string { return get("relay.flag_config", nil) }
 
@@ -769,6 +796,16 @@ func RelayFlagPreset() string { return get("relay.flag_preset", nil) }
 
 // RelayFlagWeb is relay.flag_web: "serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)"
 func RelayFlagWeb() string { return get("relay.flag_web", nil) }
+
+// RelayHeld is relay.held: "held {ip} → {world:%q}"
+func RelayHeld(ip, world any) string {
+	return get("relay.held", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayHoldExpired is relay.hold_expired: "let go {ip} → {world:%q}: held {dur} with no one back"
+func RelayHoldExpired(ip, world, dur any) string {
+	return get("relay.hold_expired", map[string]any{"ip": ip, "world": world, "dur": dur})
+}
 
 // RelayListening is relay.listening: "kiln-relay listening on {addr}"
 func RelayListening(addr any) string { return get("relay.listening", map[string]any{"addr": addr}) }
@@ -801,6 +838,9 @@ func RelayRefusedBusy(ip, world any) string {
 	return get("relay.refused_busy", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayRefusedGone is relay.refused_gone: "refused {ip}: no held connection for that token"
+func RelayRefusedGone(ip any) string { return get("relay.refused_gone", map[string]any{"ip": ip}) }
+
 // RelayRefusedNoTls is relay.refused_no_tls: "refused {ip} → {world:%q}: client asked for TLS, world is plaintext"
 func RelayRefusedNoTls(ip, world any) string {
 	return get("relay.refused_no_tls", map[string]any{"ip": ip, "world": world})
@@ -819,6 +859,11 @@ func RelayRefusedTooMany(ip, world any) string {
 // RelayRefusedUnreachable is relay.refused_unreachable: "refused {ip} → {world:%q}: {err}"
 func RelayRefusedUnreachable(ip, world any, err error) string {
 	return get("relay.refused_unreachable", map[string]any{"ip": ip, "world": world, "err": err})
+}
+
+// RelayResumed is relay.resumed: "resumed {ip} → {world:%q} after {away}"
+func RelayResumed(ip, world, away any) string {
+	return get("relay.resumed", map[string]any{"ip": ip, "world": world, "away": away})
 }
 
 // RelayServingPage is relay.serving_page: "serving the page at {url}"

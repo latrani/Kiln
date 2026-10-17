@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"net/netip"
@@ -19,24 +18,9 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
-
-// Close codes the relay ends a refused connection with. Kiln's web build
-// (web/wsdial) turns them into messages.
-const (
-	CodeNotListed   websocket.StatusCode = 4403 // world not on the allowlist
-	CodeNoTLS       websocket.StatusCode = 4426 // client asked for TLS, world is plaintext here
-	CodeTooMany     websocket.StatusCode = 4429 // too many connections from this IP
-	CodeUnreachable websocket.StatusCode = 4502 // the dial failed; the reason says why
-	CodeBusy        websocket.StatusCode = 4503 // the relay is at max_conns
-	CodeBadCert     websocket.StatusCode = 4526 // the world's certificate failed its pin or CA check
-)
-
-// OpenFrame is the text frame the relay sends once it has reached the
-// world (and done TLS), before any of the world's bytes. Until it comes,
-// a client hasn't connected: a close instead is a refusal.
-const OpenFrame = "open" //str:ok protocol token
 
 // defaultHandshakeTimeout bounds the relay's dial and TLS handshake. It's
 // well under the page's conn.DialTimeout, whose clock starts first, so the
@@ -58,20 +42,26 @@ type Server struct {
 	// doesn't answer within pingTimeout is closed, so a browser that
 	// went away without a word (a sleeping laptop) frees its slot.
 	pingEvery, pingTimeout time.Duration // 0: 30s, 20s
+	// worldWriteTimeout is how long a write to a world may wait for it
+	// to read; past it the world is let go. 0: 30s.
+	worldWriteTimeout time.Duration
 
-	cfg   atomic.Pointer[Config]
-	mu    sync.Mutex
-	open  map[netip.Prefix]int
-	total int
+	cfg      atomic.Pointer[Config]
+	mu       sync.Mutex
+	open     map[netip.Prefix]int
+	total    int
+	holds    map[string]*held // by token
+	buffered int              // bytes buffered across holds
 }
 
 // SetConfig replaces the config; connections already open stay open.
 func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 
 // ServeHTTP upgrades to a WebSocket and, if the world in ?host=&port= is
-// allowed, pipes binary frames to and from it, doing TLS with the world
-// itself unless it's plaintext. tls=1 says the client's world file asks
-// for TLS, which a plaintext world refuses.
+// allowed, connects to it, doing TLS with the world itself unless it's
+// plaintext, and carries it as package wire says. tls=1 says the
+// client's world file asks for TLS, which a plaintext world refuses.
+// ?resume=1 picks up a held connection instead.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a := s.cfg.Load()
 	if a == nil {
@@ -91,6 +81,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.CloseNow()
 	c.SetReadLimit(1 << 20)
+	if r.URL.Query().Get("resume") == "1" {
+		s.resume(c, ip)
+		return
+	}
 
 	host := r.URL.Query().Get("host")
 	port, _ := strconv.Atoi(r.URL.Query().Get("port"))
@@ -101,30 +95,26 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wl, ok := a.Lookup(host, port)
 	if !ok {
 		s.logf(str.RelayRefusedNotListed(ip, addr))
-		c.Close(CodeNotListed, "")
+		c.Close(wire.CodeNotListed, "")
 		return
 	}
 	if wl.Plaintext && r.URL.Query().Get("tls") == "1" {
 		s.logf(str.RelayRefusedNoTls(ip, addr))
-		c.Close(CodeNoTLS, "")
+		c.Close(wire.CodeNoTLS, "")
 		return
 	}
 	switch s.acquire(ip, a) {
-	case CodeTooMany:
+	case wire.CodeTooMany:
 		s.logf(str.RelayRefusedTooMany(ip, addr))
-		c.Close(CodeTooMany, "")
+		c.Close(wire.CodeTooMany, "")
 		return
-	case CodeBusy:
+	case wire.CodeBusy:
 		s.logf(str.RelayRefusedBusy(ip, addr))
-		c.Close(CodeBusy, "")
+		c.Close(wire.CodeBusy, "")
 		return
 	}
-	defer s.release(ip)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	addr = net.JoinHostPort(wl.Host, strconv.Itoa(port))
-	dctx, dcancel := context.WithTimeout(ctx, or(s.HandshakeTimeout, defaultHandshakeTimeout))
+	dctx, dcancel := context.WithTimeout(context.Background(), or(s.HandshakeTimeout, defaultHandshakeTimeout))
 	tc, err := s.dial(dctx, addr)
 	if err == nil && !wl.Plaintext {
 		tc, err = s.handshake(dctx, tc, addr, wl)
@@ -136,25 +126,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if errors.As(err, &pin) {
 				why = str.RelayCertNotPinned() // the log has the fingerprints
 			}
-			c.Close(CodeBadCert, why)
+			c.Close(wire.CodeBadCert, why)
+			s.release(ip)
 			return
 		}
 	}
 	dcancel()
 	if err != nil {
 		s.logf(str.RelayRefusedUnreachable(ip, addr, err))
-		c.Close(CodeUnreachable, reason(err))
+		c.Close(wire.CodeUnreachable, reason(err))
+		s.release(ip)
 		return
 	}
-	defer tc.Close()
-	if err := c.Write(ctx, websocket.MessageText, []byte(OpenFrame)); err != nil {
-		return
-	}
-	go s.keepAlive(ctx, c)
-	start := time.Now()
+	h := s.hold(ip, addr, tc)
 	s.logf(str.RelayOpened(ip, addr))
-	up, down := pipe(websocket.NetConn(ctx, c, websocket.MessageBinary), tc)
-	s.logf(str.RelayClosed(ip, addr, up, down, time.Since(start).Round(time.Second)))
+	if err := c.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Open, Token: h.token})); err != nil {
+		h.finish(false)
+		return
+	}
+	h.attach(c, ip, 0, false)
 }
 
 // handshake runs TLS over nc with the world, trusting it as its config
@@ -207,9 +197,10 @@ func (s *Server) dial(ctx context.Context, addr string) (net.Conn, error) {
 	return d.DialContext(ctx, "tcp", addr)
 }
 
-// keepAlive pings c until ctx ends, closing it when a ping goes
-// unanswered. Pongs are read by the pipe's reads.
-func (s *Server) keepAlive(ctx context.Context, c *websocket.Conn) {
+// keepAlive pings c until ctx ends, calling dead when a ping goes
+// unanswered (a sleeping laptop, a suspended phone). Pongs are read by
+// the attachment's reads.
+func (s *Server) keepAlive(ctx context.Context, c *websocket.Conn, dead func()) {
 	t := time.NewTicker(or(s.pingEvery, 30*time.Second))
 	defer t.Stop()
 	for {
@@ -222,7 +213,9 @@ func (s *Server) keepAlive(ctx context.Context, c *websocket.Conn) {
 		err := c.Ping(pctx)
 		cancel()
 		if err != nil {
-			c.CloseNow()
+			if ctx.Err() == nil {
+				dead()
+			}
 			return
 		}
 	}
@@ -269,11 +262,11 @@ func (s *Server) acquire(ip netip.Addr, a *Config) websocket.StatusCode {
 		s.open = map[netip.Prefix]int{}
 	}
 	if s.total >= or(a.MaxConns, 256) {
-		return CodeBusy
+		return wire.CodeBusy
 	}
 	b := bucket(ip)
 	if s.open[b] >= or(a.MaxPerIP, 8) {
-		return CodeTooMany
+		return wire.CodeTooMany
 	}
 	s.open[b]++
 	s.total++
@@ -294,22 +287,6 @@ func (s *Server) logf(line string) {
 	if s.Log != nil {
 		s.Log(line)
 	}
-}
-
-// pipe copies both ways until either side ends, then closes both. It
-// reports bytes up (browser to MUCK) and down.
-func pipe(ws, tc net.Conn) (up, down int64) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		down, _ = io.Copy(ws, tc)
-		ws.Close()
-	}()
-	up, _ = io.Copy(tc, ws)
-	tc.Close()
-	wg.Wait()
-	return up, down
 }
 
 // reason fits err into a close frame's reason (at most 123 bytes).

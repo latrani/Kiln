@@ -29,6 +29,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -197,8 +198,8 @@ func TestUnlistedIsRefusedAndNeverDialed(t *testing.T) {
 		host string
 		port int
 	}{{"127.0.0.1", port + 1}, {"localhost", port}} {
-		if code := closeCode(t, open(t, base, hp.host, hp.port)); code != CodeNotListed {
-			t.Errorf("%v: code %d, want %d", hp, code, CodeNotListed)
+		if code := closeCode(t, open(t, base, hp.host, hp.port)); code != wire.CodeNotListed {
+			t.Errorf("%v: code %d, want %d", hp, code, wire.CodeNotListed)
 		}
 	}
 	if dialed {
@@ -266,8 +267,8 @@ func TestRelayDoesTLSWithoutClientAsking(t *testing.T) {
 func TestRelayPinMismatch(t *testing.T) {
 	port, _ := tlsGreeter(t)
 	_, base, logs := relay(t, world(port, testPin))
-	if code, why := closeWhy(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeBadCert || why != str.RelayCertNotPinned() {
-		t.Errorf("close %d %q, want %d %q", code, why, CodeBadCert, str.RelayCertNotPinned())
+	if code, why := closeWhy(t, openAsking(t, base, "127.0.0.1", port, true)); code != wire.CodeBadCert || why != str.RelayCertNotPinned() {
+		t.Errorf("close %d %q, want %d %q", code, why, wire.CodeBadCert, str.RelayCertNotPinned())
 	}
 	if !strings.HasPrefix(logs.first(), upTo(str.RelayRefusedBadCert(mark, mark, errMark{}))) {
 		t.Errorf("log %q", logs.first())
@@ -283,8 +284,8 @@ func TestRelayCATrust(t *testing.T) {
 		t.Errorf("line %q", l)
 	}
 	s.RootCAs = x509.NewCertPool()
-	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeBadCert {
-		t.Errorf("unknown CA: code %d, want %d", code, CodeBadCert)
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != wire.CodeBadCert {
+		t.Errorf("unknown CA: code %d, want %d", code, wire.CodeBadCert)
 	}
 }
 
@@ -293,8 +294,8 @@ func TestRelayRefusesTLSForPlaintextWorld(t *testing.T) {
 	s, base, logs := relay(t, world(port, ""))
 	dialed := false
 	s.Dial = func(context.Context, string, string) (net.Conn, error) { dialed = true; return nil, net.ErrClosed }
-	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeNoTLS {
-		t.Errorf("code %d, want %d", code, CodeNoTLS)
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != wire.CodeNoTLS {
+		t.Errorf("code %d, want %d", code, wire.CodeNoTLS)
 	}
 	if dialed {
 		t.Error("dialed a plaintext world for a client that asked for TLS")
@@ -313,8 +314,8 @@ func TestRelayHandshakeTimeout(t *testing.T) {
 	s, base, _ := relay(t, world(port, testPin))
 	s.HandshakeTimeout = 300 * time.Millisecond
 	start := time.Now()
-	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != CodeUnreachable {
-		t.Errorf("code %d, want %d", code, CodeUnreachable)
+	if code := closeCode(t, openAsking(t, base, "127.0.0.1", port, true)); code != wire.CodeUnreachable {
+		t.Errorf("code %d, want %d", code, wire.CodeUnreachable)
 	}
 	if d := time.Since(start); d > 3*time.Second {
 		t.Errorf("took %v", d)
@@ -330,7 +331,7 @@ func TestTLSRefusalsReleaseSlots(t *testing.T) {
 	for _, c := range []struct {
 		port int
 		want websocket.StatusCode
-	}{{plain, CodeNoTLS}, {pinned, CodeBadCert}, {quiet, CodeUnreachable}} {
+	}{{plain, wire.CodeNoTLS}, {pinned, wire.CodeBadCert}, {quiet, wire.CodeUnreachable}} {
 		if code := closeCode(t, openAsking(t, base, "127.0.0.1", c.port, true)); code != c.want {
 			t.Fatalf("port %d: code %d, want %d", c.port, code, c.want)
 		}
@@ -344,10 +345,11 @@ func TestRelaySaysOpenBeforeData(t *testing.T) {
 	c := open(t, base, "127.0.0.1", port)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if typ, b, err := c.Read(ctx); err != nil || typ != websocket.MessageText || string(b) != OpenFrame {
+	if typ, b, err := c.Read(ctx); err != nil || typ != websocket.MessageText || !strings.Contains(string(b), wire.Open) {
 		t.Errorf("first frame %v %q, %v", typ, b, err)
 	}
-	if typ, b, _ := c.Read(ctx); typ != websocket.MessageBinary || string(b) != "hello\r\n" {
+	typ, b, _ := c.Read(ctx)
+	if _, d, _ := wire.ReadDown(b); typ != websocket.MessageBinary || string(d) != "hello\r\n" {
 		t.Errorf("second frame %v %q", typ, b)
 	}
 }
@@ -357,8 +359,8 @@ func TestUnreachable(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close() // nothing listens there now
 	_, base, _ := relay(t, world(port, ""))
-	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeUnreachable {
-		t.Errorf("code %d, want %d", code, CodeUnreachable)
+	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != wire.CodeUnreachable {
+		t.Errorf("code %d, want %d", code, wire.CodeUnreachable)
 	}
 }
 
@@ -383,10 +385,10 @@ func TestPerIPCapAndRelease(t *testing.T) {
 	a := open(t, base, "127.0.0.1", port)
 	readLine(t, a)
 	readLine(t, open(t, base, "127.0.0.1", port))
-	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeTooMany {
-		t.Errorf("third: code %d, want %d", code, CodeTooMany)
+	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != wire.CodeTooMany {
+		t.Errorf("third: code %d, want %d", code, wire.CodeTooMany)
 	}
-	a.Close(websocket.StatusNormalClosure, "")
+	bye(t, a)
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/?host=127.0.0.1&port=%d", base, port), nil)
@@ -396,7 +398,7 @@ func TestPerIPCapAndRelease(t *testing.T) {
 		nc := piped(t, c)
 		nc.SetReadDeadline(time.Now().Add(time.Second))
 		line, _ := bufio.NewReader(nc).ReadString('\n')
-		c.CloseNow()
+		bye(t, c)
 		if line == "hello\r\n" {
 			return // a slot came back
 		}
@@ -454,8 +456,8 @@ func TestPerIPCapBucketsIPv6By64(t *testing.T) {
 	if take("2001:db8:1:2::1") != 0 {
 		t.Fatal("first IPv6 client refused")
 	}
-	if code := take("2001:db8:1:2:ffff::9"); code != CodeTooMany {
-		t.Errorf("same /64: code %d, want %d", code, CodeTooMany)
+	if code := take("2001:db8:1:2:ffff::9"); code != wire.CodeTooMany {
+		t.Errorf("same /64: code %d, want %d", code, wire.CodeTooMany)
 	}
 	if take("2001:db8:1:3::1") != 0 {
 		t.Error("another /64 shared the cap")
@@ -474,14 +476,14 @@ func TestGlobalCap(t *testing.T) {
 	s, base, logs := relay(t, "max_conns = 1\n"+world(port, ""))
 	a := open(t, base, "127.0.0.1", port)
 	readLine(t, a)
-	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != CodeBusy {
-		t.Errorf("second: code %d, want %d", code, CodeBusy)
+	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != wire.CodeBusy {
+		t.Errorf("second: code %d, want %d", code, wire.CodeBusy)
 	}
 	want := str.RelayRefusedBusy(netip.MustParseAddr("127.0.0.1"), net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if !slices.Contains(logs.all(), want) {
 		t.Errorf("no busy refusal logged: %q", logs.all())
 	}
-	a.Close(websocket.StatusNormalClosure, "")
+	bye(t, a)
 	eventually(t, "slot never released", func() bool { return s.inUse() == 0 })
 }
 
@@ -507,26 +509,56 @@ func TestPingsKeepLiveClients(t *testing.T) {
 	}
 }
 
-func TestPingsReapSilentClients(t *testing.T) {
-	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, ""))
-	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
-	open(t, base, "127.0.0.1", port) // never reads, so never answers a ping
-	eventually(t, "connection opened", func() bool { return s.inUse() == 1 })
-	eventually(t, "silent client never reaped", func() bool { return s.inUse() == 0 })
-}
-
-// piped reads the relay's "open" frame from c, then returns c as a byte
-// stream to and from the world.
+// piped reads the relay's open message from c, then returns c as a byte
+// stream to and from the world, unwrapping down frames.
 func piped(t *testing.T, c *websocket.Conn) net.Conn {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typ, b, err := c.Read(ctx)
-	if err != nil || typ != websocket.MessageText || string(b) != OpenFrame {
-		t.Fatalf("first frame %v %q, %v; want text %q", typ, b, err, OpenFrame)
+	if m, _ := wire.Decode(b); err != nil || typ != websocket.MessageText || m.T != wire.Open {
+		t.Fatalf("first frame %v %q, %v; want an open message", typ, b, err)
 	}
-	return websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+	return &stream{Conn: websocket.NetConn(context.Background(), c, websocket.MessageBinary), c: c}
+}
+
+// stream is a relayed connection as bytes: Read takes the data out of
+// down frames and skips control messages.
+type stream struct {
+	net.Conn
+	c        *websocket.Conn
+	deadline time.Time
+	rest     []byte
+}
+
+func (s *stream) SetReadDeadline(t time.Time) error { s.deadline = t; return nil }
+
+func (s *stream) Read(p []byte) (int, error) {
+	for len(s.rest) == 0 {
+		ctx := context.Background()
+		if !s.deadline.IsZero() {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithDeadline(ctx, s.deadline)
+			defer cancel()
+		}
+		typ, b, err := s.c.Read(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if typ == websocket.MessageBinary {
+			_, s.rest, _ = wire.ReadDown(b)
+		}
+	}
+	n := copy(p, s.rest)
+	s.rest = s.rest[n:]
+	return n, nil
+}
+
+// bye tells the relay to let c's world go, as the page does when the
+// player quits.
+func bye(t *testing.T, c *websocket.Conn) {
+	t.Helper()
+	c.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Close}))
 }
 
 // readLine reads one line relayed to c.
