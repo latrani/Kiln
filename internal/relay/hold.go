@@ -171,6 +171,7 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 		h.timer = nil
 	}
 	away := time.Since(h.detached)
+	end := h.buf.end()
 	h.cond.Broadcast()
 	h.mu.Unlock()
 	if old != nil {
@@ -183,7 +184,7 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 	up := h.up
 	h.upMu.Unlock()
 	if resumed {
-		if c.Write(ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Resumed, Got: up, Away: away.Milliseconds()})) != nil {
+		if c.Write(ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Resumed, Got: up, At: end, Away: away.Milliseconds()})) != nil {
 			h.detach(a)
 			return
 		}

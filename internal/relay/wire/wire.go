@@ -35,7 +35,7 @@ const (
 const (
 	// Relay to page.
 	Open    = "open"    //str:ok protocol token: reached the world; Token
-	Resumed = "resumed" //str:ok protocol token: Got (up bytes written), Away (ms)
+	Resumed = "resumed" //str:ok protocol token: Got (up bytes written), At (down bytes so far), Away (ms)
 	Missed  = "missed"  //str:ok protocol token: Lines dropped; data goes on from At
 	Pong    = "pong"    //str:ok protocol token
 	End     = "end"     //str:ok protocol token: the world closed after At bytes; Why

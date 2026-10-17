@@ -34,6 +34,10 @@ relay_busy = "the web relay is full · try again in a bit"
 relay_unreachable = "the relay couldn't reach this world: {reason}"
 relay_down = "couldn't reach the web relay"
 relay_dropped = "lost the connection to the web relay"
+resumed = "resumed · away {away}"
+missed = { one = "missed 1 line while away · the relay's buffer was full", other = "missed {n} lines while away · the relay's buffer was full" }
+relay_lost = "lost the web relay · trying to get the connection back"
+relay_let_go = "the web relay let go of this connection"
 
 [logstore]
 no_tab = "logstore: no tab in {line:%q}"

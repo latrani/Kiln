@@ -247,7 +247,7 @@ func TestOpenSendsAToken(t *testing.T) {
 
 func TestDetachKeepsTheMuck(t *testing.T) {
 	m := newMuck(t)
-	_, base, logs := holdRelay(t, m, "")
+	s, base, logs := holdRelay(t, m, "")
 	p := openPage(t, base, m.port)
 	w := m.conn(t)
 	p.c.CloseNow()
@@ -257,10 +257,15 @@ func TestDetachKeepsTheMuck(t *testing.T) {
 	if closed(w, 200*time.Millisecond) {
 		t.Fatal("the relay let the world go when the WebSocket died")
 	}
+	eventually(t, "never buffered", func() bool {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.buffered == len("while away\r\n")
+	})
 	q := resumePage(t, base, p.token, 0, "")
 	r := q.expect(wire.Resumed)
-	if r.Got != 0 || r.Away <= 0 {
-		t.Errorf("resumed %+v, want got 0 and some time away", r)
+	if r.Got != 0 || r.Away <= 0 || r.At != int64(len("while away\r\n")) {
+		t.Errorf("resumed %+v, want got 0, at the buffer's end, and some time away", r)
 	}
 	d, at := q.data(len("while away\r\n"))
 	if d != "while away\r\n" || at.Before(gone.Truncate(time.Millisecond)) {

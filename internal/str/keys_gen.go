@@ -363,6 +363,11 @@ func ConnCertChanged(host, pinned, got any) string {
 	return get("conn.cert_changed", map[string]any{"host": host, "pinned": pinned, "got": got})
 }
 
+// ConnMissed is conn.missed, by count:
+//   - one: "missed 1 line while away · the relay's buffer was full"
+//   - other: "missed {n} lines while away · the relay's buffer was full"
+func ConnMissed(n int) string { return count("conn.missed", n, map[string]any{"n": n}) }
+
 // ConnNoCertificate is conn.no_certificate: "server sent no certificate"
 func ConnNoCertificate() string { return get("conn.no_certificate", nil) }
 
@@ -385,6 +390,12 @@ func ConnRelayDown() string { return get("conn.relay_down", nil) }
 // ConnRelayDropped is conn.relay_dropped: "lost the connection to the web relay"
 func ConnRelayDropped() string { return get("conn.relay_dropped", nil) }
 
+// ConnRelayLetGo is conn.relay_let_go: "the web relay let go of this connection"
+func ConnRelayLetGo() string { return get("conn.relay_let_go", nil) }
+
+// ConnRelayLost is conn.relay_lost: "lost the web relay · trying to get the connection back"
+func ConnRelayLost() string { return get("conn.relay_lost", nil) }
+
 // ConnRelayNoTls is conn.relay_no_tls: "the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator"
 func ConnRelayNoTls() string { return get("conn.relay_no_tls", nil) }
 
@@ -398,6 +409,9 @@ func ConnRelayTooMany() string { return get("conn.relay_too_many", nil) }
 func ConnRelayUnreachable(reason any) string {
 	return get("conn.relay_unreachable", map[string]any{"reason": reason})
 }
+
+// ConnResumed is conn.resumed: "resumed · away {away}"
+func ConnResumed(away any) string { return get("conn.resumed", map[string]any{"away": away}) }
 
 // DateDay is date.day: "Mon Jan 2"
 func DateDay() string { return get("date.day", nil) }

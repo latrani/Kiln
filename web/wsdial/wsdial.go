@@ -1,6 +1,7 @@
 // Package wsdial dials MUCKs through kiln-relay: a WebSocket to the relay,
-// used as a plain net.Conn. The relay does TLS with the world; telnet
-// happens in Kiln. In the browser it uses the page's WebSocket
+// speaking internal/relay/wire, as a net.Conn that survives the WebSocket
+// dying (link.go). The relay does TLS with the world; telnet happens in
+// Kiln. In the browser it uses the page's WebSocket
 // directly (wsdial_js.go); elsewhere coder/websocket (wsdial_other.go),
 // which is how it's tested natively.
 package wsdial
@@ -48,6 +49,16 @@ func target(relayURL, addr string, tls bool) (string, error) {
 	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil
+}
+
+// resumeTarget is the relay URL a held connection resumes at.
+func resumeTarget(relayURL string) string {
+	u, err := url.Parse(relayURL)
+	if err != nil {
+		return relayURL
+	}
+	u.RawQuery = url.Values{"resume": {"1"}}.Encode()
+	return u.String()
 }
 
 // explain turns the relay's refusals, and other unexpected closes, into

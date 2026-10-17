@@ -312,6 +312,14 @@ export function connBadFingerprint(fp: unknown): string { return `malformed sha2
 /** conn.cert_changed: certificate for {host} changed: pinned {pinned}, got {got} */
 export function connCertChanged(host: unknown, pinned: unknown, got: unknown): string { return `certificate for ${host} changed: pinned ${pinned}, got ${got}`; }
 
+/** conn.missed: one: missed 1 line while away · the relay's buffer was full · other: missed {n} lines while away · the relay's buffer was full */
+export function connMissed(n: number): string {
+  switch (plural.select(n)) {
+    case "one": return `missed 1 line while away · the relay's buffer was full`;
+    default: return `missed ${n} lines while away · the relay's buffer was full`;
+  }
+}
+
 /** conn.no_certificate: server sent no certificate */
 export function connNoCertificate(): string { return `server sent no certificate`; }
 
@@ -330,6 +338,12 @@ export function connRelayDown(): string { return `couldn't reach the web relay`;
 /** conn.relay_dropped: lost the connection to the web relay */
 export function connRelayDropped(): string { return `lost the connection to the web relay`; }
 
+/** conn.relay_let_go: the web relay let go of this connection */
+export function connRelayLetGo(): string { return `the web relay let go of this connection`; }
+
+/** conn.relay_lost: lost the web relay · trying to get the connection back */
+export function connRelayLost(): string { return `lost the web relay · trying to get the connection back`; }
+
 /** conn.relay_no_tls: the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator */
 export function connRelayNoTls(): string { return `the web relay doesn't use TLS for this world · turn tls off in its settings, or ask the relay's operator`; }
 
@@ -341,6 +355,9 @@ export function connRelayTooMany(): string { return `too many connections from y
 
 /** conn.relay_unreachable: the relay couldn't reach this world: {reason} */
 export function connRelayUnreachable(reason: unknown): string { return `the relay couldn't reach this world: ${reason}`; }
+
+/** conn.resumed: resumed · away {away} */
+export function connResumed(away: unknown): string { return `resumed · away ${away}`; }
 
 /** date.day: Mon Jan 2 */
 export function dateDay(): string { return `Mon Jan 2`; }
