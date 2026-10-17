@@ -10,8 +10,9 @@ import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
 // FilterPanel is log mode's filter panel in the sidebar, as the TUI's:
-// each entry its name (indented by depth; ▼ > on a group, × on a text
-// row) and its Hide and Only, a blank row after each top-level group, +
+// each entry its name (indented a column a level; ▼ > on a parent, × on
+// a text row) and under it its Hide and Only, a blank row after each
+// parent, each group, each top-level tag in one and each text row, +
 // Text last. Hide and Only are toggle buttons; each entry holds a group
 // named by its entry, so they're read with it. A group's ▼ > is its fold
 // button, named by the entry too, as it's the TUI's fold control. The
@@ -87,7 +88,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
             ];
           }
           const { e } = r;
-          const pad = " ".repeat(1 + 2 * e.Depth);
+          const pad = " ".repeat(1 + e.Depth); // as the TUI's panelIndent
           const id = `flt-${i}`;
           // The glyph and • light with the name, as the TUI's.
           const look = roleClass(on ? "filter.selected" : "filter.item");
@@ -107,7 +108,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                 {r.after && <span aria-hidden="true" class={look}>{" " + r.after}</span>}
               </div>
               <div class="frow">
-                {pad + " "}
+                {pad}
                 <button class={roleClass(e.Hidden ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Hidden}
                   onClick={() => panelClick(store, r.key, "hide")}>{str.filterHide()}</button>
                 {str.separator()}
@@ -128,7 +129,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
 }
 
 // footKeys is the footer's keys for row r, as the TUI's panelKeys: Hide
-// and Only but on + Text; fold on a tag with tags under it (Space only
+// and Only but on + Text; fold on a group or tag with tags under it (Space only
 // from the panel); add on + Text, from the panel; remove on a text; then
 // f while the panel has focus.
 function footKeys(r: PanelRow | undefined, focus: boolean): string[] {

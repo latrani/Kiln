@@ -21,7 +21,7 @@ A classify rule can give several tags at once with `tags = ["page", "page/in"]` 
 
 `priority` and `quiet` add up along the chain (defaults, packs, world, character), and an entry covers the tags under it: `priority = ["page"]` covers `page/in` too (but not `pages`). Quiet lines are still shown, but don't count as unread, don't bump the `▼ new` count, never light the badge and never notify, even if another tag (like `self`) is a priority.
 
-A tag is a **category**, saying what a line is (`page`, `ooc`), or a **flag**, a fact about it (`self`: it mentions you). It matters in log mode, where Only on a category never hides a line for its flags, so a room pose that mentions you is still **Uncategorized** (see [Log mode](log-mode.md#filter)). `self` and `highlight` are always flags; a `flags` list makes more, and adds up along the chain like `priority` and `quiet`. A flag is a whole tag, with everything under it: `flags = ["ooc"]`, not `"ooc/x"`.
+A tag is a **category**, saying what a line is (`page`, `ooc`), or a **flag**, a fact about it (`self`: it mentions you). It matters in log mode, where Only on a category never hides a line for its flags, so a room pose that mentions you still has no category (see [Log mode](log-mode.md#filter)). `self` and `highlight` are always flags; a `flags` list makes more, and adds up along the chain like `priority` and `quiet`. A flag is a whole tag, with everything under it: `flags = ["ooc"]`, not `"ooc/x"`.
 
 Tags are worked out when lines are shown, never saved. Fixing a rule fixes old logs too. A character can add rules of its own with `[[characters.classify]]` right after its `[[characters]]` entry, and `priority`, `quiet` and `flags` lists inside it.
 

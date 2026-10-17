@@ -568,6 +568,12 @@ func EditorWorldIdChars() string { return get("editor.world_id_chars", nil) }
 // FilterAddText is filter.add_text: "+ Text"
 func FilterAddText() string { return get("filter.add_text", nil) }
 
+// FilterCategories is filter.categories: "Categories"
+func FilterCategories() string { return get("filter.categories", nil) }
+
+// FilterFlags is filter.flags: "Flags"
+func FilterFlags() string { return get("filter.flags", nil) }
+
 // FilterHide is filter.hide: "Hide"
 func FilterHide() string { return get("filter.hide", nil) }
 
@@ -603,9 +609,6 @@ func FilterTextItem(term any) string { return get("filter.text_item", map[string
 
 // FilterTitle is filter.title: "Filters"
 func FilterTitle() string { return get("filter.title", nil) }
-
-// FilterUncategorized is filter.uncategorized: "Uncategorized"
-func FilterUncategorized() string { return get("filter.uncategorized", nil) }
 
 // FormNextField is form.next_field: "Use enter or arrows to move between fields · {hint}"
 func FormNextField(hint any) string { return get("form.next_field", map[string]any{"hint": hint}) }

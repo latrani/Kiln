@@ -1463,9 +1463,12 @@ func TestBrowseArrowPointsToAnOffscreenCursor(t *testing.T) {
 		}
 		h.screen()
 	}
-	body := func() []string {
-		rows := strings.Split(h.screen(), "\n")
-		return rows[l.top : l.top+len(b.rowLines)]
+	body := func() []string { // the log's rows, without the panel beside them
+		rows := strings.Split(h.screen(), "\n")[l.top : l.top+len(b.rowLines)]
+		for i, r := range rows {
+			rows[i] = strings.SplitN(r, "│", 2)[1]
+		}
+		return rows
 	}
 	lineRow := func(rows []string, first bool) string { // the first or last row that starts a line
 		for i := range rows {

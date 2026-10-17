@@ -476,8 +476,9 @@ func TestGoldenLogFilter(t *testing.T) {
 	s.letter("f")
 	sel := `document.querySelector(".filter-panel .fsel")`
 	waitFor(t, s.ev, `document.activeElement === `+sel, "the panel")
-	// The TUI's keys: past Uncategorized, page (folded) and sent to self,
-	// h hides it, then ↓ to + Text, where o does nothing.
+	// The TUI's keys: past Categories, page (folded), sent and Flags to
+	// self, h hides it, then ↓ to + Text, where o does nothing.
+	pressKey(t, s.ws, "ArrowDown", 40)
 	pressKey(t, s.ws, "ArrowDown", 40)
 	pressKey(t, s.ws, "ArrowDown", 40)
 	pressKey(t, s.ws, "ArrowDown", 40)

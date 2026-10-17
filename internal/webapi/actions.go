@@ -14,17 +14,17 @@ import (
 // Action is one thing the page asks for, as JSON: Do names it and the
 // other fields are its arguments. Lines are named by number (Seq).
 type Action struct {
-	Do                                                  string
-	Key, Text, Term, Tag, When, Format, Name, ID, World string
-	Char                                                string
-	Seq, Epoch, Cols, Rows                              int
-	N                                                   int // numbers input, submit and older (see feed.Input.Ack); step's distance; next_unread's direction; history_move's distance; history_pick's line
-	In, Shut, Save                                      bool
-	Err                                                 bool // say's
-	Item                                                *scene.Item
-	WorldSettings                                       *config.WorldSettings
-	CharSettings                                        *config.CharacterSettings
-	Data                                                []byte // a file's bytes (restore), base64 in JSON
+	Do                                             string
+	Key, Text, Term, When, Format, Name, ID, World string
+	Char                                           string
+	Seq, Epoch, Cols, Rows                         int
+	N                                              int // numbers input, submit and older (see feed.Input.Ack); step's distance; next_unread's direction; history_move's distance; history_pick's line
+	In, Shut, Save                                 bool
+	Err                                            bool // say's
+	Item                                           *scene.Item
+	WorldSettings                                  *config.WorldSettings
+	CharSettings                                   *config.CharacterSettings
+	Data                                           []byte // a file's bytes (restore), base64 in JSON
 }
 
 // do carries out act. See step for what it returns.
@@ -374,7 +374,9 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 			g.Refilter()
 		}
 	case "fold": //str:ok
-		g.Fold(act.Tag, act.Shut)
+		if act.Item != nil {
+			g.Fold(*act.Item, act.Shut)
+		}
 	case "add_text": //str:ok
 		g.AddText(act.Term)
 		g.Refilter()
