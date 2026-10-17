@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net"
 	"os"
 	"slices"
@@ -36,7 +37,7 @@ type Store struct {
 	mu    sync.Mutex
 	m     map[string]Entry
 	dirty bool               // changed since the last Sync
-	queue []map[string]int64 // kept offsets per Sync not yet saved, oldest first
+	queue []map[string]Entry // entries per Sync not yet saved, oldest first
 	links map[string]*wsdial.Link
 }
 
@@ -112,22 +113,19 @@ func (s *Store) Sync() {
 		return
 	}
 	s.dirty = false
-	kept := map[string]int64{}
-	for k, e := range s.m {
-		kept[k] = e.Kept
-	}
+	snap := maps.Clone(s.m)
 	if !s.saving {
 		s.mu.Unlock()
-		s.ack(kept)
+		s.ack(snap)
 		return
 	}
-	s.queue = append(s.queue, kept)
-	b, _ := json.Marshal(s.m)
+	s.queue = append(s.queue, snap)
 	s.mu.Unlock()
-	// The fsync has the page flush to IndexedDB; Synced hears it landed.
-	// It's outside the lock: the page's callback could come back in.
-	if f, err := os.OpenFile(s.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600); err == nil {
-		f.Write(b)
+	// The file is already written (Put, Delete); the fsync only has the
+	// page flush it to IndexedDB, and Synced hears that it landed. No
+	// write here: other goroutines run inside each fs call, and a Put
+	// meanwhile must not be overwritten with this older snapshot.
+	if f, err := os.OpenFile(s.path, os.O_WRONLY, 0); err == nil {
 		f.Sync()
 		f.Close()
 	}
@@ -148,13 +146,15 @@ func (s *Store) Synced(path string) {
 	s.ack(kept)
 }
 
-func (s *Store) ack(kept map[string]int64) {
-	for k, off := range kept {
+// ack tells each link what's saved for it: only its own token's offset,
+// so a snapshot from a connection since replaced can't ack the new one.
+func (s *Store) ack(snap map[string]Entry) {
+	for k, e := range snap {
 		s.mu.Lock()
 		l := s.links[k]
 		s.mu.Unlock()
-		if l != nil {
-			l.Kept(off)
+		if l != nil && l.Token() == e.Token {
+			l.Kept(e.Kept)
 		}
 	}
 }
@@ -218,9 +218,17 @@ type Conn struct {
 	link *wsdial.Link
 }
 
-// Keep saves that every line up to off is in the log.
+// Keep saves that every line up to off is in the log, while the link is
+// the character's: once it has ended, its token must not come back.
 func (c *Conn) Keep(off int64) {
-	c.s.Put(c.key, Entry{Token: c.link.Token(), Kept: off, Telnet: c.TelnetState()})
+	s := c.s
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.links[c.key] != c.link {
+		return
+	}
+	s.m[c.key] = Entry{Token: c.link.Token(), Kept: off, Telnet: c.TelnetState()}
+	s.writeLocked()
 }
 
 // Resumed reports whether the connection picked up a held one.
