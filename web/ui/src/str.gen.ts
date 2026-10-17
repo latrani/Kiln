@@ -733,8 +733,8 @@ export function relayServingPage(url: unknown): string { return `serving the pag
 /** relay.watch_failed: watching the config: {err} */
 export function relayWatchFailed(err: unknown): string { return `watching the config: ${e(err)}`; }
 
-/** scrollback.history_ends: ─── history ends {when} ─── */
-export function scrollbackHistoryEnds(when: unknown): string { return `─── history ends ${when} ───`; }
+/** scrollback.history_ends: ─── this Kiln session started {when} ─── */
+export function scrollbackHistoryEnds(when: unknown): string { return `─── this Kiln session started ${when} ───`; }
 
 /** scrollback.loading: ─── loading older history… ─── */
 export function scrollbackLoading(): string { return `─── loading older history… ───`; }

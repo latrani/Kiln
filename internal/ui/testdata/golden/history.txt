@@ -6,8 +6,8 @@ fm              │›home
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-21 faint
  Kit            │›say I'll be at the lighthouse.                                
   @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-47 faint
-                │─── history ends Wed Sep 23 22:05 ───                          
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-53 faint
+                │─── this Kiln session started Wed Sep 23 22:05 ───             
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-66 faint
  + Connection   │* connected to muck.test:8888                                  
   @0-13 bold,fg=#c0edeb,bg=#0b3d3b; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
                 │›page Rook = around?                                           
