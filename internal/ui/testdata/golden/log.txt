@@ -44,5 +44,5 @@ Filters        ‹│fm · Kit                                       ? focus  ·
   @0-16 fg=#a2cdcc; @17-79 fg=#b1a68b
 h hide · o only │───────────────────────────────────────────────────────────────
   @0-15 faint,fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
-                │find: Mira 1/1 · n/N · tags: page, page/in (styled as…  Select 
+                │find: Mira 1/1 · n/N · tags: page, page/in · 0 select…  Select 
   @0-15 faint,fg=#8bb1b0; @16-16 fg=#a2cdcc; @17-71 fg=#a0b7e3; @72-79 bold,fg=#c0cfed,bg=#0b1b3d

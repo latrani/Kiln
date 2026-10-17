@@ -97,10 +97,21 @@ func TestThemeFollowsTheConfig(t *testing.T) {
 	}
 }
 
+// pagesPack tags a page page and page/in, and styles only page, so a
+// character's own page/in look is the only one. (The bundled fuzzball
+// pack styles page/in itself.)
+const pagesPack = `[[classify]]
+tags = ["page", "page/in"]
+pattern = '^\S+ pages: '
+
+[tags]
+"page" = { fg = "catppuccin.blue", bold = true }
+`
+
 const kitLooks = `host = "muck.test"
 port = 8888
 tls = true
-use = ["fuzzball"]
+use = ["pages"]
 
 [[characters]]
 id = "kit"
@@ -113,11 +124,12 @@ id = "rook"
 name = "Rook"
 `
 
-// withKitLooks rewrites fm so Kit styles page/in, which the built-in
-// theme leaves to page. The fuzzball pack tags "Mira pages: hi" page and
+// withKitLooks rewrites fm, with pagesPack, so Kit styles page/in, which
+// the pack leaves to page. The pack tags "Mira pages: hi" page and
 // page/in.
 func withKitLooks(t *testing.T, a *app.App, dir, fg string) {
 	t.Helper()
+	writeFile(t, filepath.Join(dir, "packs", "pages.toml"), pagesPack)
 	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(kitLooks, "%s", fg, 1))
 	if _, ok := a.Reload(); !ok {
 		t.Fatal(a.Status().Text)
@@ -157,7 +169,7 @@ func TestCharLooksAndSpans(t *testing.T) {
 	if kit == nil || kit["page/in"].(map[string]any)["FG"] != "#abcdef" {
 		t.Errorf("Kit's tags %v", chars)
 	}
-	// Rook has the fuzzball pack's looks, not Kit's own.
+	// Rook has the pack's looks, not Kit's own.
 	rook, _ := chars["fm/rook"].(map[string]any)
 	if rook == nil || rook["page"].(map[string]any)["FG"] != "#8aadf4" {
 		t.Errorf("Rook's tags %v, want the pack's page", rook)
@@ -249,6 +261,11 @@ func nilIfEmpty(s string) any {
 // as the TUI repaints.
 func TestNewLooksRestyleLinesAlreadySent(t *testing.T) {
 	a, dir := newApp(t)
+	writeFile(t, filepath.Join(dir, "packs", "pages.toml"), pagesPack)
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(kitLooks, "\"page/in\" = { fg = \"%s\" }\n", "", 1))
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
 	h := startThemed(t, a, dir)
 	h.next()
 	if tags := lastSpanTags(feedKit(t, h, "Mira pages: hi")); !slices.Equal(tags, []any{"page"}) {
@@ -296,8 +313,9 @@ func TestLookErrorOnlyOnFirstOpen(t *testing.T) {
 // variants included.
 func TestPackLooksReachTheWeb(t *testing.T) {
 	a, dir := newApp(t)
+	writeFile(t, filepath.Join(dir, "packs", "pages.toml"), pagesPack)
 	writeFile(t, filepath.Join(dir, "packs", "extra.toml"), "[palette]\nsea = \"#123456\"\n[palette.light]\nsea = \"#0a0b0c\"\n[tags]\n\"ooc\" = { fg = \"sea\" }\n")
-	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(strings.Replace(kitLooks, "%s", "#abcdef", 1), `use = ["fuzzball"]`, `use = ["fuzzball", "extra"]`, 1))
+	writeFile(t, filepath.Join(dir, "worlds", "fm.toml"), strings.Replace(strings.Replace(kitLooks, "%s", "#abcdef", 1), `use = ["pages"]`, `use = ["pages", "extra"]`, 1))
 	if _, ok := a.Reload(); !ok {
 		t.Fatal(a.Status().Text)
 	}

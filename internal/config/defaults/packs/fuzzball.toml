@@ -40,7 +40,7 @@ pattern = '^Somewhere on the muck, \S+ (has )?(re)?connected\.'
 
 [[classify]]
 tags = ["watchfor", "watchfor/disconnect"]
-pattern = '^Somewhere on the muck, \S+ (has )?disconnected\.'
+pattern = '^Somewhere on the muck, \S+ (has )?(partially )?disconnected\.'
 
 [[classify]]
 tag = "system"
@@ -54,8 +54,14 @@ pattern = '<OOC>|\[OOC\]|\(OOC\)'
 # character can restyle any of them; a tag inherits up its slashes, so
 # page/in starts from page.
 [tags]
-"whisper"  = { fg = "catppuccin.sky", bold = true }
-"page"     = { fg = "catppuccin.blue", bold = true }
-"watchfor" = { fg = "catppuccin.maroon", bold = true }
-"system"   = { fg = "catppuccin.green", faint = true }
-"ooc"      = { fg = "catppuccin.mauve", bold = true }
+"whisper"             = { fg = "catppuccin.sky" }
+"whisper/in"          = { bold = true }
+"whisper/out"         = { faint = true }
+"page"                = { fg = "catppuccin.blue" }
+"page/in"             = { bold = true }
+"page/out"            = { faint = true }
+"watchfor"            = { fg = "catppuccin.maroon" }
+"watchfor/connect"    = { bold = true }
+"watchfor/disconnect" = { faint = true }
+"system"              = { fg = "catppuccin.green", faint = true }
+"ooc"                 = { fg = "catppuccin.mauve", bold = true }

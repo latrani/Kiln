@@ -239,7 +239,7 @@ func TestBrowseLineTags(t *testing.T) {
 		t.Errorf("statusline %q, want %q", status(), want)
 	}
 	h.keys("up", "up") // Mira pages
-	tags := str.BrowseLineTags("page" + str.ListSeparator() + str.BrowseTagAs("page/in", "page"))
+	tags := str.BrowseLineTags("page" + str.ListSeparator() + "page/in") // the fuzzball pack styles page/in
 	if want := tags; status() != want {
 		t.Errorf("statusline %q, want %q", status(), want)
 	}
