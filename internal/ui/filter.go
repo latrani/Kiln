@@ -107,20 +107,24 @@ func (b *browse) removeText(sel filterSel) bool {
 	return true
 }
 
-// fold folds sel shut or open if it's a tag; + Text and text rows don't
-// fold.
+// fold folds sel shut or open if it's a group or tag; + Text and text
+// rows don't fold.
 func (b *browse) fold(sel filterSel, shut bool) {
 	if !sel.Add && !sel.Item.Text {
-		b.Fold(sel.Item.Name, shut)
+		b.Fold(sel.Item, shut)
 	}
 }
 
 // toggleFold folds sel shut if it's open, or open if it's shut.
-func (b *browse) toggleFold(sel filterSel) { b.fold(sel, !b.cs.Collapsed[sel.Item.Name]) }
+func (b *browse) toggleFold(sel filterSel) { b.fold(sel, !b.cs.Collapsed[sel.Item]) }
+
+// panelIndent is where an entry's rows start at depth: one column a
+// level, so a sidebar 16 wide fits Hide and Only four levels deep.
+func panelIndent(depth int) int { return 1 + depth }
 
 // panelRows lays the panel out: per entry its name and its
-// Hide and Only buttons, a blank row after each top-level group (a tag
-// and its children, or a text row); + Text last.
+// Hide and Only buttons, a blank row after each group, each top-level tag
+// in one (with its children) and each text row; + Text last.
 func (b *browse) panelRows(w int) []panelRow {
 	var rows []panelRow
 	f := &b.cs.Filter
@@ -132,19 +136,21 @@ func (b *browse) panelRows(w int) []panelRow {
 			rows = append(rows, panelRow{text: " " + theme.Paint(theme.FilterAdd, str.FilterAddText()), entry: i, sel: e.sel(), kind: prAdd})
 			continue
 		}
-		indent := strings.Repeat(" ", 1+2*e.Depth)
+		indent := strings.Repeat(" ", panelIndent(e.Depth))
 		name := e.Item.Name
-		if e.Item.Uncategorized {
-			name = str.FilterUncategorized()
+		if e.Item.Group == scene.CategoryGroup {
+			name = str.FilterCategories()
+		} else if e.Item.Group == scene.FlagGroup {
+			name = str.FilterFlags()
 		} else if e.Item.Text {
 			name = glyphRemove + " " + str.FilterTextItem(name)
 		} else if i := strings.LastIndex(name, "/"); i >= 0 {
 			name = name[i+1:]
 		}
 		switch {
-		case e.Parent && b.cs.Collapsed[e.Item.Name]:
+		case e.Parent && b.cs.Collapsed[e.Item]:
 			name = glyphCollapsed + " " + name
-			if b.FilteredUnder(e.Item.Name, items) {
+			if b.FilteredUnder(e.Item, items) {
 				name += " " + glyphFiltered
 			}
 		case e.Parent:
@@ -163,8 +169,8 @@ func (b *browse) panelRows(w int) []panelRow {
 		}
 		rows = append(rows,
 			panelRow{text: indent + theme.Paint(role, name), entry: i, sel: e.sel(), kind: prName},
-			panelRow{text: indent + " " + theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
-		if next := es[i+1]; next.Depth == 0 { // a blank row ends a top-level group
+			panelRow{text: indent + theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
+		if next := es[i+1]; next.Depth == 0 || next.Depth == 1 && e.Item.Group == "" { // a blank row ends a group, and a tree in one
 			rows = append(rows, panelRow{entry: i, kind: prBlank})
 		}
 	}
@@ -339,7 +345,7 @@ func (b *browse) panelClick(x, y, h int) {
 	}
 	es := b.entries()
 	e := es[rows[i].entry]
-	indent := 1 + 2*e.Depth
+	indent := panelIndent(e.Depth)
 	switch rows[i].kind {
 	case prAdd:
 		b.Panel.Sel = e.sel()
@@ -360,7 +366,7 @@ func (b *browse) panelClick(x, y, h int) {
 		}
 		b.Panel.Sel = e.sel()
 	case prButtons:
-		hx := indent + 1
+		hx := indent
 		ox := hx + xansi.StringWidth(str.FilterHide()) + xansi.StringWidth(str.Separator())
 		switch {
 		case x >= hx && x < hx+xansi.StringWidth(str.FilterHide()):
@@ -402,8 +408,8 @@ func footerRows(hints string, w int) []string {
 type footKind int
 
 const (
-	footLeaf   footKind = iota // a tag with none under it, or Uncategorized
-	footParent                 // a tag with tags under it: it folds
+	footLeaf   footKind = iota // a tag with none under it
+	footParent                 // a group or tag with tags under it: it folds
 	footText                   // a text: it's removed
 	footAdd                    // + Text: it adds
 )

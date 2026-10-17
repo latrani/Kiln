@@ -326,8 +326,8 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 	for _, e := range g.EntriesOf(items) {
 		fl.Entries = append(fl.Entries, FilterEntry{
 			PanelEntry: e, Hidden: c.Filter.Hidden(e.Item), Only: hasOnly && only == e.Item,
-			Folded:        e.Parent && c.Collapsed[e.Item.Name],
-			FilteredUnder: e.Parent && c.Collapsed[e.Item.Name] && g.FilteredUnder(e.Item.Name, items),
+			Folded:        e.Parent && c.Collapsed[e.Item],
+			FilteredUnder: e.Parent && c.Collapsed[e.Item] && g.FilteredUnder(e.Item, items),
 		})
 	}
 	if old, ok := f.small[idFilter+c.Key]; !ok || !reflect.DeepEqual(old, fl) {

@@ -10,8 +10,8 @@ import type { LogView } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
 
-const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Uncategorized: false }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
-const entries = [E("", { Item: { Name: "", Text: false, Uncategorized: true } }), E("page", { Parent: true })];
+const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Group: "" }, Depth: 0, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
+const entries = [E("", { Item: { Name: "", Text: false, Group: "category" } }), E("page", { Parent: true })];
 const store = (logMode: boolean, view: Partial<LogView> = {}) => {
   const s = new Store();
   const sent: any[] = [];
@@ -37,7 +37,7 @@ test("each sidebar list is titled: Connections, All connections in the picker, F
 test("in log mode the panel is always there, on its first entry, and there's no Filter chip", () => {
   const { s } = store(true);
   const h = html(s);
-  assert.match(side(h), new RegExp(`class="fname fsel ${roleClass("filter.selected")}"[^>]*>${str.filterUncategorized()}<`));
+  assert.match(side(h), new RegExp(`class="fname fsel ${roleClass("filter.selected")}"[^>]*>${str.filterCategories()}<`));
   const top = h.slice(h.indexOf("<header"), h.indexOf("</header>"));
   assert.ok(!top.includes("status.filter") && (top.match(/<button/g) ?? []).length === 2, "presence and Log only");
 });
@@ -47,7 +47,7 @@ test("footers follow focus, the unfocused side's faded; the panel's has the keys
   const foot = (h: string) => side(h).slice(side(h).indexOf(`<div class="ffoot`));
   const bar = (h: string) => h.slice(h.indexOf(`class="logbar`));
   const keys = (...ks: string[]) => ks.join(str.separator());
-  const { s } = store(true); // the highlight on Uncategorized
+  const { s } = store(true); // the highlight on Categories
   assert.ok(bar(html(s)).includes(`class="${roleClass("log.bar.hints")}">${str.browseHintsNone()}<`));
   assert.ok(foot(html(s)).startsWith(`<div class="ffoot ${roleClass("filter.hints.away")}"`), "the panel's faded");
   assert.equal(text(foot(html(s))), keys(str.filterKeyHide(), str.filterKeyOnly()));

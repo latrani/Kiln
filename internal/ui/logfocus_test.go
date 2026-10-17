@@ -24,7 +24,7 @@ func TestLogModePanelAlwaysUp(t *testing.T) {
 	if got := sideTitleText(h); got != str.FilterTitle() {
 		t.Errorf("sidebar title = %q; want the filter panel's", got)
 	}
-	if side := panelSide(h); side[0] != str.FilterUncategorized() {
+	if side := panelSide(h); side[0] != catsRow() {
 		t.Errorf("first panel row = %q", side[0])
 	}
 	if want := chipText(str.ViewPresenceUnknown()) + str.Separator() + chipText(str.ViewLogButton()); !strings.HasSuffix(rightRow(h, 0)+" ", want) {
@@ -74,7 +74,7 @@ func TestLogModeKeysFromEitherSide(t *testing.T) {
 func TestLogModeClickFocuses(t *testing.T) {
 	h := logHarness(t)
 	l := h.m.layout()
-	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH, Button: tea.MouseLeft}) // Uncategorized's name
+	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH, Button: tea.MouseLeft}) // Categories' name
 	if !h.br().panelFocus {
 		t.Fatal("a click in the panel should focus it")
 	}
@@ -174,7 +174,10 @@ func logBar(h *harness) string { return rightRow(h, h.m.height-3) }
 func keys(ks ...string) string { return strings.Join(ks, str.Separator()) }
 
 func TestLogFooters(t *testing.T) {
-	h := logHarness(t) // the highlight on Uncategorized: no fold, add or remove
+	h := logHarness(t)
+	h.key("f")
+	h.keys("down", "down") // past Categories and page to sent: no fold, add or remove
+	h.key("f")
 	if logBar(h) != str.BrowseHintsNone() || panelFooter(h) != keys(str.FilterKeyHide(), str.FilterKeyOnly()) {
 		t.Errorf("log focused: bar %q, panel footer %q", logBar(h), panelFooter(h))
 	}
@@ -189,7 +192,7 @@ func TestLogFooters(t *testing.T) {
 	if !strings.Contains(h.m.View().Content, theme.Paint(theme.LogHintsAway, str.BrowseHintsNoneAway())) {
 		t.Error("panel focused: want the log's hints faded")
 	}
-	h.key("down") // page, which has tags under it
+	h.key("up") // page, which has tags under it
 	if want := keys(str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyFold(), str.FilterKeyLog()); panelFooter(h) != want {
 		t.Errorf("on a parent: footer %q, want %q", panelFooter(h), want)
 	}
@@ -198,6 +201,10 @@ func TestLogFooters(t *testing.T) {
 		t.Errorf("on a parent, the log focused: footer %q, want %q", panelFooter(h), want)
 	}
 	h.key("f")
+	h.key("up") // Categories, a group, folds too
+	if want := keys(str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyFold(), str.FilterKeyLog()); panelFooter(h) != want {
+		t.Errorf("on a group: footer %q, want %q", panelFooter(h), want)
+	}
 	h.br().AddText("lighthouse")
 	for !h.br().Panel.Sel.Item.Text {
 		h.key("down")
@@ -245,7 +252,7 @@ func TestLogModeShortScreen(t *testing.T) {
 	if len(rows) != MinHeight {
 		t.Fatalf("%d rows; want %d", len(rows), MinHeight)
 	}
-	if side := panelSide(h); side[0] != str.FilterUncategorized() {
+	if side := panelSide(h); side[0] != catsRow() {
 		t.Errorf("at %dx%d the panel lost its list:\n%s", MinWidth, MinHeight, h.screen())
 	}
 }

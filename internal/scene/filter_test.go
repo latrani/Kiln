@@ -239,20 +239,26 @@ func TestUnhideParentClearsUnloadedChildren(t *testing.T) {
 	}
 }
 
-var uncategorized = Item{Uncategorized: true}
+var categories, flags = Item{Group: CategoryGroup}, Item{Group: FlagGroup}
 
-func TestUncategorized(t *testing.T) {
-	its := append([]Item{uncategorized}, items()...)
+// Categories and Flags are their kinds' top-level parents: Hide and Only
+// on one reach every tag of its kind.
+func TestGroups(t *testing.T) {
+	its := append([]Item{categories}, items()...)
 	cases := []struct {
 		name string
 		set  func(f *Filter)
 		tags []string
 		want bool
 	}{
-		{"hide uncategorized: uncategorized line", func(f *Filter) { f.ToggleHide(uncategorized, its) }, nil, false},
-		{"hide uncategorized: tagged line", func(f *Filter) { f.ToggleHide(uncategorized, its) }, []string{"rp"}, true},
-		{"only uncategorized: uncategorized line", func(f *Filter) { f.PressOnly(uncategorized, its) }, nil, true},
-		{"only uncategorized: tagged line", func(f *Filter) { f.PressOnly(uncategorized, its) }, []string{"page/in"}, false},
+		{"hide categories: line with none", func(f *Filter) { f.ToggleHide(categories, its) }, nil, true},
+		{"hide categories: just a flag", func(f *Filter) { f.ToggleHide(categories, its) }, []string{"self"}, true},
+		{"hide categories: tagged line", func(f *Filter) { f.ToggleHide(categories, its) }, []string{"rp"}, false},
+		{"only categories: line with none", func(f *Filter) { f.PressOnly(categories, its) }, nil, false},
+		{"only categories: tagged line", func(f *Filter) { f.PressOnly(categories, its) }, []string{"page/in"}, true},
+		{"only flags: just a category", func(f *Filter) { f.PressOnly(flags, its) }, []string{"page"}, false},
+		{"only flags: a flag", func(f *Filter) { f.PressOnly(flags, its) }, []string{"page", "self"}, true},
+		{"hide flags: a flag", func(f *Filter) { f.ToggleHide(flags, its) }, []string{"self"}, false},
 	}
 	for _, c := range cases {
 		var f Filter
@@ -263,31 +269,35 @@ func TestUncategorized(t *testing.T) {
 	}
 	var f Filter
 	f.PressOnly(tag("rp"), its)
-	if !f.Hidden(uncategorized) || f.Hidden(text("lighthouse")) {
-		t.Errorf("Only on a tag lights Uncategorized (a tag-kind item) but not text rows")
+	if f.Hidden(categories) || !f.Hidden(tag("page")) {
+		t.Errorf("Only on a tag keeps its group lit as an ancestor, and lights its siblings")
 	}
 	var g Filter
-	g.PressOnly(uncategorized, its)
-	if !g.Hidden(tag("page")) || !g.Hidden(tag("rp")) {
-		t.Errorf("Only on Uncategorized hides every tag")
+	g.ToggleHide(categories, its)
+	if !g.Hidden(tag("page")) || !g.Hidden(tag("rp")) || g.Hidden(tag("self")) {
+		t.Errorf("Hide on Categories hides every category, and no flag")
+	}
+	g.ToggleHide(tag("rp"), its)
+	if g.Hidden(categories) || g.Hidden(tag("rp")) || !g.Hidden(tag("page")) {
+		t.Errorf("unhiding a category clears its group, leaving its siblings hidden")
 	}
 }
 
-// Hiding Uncategorized isn't hiding a parent: a top-level tag seen later
-// arrives shown.
-func TestHiddenUncategorizedIsNoOnesParent(t *testing.T) {
+// A top-level tag seen after its group is hidden arrives hidden; one of
+// the other kind doesn't.
+func TestHiddenGroupHidesLateTags(t *testing.T) {
 	var f Filter
-	f.Sync([]Item{uncategorized})
-	f.ToggleHide(uncategorized, []Item{uncategorized})
-	f.Sync([]Item{uncategorized, tag("say")})
-	if f.Hidden(tag("say")) {
-		t.Error("say arrived hidden under Uncategorized")
+	f.Sync([]Item{categories})
+	f.ToggleHide(categories, []Item{categories})
+	f.Sync([]Item{categories, tag("say"), tag("self")})
+	if !f.Hidden(tag("say")) || f.Hidden(tag("self")) {
+		t.Errorf("say hidden %v, self hidden %v; want say hidden under Categories, self not", f.Hidden(tag("say")), f.Hidden(tag("self")))
 	}
 }
 
 func TestTagsListsFilteredTags(t *testing.T) {
 	var f Filter
-	its := append([]Item{uncategorized}, items()...)
+	its := append([]Item{categories}, items()...)
 	f.ToggleHide(tag("page"), its)
 	f.PressOnly(tag("rp"), its)
 	f.PressOnly(tag("rp"), its) // clears; now only whisper is filtered
@@ -295,9 +305,10 @@ func TestTagsListsFilteredTags(t *testing.T) {
 	if got := f.Tags(); !slices.Equal(got, []string{"whisper/in"}) {
 		t.Errorf("Tags = %v", got)
 	}
-	f.ToggleHide(uncategorized, its)
-	if got := f.Tags(); !slices.Equal(got, []string{"whisper/in"}) || !f.Hidden(uncategorized) {
-		t.Errorf("Tags lists only named tags: %v", got)
+	f.ToggleHide(tag("whisper/in"), its)
+	f.PressOnly(categories, its)
+	if got := f.Tags(); got != nil {
+		t.Errorf("Tags lists only tags, not groups: %v", got)
 	}
 }
 
@@ -336,19 +347,19 @@ func TestFilterDefaults(t *testing.T) {
 }
 
 // Flags (self here) are a kind of their own: Only and Hide on a category
-// never touch them, and a line with only flags is Uncategorized.
+// never touch them, and a line with only flags has no category.
 func TestFlagsAreTheirOwnKind(t *testing.T) {
 	var f Filter
 	self, page := tag("self"), tag("page")
-	its := append([]Item{uncategorized}, append(TagItems([]string{"page/in", "self", "self/x"}), text("lighthouse"))...)
-	f.PressOnly(uncategorized, its)
-	if f.Hidden(self) || !f.Hidden(page) {
-		t.Errorf("Only on Uncategorized: self hidden %v, page hidden %v; want just the categories lit", f.Hidden(self), f.Hidden(page))
+	its := append([]Item{categories}, append(TagItems([]string{"page/in"}), append([]Item{flags}, append(TagItems([]string{"self", "self/x"}), text("lighthouse"))...)...)...)
+	f.ToggleHide(categories, its)
+	if f.Hidden(self) || f.Hidden(flags) || !f.Hidden(page) {
+		t.Errorf("Hide on Categories: self hidden %v, page hidden %v; want just the categories lit", f.Hidden(self), f.Hidden(page))
 	}
 	if !f.Visible([]string{"self"}, "") || f.Visible([]string{"page", "page/in", "self"}, "") {
-		t.Error("a room line mentioning you should show under Only Uncategorized, and a page mentioning you shouldn't")
+		t.Error("a room line mentioning you should show under Hide Categories, and a page mentioning you shouldn't")
 	}
-	f.PressOnly(uncategorized, its)
+	f.ToggleHide(categories, its)
 	f.PressOnly(self, its)
 	if f.Hidden(page) || f.Hidden(tag("self/x")) || f.Visible([]string{"page"}, "") || !f.Visible([]string{"page", "self"}, "") {
 		t.Error("Only on self should show just lines mentioning you, lighting no category")
@@ -358,8 +369,8 @@ func TestFlagsAreTheirOwnKind(t *testing.T) {
 	if !f.Visible([]string{"page/in"}, "") {
 		t.Fatal("nothing filtered")
 	}
-	f.PressOnly(uncategorized, its)
+	f.ToggleHide(categories, its)
 	if f.Hidden(page) || !f.Visible([]string{"page/in"}, "") || !f.Hidden(self) {
-		t.Error("with page a flag and self not, Only on Uncategorized should light self and leave page")
+		t.Error("with page a flag and self not, Hide on Categories should light self and leave page")
 	}
 }

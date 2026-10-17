@@ -500,6 +500,12 @@ export function editorWorldIdChars(): string { return `a world id can only use l
 /** filter.add_text: + Text */
 export function filterAddText(): string { return `+ Text`; }
 
+/** filter.categories: Categories */
+export function filterCategories(): string { return `Categories`; }
+
+/** filter.flags: Flags */
+export function filterFlags(): string { return `Flags`; }
+
 /** filter.hide: Hide */
 export function filterHide(): string { return `Hide`; }
 
@@ -535,9 +541,6 @@ export function filterTextItem(term: unknown): string { return `"${term}"`; }
 
 /** filter.title: Filters */
 export function filterTitle(): string { return `Filters`; }
-
-/** filter.uncategorized: Uncategorized */
-export function filterUncategorized(): string { return `Uncategorized`; }
 
 /** form.next_field: Use enter or arrows to move between fields · {hint} */
 export function formNextField(hint: unknown): string { return `Use enter or arrows to move between fields · ${hint}`; }

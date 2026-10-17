@@ -6,8 +6,8 @@ import type { Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
 // FilterItem is a thing the filter can hide or show only: a tag, a text,
-// or Uncategorized (scene.Item).
-export interface FilterItem { Name: string; Text: boolean; Uncategorized: boolean }
+// or a group, Categories or Flags (scene.Item).
+export interface FilterItem { Name: string; Text: boolean; Group: "" | "category" | "flag" }
 
 // FilterEntry is one entry of Go's Filter event (feed.FilterEntry).
 export interface FilterEntry {
@@ -16,15 +16,22 @@ export interface FilterEntry {
 }
 
 // PanelRow is an entry the panel lists, as it reads (its glyph, name and
-// what follows it; a blank row after it when it ends a top-level group),
+// what follows it; a blank row after it when it ends a group or a tree in one),
 // or + Text.
 export type PanelRow =
   | { kind: "entry"; key: string; e: FilterEntry; glyph: string; name: string; after: string; endsGroup: boolean }
   | { kind: "add"; key: "+" };
 
-// entryKey names an item for the highlight: "u" for Uncategorized, "t:" a
-// text, "g:" a tag.
-export const entryKey = (i: FilterItem): string => (i.Uncategorized ? "u" : i.Text ? "t:" + i.Name : "g:" + i.Name);
+// entryKey names an item for the highlight: "G:" a group, "t:" a text,
+// "g:" a tag.
+export const entryKey = (i: FilterItem): string => (i.Group ? "G:" + i.Group : i.Text ? "t:" + i.Name : "g:" + i.Name);
+
+// itemName is how an item reads in the panel: a group's title, a text
+// quoted, a tag's last part.
+function itemName(it: FilterItem): string {
+  if (it.Group) return it.Group === "category" ? str.filterCategories() : str.filterFlags();
+  return it.Text ? str.filterTextItem(it.Name) : it.Name.slice(it.Name.lastIndexOf("/") + 1);
+}
 
 // panelRows is what the panel lists, as the TUI's panelRows: the entries
 // less those folded away, then + Text.
@@ -32,10 +39,10 @@ export function panelRows(entries: FilterEntry[]): PanelRow[] {
   const shown = entries.filter((e) => !e.FoldedAway);
   const rows: PanelRow[] = shown.map((e, i) => {
     const it = e.Item;
-    const name = it.Uncategorized ? str.filterUncategorized() : it.Text ? str.filterTextItem(it.Name) : it.Name.slice(it.Name.lastIndexOf("/") + 1);
     const glyph = it.Text ? str.glyph.remove : e.Parent ? (e.Folded ? str.glyph.collapsed : str.glyph.open) : "";
     const after = e.Parent && e.Folded && e.FilteredUnder ? str.glyph.filtered : "";
-    return { kind: "entry", key: entryKey(it), e, glyph, name, after, endsGroup: (shown[i + 1]?.Depth ?? 0) === 0 };
+    const next = shown[i + 1]?.Depth ?? 0; // a blank row ends a group, and a tree in one
+    return { kind: "entry", key: entryKey(it), e, glyph, name: itemName(it), after, endsGroup: next === 0 || (next === 1 && !it.Group) };
   });
   return [...rows, { kind: "add", key: "+" }];
 }
@@ -89,7 +96,7 @@ export function focusLog(store: Store): void {
 
 // panelAct does what a panel key asks, as the TUI's panelKey: ↑/↓ move
 // the highlight (focus following); h and o hide or show only its entry;
-// ←/→ fold a tag shut or open, and Space or Enter toggle it; Enter on +
+// ←/→ fold a group or tag shut or open, and Space or Enter toggle it; Enter on +
 // Text asks for a text; x
 // removes a text row, the highlight moving down first so one stays; Esc
 // and f give the log focus. Any key stops a search reading older days
@@ -114,7 +121,7 @@ export function panelAct(store: Store, does: PanelKey): void {
       break;
     case "shut":
     case "open":
-      if (r.kind === "entry" && !r.e.Item.Text) act({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: does === "shut" });
+      if (r.kind === "entry" && !r.e.Item.Text) act({ Do: "fold", Key: k, Item: r.e.Item, Shut: does === "shut" });
       break;
     case "enter":
       if (r.kind === "add") {
@@ -123,7 +130,7 @@ export function panelAct(store: Store, does: PanelKey): void {
       }
     // falls through: Enter on a tag folds it, as Space does
     case "toggle":
-      if (r.kind === "entry" && r.e.Parent) act({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: !r.e.Folded });
+      if (r.kind === "entry" && r.e.Parent) act({ Do: "fold", Key: k, Item: r.e.Item, Shut: !r.e.Folded });
       break;
     case "remove":
       if (r.kind === "entry" && r.e.Item.Text) {
@@ -147,7 +154,7 @@ export function glyphClick(store: Store, key: string): void {
   if (r?.kind !== "entry" || s.logView[k]?.prompt) return;
   store.setLogView(k, { panel: r.e.Item.Text ? { sel: key, follow: true } : { sel: key } });
   if (r.e.Item.Text) panelAct(store, "remove");
-  else s.act?.({ Do: "fold", Key: k, Tag: r.e.Item.Name, Shut: !r.e.Folded });
+  else s.act?.({ Do: "fold", Key: k, Item: r.e.Item, Shut: !r.e.Folded });
 }
 
 // panelClick is a click on an entry's name (does undefined), its Hide or

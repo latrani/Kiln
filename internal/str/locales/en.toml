@@ -339,8 +339,11 @@ title = "Filters"
 hide = "Hide"
 only = "Only"
 add_text = "+ Text"
-# The row for lines with no tags.
-uncategorized = "Uncategorized"
+# The group every category sits under: Hide hides lines with any
+# category, Only keeps just those.
+categories = "Categories"
+# The group every flag sits under, as categories.
+flags = "Flags"
 # A text row's name in the panel.
 text_item = "\"{term}\""
 # The filter panel's footer: the keys that work on the highlighted row,

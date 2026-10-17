@@ -36,6 +36,10 @@ func unfold(h *harness) {
 
 func buttons() string { return str.FilterHide() + str.Separator() + str.FilterOnly() }
 
+// The groups' rows, open, as panelSide trims them.
+func catsRow() string  { return glyphOpen + " " + str.FilterCategories() }
+func flagsRow() string { return glyphOpen + " " + str.FilterFlags() }
+
 func TestPanelOpensAndCloses(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
@@ -43,21 +47,21 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("f")
 	side := panelSide(h)
 	// Parents start folded; → opens one.
-	want := []string{str.FilterUncategorized(), buttons(), "", glyphCollapsed + " page", buttons(), "", classify.SentTag, buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want := []string{catsRow(), buttons(), glyphCollapsed + " page", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.keys("down", "right")
-	want = []string{str.FilterUncategorized(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", classify.SentTag, buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want = []string{catsRow(), buttons(), glyphOpen + " page", buttons(), "in", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side := panelSide(h); side[i] != w {
 			t.Fatalf("opened: panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.key("f")
-	if h.br().panelFocus || panelSide(h)[0] != str.FilterUncategorized() {
+	if h.br().panelFocus || panelSide(h)[0] != catsRow() {
 		t.Errorf("f should give the log focus, the panel staying:\n%s", h.screen())
 	}
 	h.key("f")
@@ -80,8 +84,8 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 		t.Errorf("want Hide lit on just sent, by default (self is a flag: its Only lights no category), Only on self:\n%q", s)
 	}
 	h.kitFilter().PressOnly(scene.Item{Name: "page/in"}, h.br().Items())
-	if s := h.drawn(); strings.Count(s, on(str.FilterHide())) != 2 || strings.Count(s, on(str.FilterOnly())) != 1 {
-		t.Errorf("want Hide lit on Uncategorized and sent, Only on page/in:\n%q", s)
+	if s := h.drawn(); strings.Count(s, on(str.FilterHide())) != 1 || strings.Count(s, on(str.FilterOnly())) != 1 {
+		t.Errorf("want Hide lit on sent, Only on page/in (Categories and page are its ancestors, so stay unlit):\n%q", s)
 	}
 }
 
@@ -93,7 +97,7 @@ func TestPanelKeys(t *testing.T) {
 	unfold(h)
 	b, f := h.br(), h.kitFilter()
 	page, in, self := scene.Item{Name: "page"}, scene.Item{Name: "page/in"}, scene.Item{Name: "self"}
-	h.key("down") // past Uncategorized
+	h.key("down") // past Categories
 	if b.Panel.Sel.Item != page {
 		t.Fatalf("starts on %v", b.Panel.Sel)
 	}
@@ -105,7 +109,7 @@ func TestPanelKeys(t *testing.T) {
 	if f.Hidden(page) || f.Hidden(in) {
 		t.Errorf("unhiding page/in: page %v, page/in %v", f.Hidden(page), f.Hidden(in))
 	}
-	h.keys("down", "down", "o") // past sent to self: Only, a flag's, lighting no category
+	h.keys("down", "down", "down", "o") // past sent and Flags to self: Only, a flag's, lighting no category
 	if o, _ := f.Only(); o != self || f.Hidden(page) {
 		t.Errorf("o on self: Only %v, page hidden %v", o, f.Hidden(page))
 	}
@@ -113,13 +117,13 @@ func TestPanelKeys(t *testing.T) {
 	if _, ok := f.Only(); ok || !f.Hidden(self) || f.Hidden(page) {
 		t.Errorf("h on the Only item should hide just it")
 	}
-	h.keys("up", "up", "up") // back to page
-	h.key("left")            // collapse
-	if !h.m.chars["fm/kit"].Collapsed["page"] || slices.Contains(panelSide(h), "in") {
+	h.keys("up", "up", "up", "up") // back to page
+	h.key("left")                  // collapse
+	if !h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] || slices.Contains(panelSide(h), "in") {
 		t.Errorf("← should collapse page:\n%s", h.screen())
 	}
 	h.key("right")
-	if h.m.chars["fm/kit"].Collapsed["page"] {
+	if h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] {
 		t.Error("→ should expand page")
 	}
 }
@@ -131,7 +135,7 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
-	if got := panelSide(h)[3]; got != glyphCollapsed+" page "+glyphFiltered {
+	if got := panelSide(h)[2]; got != glyphCollapsed+" page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
 	}
 }
@@ -143,7 +147,7 @@ func TestPanelFoldToggles(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	collapsed := func() bool { return h.m.chars["fm/kit"].Collapsed["page"] }
+	collapsed := func() bool { return h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] }
 	h.key("down") // page, folded
 	for _, step := range []struct {
 		key  string
@@ -167,23 +171,24 @@ func TestPanelClicks(t *testing.T) {
 	unfold(h)
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH + y, Button: tea.MouseLeft}) }
-	// Rows: 0 Uncategorized, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
-	// 5 in, 6 buttons, 7 blank, 8 sent, 9 buttons, 10 blank, 11 self,
-	// 12 buttons. Buttons for depth 0 start at column 2: "  Hide · Only".
+	// Rows: 0 ▼ Categories, 1 buttons, 2 ▼ page, 3 buttons, 4 in,
+	// 5 buttons, 6 blank, 7 sent, 8 buttons, 9 blank, 10 ▼ Flags,
+	// 11 buttons, 12 self, 13 buttons. Depth 1 starts at column 2:
+	// "  Hide · Only".
 	hideX, onlyX := 2, 2+len(str.FilterHide())+xansi.StringWidth(str.Separator())
-	click(hideX, 12)
+	click(hideX, 13)
 	if !f.Hidden(scene.Item{Name: "self"}) {
 		t.Error("clicking self's Hide")
 	}
-	click(onlyX, 4)
+	click(onlyX, 3)
 	if o, _ := f.Only(); o != (scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
-	click(1, 3) // the ▼
-	if !h.m.chars["fm/kit"].Collapsed["page"] {
+	click(2, 2) // the ▼
+	if !h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] {
 		t.Error("clicking ▼ should collapse page")
 	}
-	click(4, 11-2) // rows moved up two: self's name is now row 9
+	click(4, 12-2) // rows moved up two: self's name is now row 10
 	if h.br().Panel.Sel.Item != (scene.Item{Name: "self"}) {
 		t.Errorf("clicking a name selects it: %v", h.br().Panel.Sel)
 	}
@@ -213,9 +218,10 @@ func TestPanelScrolls(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side, listH := panelSide(h), h.br().Panel.listH
-	// 12 tags and sent × 3 rows + "+ Text" = 40 rows; all but one of the
-	// list's rows show, above the hint, which is its last.
-	if want := str.ViewMoreBelow(40 - (listH - 1)); side[listH-1] != want {
+	// Categories × 2 rows, 12 tags and sent × 3 rows + "+ Text" = 42
+	// rows; all but one of the list's rows show, above the hint, which is
+	// its last.
+	if want := str.ViewMoreBelow(42 - (listH - 1)); side[listH-1] != want {
 		t.Fatalf("the list's last row = %q, want %q:\n%s", side[listH-1], want, h.screen())
 	}
 	for range 40 {
@@ -326,13 +332,13 @@ func TestFilterRelightsAcrossSessions(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
-	h.screen() // session 1 sees Uncategorized
+	h.screen() // session 1 sees page
 	h.key("esc")
-	h.kitFilter().PressOnly(scene.Item{Name: "page"}, scene.TagItems([]string{"page"})) // Uncategorized not in the list
+	h.kitFilter().PressOnly(scene.Item{Name: classify.SentTag}, scene.TagItems([]string{classify.SentTag})) // page not in the list
 	h.key("ctrl+l")
 	h.screen()
-	if !h.kitFilter().Hidden(scene.Item{Uncategorized: true}) {
-		t.Error("Uncategorized should light under Only page in a new session")
+	if !h.kitFilter().Hidden(scene.Item{Name: "page"}) {
+		t.Error("page should light under Only sent in a new session")
 	}
 }
 
@@ -347,7 +353,7 @@ func TestPanelIsFastOnLargeHistories(t *testing.T) {
 	b.Cursor = b.Lines[len(b.Lines)-1]
 	h.key("f")
 	for i := range 5 {
-		h.br().Fold(fmt.Sprintf("p%d", i), true)
+		h.br().Fold(scene.Item{Name: fmt.Sprintf("p%d", i)}, true)
 	}
 	for range 60 {
 		h.key("down") // to + Text
@@ -368,7 +374,7 @@ func TestPanelLogModeKeys(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	unfold(h)
-	h.keys("down", "j") // past Uncategorized, then j
+	h.keys("down", "j") // past Categories, then j
 	if h.br().Panel.Sel.Item != (scene.Item{Name: "page/in"}) {
 		t.Errorf("j should move down: %v", h.br().Panel.Sel)
 	}
@@ -389,28 +395,32 @@ func TestLeftOnLeafDoesNotFold(t *testing.T) {
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	h.keys("down", "down", "left") // self
-	if h.m.chars["fm/kit"].Collapsed["self"] {
+	h.keys("down", "down", "down", "down", "left") // past page, sent and Flags to self
+	if h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "self"}] {
 		t.Error("← on self (no children) recorded a fold")
 	}
 }
 
-// Uncategorized is the panel's first row, with its own Hide and Only.
-func TestPanelUncategorizedRow(t *testing.T) {
+// Categories is the panel's first row, open, with its own Hide and
+// Only: Hide leaves the lines with no category, Only just the others.
+func TestPanelCategoriesRow(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.key("ctrl+l")
 	h.key("f")
-	if side := panelSide(h); side[0] != str.FilterUncategorized() || side[1] != buttons() {
+	if side := panelSide(h); side[0] != catsRow() || side[1] != buttons() {
 		t.Fatalf("first rows = %q, %q:\n%s", side[0], side[1], h.screen())
 	}
-	if h.br().Panel.Sel.Item != (scene.Item{Uncategorized: true}) {
-		t.Errorf("the panel should open on Uncategorized: %v", h.br().Panel.Sel)
+	if h.br().Panel.Sel.Item != (scene.Item{Group: scene.CategoryGroup}) {
+		t.Errorf("the panel should open on Categories: %v", h.br().Panel.Sel)
+	}
+	h.key("h")
+	if s := h.screen(); !strings.Contains(s, "Sable waves a paw.") || strings.Contains(s, "Mira pages") {
+		t.Errorf("Hide on Categories should show just lines with no category:\n%s", s)
 	}
 	h.key("o")
-	s := h.screen()
-	if !strings.Contains(s, "Sable waves a paw.") || strings.Contains(s, "Mira pages") {
-		t.Errorf("Only on Uncategorized should show just untagged lines:\n%s", s)
+	if s := h.screen(); strings.Contains(s, "Sable waves a paw.") || !strings.Contains(s, "Mira pages") {
+		t.Errorf("Only on Categories should show just lines with one:\n%s", s)
 	}
 }
 
@@ -473,7 +483,7 @@ func TestNestedParentsStartFolded(t *testing.T) {
 	b, cs := h.br(), h.m.chars["fm/kit"]
 	items := []scene.Item{{Name: "a"}, {Name: "a/b"}, {Name: "a/b/c"}, {Name: "z"}}
 	b.EntriesOf(items)
-	if !cs.Collapsed["a"] || !cs.Collapsed["a/b"] || cs.Collapsed["a/b/c"] || cs.Collapsed["z"] {
+	if !cs.Collapsed[scene.Item{Name: "a"}] || !cs.Collapsed[scene.Item{Name: "a/b"}] || cs.Collapsed[scene.Item{Name: "a/b/c"}] || cs.Collapsed[scene.Item{Name: "z"}] {
 		t.Errorf("collapsed = %v, want a and a/b only", cs.Collapsed)
 	}
 	var names []string
@@ -485,9 +495,9 @@ func TestNestedParentsStartFolded(t *testing.T) {
 	if strings.Join(names, " ") != "a z" {
 		t.Errorf("listed %v, want just a and z", names)
 	}
-	delete(cs.Collapsed, "a") // the reader opens a
+	delete(cs.Collapsed, scene.Item{Name: "a"}) // the reader opens a
 	b.EntriesOf(items)
-	if cs.Collapsed["a"] || !cs.Collapsed["a/b"] {
+	if cs.Collapsed[scene.Item{Name: "a"}] || !cs.Collapsed[scene.Item{Name: "a/b"}] {
 		t.Errorf("after opening a: %v, a should stay open", cs.Collapsed)
 	}
 }
@@ -500,7 +510,7 @@ func TestPanelHighlightStaysPut(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	h.key("up")
-	if h.br().Panel.Sel.Item != (scene.Item{Uncategorized: true}) {
+	if h.br().Panel.Sel.Item != (scene.Item{Group: scene.CategoryGroup}) {
 		t.Errorf("up at the top moved to %v", h.br().Panel.Sel)
 	}
 	for range 10 {

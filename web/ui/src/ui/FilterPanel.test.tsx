@@ -6,8 +6,8 @@ import { Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
 
-const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Uncategorized: false }, Depth: Name.split("/").length - 1, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
-const page = (entries: object[], sel = "u") => {
+const E = (Name: string, more: object = {}) => ({ Item: { Name, Text: false, Group: "" }, Depth: Name.split("/").length, Parent: false, FoldedAway: false, Hidden: false, Only: false, Folded: false, FilteredUnder: false, ...more });
+const page = (entries: object[], sel = "G:category") => {
   const s = new Store();
   s.set({ phase: "running", act: () => {} });
   s.apply([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" },
@@ -16,7 +16,7 @@ const page = (entries: object[], sel = "u") => {
   const html = render(<App store={s} />);
   return html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
 };
-const entries = [E("", { Item: { Name: "", Text: false, Uncategorized: true } }), E("page", { Parent: true, Hidden: true }), E("page/ooc", { Only: true }), E("x", { Item: { Name: "x", Text: true, Uncategorized: false }, Depth: 0 })];
+const entries = [E("", { Item: { Name: "", Text: false, Group: "category" }, Depth: 0 }), E("page", { Parent: true, Hidden: true }), E("page/ooc", { Only: true }), E("x", { Item: { Name: "x", Text: true, Group: "" }, Depth: 0 })];
 
 test("the panel takes the sidebar's place, named Filter, in the filter role", () => {
   const nav = page(entries);
@@ -29,7 +29,7 @@ test("each entry: a list item holding a group named by its name, Hide and Only a
   assert.match(nav, new RegExp(`<button id="flt-1" class="fname fsel ${roleClass("filter.selected")}" tabindex="0">page</button>`), "the name doesn't fold, so it says nothing of folding");
   assert.match(nav, new RegExp(`<button class="${roleClass("filter.button.on")}" tabindex="0" aria-pressed="true">${str.filterHide()}</button>`), "page is hidden: Hide lit, pressed");
   assert.match(nav, new RegExp(`<button id="flt-2" class="fname ${roleClass("filter.item")}" tabindex="-1">ooc</button>`), "not highlighted: out of the tab order");
-  assert.ok(nav.includes(`<div class="frow">   <button id="flt-2"`), "page/ooc: 1 + 2 spaces in");
+  assert.ok(nav.includes(`<div class="frow">   <button id="flt-2"`), "page/ooc, depth 2: 1 + 2 spaces in");
   assert.match(nav, new RegExp(`tabindex="-1" aria-pressed="true">${str.filterOnly()}</button>`), "ooc is Only");
 });
 
