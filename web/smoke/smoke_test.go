@@ -597,12 +597,12 @@ func evaluator(t *testing.T, ws *websocket.Conn) func(string) string {
 	}
 }
 
-// waitFor polls cond in the tab until it's true, failing after 20
-// seconds with the page's last events.
+// waitFor polls cond in the tab (awaiting it, if it's a promise) until
+// it's true, failing after 20 seconds with the page's last events.
 func waitFor(t *testing.T, ev func(string) string, cond, what string) {
 	t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
-	for ev("(() => { try { return !!("+cond+") } catch { return false } })()") != "true" {
+	for ev("(async () => { try { return !!(await ("+cond+")) } catch { return false } })()") != "true" {
 		if time.Now().After(deadline) {
 			last := ev(`JSON.stringify((globalThis.kilnPage?.events ?? []).slice(-20))`)
 			t.Fatalf("waiting for %s: gave up; last events:\n%s", what, last)

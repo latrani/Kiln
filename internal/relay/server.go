@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/netip"
@@ -18,6 +19,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/relay/push"
 	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -45,6 +47,10 @@ type Server struct {
 	// worldWriteTimeout is how long a write to a world may wait for it
 	// to read; past it the world is let go. 0: 30s.
 	worldWriteTimeout time.Duration
+	// pushClient sends pushes to pushHosts; nil: http.DefaultClient and
+	// push.Hosts. Tests point them at their own push service.
+	pushClient *http.Client
+	pushHosts  []string
 
 	cfg      atomic.Pointer[Config]
 	mu       sync.Mutex
@@ -61,12 +67,17 @@ func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 // allowed, connects to it, doing TLS with the world itself unless it's
 // plaintext, and carries it as package wire says. tls=1 says the
 // client's world file asks for TLS, which a plaintext world refuses.
-// ?resume=1 picks up a held connection instead, and a POST with
-// ?short=1 is a closing page's beacon (beacon).
+// ?resume=1 picks up a held connection instead, a POST with ?short=1 is
+// a closing page's beacon (beacon), and ?push_key=1 asks for the key a
+// page subscribes to pushes with (pushKey).
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a := s.cfg.Load()
 	if a == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if r.URL.Query().Get("push_key") == "1" {
+		s.pushKey(w, r, a)
 		return
 	}
 	if r.URL.Query().Get("short") == "1" {
@@ -314,4 +325,21 @@ func or[T comparable](v, def T) T {
 		return def
 	}
 	return v
+}
+
+// pushKey answers with the VAPID public key a page subscribes with, or
+// 404 when the relay sends no pushes.
+func (s *Server) pushKey(w http.ResponseWriter, r *http.Request, a *Config) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	k, _ := a.Push()
+	if k == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8") //str:ok MIME type
+	w.Header().Set("Cache-Control", "no-cache")                 //str:ok protocol
+	io.WriteString(w, push.PublicKey(k))
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/telnet"
 	"github.com/latrani/Kiln/web/wsdial"
 )
@@ -191,7 +192,7 @@ func (s *Store) ack(snap map[string]Entry) {
 // and the dial fails with wsdial.ErrLetGo.
 func (s *Store) Dial(ctx context.Context, relayURL, key string, ch config.Character) (*Conn, error) {
 	e, saved := s.Get(key)
-	o := wsdial.Options{TLS: ch.TLS, Durable: true}
+	o := options(ch)
 	co := conn.Options{Host: ch.Host, Port: ch.Port, Width: 80, Height: 24}
 	if saved {
 		o.Resume = &wsdial.Held{Token: e.Token, Kept: e.Kept}
@@ -233,6 +234,12 @@ func (s *Store) Dial(ctx context.Context, relayURL, key string, ch config.Charac
 		s.deleteLocked(key, token)
 	})
 	return &Conn{Conn: cc, s: s, key: key, link: link}, nil
+}
+
+// options are how ch's link dials: durable, and pushing while held if
+// its notifications are on.
+func options(ch config.Character) wsdial.Options {
+	return wsdial.Options{TLS: ch.TLS, Durable: true, Push: ch.Notify != notify.None}
 }
 
 // Conn is a character's connection that a fresh tab can pick up: a

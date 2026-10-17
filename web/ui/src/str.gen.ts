@@ -611,6 +611,9 @@ export function relayCertNotPinned(): string { return `it doesn't match the pin 
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
+/** relay.config_bad_contact: {path}: push_contact {value:%q} must start with "https:" or "mailto:" */
+export function relayConfigBadContact(path: unknown, value: unknown): string { return `${path}: push_contact ${q(value)} must start with "https:" or "mailto:"`; }
+
 /** relay.config_bad_hold: {path}: hold {value:%q} isn't a length of time · use one like "24h" or "90m" */
 export function relayConfigBadHold(path: unknown, value: unknown): string { return `${path}: hold ${q(value)} isn't a length of time · use one like "24h" or "90m"`; }
 
@@ -635,8 +638,14 @@ export function relayConfigBadShortHold(path: unknown, value: unknown): string {
 /** relay.config_bad_trust: {path}: {host} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate */
 export function relayConfigBadTrust(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has tls_trust ${q(value)} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate`; }
 
+/** relay.config_bad_vapid: {path}: vapid_key {key:%q} isn't a P-256 private key · make one with openssl (see docs/web-relay.md) */
+export function relayConfigBadVapid(path: unknown, key: unknown): string { return `${path}: vapid_key ${q(key)} isn't a P-256 private key · make one with openssl (see docs/web-relay.md)`; }
+
 /** relay.config_both_trust: {path}: {host} has both tls_trust and pin · use one */
 export function relayConfigBothTrust(path: unknown, host: unknown): string { return `${path}: ${host} has both tls_trust and pin · use one`; }
+
+/** relay.config_contact_no_key: {path}: push_contact does nothing without vapid_key */
+export function relayConfigContactNoKey(path: unknown): string { return `${path}: push_contact does nothing without vapid_key`; }
 
 /** relay.config_duplicate: {path}: {world:%q} is listed twice */
 export function relayConfigDuplicate(path: unknown, world: unknown): string { return `${path}: ${q(world)} is listed twice`; }
@@ -648,6 +657,9 @@ export function relayConfigLoaded(n: number, path: unknown): string {
     default: return `${path}: ${n} worlds`;
   }
 }
+
+/** relay.config_no_contact: {path}: vapid_key needs push_contact, a web page or email push services can reach you at, like "https://muck.example.org" */
+export function relayConfigNoContact(path: unknown): string { return `${path}: vapid_key needs push_contact, a web page or email push services can reach you at, like "https://muck.example.org"`; }
 
 /** relay.config_no_host: {path}: world {n} has no host */
 export function relayConfigNoHost(path: unknown, n: number): string { return `${path}: world ${n} has no host`; }
@@ -669,6 +681,9 @@ export function relayConfigReloadFailed(err: unknown): string { return `config n
 
 /** relay.config_unknown_key: {path}: unknown setting {key:%q} */
 export function relayConfigUnknownKey(path: unknown, key: unknown): string { return `${path}: unknown setting ${q(key)}`; }
+
+/** relay.config_vapid_reading: {path}: reading vapid_key: {err} */
+export function relayConfigVapidReading(path: unknown, err: unknown): string { return `${path}: reading vapid_key: ${e(err)}`; }
 
 /** relay.dropping: dropping lines {ip} → {world:%q}: buffer full */
 export function relayDropping(ip: unknown, world: unknown): string { return `dropping lines ${ip} → ${q(world)}: buffer full`; }
@@ -705,6 +720,21 @@ export function relayNeedConfig(): string { return `kiln-relay needs -config PAT
 
 /** relay.opened: open {ip} → {world:%q} */
 export function relayOpened(ip: unknown, world: unknown): string { return `open ${ip} → ${q(world)}`; }
+
+/** relay.push_failed: push {ip} → {world:%q} failed: {err} */
+export function relayPushFailed(ip: unknown, world: unknown, err: unknown): string { return `push ${ip} → ${q(world)} failed: ${e(err)}`; }
+
+/** relay.push_gone: stopped pushing {ip} → {world:%q}: the push service says its subscription is gone */
+export function relayPushGone(ip: unknown, world: unknown): string { return `stopped pushing ${ip} → ${q(world)}: the push service says its subscription is gone`; }
+
+/** relay.push_refused: refused a push subscription from {ip}: {host:%q} isn't a push service */
+export function relayPushRefused(ip: unknown, host: unknown): string { return `refused a push subscription from ${ip}: ${q(host)} isn't a push service`; }
+
+/** relay.push_status: the push service answered {status:%q} */
+export function relayPushStatus(status: unknown): string { return `the push service answered ${q(status)}`; }
+
+/** relay.pushed: pushed {ip} → {world:%q} */
+export function relayPushed(ip: unknown, world: unknown): string { return `pushed ${ip} → ${q(world)}`; }
 
 /** relay.refused_bad_cert: refused {ip} → {world:%q}: certificate: {err} */
 export function relayRefusedBadCert(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: certificate: ${e(err)}`; }
@@ -1149,6 +1179,12 @@ export function webOtherTab(): string { return `Kiln's open in another tab.`; }
 
 /** web.picker: Open a connection */
 export function webPicker(): string { return `Open a connection`; }
+
+/** web.push_body: activity while you were away */
+export function webPushBody(): string { return `activity while you were away`; }
+
+/** web.push_title: Kiln */
+export function webPushTitle(): string { return `Kiln`; }
 
 /** web.reload: Reload */
 export function webReload(): string { return `Reload`; }

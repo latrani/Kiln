@@ -13,7 +13,7 @@ test("build writes the page, its styles and its fonts", (t) => {
   const out = mkdtempSync(join(tmpdir(), "kiln-ui-"));
   t.after(() => rmSync(out, { recursive: true, force: true }));
   execFileSync(process.execPath, ["build.mjs", out], { cwd: ui });
-  for (const f of ["index.html", "app.js", "app.css", "fonts/JetBrainsMono-Regular.woff2", "fonts/OFL.txt"]) {
+  for (const f of ["index.html", "app.js", "app.css", "sw.js", "fonts/JetBrainsMono-Regular.woff2", "fonts/OFL.txt"]) {
     assert.ok(existsSync(join(out, f)), f);
   }
   const html = readFileSync(join(out, "index.html"), "utf8");

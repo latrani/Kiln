@@ -63,11 +63,13 @@ export function dismiss(store: Store): void {
 }
 
 // ask is the offer's click: the browser's prompt if it hasn't answered,
-// then a status line saying why if it won't show them.
+// then pushes if it allowed them, or a status line saying why it won't
+// show them.
 export async function ask(store: Store, n: API | undefined = browser()): Promise<void> {
   dismiss(store);
   let p = permission(n);
   if (p === "default") p = await n!.requestPermission();
+  if (p === "granted") store.state.subscribe?.();
   const why = p === "denied" ? str.webNotifyDenied() : p === "unsupported" ? str.webNotifyUnsupported() : "";
   if (why) store.state.act?.({ Do: "say", Text: why, Err: false });
 }

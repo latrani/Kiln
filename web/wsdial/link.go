@@ -82,6 +82,7 @@ type Link struct {
 	durable  bool  // acks wait for Kept
 	kept     int64 // the last offset acked as kept
 	resumed  bool  // it picked up a hold rather than opening one
+	push     bool  // tell the relay where to push (Options.Push)
 	onEnd    func(error)
 	ended    bool // onEnd has been called, or never will be (detached)
 	endErr   error
@@ -101,7 +102,12 @@ type resumeNote struct {
 var (
 	linksMu sync.Mutex
 	links   = map[*Link]bool{}
+	// pushTo is the page's push subscription endpoint, "" for none.
+	pushTo string
 )
+
+// dialOpen is how Dial opens sockets; tests watch what's sent.
+var dialOpen opener = openSocket
 
 // Options say how Dial reaches a world.
 type Options struct {
@@ -113,6 +119,9 @@ type Options struct {
 	// Resume picks up this held connection (a fresh tab) instead of
 	// opening a new one.
 	Resume *Held
+	// Push has the relay push to the page's subscription (SetPush) while
+	// the connection is held: the character's notifications are on.
+	Push bool
 }
 
 // Held is a held connection a page saved: its token, and the offset just
@@ -127,14 +136,66 @@ type Held struct {
 // the held connection, so a refusal is a dial error; a hold the relay no
 // longer has is ErrLetGo.
 func Dial(ctx context.Context, relayURL, addr string, o Options) (*Link, error) {
+	var l *Link
+	var err error
 	if o.Resume != nil {
-		return resumeLink(ctx, openSocket, resumeTarget(relayURL), *o.Resume, o.Durable)
+		l, err = resumeLink(ctx, dialOpen, resumeTarget(relayURL), *o.Resume, o.Durable)
+	} else {
+		var u string
+		if u, err = target(relayURL, addr, o.TLS); err != nil {
+			return nil, err
+		}
+		l, err = dialLink(ctx, dialOpen, u, resumeTarget(relayURL), o.Durable)
 	}
-	u, err := target(relayURL, addr, o.TLS)
 	if err != nil {
 		return nil, err
 	}
-	return dialLink(ctx, openSocket, u, resumeTarget(relayURL), o.Durable)
+	l.mu.Lock()
+	l.push = o.Push
+	l.mu.Unlock()
+	l.sendPush()
+	return l, nil
+}
+
+// SetPush gives every link whose character's notifications are on, now
+// and after each resume, the page's push subscription endpoint ("" for
+// none), for the relay to push to while it holds them. The others tell
+// the relay to push nowhere, in case a hold they picked up still had an
+// endpoint from before notifications were turned off.
+func SetPush(endpoint string) {
+	linksMu.Lock()
+	pushTo = endpoint
+	linksMu.Unlock()
+	for _, l := range live() {
+		l.sendPush()
+	}
+}
+
+// sendPush tells the relay where to push for l.
+func (l *Link) sendPush() {
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
+	l.mu.Lock()
+	s := l.sock
+	l.mu.Unlock()
+	if s != nil {
+		l.pushOnLocked(s)
+	}
+}
+
+// pushOnLocked tells the relay over s where to push for l: the page's
+// subscription if l pushes, otherwise nowhere. l.wmu is held.
+func (l *Link) pushOnLocked(s socket) {
+	linksMu.Lock()
+	e := pushTo
+	linksMu.Unlock()
+	l.mu.Lock()
+	on := l.push
+	l.mu.Unlock()
+	if !on {
+		e = ""
+	}
+	s.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Push, Endpoint: e}))
 }
 
 // newLink is a link over s, registered, reading.
@@ -440,6 +501,7 @@ func (l *Link) attach(s socket, m wire.Msg) {
 	l.cond.Broadcast()
 	l.mu.Unlock()
 	go l.readFrom(s)
+	l.pushOnLocked(s) // again: it may have changed, or the relay dropped it as gone
 	sendData(s, resend)
 }
 

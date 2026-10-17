@@ -15,6 +15,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/notify"
 	"github.com/latrani/Kiln/internal/relay"
 	"github.com/latrani/Kiln/web/wsdial"
 )
@@ -387,5 +388,18 @@ func TestPruneDropsGoneCharacters(t *testing.T) {
 	s.Prune(func(key string) bool { return key == "fm/kit" })
 	if keys := Open(path, true).Keys(); len(keys) != 1 || keys[0] != "fm/kit" {
 		t.Errorf("keys after pruning %q, want just fm/kit", keys)
+	}
+}
+
+func TestDialPushFollowsNotify(t *testing.T) {
+	for _, c := range []struct {
+		level notify.Level
+		push  bool
+	}{{notify.None, false}, {notify.First, true}, {notify.All, true}, {notify.Priority, true}} {
+		ch := kit
+		ch.Notify = c.level
+		if o := options(ch); o.Push != c.push || !o.Durable {
+			t.Errorf("notify %q: options %+v, want push %v", c.level, o, c.push)
+		}
 	}
 }

@@ -9,6 +9,10 @@
 # max_buffer_mb = 4
 # max_total_buffer_mb = 256
 
+# Push notifications while away (see docs/web-relay.md for the key):
+# vapid_key = "vapid.pem"
+# push_contact = "https://muck.example.org"
+
 [[world]]
 host = "muck.example.org"
 ports = [8899]

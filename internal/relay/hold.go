@@ -9,12 +9,14 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
 
+	"github.com/latrani/Kiln/internal/relay/push"
 	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
@@ -53,6 +55,10 @@ type held struct {
 	short    bool        // its page said it closed: hold for short_hold
 	resumed  time.Time   // when a page last resumed it
 	warned   bool        // logged dropping since the last attach
+	endpoint string      // where to push while detached; "" for nowhere
+	pushed   bool        // pushed since the last attach
+	heard    time.Time   // the page last sent something, while attached
+	lastOut  time.Time   // the world last sent something
 	closed   bool
 }
 
@@ -112,13 +118,18 @@ func (s *Server) take(h *held, p []byte) {
 	defer s.mu.Unlock()
 	h.mu.Lock()
 	before, dropped := h.buf.size(), h.buf.dropped
-	h.buf.add(p, time.Now())
+	h.lastOut = time.Now()
+	h.buf.add(p, h.lastOut)
 	for h.buf.size() > cfg.BufferCap() && h.buf.dropLine() {
 	}
 	s.buffered += h.buf.size() - before
 	h.droppedLocked(dropped)
 	h.cond.Broadcast()
+	endpoint := h.pushFromLocked(cfg, h.ws == nil)
 	h.mu.Unlock()
+	if endpoint != "" {
+		go s.push(h, endpoint)
+	}
 	// Drop from the biggest hold that can; one whose buffer has no line
 	// end yet is passed over.
 	stuck := map[*held]bool{}
@@ -182,6 +193,8 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 	h.ws = a
 	h.warned = false
 	h.short = false
+	h.pushed = false
+	h.heard = time.Now()
 	if h.timer != nil {
 		h.timer.Stop()
 		h.timer = nil
@@ -235,6 +248,9 @@ func (h *held) read(a *attachment, ack *wire.Acker) {
 			h.detach(a)
 			return
 		}
+		h.mu.Lock()
+		h.heard = time.Now()
+		h.mu.Unlock()
 		if typ == websocket.MessageBinary {
 			h.upMu.Lock()
 			h.mu.Lock()
@@ -269,6 +285,8 @@ func (h *held) read(a *attachment, ack *wire.Acker) {
 		case wire.Close:
 			h.finish(false)
 			return
+		case wire.Push:
+			h.subscribe(m.Endpoint)
 		}
 	}
 }
@@ -345,8 +363,15 @@ func (h *held) detach(a *attachment) {
 	h.expires = h.detached.Add(hold)
 	gen := h.gen
 	h.timer = time.AfterFunc(hold, func() { h.expire(gen) })
+	// A page that vanished without a word looked attached until its pings
+	// went unanswered: what the world said after the page last said
+	// anything likely never reached it.
+	endpoint := h.pushFromLocked(cfg, h.lastOut.After(h.heard))
 	h.cond.Broadcast()
 	h.mu.Unlock()
+	if endpoint != "" {
+		go s.push(h, endpoint)
+	}
 	a.cancel()
 	a.c.CloseNow()
 	s.mu.Lock()
@@ -496,4 +521,73 @@ func (s *Server) beacon(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// pushFromLocked is where to push now, if news says there's something
+// to push about and h hasn't pushed since its page left; "" for nowhere.
+// It counts as pushed. h.mu is held.
+func (h *held) pushFromLocked(cfg *Config, news bool) string {
+	if k, _ := cfg.Push(); k == nil || !news || h.endpoint == "" || h.pushed {
+		return ""
+	}
+	h.pushed = true
+	return h.endpoint
+}
+
+// pushTimeout bounds one push.
+const pushTimeout = 30 * time.Second
+
+// subscribe has h pushed to endpoint while detached, if it's a push
+// service's ("" for nowhere).
+func (h *held) subscribe(endpoint string) {
+	hosts := h.s.pushHosts
+	if hosts == nil {
+		hosts = push.Hosts
+	}
+	if endpoint != "" && !push.Allowed(endpoint, hosts) {
+		host := ""
+		if u, err := url.Parse(endpoint); err == nil {
+			host = u.Hostname() // not the whole URL: its path is the subscription's secret
+		}
+		h.s.mu.Lock()
+		ip := h.ip
+		h.s.mu.Unlock()
+		h.s.logf(str.RelayPushRefused(ip, host))
+		return
+	}
+	h.mu.Lock()
+	h.endpoint = endpoint
+	h.mu.Unlock()
+}
+
+// push tells endpoint that h's world said something while its page was
+// away. A subscription the push service no longer has is dropped.
+func (s *Server) push(h *held, endpoint string) {
+	k, contact := s.cfg.Load().Push()
+	if k == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), pushTimeout)
+	defer cancel()
+	c := s.pushClient
+	if c == nil {
+		c = http.DefaultClient
+	}
+	gone, err := push.Send(ctx, c, k, contact, endpoint, time.Now())
+	s.mu.Lock()
+	ip := h.ip
+	s.mu.Unlock()
+	switch {
+	case gone:
+		h.mu.Lock()
+		if h.endpoint == endpoint {
+			h.endpoint = ""
+		}
+		h.mu.Unlock()
+		s.logf(str.RelayPushGone(ip, h.world))
+	case err != nil:
+		s.logf(str.RelayPushFailed(ip, h.world, err))
+	default:
+		s.logf(str.RelayPushed(ip, h.world))
+	}
 }
