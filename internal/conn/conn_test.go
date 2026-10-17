@@ -441,3 +441,16 @@ func TestTelnetRestored(t *testing.T) {
 		t.Error("TelnetState lost NAWS")
 	}
 }
+
+// A line's telnet state is what was agreed when it ended, not what the
+// parser agreed later in the same read: a fresh tab resuming from that
+// line replays what came after it.
+func TestLineTelnetIsAtItsEnd(t *testing.T) {
+	p := append([]byte("a\r\n"), telnet.IAC, telnet.DO, telnet.OptNAWS)
+	p = append(p, "b\r\n"...)
+	c := dialRecords(t, Record{Data: p, End: int64(len(p))})
+	got := collectLines(t, c)
+	if len(got) != 2 || got[0].Telnet.NAWS || !got[1].Telnet.NAWS {
+		t.Errorf("lines %+v: want a before NAWS, b after", got)
+	}
+}

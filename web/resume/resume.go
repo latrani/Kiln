@@ -232,16 +232,17 @@ type Conn struct {
 	link *wsdial.Link
 }
 
-// Keep saves that every line up to off is in the log, while the link is
-// the character's: once it has ended, its token must not come back.
-func (c *Conn) Keep(off int64) {
+// Keep saves that every line up to l is in the log, with the telnet
+// state at l, while the link is the character's: once it has ended, its
+// token must not come back.
+func (c *Conn) Keep(l conn.Line) {
 	s := c.s
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.links[c.key] != c.link {
 		return
 	}
-	s.m[c.key] = Entry{Token: c.link.Token(), Kept: off, Telnet: c.TelnetState()}
+	s.m[c.key] = Entry{Token: c.link.Token(), Kept: l.Off, Telnet: l.Telnet}
 	s.writeLocked()
 }
 

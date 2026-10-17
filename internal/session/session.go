@@ -61,8 +61,8 @@ type LineConn interface {
 }
 
 // keeper is implemented by connections a page can pick up again in a
-// fresh tab: Keep says every line up to stream offset off is in the log.
-type keeper interface{ Keep(off int64) }
+// fresh tab: Keep says every line up to l (its Off) is in the log.
+type keeper interface{ Keep(l conn.Line) }
 
 // resumer is implemented by connections that can be a held one picked up
 // again: Resumed is true when this one was, so it's already logged in.
@@ -500,7 +500,7 @@ func (s *Session) pump(ctx context.Context, c LineConn) {
 			}
 			s.logLineAt(d, line.Text, line.At)
 			if k, ok := c.(keeper); ok && line.Off > 0 {
-				k.Keep(line.Off) // after the log has it
+				k.Keep(line) // after the log has it
 			}
 		}
 	}

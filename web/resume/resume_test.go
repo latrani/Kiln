@@ -155,7 +155,7 @@ func TestKeptOnlyAfterSave(t *testing.T) {
 	}
 	w.conn(t).Write([]byte("1\r\n2\r\n"))
 	got := lines(t, c, 2)
-	c.Keep(got[1].Off)
+	c.Keep(got[1])
 	s.Sync()
 	time.Sleep(200 * time.Millisecond)
 	token, _ := s.Get("fm/kit")
@@ -191,7 +191,7 @@ func TestSavingOffAcksAtOnce(t *testing.T) {
 	}
 	w.conn(t).Write([]byte("1\r\n"))
 	got := lines(t, c, 1)
-	c.Keep(got[0].Off)
+	c.Keep(got[0])
 	s.Sync()
 	time.Sleep(200 * time.Millisecond)
 	e, _ := s.Get("fm/kit")
@@ -231,7 +231,7 @@ func TestSavedTokenResumes(t *testing.T) {
 	wc := w.conn(t)
 	wc.Write([]byte("1\r\n"))
 	got := lines(t, c, 1)
-	c.Keep(got[0].Off)
+	c.Keep(got[0])
 	wsdial.DetachAll()
 	wc.Write([]byte("2\r\n"))
 	c2, err := Open(path, true).Dial(context.Background(), u, "fm/kit", charFor(w))
@@ -320,7 +320,7 @@ func TestKeepAfterEndSavesNothing(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	c.Keep(got[0].Off)
+	c.Keep(got[0])
 	if e, ok := s.Get("fm/kit"); ok {
 		t.Errorf("a Keep after the end saved %+v", e)
 	}
@@ -364,7 +364,7 @@ func TestSavingOffAcksWhatWaits(t *testing.T) {
 	}
 	w.conn(t).Write([]byte("1\r\n"))
 	got := lines(t, c, 1)
-	c.Keep(got[0].Off)
+	c.Keep(got[0])
 	s.Sync()
 	s.SavingOff()
 	time.Sleep(200 * time.Millisecond)

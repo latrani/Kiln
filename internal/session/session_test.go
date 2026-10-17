@@ -989,7 +989,8 @@ type keepConn struct {
 	kept    [][2]int64 // off, log length
 }
 
-func (k *keepConn) Keep(off int64) {
+func (k *keepConn) Keep(l conn.Line) {
+	off := l.Off
 	k.log.mu.Lock()
 	n := len(k.log.entries)
 	k.log.mu.Unlock()

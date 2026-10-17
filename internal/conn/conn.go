@@ -51,6 +51,9 @@ type Line struct {
 	// newline), a point a fresh tab can resume from; 0 when there's no
 	// such point (not through a relay, a line cut for length).
 	Off int64
+	// Telnet is what had been agreed with the server at Off, for a fresh
+	// tab resuming from there.
+	Telnet telnet.State
 }
 
 // Record is one read from a connection that comes through a relay: bytes
@@ -260,12 +263,14 @@ func (c *Conn) feed(s *splitter, rec Record) []Line {
 			c.nc.Write(reply)
 		}
 		clean := p[n-1] == '\n' && c.parser.InData()
+		st := c.parser.State()
 		c.mu.Unlock()
 		lines := s.push(data)
 		for i, l := range lines {
 			line := Line{Text: l, At: rec.At}
 			if clean && rec.End > 0 && i == len(lines)-1 {
 				line.Off = start + int64(len(rec.Data)-len(p)+n)
+				line.Telnet = st
 			}
 			out = append(out, line)
 		}
