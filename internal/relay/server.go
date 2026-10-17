@@ -58,6 +58,9 @@ type Server struct {
 	total    int
 	holds    map[string]*held // by token
 	buffered int              // bytes buffered across holds
+	// Resume sockets that haven't named their hold yet (waitResume).
+	waiting      map[netip.Prefix]int
+	waitingTotal int
 }
 
 // SetConfig replaces the config; connections already open stay open.
@@ -287,6 +290,39 @@ func (s *Server) acquire(ip netip.Addr, a *Config) websocket.StatusCode {
 	s.open[b]++
 	s.total++
 	return 0
+}
+
+// waitResume counts a resume socket from ip that hasn't named its hold
+// yet, or says why it can't wait: at most max_per_ip from one client and
+// max_conns in all. They're counted apart from connections, which a held
+// one still has: a page at its cap must be able to resume them all.
+func (s *Server) waitResume(ip netip.Addr, a *Config) websocket.StatusCode {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.waiting == nil {
+		s.waiting = map[netip.Prefix]int{}
+	}
+	if s.waitingTotal >= or(a.MaxConns, 256) {
+		return wire.CodeBusy
+	}
+	b := bucket(ip)
+	if s.waiting[b] >= or(a.MaxPerIP, 8) {
+		return wire.CodeTooMany
+	}
+	s.waiting[b]++
+	s.waitingTotal++
+	return 0
+}
+
+// doneResume stops counting a resume socket waitResume let in.
+func (s *Server) doneResume(ip netip.Addr) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.waitingTotal--
+	b := bucket(ip)
+	if s.waiting[b]--; s.waiting[b] <= 0 {
+		delete(s.waiting, b)
+	}
 }
 
 func (s *Server) release(ip netip.Addr) {

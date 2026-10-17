@@ -454,9 +454,15 @@ func (s *Server) move(h *held, ip netip.Addr) {
 // resume attaches c, from ip, to the held connection its first message
 // names.
 func (s *Server) resume(c *websocket.Conn, ip netip.Addr) {
+	if code := s.waitResume(ip, s.cfg.Load()); code != 0 {
+		s.logf(str.RelayRefusedResuming(ip))
+		c.Close(code, "")
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), resumeWait)
 	typ, b, err := c.Read(ctx)
 	cancel()
+	s.doneResume(ip)
 	if err != nil {
 		return
 	}
