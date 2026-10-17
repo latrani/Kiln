@@ -70,7 +70,8 @@ func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 // allowed, connects to it, doing TLS with the world itself unless it's
 // plaintext, and carries it as package wire says. tls=1 says the
 // client's world file asks for TLS, which a plaintext world refuses.
-// ?resume=1 picks up a held connection instead, a POST with ?short=1 is
+// ?resume=1 picks up a held connection instead (refused with 429 or 503
+// past the caps on resumes waiting to name one), a POST with ?short=1 is
 // a closing page's beacon (beacon), and ?push_key=1 asks for the key a
 // page subscribes to pushes with (pushKey).
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -98,13 +99,31 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	resuming := r.URL.Query().Get("resume") == "1"
+	if resuming {
+		// Refused before the upgrade: a WebSocket refused after it would
+		// linger in a close handshake its sender needn't answer.
+		switch s.waitResume(ip, a) {
+		case wire.CodeTooMany:
+			s.logf(str.RelayRefusedResuming(ip))
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		case wire.CodeBusy:
+			s.logf(str.RelayRefusedResuming(ip))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: a.Origins})
 	if err != nil {
+		if resuming {
+			s.doneResume(ip)
+		}
 		return // Accept has answered (403 for a foreign Origin)
 	}
 	defer c.CloseNow()
 	c.SetReadLimit(1 << 20)
-	if r.URL.Query().Get("resume") == "1" {
+	if resuming {
 		s.resume(c, ip)
 		return
 	}
@@ -293,20 +312,23 @@ func (s *Server) acquire(ip netip.Addr, a *Config) websocket.StatusCode {
 }
 
 // waitResume counts a resume socket from ip that hasn't named its hold
-// yet, or says why it can't wait: at most max_per_ip from one client and
-// max_conns in all. They're counted apart from connections, which a held
-// one still has: a page at its cap must be able to resume them all.
+// yet, or says why it can't wait: at most max_per_ip from one client, or
+// as many as it has connections if that's more (a resume from a new
+// address moves its count without a check), and max_conns in all, or as
+// many connections as there are. They're counted apart from connections,
+// which a held one still has: a page at its cap must be able to resume
+// them all at once.
 func (s *Server) waitResume(ip netip.Addr, a *Config) websocket.StatusCode {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.waiting == nil {
 		s.waiting = map[netip.Prefix]int{}
 	}
-	if s.waitingTotal >= or(a.MaxConns, 256) {
+	if s.waitingTotal >= max(or(a.MaxConns, 256), s.total) {
 		return wire.CodeBusy
 	}
 	b := bucket(ip)
-	if s.waiting[b] >= or(a.MaxPerIP, 8) {
+	if s.waiting[b] >= max(or(a.MaxPerIP, 8), s.open[b]) {
 		return wire.CodeTooMany
 	}
 	s.waiting[b]++
