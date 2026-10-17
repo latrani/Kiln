@@ -12,14 +12,18 @@ export type Options = NotificationOptions & { renotify?: boolean };
 export interface Worker {
   registration: { scope: string; showNotification(title: string, opts: Options): Promise<void> };
   clients: {
-    matchAll(o: { type: "window"; includeUncontrolled: boolean }): Promise<readonly { focus(): Promise<unknown> }[]>;
+    matchAll(o: { type: "window"; includeUncontrolled: boolean }): Promise<readonly { focused?: boolean; focus(): Promise<unknown> }[]>;
     openWindow(url: string): Promise<unknown>;
   };
 }
 
-// onPush shows the push. One tag: a newer one replaces it, never
-// stacks, and still alerts, since it's a new absence.
-export function onPush(w: Worker): Promise<void> {
+// onPush shows the push, unless a Kiln window is focused (a network blip
+// on a tab the player is looking at): browsers let a push show nothing
+// then. One tag: a newer one replaces it, never stacks, and still
+// alerts, since it's a new absence.
+export async function onPush(w: Worker): Promise<void> {
+  const wins = await w.clients.matchAll({ type: "window", includeUncontrolled: true });
+  if (wins.some((c) => c.focused)) return;
   return w.registration.showNotification(str.webPushTitle(), { body: str.webPushBody(), tag: awayTag, renotify: true });
 }
 

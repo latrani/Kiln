@@ -21,9 +21,9 @@ import (
 )
 
 // TestServiceWorkerShowsPush gives the relay a VAPID key and the page
-// notifications: the page fetches the relay's key and registers its
+// notifications: on Allow, the page fetches the relay's key and registers its
 // service worker, and a push delivered to that worker shows the away
-// notification. Headless Chrome has no push service to subscribe with,
+// notification, unless Kiln is the focused tab. Headless Chrome has no push service to subscribe with,
 // so the relay's side of it is covered by internal/relay's tests.
 func TestServiceWorkerShowsPush(t *testing.T) {
 	key := filepath.Join(t.TempDir(), "vapid.pem")
@@ -42,17 +42,34 @@ func TestServiceWorkerShowsPush(t *testing.T) {
 	origin := u.Scheme + "://" + u.Host
 	u.RawQuery = ""
 	scope := u.String()
+	// The page offers to allow notifications; the browser allows them
+	// (standing in for its prompt), and Allow subscribes.
+	allow := `[...document.querySelectorAll("button")].find(b => b.textContent === ` + jsString(str.WebNotifyAllow()) + `)`
+	waitFor(t, ev, allow, "the offer to allow notifications")
 	devtools(t, ws, "Browser.grantPermissions", map[string]any{"permissions": []string{"notifications"}, "origin": origin})
-	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the first batch")
-	devtools(t, ws, "Page.reload", map[string]any{})
-	time.Sleep(200 * time.Millisecond) // the old page is gone
-	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Order")`, "the reloaded page's first batch")
+	ev(allow + `.click()`)
 	waitFor(t, ev, `performance.getEntriesByType("resource").some(e => e.name.includes("push_key=1") && e.responseStatus === 200)`, "the page getting the relay's key")
 	waitFor(t, ev, `navigator.serviceWorker.getRegistration().then(r => !!r?.active)`, "the service worker running")
 
-	devtools(t, ws, "ServiceWorker.deliverPushMessage", map[string]any{"origin": origin, "registrationId": registration(t, ws, scope), "data": ""})
-	want, _ := json.Marshal([]string{str.WebPushTitle(), str.WebPushBody()})
-	waitFor(t, ev, `navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => ns.length === 1 && JSON.stringify([ns[0].title, ns[0].body]) === `+jsString(string(want))+`)`, "the away notification")
+	id := registration(t, ws, scope)
+	notes := `navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => JSON.stringify(ns.map(n => [n.title, n.body])))`
+
+	// Looking at Kiln (a blip on a focused tab): nothing shows.
+	waitFor(t, ev, `document.hasFocus()`, "the tab focused")
+	devtools(t, ws, "ServiceWorker.deliverPushMessage", map[string]any{"origin": origin, "registrationId": id, "data": ""})
+	time.Sleep(time.Second)
+	if got := ev(notes); got != `"[]"` {
+		t.Errorf("with Kiln focused, a push showed %s", got)
+	}
+
+	// Away (another site's tab in front): the away notification.
+	var blank struct{ TargetID string }
+	json.Unmarshal(devtools(t, ws, "Target.createTarget", map[string]any{"url": "about:blank"}), &blank)
+	devtools(t, ws, "Target.activateTarget", map[string]any{"targetId": blank.TargetID})
+	waitFor(t, ev, `!document.hasFocus()`, "Kiln's tab losing focus")
+	devtools(t, ws, "ServiceWorker.deliverPushMessage", map[string]any{"origin": origin, "registrationId": id, "data": ""})
+	want, _ := json.Marshal([][]string{{str.WebPushTitle(), str.WebPushBody()}})
+	waitFor(t, ev, notes+`.then(s => s === `+jsString(string(want))+`)`, "the away notification")
 }
 
 // registration is the DevTools id of the service worker registered for

@@ -4,7 +4,7 @@ import { onClick, onPush } from "./sw.ts";
 import type { Options, Worker } from "./sw.ts";
 import * as str from "./str.gen.ts";
 
-function worker(windows: number) {
+function worker(windows: number, focused = false) {
   const shown: { title: string; opts: Options }[] = [];
   const done: string[] = [];
   const w: Worker = {
@@ -13,7 +13,7 @@ function worker(windows: number) {
       async showNotification(title, opts) { shown.push({ title, opts }); },
     },
     clients: {
-      async matchAll() { return Array.from({ length: windows }, () => ({ async focus() { done.push("focus"); } })); },
+      async matchAll() { return Array.from({ length: windows }, () => ({ focused, async focus() { done.push("focus"); } })); },
       async openWindow(url) { done.push(`open ${url}`); },
     },
   };
@@ -32,4 +32,13 @@ test("a click closes it and focuses Kiln, or opens it", async () => {
     await onClick(w, { notification: { close: () => done.push("closed") } });
     assert.deepEqual(done, want);
   }
+});
+
+test("with Kiln focused, a push shows nothing: the player is already looking", async () => {
+  const { w, shown } = worker(1, true);
+  await onPush(w);
+  assert.deepEqual(shown, []);
+  const unfocused = worker(1, false);
+  await onPush(unfocused.w);
+  assert.equal(unfocused.shown.length, 1);
 });
