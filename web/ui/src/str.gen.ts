@@ -629,6 +629,9 @@ export function relayConfigBadPort(path: unknown, host: unknown, port: unknown):
 /** relay.config_bad_proxy: {path}: trusted_proxies has bad address {addr:%q} */
 export function relayConfigBadProxy(path: unknown, addr: unknown): string { return `${path}: trusted_proxies has bad address ${q(addr)}`; }
 
+/** relay.config_bad_short_hold: {path}: short_hold {value:%q} isn't a length of time · use one like "10m" */
+export function relayConfigBadShortHold(path: unknown, value: unknown): string { return `${path}: short_hold ${q(value)} isn't a length of time · use one like "10m"`; }
+
 /** relay.config_bad_trust: {path}: {host} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate */
 export function relayConfigBadTrust(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has tls_trust ${q(value)} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate`; }
 
@@ -687,6 +690,9 @@ export function relayHeld(ip: unknown, world: unknown): string { return `held ${
 
 /** relay.hold_expired: let go {ip} → {world:%q}: held {dur} with no one back */
 export function relayHoldExpired(ip: unknown, world: unknown, dur: unknown): string { return `let go ${ip} → ${q(world)}: held ${dur} with no one back`; }
+
+/** relay.letting_go: letting go {ip} → {world:%q} in {dur}: its page closed */
+export function relayLettingGo(ip: unknown, world: unknown, dur: unknown): string { return `letting go ${ip} → ${q(world)} in ${dur}: its page closed`; }
 
 /** relay.listening: kiln-relay listening on {addr} */
 export function relayListening(addr: unknown): string { return `kiln-relay listening on ${addr}`; }

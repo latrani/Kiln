@@ -7,7 +7,9 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +49,8 @@ type held struct {
 	detached time.Time
 	timer    *time.Timer // the hold, while detached
 	gen      int         // detaches so far; a timer names the one it's for
+	expires  time.Time   // when the hold runs out, while detached
+	short    bool        // its page said it closed: hold for short_hold
 	warned   bool        // logged dropping since the last attach
 	closed   bool
 }
@@ -175,6 +179,7 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 	}
 	h.ws = a
 	h.warned = false
+	h.short = false
 	if h.timer != nil {
 		h.timer.Stop()
 		h.timer = nil
@@ -318,8 +323,13 @@ func (h *held) detach(a *attachment) {
 	h.ws = nil
 	h.detached = time.Now()
 	h.gen++
+	hold := cfg.HoldFor()
+	if h.short {
+		hold = cfg.ShortHoldFor()
+	}
+	h.expires = h.detached.Add(hold)
 	gen := h.gen
-	h.timer = time.AfterFunc(cfg.HoldFor(), func() { h.expire(gen) })
+	h.timer = time.AfterFunc(hold, func() { h.expire(gen) })
 	h.cond.Broadcast()
 	h.mu.Unlock()
 	a.cancel()
@@ -424,4 +434,43 @@ func (s *Server) resume(c *websocket.Conn, ip netip.Addr) {
 		return
 	}
 	h.attach(c, ip, m.Got, true)
+}
+
+// shorten holds h only for short_hold from now, or less if its hold runs
+// out sooner: its page said it closed.
+func (h *held) shorten() {
+	cfg := h.s.cfg.Load()
+	short := cfg.ShortHoldFor()
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		return
+	}
+	h.short = true
+	if h.ws == nil && h.timer != nil && time.Until(h.expires) > short {
+		h.timer.Stop()
+		h.expires = time.Now().Add(short)
+		gen := h.gen
+		h.timer = time.AfterFunc(short, func() { h.expire(gen) })
+	}
+	h.mu.Unlock()
+	h.s.mu.Lock()
+	ip := h.ip
+	h.s.mu.Unlock()
+	h.s.logf(str.RelayLettingGo(ip, h.world, short))
+}
+
+// beacon reads the tokens a closing page sends (sendBeacon), one per
+// line, and shortens their holds.
+func (s *Server) beacon(w http.ResponseWriter, r *http.Request) {
+	b, _ := io.ReadAll(io.LimitReader(r.Body, 64<<10))
+	for _, tok := range strings.Split(string(b), "\n") {
+		s.mu.Lock()
+		h := s.holds[strings.TrimSpace(tok)]
+		s.mu.Unlock()
+		if h != nil {
+			h.shorten()
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

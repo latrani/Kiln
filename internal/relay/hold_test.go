@@ -619,3 +619,75 @@ func TestStuckWorldDoesntBlockResume(t *testing.T) {
 		t.Fatal("the resume waited on a world that doesn't read")
 	}
 }
+
+// beacon posts tokens as a closing page's sendBeacon does.
+func beacon(t *testing.T, base string, tokens ...string) int {
+	t.Helper()
+	u := "http" + strings.TrimPrefix(base, "ws") + "/?short=1"
+	resp, err := http.Post(u, "text/plain", strings.NewReader(strings.Join(tokens, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	return resp.StatusCode
+}
+
+func TestBeaconShortensTheHold(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	if code := beacon(t, base, p.token); code != http.StatusNoContent {
+		t.Errorf("beacon: %d, want 204", code)
+	}
+	p.c.CloseNow()
+	if !closed(w, 3*time.Second) {
+		t.Fatal("a closed page's hold wasn't shortened")
+	}
+	eventually(t, "nothing logged", func() bool { return logs.has(upTo(str.RelayLettingGo(local, m.addr(), mark))) })
+}
+
+func TestBeaconForADetachedHold(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.c.CloseNow()
+	eventually(t, "never held", func() bool { return logs.has(str.RelayHeld(local, m.addr())) })
+	beacon(t, base, p.token)
+	if !closed(w, 3*time.Second) {
+		t.Fatal("a detached hold wasn't shortened")
+	}
+}
+
+func TestResumeClearsTheShortHold(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	beacon(t, base, p.token)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	q.expect(wire.Resumed)
+	q.c.CloseNow()
+	eventually(t, "never held twice", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
+	if closed(w, 500*time.Millisecond) {
+		t.Error("a resumed hold kept the short hold")
+	}
+}
+
+func TestBeaconIgnoresUnknownTokens(t *testing.T) {
+	m := newMuck(t)
+	_, base, _ := holdRelay(t, m, "")
+	if code := beacon(t, base, "nope", ""); code != http.StatusNoContent {
+		t.Errorf("beacon: %d, want 204", code)
+	}
+	resp, err := http.Get("http" + strings.TrimPrefix(base, "ws") + "/?short=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("GET short=1: %d, want 400", resp.StatusCode)
+	}
+}

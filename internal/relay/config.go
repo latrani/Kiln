@@ -52,15 +52,22 @@ type Config struct {
 	// dies without the page closing it, as time.ParseDuration reads it.
 	// "": 24h.
 	Hold string `toml:"hold"`
+	// ShortHold is the hold for a connection whose page said it closed
+	// (a tab closed, not one switched away from). "": 10m.
+	ShortHold string `toml:"short_hold"`
 	// MaxBufferMB caps what's buffered for one connection, and
 	// MaxTotalBufferMB for the whole relay; past them the oldest lines
 	// are dropped. 0: 4 and 256.
 	MaxBufferMB      int `toml:"max_buffer_mb"`
 	MaxTotalBufferMB int `toml:"max_total_buffer_mb"`
 
-	proxies []netip.Prefix
-	hold    time.Duration
+	proxies   []netip.Prefix
+	hold      time.Duration
+	shortHold time.Duration
 }
+
+// ShortHoldFor is how long a connection whose page closed is held.
+func (a *Config) ShortHoldFor() time.Duration { return or(a.shortHold, 10*time.Minute) }
 
 // HoldFor is how long a detached connection is held.
 func (a *Config) HoldFor() time.Duration { return or(a.hold, 24*time.Hour) }
@@ -139,6 +146,13 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 			return nil, errors.New(str.RelayConfigBadHold(path, a.Hold))
 		}
 		a.hold = d
+	}
+	if a.ShortHold != "" {
+		d, err := time.ParseDuration(a.ShortHold)
+		if err != nil || d <= 0 {
+			return nil, errors.New(str.RelayConfigBadShortHold(path, a.ShortHold))
+		}
+		a.shortHold = d
 	}
 	for _, s := range a.TrustedProxies {
 		p, err := parsePrefix(s)
