@@ -6,6 +6,10 @@
 // character whose notify isn't "none". The push carries nothing, so the
 // subscription's encryption keys never leave the browser.
 
+// awayTag tags the away notification (sw.ts), so a newer one replaces
+// it and coming back clears it.
+export const awayTag = "kiln-away"; // str:ok notification tag
+
 export interface Subscriber {
   keyURL: URL; // the relay's ?push_key=1
   sw: ServiceWorkerContainer | undefined;
@@ -44,6 +48,16 @@ export async function unsubscribe(sw: ServiceWorkerContainer | undefined): Promi
   try {
     const sub = await (await sw?.getRegistration())?.pushManager?.getSubscription();
     await sub?.unsubscribe();
+  } catch (e) {
+    console.error("push", e); // str:ok log tag
+  }
+}
+
+// clearAway closes the away notification: the player's back.
+export async function clearAway(sw: ServiceWorkerContainer | undefined): Promise<void> {
+  try {
+    const notes = (await (await sw?.getRegistration())?.getNotifications({ tag: awayTag })) ?? [];
+    for (const n of notes) n.close();
   } catch (e) {
     console.error("push", e); // str:ok log tag
   }

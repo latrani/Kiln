@@ -166,3 +166,13 @@ func TestSendGone(t *testing.T) {
 		}
 	}
 }
+
+func TestSendErrorHidesTheEndpoint(t *testing.T) {
+	srv, c := pushServer(t, http.StatusCreated, func(*http.Request, []byte) { time.Sleep(time.Second) })
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, err := Send(ctx, c, newKey(t), "https://fm.example", srv.URL+"/push/secret-token", time.Now())
+	if err == nil || strings.Contains(err.Error(), "secret-token") {
+		t.Errorf("err = %v, want one that doesn't name the endpoint", err)
+	}
+}

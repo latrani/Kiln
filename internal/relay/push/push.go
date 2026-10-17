@@ -104,6 +104,12 @@ func Send(ctx context.Context, c *http.Client, k *ecdsa.PrivateKey, contact, end
 	req.Header.Set("Urgency", "high")                                   //str:ok protocol
 	resp, err := c.Do(req)
 	if err != nil {
+		// Not the *url.Error itself: it quotes the endpoint, whose path
+		// is the subscription's secret, and this goes in the relay's log.
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			err = ue.Err
+		}
 		return false, err
 	}
 	resp.Body.Close()

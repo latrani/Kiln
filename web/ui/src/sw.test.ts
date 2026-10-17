@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { onClick, onPush } from "./sw.ts";
-import type { Worker } from "./sw.ts";
+import type { Options, Worker } from "./sw.ts";
 import * as str from "./str.gen.ts";
 
 function worker(windows: number) {
-  const shown: { title: string; opts: NotificationOptions }[] = [];
+  const shown: { title: string; opts: Options }[] = [];
   const done: string[] = [];
   const w: Worker = {
     registration: {
@@ -20,10 +20,10 @@ function worker(windows: number) {
   return { w, shown, done };
 }
 
-test("a push shows the away notification, replacing any before it", async () => {
+test("a push shows the away notification, replacing any before it and alerting again", async () => {
   const { w, shown } = worker(0);
   await onPush(w);
-  assert.deepEqual(shown, [{ title: str.webPushTitle(), opts: { body: str.webPushBody(), tag: "kiln-away" } }]);
+  assert.deepEqual(shown, [{ title: str.webPushTitle(), opts: { body: str.webPushBody(), tag: "kiln-away", renotify: true } }]);
 });
 
 test("a click closes it and focuses Kiln, or opens it", async () => {

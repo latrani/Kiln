@@ -218,7 +218,9 @@ export async function boot(store: Store): Promise<void> {
   });
   // Back in view: a socket a suspended tab left can look open but be dead,
   // so Go checks each and resumes any that doesn't answer.
-  addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") g.kiln?.wake?.(); });
+  // And the away notification has done its job.
+  addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { g.kiln?.wake?.(); push.clearAway(navigator.serviceWorker); } });
+  push.clearAway(navigator.serviceWorker);
   addEventListener("pageshow", () => g.kiln?.wake?.());
 
   await loadScript("wasm_exec.js");

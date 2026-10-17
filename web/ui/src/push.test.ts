@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { subscribe, unsubscribe } from "./push.ts";
+import { clearAway, subscribe, unsubscribe } from "./push.ts";
 
 const key = "BPtHpXmY3r9rWzQh2a6vN0KQe2o0a0d5rFv7yJkVZ3c1aJm2b8u0p0xT9vF3m4wq7XG6YfQ6M3nZ5kL1sD2hR0c";
 const keyBytes = () => Uint8Array.from(Buffer.from(key, "base64url"));
@@ -80,4 +80,14 @@ test("unsubscribing drops the subscription", async () => {
   await unsubscribe(f.opts.sw);
   assert.deepEqual(f.calls, ["unsubscribe"]);
   await unsubscribe(undefined);
+});
+
+test("coming back clears the away notification, and only that one", async () => {
+  const closed: string[] = [];
+  const note = (tag: string) => ({ tag, close: () => closed.push(tag) });
+  const reg = { async getNotifications(o?: { tag?: string }) { return [note("kiln-away"), note("other")].filter((n) => !o?.tag || n.tag === o.tag); } };
+  await clearAway({ async getRegistration() { return reg; } } as unknown as ServiceWorkerContainer);
+  assert.deepEqual(closed, ["kiln-away"]);
+  await clearAway(undefined);
+  await clearAway({ async getRegistration() { return undefined; } } as unknown as ServiceWorkerContainer);
 });

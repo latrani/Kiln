@@ -150,18 +150,18 @@ func Dial(ctx context.Context, relayURL, addr string, o Options) (*Link, error) 
 	if err != nil {
 		return nil, err
 	}
-	if o.Push {
-		l.mu.Lock()
-		l.push = true
-		l.mu.Unlock()
-		l.sendPush()
-	}
+	l.mu.Lock()
+	l.push = o.Push
+	l.mu.Unlock()
+	l.sendPush()
 	return l, nil
 }
 
 // SetPush gives every link whose character's notifications are on, now
 // and after each resume, the page's push subscription endpoint ("" for
-// none), for the relay to push to while it holds them.
+// none), for the relay to push to while it holds them. The others tell
+// the relay to push nowhere, in case a hold they picked up still had an
+// endpoint from before notifications were turned off.
 func SetPush(endpoint string) {
 	linksMu.Lock()
 	pushTo = endpoint
@@ -171,7 +171,7 @@ func SetPush(endpoint string) {
 	}
 }
 
-// sendPush tells the relay where to push for l, if l pushes.
+// sendPush tells the relay where to push for l.
 func (l *Link) sendPush() {
 	l.wmu.Lock()
 	defer l.wmu.Unlock()
@@ -183,8 +183,8 @@ func (l *Link) sendPush() {
 	}
 }
 
-// pushOnLocked tells the relay over s where to push for l, if l pushes
-// and the page has a subscription. l.wmu is held.
+// pushOnLocked tells the relay over s where to push for l: the page's
+// subscription if l pushes, otherwise nowhere. l.wmu is held.
 func (l *Link) pushOnLocked(s socket) {
 	linksMu.Lock()
 	e := pushTo
@@ -192,9 +192,10 @@ func (l *Link) pushOnLocked(s socket) {
 	l.mu.Lock()
 	on := l.push
 	l.mu.Unlock()
-	if on && e != "" {
-		s.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Push, Endpoint: e}))
+	if !on {
+		e = ""
 	}
+	s.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Push, Endpoint: e}))
 }
 
 // newLink is a link over s, registered, reading.

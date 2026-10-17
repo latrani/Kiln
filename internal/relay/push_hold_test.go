@@ -193,3 +193,59 @@ func TestSlowPushDoesNotBlock(t *testing.T) {
 		t.Errorf("resume took %v while the push hung", el)
 	}
 }
+
+func TestEmptyEndpointStopsPushes(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs, ps := pushRelay(t, m, http.StatusCreated, 0)
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.send(wire.Msg{T: wire.Push, Endpoint: ps.url + "/push/kit"})
+	p.send(wire.Msg{T: wire.Push})
+	p.send(wire.Msg{T: wire.Ping})
+	for f := p.next(); f.msg.T != wire.Pong; f = p.next() {
+	}
+	p.c.CloseNow()
+	eventually(t, "never held", func() bool { return logs.has(str.RelayHeld(local, m.addr())) })
+	w.Write([]byte("one\r\n"))
+	time.Sleep(300 * time.Millisecond)
+	if n := ps.posts.Load(); n != 0 {
+		t.Errorf("%d pushes after the endpoint was cleared", n)
+	}
+}
+
+// A page that vanished without a word (a phone locking) looks attached
+// until the relay's pings go unanswered. What the world said meanwhile,
+// after the page last said anything, likely never reached it: the hold
+// pushes for it as soon as it starts.
+func TestPushForOutputBeforeTheDetach(t *testing.T) {
+	m := newMuck(t)
+	s, base, logs, ps := pushRelay(t, m, http.StatusCreated, 0)
+	s.pingEvery, s.pingTimeout = 300*time.Millisecond, 300*time.Millisecond
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.send(wire.Msg{T: wire.Push, Endpoint: ps.url + "/push/kit"})
+	time.Sleep(50 * time.Millisecond)
+	// The page stops reading and answering, and the world pages Kit.
+	w.Write([]byte("Rook pages: you there?\r\n"))
+	eventually(t, "never held", func() bool { return logs.has(str.RelayHeld(local, m.addr())) })
+	eventually(t, "no push for the page that came before the detach", func() bool { return ps.posts.Load() == 1 })
+}
+
+func TestNoPushForOutputThePageAcked(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs, ps := pushRelay(t, m, http.StatusCreated, 0)
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.send(wire.Msg{T: wire.Push, Endpoint: ps.url + "/push/kit"})
+	w.Write([]byte("hi\r\n"))
+	p.data(4)
+	time.Sleep(20 * time.Millisecond)
+	p.send(wire.Msg{T: wire.Ack, Got: 4})
+	time.Sleep(50 * time.Millisecond)
+	p.c.CloseNow()
+	eventually(t, "never held", func() bool { return logs.has(str.RelayHeld(local, m.addr())) })
+	time.Sleep(300 * time.Millisecond)
+	if n := ps.posts.Load(); n != 0 {
+		t.Errorf("%d pushes for output the page had seen", n)
+	}
+}

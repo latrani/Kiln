@@ -1,20 +1,26 @@
 // The service worker, for Web Push only (push.ts): it shows the relay's
 // push and opens Kiln when it's clicked. It caches nothing.
+import { awayTag } from "./push.ts";
 import * as str from "./str.gen.ts";
+
+// Options are a notification's: TypeScript's DOM types lack renotify,
+// which Chromium honors (others ignore it).
+export type Options = NotificationOptions & { renotify?: boolean };
 
 // Worker is the parts of the worker's global scope used here (tests pass
 // their own).
 export interface Worker {
-  registration: { scope: string; showNotification(title: string, opts: NotificationOptions): Promise<void> };
+  registration: { scope: string; showNotification(title: string, opts: Options): Promise<void> };
   clients: {
     matchAll(o: { type: "window"; includeUncontrolled: boolean }): Promise<readonly { focus(): Promise<unknown> }[]>;
     openWindow(url: string): Promise<unknown>;
   };
 }
 
-// onPush shows the push. One tag: a newer one replaces it, never stacks.
+// onPush shows the push. One tag: a newer one replaces it, never
+// stacks, and still alerts, since it's a new absence.
 export function onPush(w: Worker): Promise<void> {
-  return w.registration.showNotification(str.webPushTitle(), { body: str.webPushBody(), tag: "kiln-away" }); // str:ok notification tag
+  return w.registration.showNotification(str.webPushTitle(), { body: str.webPushBody(), tag: awayTag, renotify: true });
 }
 
 // onClick brings Kiln forward, opening it if no window has it.

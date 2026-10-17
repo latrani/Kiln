@@ -18,7 +18,21 @@ type pushLog struct {
 	sent []string
 }
 
+// all is the endpoints sent, leaving out "" (push nowhere).
 func (p *pushLog) all() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var out []string
+	for _, e := range p.sent {
+		if e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// raw is every push message sent, "" included.
+func (p *pushLog) raw() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]string(nil), p.sent...)
@@ -129,4 +143,26 @@ func TestNoPushWhenOff(t *testing.T) {
 	if got := log.all(); len(got) != 0 {
 		t.Errorf("sent %q for a character with notifications off", got)
 	}
+}
+
+func TestNotifyOffClearsTheEndpoint(t *testing.T) {
+	fast(t)
+	log := recordPushes(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	SetPush(kitEndpoint)
+	_, l, err := dialWith(t, u, w, Options{Push: true, Durable: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.conn(t)
+	eventually(t, "no push after open", func() bool { return len(log.raw()) == 1 })
+	token := l.Token()
+	DetachAll()
+	// The page reloads with Kit's notify now "none": the relay must stop
+	// pushing for the hold it still has.
+	if _, _, err := dialWith(t, u, w, Options{Durable: true, Resume: &Held{Token: token}}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the endpoint never cleared", func() bool { r := log.raw(); return len(r) == 2 && r[1] == "" })
 }
