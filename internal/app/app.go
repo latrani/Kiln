@@ -83,6 +83,7 @@ func (c *Char) compile() error {
 		return err
 	}
 	c.Rules = Rules{Classifier: cls, Judge: rules.Judge{Priority: c.Ch.Rules.Priority, Quiet: c.Ch.Rules.Quiet}}
+	c.Filter.SetFlags(c.Ch.Rules.IsFlag)
 	c.rulesGen++
 	return nil
 }

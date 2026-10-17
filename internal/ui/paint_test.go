@@ -22,7 +22,7 @@ func TestPaintKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	th, err := theme.FromTOML("[tags]\npage = { fg = \"#2053ff\", bold = true, scope = \"match\" }\nsent = { italic = true }\n")
+	th, err := theme.FromTOML("[tags]\npage = { fg = \"#2053ff\", bold = true, scope = \"match\" }\nsent = { italic = true }\nkiln = { underline = true }\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,8 +40,12 @@ func TestPaintKinds(t *testing.T) {
 		t.Errorf("echo line = %q, want %q: the sent tag's look, gutter mark and all", got, want)
 	}
 	sys := r.Line(logstore.Entry{Dir: logstore.Sys, Text: "connected"})
-	if got, want := paint(hl, sys), theme.Paint(theme.ScrollbackSys, "* connected"); got != want {
-		t.Errorf("sys line = %q, want %q", got, want)
+	runs = hl.Runs("* connected", sys.Tags)
+	if len(runs) != 1 || !strings.Contains(runs[0].SGR, "4") {
+		t.Fatalf("kiln runs %+v, want the kiln tag's look over the whole line", runs)
+	}
+	if got, want := paint(hl, sys), style.Highlight("* connected", runs); got != want {
+		t.Errorf("sys line = %q, want %q: the kiln tag's look, glyph and all", got, want)
 	}
 	day := app.Line{Kind: app.Day, Day: app.DayOf(time.Date(2026, 9, 24, 12, 0, 0, 0, time.Local))}
 	if got, want := paint(hl, day), theme.Paint(theme.ScrollbackDay, "── "+app.DayLabel(day.Day)+" ──"); got != want {

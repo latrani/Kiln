@@ -49,12 +49,51 @@ func (r ClassifyRule) AllTags() []string {
 }
 
 // Rules is what packs, worlds and characters say about lines: how to tag
-// them, and which tags are priority or quiet. Along the chain
-// the classify rules append, and the tag lists add up.
+// them, which tags are priority or quiet, and which are flags (facts
+// about a line, not what it is; see IsFlag). Along the chain the
+// classify rules append, and the tag lists add up.
 type Rules struct {
 	Classify []ClassifyRule `toml:"classify"`
 	Priority []string       `toml:"priority"`
 	Quiet    []string       `toml:"quiet"`
+	Flags    []string       `toml:"flags"`
+}
+
+// Kiln's own tags. Classify rules can't give them (see Reserved): Kiln
+// tags every line that mentions the character SelfTag, every line sent
+// SentTag, and its own notes KilnTag.
+const (
+	SelfTag = "self" //str:ok: config vocabulary
+	SentTag = "sent" //str:ok: config vocabulary
+	KilnTag = "kiln" //str:ok: config vocabulary
+)
+
+// DefaultFlags are flags whatever the config says.
+var DefaultFlags = []string{SelfTag, HighlightTag}
+
+// under reports whether tag is name or nested under it.
+func under(tag, name string) bool { return tag == name || strings.HasPrefix(tag, name+"/") }
+
+// Reserved reports whether tag is, or is under, one of Kiln's own tags.
+func Reserved(tag string) bool {
+	return under(tag, SelfTag) || under(tag, SentTag) || under(tag, KilnTag)
+}
+
+// IsFlag reports whether tag is a flag under r: it's, or is under, one
+// of DefaultFlags or r.Flags. Every other tag is a category, what a line
+// is.
+func (r Rules) IsFlag(tag string) bool {
+	for _, f := range DefaultFlags {
+		if under(tag, f) {
+			return true
+		}
+	}
+	for _, f := range r.Flags {
+		if under(tag, f) {
+			return true
+		}
+	}
+	return false
 }
 
 // Character is a fully resolved character: everything a session needs.
@@ -173,6 +212,7 @@ type defaultsFile struct {
 	settings
 	Priority []string `toml:"priority"`
 	Quiet    []string `toml:"quiet"`
+	Flags    []string `toml:"flags"`
 }
 
 type charFile struct {
@@ -334,7 +374,7 @@ func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	}
 	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
 	base.overlay(g.Defaults.settings)
-	return g, base, Rules{Priority: g.Defaults.Priority, Quiet: g.Defaults.Quiet}, nil
+	return g, base, Rules{Priority: g.Defaults.Priority, Quiet: g.Defaults.Quiet, Flags: g.Defaults.Flags}, nil
 }
 
 func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]pack) (World, error) {
@@ -485,6 +525,19 @@ func validate(ch Character) error {
 		if _, err := regexp.Compile(r.Pattern); err != nil {
 			return str.Wrap(str.ConfigClassifyBadPattern(i+1, strings.Join(tags, ", "), err), err)
 		}
+		for _, t := range tags {
+			if Reserved(t) {
+				return errors.New(str.ConfigClassifyReservedTag(i+1, t))
+			}
+		}
+	}
+	for _, f := range ch.Rules.Flags {
+		if strings.Contains(f, "/") {
+			return errors.New(str.ConfigFlagNested(f))
+		}
+		if f == SentTag || f == KilnTag {
+			return errors.New(str.ConfigFlagIsCategory(f))
+		}
 	}
 	return nil
 }
@@ -573,6 +626,7 @@ func appendRules(a, b Rules) Rules {
 		Classify: append(append([]ClassifyRule(nil), a.Classify...), b.Classify...),
 		Priority: union(a.Priority, b.Priority),
 		Quiet:    union(a.Quiet, b.Quiet),
+		Flags:    union(a.Flags, b.Flags),
 	}
 }
 

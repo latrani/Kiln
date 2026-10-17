@@ -3,16 +3,29 @@ package scene
 import (
 	"slices"
 	"strings"
+
+	"github.com/latrani/Kiln/internal/config"
 )
 
 // Item is a row in log mode's filter panel: a tag, a term a line's text
-// must contain, or Untagged (lines with no tags), which counts as a tag
-// for Only.
+// must contain, or Uncategorized (lines with no category tags), which
+// counts as a category for Only.
 type Item struct {
-	Name     string // the tag, or the term as typed; "" for Untagged
-	Text     bool
-	Untagged bool
+	Name          string // the tag, or the term as typed; "" for Uncategorized
+	Text          bool
+	Uncategorized bool
 }
+
+// kind is which of the filter's groups an item is in: Hide and Only on
+// one never touch another's. A tag is a category, what a line is, unless
+// it's a flag, a fact about it (see config.Rules.IsFlag).
+type kind int
+
+const (
+	categoryKind kind = iota // Uncategorized too
+	flagKind
+	textKind
+)
 
 // Parent is tag's parent up its slashes, or "" at the top.
 func Parent(tag string) string {
@@ -46,7 +59,7 @@ func TagItems(tags []string) []Item {
 
 // under reports whether b is a descendant of a (named tags only).
 func under(a, b Item) bool {
-	return !a.Text && !b.Text && !a.Untagged && !b.Untagged && strings.HasPrefix(b.Name, a.Name+"/")
+	return !a.Text && !b.Text && !a.Uncategorized && !b.Uncategorized && strings.HasPrefix(b.Name, a.Name+"/")
 }
 
 // related reports whether a and b are the same item, or one is under
@@ -64,6 +77,30 @@ type Filter struct {
 	texts   []string
 	known   map[Item]bool // items Sync has seen
 	dflt    map[Item]bool // items hidden by default; see SetDefault
+	isFlag  func(tag string) bool
+}
+
+// SetFlags sets which tags are flags; until it's called, only
+// config.DefaultFlags are.
+func (f *Filter) SetFlags(isFlag func(tag string) bool) { f.isFlag = isFlag }
+
+// flag reports whether tag is a flag.
+func (f *Filter) flag(tag string) bool {
+	if f.isFlag == nil {
+		return config.Rules{}.IsFlag(tag)
+	}
+	return f.isFlag(tag)
+}
+
+// kind is it's group.
+func (f *Filter) kind(it Item) kind {
+	switch {
+	case it.Text:
+		return textKind
+	case !it.Uncategorized && f.flag(it.Name):
+		return flagKind
+	}
+	return categoryKind
 }
 
 func (f *Filter) init() {
@@ -88,7 +125,7 @@ func (f *Filter) SetDefault(it Item, hide bool) {
 		return
 	}
 	delete(f.dflt, it)
-	if !f.hasOnly || f.only.Text != it.Text || related(f.only, it) {
+	if !f.hasOnly || f.kind(f.only) != f.kind(it) || related(f.only, it) {
 		delete(f.hidden, it)
 	}
 }
@@ -113,11 +150,11 @@ func (f *Filter) Texts() []Item {
 func (f *Filter) Tags() []string {
 	var out []string
 	for it := range f.hidden {
-		if !it.Text && !it.Untagged {
+		if !it.Text && !it.Uncategorized {
 			out = append(out, it.Name)
 		}
 	}
-	if f.hasOnly && !f.only.Text && !f.only.Untagged && !f.hidden[f.only] {
+	if f.hasOnly && !f.only.Text && !f.only.Uncategorized && !f.hidden[f.only] {
 		out = append(out, f.only.Name)
 	}
 	slices.Sort(out)
@@ -160,7 +197,7 @@ func (f *Filter) Sync(items []Item) {
 		f.known[it] = true
 		if p := Parent(it.Name); !it.Text && p != "" && f.hidden[Item{Name: p}] {
 			f.hidden[it] = true
-		} else if f.hasOnly && f.only.Text == it.Text && !related(f.only, it) {
+		} else if f.hasOnly && f.kind(f.only) == f.kind(it) && !related(f.only, it) {
 			f.hidden[it] = true
 		}
 	}
@@ -176,17 +213,17 @@ func (f *Filter) hide(it Item, items []Item) {
 	f.hidden[it] = true
 }
 
-// clearKind drops the Only and every Hide of text's kind, then hides
-// that kind's items hidden by default.
-func (f *Filter) clearKind(text bool) {
+// clearKind drops the Only and every Hide of kind k, then hides that
+// kind's items hidden by default.
+func (f *Filter) clearKind(k kind) {
 	f.hasOnly = false
 	for it := range f.hidden {
-		if it.Text == text {
+		if f.kind(it) == k {
 			delete(f.hidden, it)
 		}
 	}
 	for it := range f.dflt {
-		if it.Text == text {
+		if f.kind(it) == k {
 			f.hidden[it] = true
 		}
 	}
@@ -199,7 +236,7 @@ func (f *Filter) ToggleHide(it Item, items []Item) {
 	f.init()
 	switch {
 	case f.hasOnly && f.only == it:
-		f.clearKind(it.Text)
+		f.clearKind(f.kind(it))
 		f.hide(it, items)
 	case f.hidden[it]:
 		f.hasOnly = false
@@ -225,10 +262,10 @@ func (f *Filter) ToggleHide(it Item, items []Item) {
 func (f *Filter) PressOnly(it Item, items []Item) {
 	f.init()
 	if f.hasOnly && f.only == it {
-		f.clearKind(it.Text)
+		f.clearKind(f.kind(it))
 		return
 	}
-	f.clearKind(it.Text)
+	f.clearKind(f.kind(it))
 	f.only, f.hasOnly = it, true
 	for o := range f.hidden { // hidden by default, but Only shows it
 		if related(it, o) {
@@ -236,7 +273,7 @@ func (f *Filter) PressOnly(it Item, items []Item) {
 		}
 	}
 	for _, o := range items {
-		if o.Text == it.Text && !related(it, o) {
+		if f.kind(o) == f.kind(it) && !related(it, o) {
 			f.hidden[o] = true
 		}
 	}
@@ -271,11 +308,13 @@ func (f *Filter) RemoveText(term string) {
 }
 
 // Visible reports whether a line shows: none of its tags or their
-// ancestors is hidden, it matches no hidden text row, and, with an Only
-// set, it carries that tag (or one under it) or matches that text. lower
-// is the line's plain text, lowercased.
+// ancestors is hidden, nor Uncategorized if it has no category tags, it
+// matches no hidden text row, and, with an Only set, it carries that tag
+// (or one under it), has no category tags for Uncategorized, or matches
+// that text. lower is the line's plain text, lowercased.
 func (f *Filter) Visible(tags []string, lower string) bool {
-	if len(tags) == 0 && f.hidden[Item{Untagged: true}] {
+	uncategorized := !slices.ContainsFunc(tags, func(t string) bool { return !f.flag(t) })
+	if uncategorized && f.hidden[Item{Uncategorized: true}] {
 		return false
 	}
 	for _, t := range tags {
@@ -296,8 +335,8 @@ func (f *Filter) Visible(tags []string, lower string) bool {
 	if f.only.Text {
 		return strings.Contains(lower, strings.ToLower(f.only.Name))
 	}
-	if f.only.Untagged {
-		return len(tags) == 0
+	if f.only.Uncategorized {
+		return uncategorized
 	}
 	for _, t := range tags {
 		if t == f.only.Name || strings.HasPrefix(t, f.only.Name+"/") {

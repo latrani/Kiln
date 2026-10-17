@@ -149,12 +149,13 @@ func TestFilter(t *testing.T) {
 	// f: the panel, focus on its first entry, its hints below.
 	letter("f")
 	sel := `document.querySelector(".filter-panel .fsel")`
-	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterUntagged()), "the panel, Untagged focused")
-	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.BrowseHintsNoneAway())+` && document.querySelector(".ffoot").textContent === `+jsString(strings.Join([]string{str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyLog()}, str.Separator())), "the footers, the panel focused on Untagged")
+	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterUncategorized()), "the panel, Uncategorized focused")
+	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.BrowseHintsNoneAway())+` && document.querySelector(".ffoot").textContent === `+jsString(strings.Join([]string{str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyLog()}, str.Separator())), "the footers, the panel focused on Uncategorized")
 
-	// ↓ past sent to + Text, Enter: the prompt. "fake muck", typed key by
-	// key there, has an f and no panel key reaches the panel; Enter adds
-	// it, the new row focused.
+	// ↓ past kiln and sent to + Text, Enter: the prompt. "fake muck",
+	// typed key by key there, has an f and no panel key reaches the panel;
+	// Enter adds it, the new row focused.
+	pressKey(t, ws, "ArrowDown", 40)
 	pressKey(t, ws, "ArrowDown", 40)
 	pressKey(t, ws, "ArrowDown", 40)
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterAddText()), "+ Text")

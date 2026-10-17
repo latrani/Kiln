@@ -278,10 +278,23 @@ func ConfigClassifyNeedsTag(n int) string {
 	return get("config.classify_needs_tag", map[string]any{"n": n})
 }
 
+// ConfigClassifyReservedTag is config.classify_reserved_tag: "classify rule {n}: {tag:%q} is Kiln's own tag"
+func ConfigClassifyReservedTag(n int, tag any) string {
+	return get("config.classify_reserved_tag", map[string]any{"n": n, "tag": tag})
+}
+
 // ConfigDuplicateCharacterId is config.duplicate_character_id: "{where}: id already used"
 func ConfigDuplicateCharacterId(where any) string {
 	return get("config.duplicate_character_id", map[string]any{"where": where})
 }
+
+// ConfigFlagIsCategory is config.flag_is_category: "flags: {tag:%q} is what a line is, so it can't be a flag"
+func ConfigFlagIsCategory(tag any) string {
+	return get("config.flag_is_category", map[string]any{"tag": tag})
+}
+
+// ConfigFlagNested is config.flag_nested: "flags: {tag:%q} is under another tag; a flag is a whole tag, with everything under it"
+func ConfigFlagNested(tag any) string { return get("config.flag_nested", map[string]any{"tag": tag}) }
 
 // ConfigHostRequired is config.host_required: "{file}: host is required"
 func ConfigHostRequired(file any) string {
@@ -591,8 +604,8 @@ func FilterTextItem(term any) string { return get("filter.text_item", map[string
 // FilterTitle is filter.title: "Filters"
 func FilterTitle() string { return get("filter.title", nil) }
 
-// FilterUntagged is filter.untagged: "Untagged"
-func FilterUntagged() string { return get("filter.untagged", nil) }
+// FilterUncategorized is filter.uncategorized: "Uncategorized"
+func FilterUncategorized() string { return get("filter.uncategorized", nil) }
 
 // FormNextField is form.next_field: "Use enter or arrows to move between fields · {hint}"
 func FormNextField(hint any) string { return get("form.next_field", map[string]any{"hint": hint}) }

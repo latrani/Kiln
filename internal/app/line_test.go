@@ -39,14 +39,15 @@ func TestServerLineIsClassified(t *testing.T) {
 }
 
 // Lines you sent and Kiln's own lines are never classified, even when
-// they'd match: a sent line's one tag is SentTag, and Kiln's have none.
+// they'd match: a sent line's one tag is SentTag, and Kiln's own line's
+// KilnTag.
 func TestEchoAndSysAreNotClassified(t *testing.T) {
 	r := testRules(t)
 	for _, c := range []struct {
 		dir  logstore.Dir
 		kind Kind
 		tags []string
-	}{{logstore.Out, Echo, []string{classify.SentTag}}, {logstore.Sys, Sys, nil}} {
+	}{{logstore.Out, Echo, []string{classify.SentTag}}, {logstore.Sys, Sys, []string{classify.KilnTag}}} {
 		l := r.Line(logstore.Entry{Dir: c.dir, Text: "PAGE: hi"})
 		if l.Kind != c.kind || !slices.Equal(l.TagNames(), c.tags) || l.Priority || l.Quiet {
 			t.Errorf("%c: %+v, want kind %v, tags %q and no verdict", c.dir, l, c.kind, c.tags)

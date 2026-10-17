@@ -12,13 +12,15 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 )
 
-// SelfTag is added to any line that mentions the character's own name
-// or one of its aliases.
-const SelfTag = "self"
-
-// SentTag is every line you sent, and only those: classify rules never
-// see them.
-const SentTag = "sent"
+// Kiln's own tags (see config.Reserved). SelfTag is added to any line
+// that mentions the character's own name or one of its aliases; SentTag
+// is every line you sent, and KilnTag every one of Kiln's own notes:
+// classify rules never see either.
+const (
+	SelfTag = config.SelfTag
+	SentTag = config.SentTag
+	KilnTag = config.KilnTag
+)
 
 // Classifier holds one character's compiled classify rules.
 type Classifier struct {
@@ -92,10 +94,8 @@ func (c *Classifier) Tags(plain string) []Tag {
 			}
 		}
 	}
-	if _, ok := at[SelfTag]; !ok {
-		if spans := c.selfSpans(plain); spans != nil {
-			tags = append(tags, Tag{Name: SelfTag, Spans: spans})
-		}
+	if spans := c.selfSpans(plain); spans != nil { // no rule gives it: see config.Reserved
+		tags = append(tags, Tag{Name: SelfTag, Spans: spans})
 	}
 	return tags
 }

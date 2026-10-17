@@ -122,4 +122,5 @@
 [tags]
 "self"       = { bold = true }
 "sent"       = { faint = true }
+"kiln"       = { faint = true }
 "highlight"  = { fg = "catppuccin.yellow", bold = true, scope = "match" }

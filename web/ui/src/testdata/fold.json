@@ -16,6 +16,9 @@
     "FG": "ansi:2",
     "Match": true
    },
+   "kiln": {
+    "Faint": true
+   },
    "page": {
     "FG": "#ff9f43",
     "Bold": true
@@ -62,6 +65,9 @@
    "hot": {
     "FG": "ansi:2",
     "Match": true
+   },
+   "kiln": {
+    "Faint": true
    },
    "page": {
     "FG": "#ff9f43",
@@ -118,6 +124,9 @@
    "hot": {
     "FG": "ansi:2",
     "Match": true
+   },
+   "kiln": {
+    "Faint": true
    },
    "page": {
     "FG": "#ff9f43",
@@ -180,6 +189,9 @@
     "FG": "ansi:2",
     "Match": true
    },
+   "kiln": {
+    "Faint": true
+   },
    "page": {
     "FG": "#ff9f43",
     "Bold": true
@@ -238,6 +250,9 @@
    "hot": {
     "FG": "ansi:2",
     "Match": true
+   },
+   "kiln": {
+    "Faint": true
    },
    "page": {
     "FG": "#ff9f43",
@@ -305,6 +320,9 @@
     "FG": "ansi:2",
     "Match": true
    },
+   "kiln": {
+    "Faint": true
+   },
    "page": {
     "FG": "#ff9f43",
     "Bold": true
@@ -370,6 +388,9 @@
     "FG": "ansi:2",
     "Match": true
    },
+   "kiln": {
+    "Faint": true
+   },
    "page": {
     "FG": "#ff9f43",
     "Bold": true
@@ -432,6 +453,9 @@
     "FG": "ansi:2",
     "Match": true
    },
+   "kiln": {
+    "Faint": true
+   },
    "page": {
     "FG": "#ff9f43",
     "Bold": true
@@ -486,6 +510,9 @@
     "FG": "ansi:2",
     "Match": true
    },
+   "kiln": {
+    "Faint": true
+   },
    "page": {
     "FG": "#ff9f43",
     "Bold": true
@@ -537,6 +564,9 @@
    "hot": {
     "FG": "ansi:2",
     "Match": true
+   },
+   "kiln": {
+    "Faint": true
    },
    "page": {
     "FG": "#ff9f43",

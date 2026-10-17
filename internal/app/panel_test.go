@@ -105,3 +105,18 @@ func TestHideAndOnlyThroughTheLog(t *testing.T) {
 		t.Error("p's folded children don't show as filtered")
 	}
 }
+
+// Flags come after the categories: self always, and a tag the world's
+// flags list names, with everything under it.
+func TestPanelListsFlagsAfterCategories(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": "flags = [\"p\"]\n" + tagWorld})
+	openAll(t, a, "fm/kit")
+	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, logDay, "A one", "B two", "Q three", "Rook waves to Kit.")
+	g := a.OpenLog("fm/kit")
+	g.Entries()
+	g.Fold("p", false)
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"", "q", "sent", "p", "p/a", "p/b", "self"}) {
+		t.Errorf("entries %q; want Uncategorized and the categories, then the flags", got)
+	}
+}

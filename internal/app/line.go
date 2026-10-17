@@ -29,7 +29,7 @@ type Line struct {
 	Seq   int            // its number in its scrollback or log mode; see numbering
 	Entry logstore.Entry // zero for a Day
 	Day   string         // the local day, "2006-01-02"
-	Tags  []classify.Tag // a Server line's tags, with where they matched; an Echo line's is SentTag
+	Tags  []classify.Tag // a Server line's tags, with where they matched; an Echo line's is SentTag, a Sys line's KilnTag
 	rules.Verdict
 }
 
@@ -60,7 +60,8 @@ type Rules struct {
 }
 
 // Line makes e into a line. Only lines from the server are classified;
-// a sent line's one tag is classify.SentTag.
+// a sent line's one tag is classify.SentTag, and Kiln's own line's
+// classify.KilnTag.
 func (r Rules) Line(e logstore.Entry) Line {
 	l := Line{Entry: e, Day: DayOf(e.Time)}
 	switch e.Dir {
@@ -69,6 +70,7 @@ func (r Rules) Line(e logstore.Entry) Line {
 		l.Tags = []classify.Tag{{Name: classify.SentTag}}
 	case logstore.Sys:
 		l.Kind = Sys
+		l.Tags = []classify.Tag{{Name: classify.KilnTag}}
 	default:
 		l.Kind = Server
 		l.Tags = r.Classifier.Tags(l.Plain())

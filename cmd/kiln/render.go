@@ -16,8 +16,8 @@ import (
 
 // render formats one entry for plain terminal output. Styled lines are
 // drawn in their tags' styles; priority lines get a "» " marker, which
-// is never styled. Sent lines are prefixed with "> " (their runs cover
-// it; see sentRuns) and sys lines with "* ". Text is sanitized first, so
+// is never styled. Sent lines are prefixed with "> " and sys lines with
+// "* ", their runs covering it (see kilnRuns). Text is sanitized first, so
 // runs must be computed on ansi.Strip(ansi.Sanitize(…)).
 func render(e logstore.Entry, runs []style.Run, priority bool) string {
 	e.Text = ansi.Sanitize(e.Text)
@@ -25,7 +25,7 @@ func render(e logstore.Entry, runs []style.Run, priority bool) string {
 	case logstore.Out:
 		return style.Highlight("> "+e.Text, runs)
 	case logstore.Sys:
-		return theme.Paint(theme.ScrollbackSys, "* "+e.Text)
+		return style.Highlight("* "+e.Text, runs)
 	}
 	marker := ""
 	if priority {
@@ -34,10 +34,15 @@ func render(e logstore.Entry, runs []style.Run, priority bool) string {
 	return marker + style.Highlight(e.Text, runs) // runs index e.Text, not the marker
 }
 
-// sentRuns are sent entry e's runs as render draws it: its one tag,
-// classify.SentTag, over the "> " and the text.
-func sentRuns(hl *rules.Highlighter, e logstore.Entry) []style.Run {
-	return hl.Runs(ansi.Strip("> "+ansi.Sanitize(e.Text)), []classify.Tag{{Name: classify.SentTag}})
+// kilnRuns are the runs render draws a sent or sys entry e with: its one
+// tag, classify.SentTag or classify.KilnTag, over the "> " or "* " and
+// the text.
+func kilnRuns(hl *rules.Highlighter, e logstore.Entry) []style.Run {
+	prefix, tag := "> ", classify.SentTag
+	if e.Dir == logstore.Sys {
+		prefix, tag = "* ", classify.KilnTag
+	}
+	return hl.Runs(ansi.Strip(prefix+ansi.Sanitize(e.Text)), []classify.Tag{{Name: tag}})
 }
 
 // lookTheme is the active theme with ch's packs' looks under it and its

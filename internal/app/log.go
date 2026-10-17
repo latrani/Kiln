@@ -52,16 +52,17 @@ type Log struct {
 	// find matches. nil: Line.Plain.
 	Shown func(*LogLine) string
 
-	a           *App
-	c           *Char
-	hist        *history.Reader
-	anchor      *LogLine        // the line m was pressed on, while Marking
-	loadedTo    time.Time       // newest logged time at open, at log (millisecond) precision
-	pending     func() []Effect // what to do when the day being read arrives; see Older
-	tagNames    []string        // the distinct tags on Lines[:tagNamesN]; see Items
-	tagNamesN   int
-	anyUntagged bool      // some line in Lines[:tagNamesN] has no tags
-	seq         numbering // Lines' numbers
+	a                *App
+	c                *Char
+	hist             *history.Reader
+	anchor           *LogLine        // the line m was pressed on, while Marking
+	loadedTo         time.Time       // newest logged time at open, at log (millisecond) precision
+	pending          func() []Effect // what to do when the day being read arrives; see Older
+	tagNames         []string        // the distinct tags on Lines[:tagNamesN]; see Items
+	tagNamesN        int
+	tagNamesGen      int       // c.rulesGen when tagNames was worked out: which tags are flags can change
+	anyUncategorized bool      // some line in Lines[:tagNamesN] has no category tags
+	seq              numbering // Lines' numbers
 }
 
 // LogOlderMsg is one older day for log mode, read off the loop. It goes
@@ -263,17 +264,18 @@ func (g *Log) InRange(l *LogLine) bool {
 	return i >= g.Index(g.Start) && i <= g.Index(g.End)
 }
 
-// Items is the filter panel's list: Untagged, every tag on a loaded line
-// or with a filter set (with their parents), then the text rows. It
-// syncs the filter, so a tag seen for the first time obeys the filter
-// already set.
+// Items is the filter panel's list: Uncategorized, every category on a
+// loaded line or with a filter set (with their parents), the same for
+// flags, then the text rows. It syncs the filter, so a tag seen for the
+// first time obeys the filter already set.
 func (g *Log) Items() []scene.Item {
-	if g.tagNamesN != len(g.Lines) { // lines are only ever added
+	flag := g.c.Ch.Rules.IsFlag
+	if g.tagNamesN != len(g.Lines) || g.tagNamesGen != g.c.rulesGen { // lines are only ever added
 		seen := map[string]bool{}
-		g.tagNames, g.anyUntagged = nil, false
+		g.tagNames, g.anyUncategorized = nil, false
 		for _, l := range g.Lines {
-			if len(l.Tags) == 0 {
-				g.anyUntagged = true
+			if !slices.ContainsFunc(l.Tags, func(t string) bool { return !flag(t) }) {
+				g.anyUncategorized = true
 			}
 			for _, t := range l.Tags {
 				if !seen[t] {
@@ -282,16 +284,21 @@ func (g *Log) Items() []scene.Item {
 				}
 			}
 		}
-		g.tagNamesN = len(g.Lines)
+		g.tagNamesN, g.tagNamesGen = len(g.Lines), g.c.rulesGen
 	}
 	f := &g.c.Filter
-	untagged := scene.Item{Untagged: true}
+	uncat := scene.Item{Uncategorized: true}
 	only, hasOnly := f.Only()
 	var items []scene.Item
-	if g.anyUntagged || f.Hidden(untagged) || hasOnly && only == untagged {
-		items = append(items, untagged)
+	if g.anyUncategorized || f.Hidden(uncat) || hasOnly && only == uncat {
+		items = append(items, uncat)
 	}
-	items = append(items, scene.TagItems(append(slices.Clone(g.tagNames), f.Tags()...))...)
+	tags := append(slices.Clone(g.tagNames), f.Tags()...)
+	cats, flags := slices.Clone(tags), slices.Clone(tags)
+	cats = slices.DeleteFunc(cats, flag)
+	flags = slices.DeleteFunc(flags, func(t string) bool { return !flag(t) })
+	items = append(items, scene.TagItems(cats)...)
+	items = append(items, scene.TagItems(flags)...)
 	items = append(items, f.Texts()...)
 	f.Sync(items)
 	return items

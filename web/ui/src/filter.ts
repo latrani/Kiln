@@ -6,8 +6,8 @@ import type { Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
 // FilterItem is a thing the filter can hide or show only: a tag, a text,
-// or Untagged (scene.Item).
-export interface FilterItem { Name: string; Text: boolean; Untagged: boolean }
+// or Uncategorized (scene.Item).
+export interface FilterItem { Name: string; Text: boolean; Uncategorized: boolean }
 
 // FilterEntry is one entry of Go's Filter event (feed.FilterEntry).
 export interface FilterEntry {
@@ -22,9 +22,9 @@ export type PanelRow =
   | { kind: "entry"; key: string; e: FilterEntry; glyph: string; name: string; after: string; endsGroup: boolean }
   | { kind: "add"; key: "+" };
 
-// entryKey names an item for the highlight: "u" for Untagged, "t:" a
+// entryKey names an item for the highlight: "u" for Uncategorized, "t:" a
 // text, "g:" a tag.
-export const entryKey = (i: FilterItem): string => (i.Untagged ? "u" : i.Text ? "t:" + i.Name : "g:" + i.Name);
+export const entryKey = (i: FilterItem): string => (i.Uncategorized ? "u" : i.Text ? "t:" + i.Name : "g:" + i.Name);
 
 // panelRows is what the panel lists, as the TUI's panelRows: the entries
 // less those folded away, then + Text.
@@ -32,7 +32,7 @@ export function panelRows(entries: FilterEntry[]): PanelRow[] {
   const shown = entries.filter((e) => !e.FoldedAway);
   const rows: PanelRow[] = shown.map((e, i) => {
     const it = e.Item;
-    const name = it.Untagged ? str.filterUntagged() : it.Text ? str.filterTextItem(it.Name) : it.Name.slice(it.Name.lastIndexOf("/") + 1);
+    const name = it.Uncategorized ? str.filterUncategorized() : it.Text ? str.filterTextItem(it.Name) : it.Name.slice(it.Name.lastIndexOf("/") + 1);
     const glyph = it.Text ? str.glyph.remove : e.Parent ? (e.Folded ? str.glyph.collapsed : str.glyph.open) : "";
     const after = e.Parent && e.Folded && e.FilteredUnder ? str.glyph.filtered : "";
     return { kind: "entry", key: entryKey(it), e, glyph, name, after, endsGroup: (shown[i + 1]?.Depth ?? 0) === 0 };

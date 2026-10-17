@@ -134,8 +134,8 @@ func (b *browse) panelRows(w int) []panelRow {
 		}
 		indent := strings.Repeat(" ", 1+2*e.Depth)
 		name := e.Item.Name
-		if e.Item.Untagged {
-			name = str.FilterUntagged()
+		if e.Item.Uncategorized {
+			name = str.FilterUncategorized()
 		} else if e.Item.Text {
 			name = glyphRemove + " " + str.FilterTextItem(name)
 		} else if i := strings.LastIndex(name, "/"); i >= 0 {
@@ -402,7 +402,7 @@ func footerRows(hints string, w int) []string {
 type footKind int
 
 const (
-	footLeaf   footKind = iota // a tag with none under it, or Untagged
+	footLeaf   footKind = iota // a tag with none under it, or Uncategorized
 	footParent                 // a tag with tags under it: it folds
 	footText                   // a text: it's removed
 	footAdd                    // + Text: it adds

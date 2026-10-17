@@ -590,7 +590,7 @@ func TestPriorityAndQuietAddUp(t *testing.T) {
 	os.MkdirAll(filepath.Join(dir, "worlds"), 0o700)
 	os.MkdirAll(filepath.Join(dir, "packs"), 0o700)
 	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[defaults]\npriority = [\"self\"]\n"), 0o600)
-	os.WriteFile(filepath.Join(dir, "packs", "p.toml"), []byte("priority = [\"page/in\", \"self\"]\nquiet = [\"spam\"]\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "packs", "p.toml"), []byte("priority = [\"page/in\", \"self\"]\nquiet = [\"spam\"]\nflags = [\"ping\"]\n"), 0o600)
 	os.WriteFile(filepath.Join(dir, "worlds", "fm.toml"), []byte(`host = "h"
 port = 1
 use = ["p"]
@@ -599,6 +599,7 @@ priority = ["whisper/in"]
 [[characters]]
 name = "Kit"
 quiet = ["wiki"]
+flags = ["ooc"]
 `), 0o600)
 	cfg, err := Load(dir)
 	if err != nil {
@@ -610,6 +611,33 @@ quiet = ["wiki"]
 	}
 	if want := []string{"spam", "wiki"}; !slices.Equal(kit.Rules.Quiet, want) {
 		t.Errorf("quiet = %v, want %v", kit.Rules.Quiet, want)
+	}
+	if want := []string{"ping", "ooc"}; !slices.Equal(kit.Rules.Flags, want) {
+		t.Errorf("flags = %v, want %v", kit.Rules.Flags, want)
+	}
+	for tag, want := range map[string]bool{"self": true, "highlight/x": true, "ooc": true, "ping/a": true, "page": false, "sent": false, "oocx": false} {
+		if kit.Rules.IsFlag(tag) != want {
+			t.Errorf("IsFlag(%q) = %v, want %v", tag, !want, want)
+		}
+	}
+}
+
+// Kiln's own tags are reserved: no classify rule gives them, and sent
+// and kiln, what a line is, aren't flags. A flag is a whole tag.
+func TestReservedTags(t *testing.T) {
+	for body, want := range map[string]string{
+		"[[classify]]\ntag = \"self\"\npattern = \"x\"\n":               str.ConfigClassifyReservedTag(1, "self"),
+		"[[classify]]\ntags = [\"ooc\", \"kiln/x\"]\npattern = \"x\"\n": str.ConfigClassifyReservedTag(1, "kiln/x"),
+		"flags = [\"sent\"]\n":    str.ConfigFlagIsCategory("sent"),
+		"flags = [\"page/in\"]\n": str.ConfigFlagNested("page/in"),
+		"priority = [\"self\"]\nflags = [\"self\", \"selfish\"]\nquiet = [\"sent\"]\n": "",
+	} {
+		dir := t.TempDir()
+		write(t, dir, map[string]string{"worlds/a.toml": "host = \"h\"\nport = 1\n" + body + "[[characters]]\nname = \"Kit\"\n"})
+		_, err := Load(dir)
+		if want == "" && err != nil || want != "" && (err == nil || !strings.Contains(err.Error(), want)) {
+			t.Errorf("%q: err = %v, want %q", body, err, want)
+		}
 	}
 }
 

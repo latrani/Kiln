@@ -148,7 +148,6 @@ status = { bg = "#010203" }
 func TestScrollbackUsesTheme(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": goldenWorld}) // before the theme: New loads the built-in
 	th := withTheme(t, `[ui]
-"scrollback.sys" = { fg = "#0a0b0c" }
 "scrollback.pill" = { fg = "#101112" }
 link = { fg = "#131415" }`)
 	h.init()
@@ -157,7 +156,7 @@ link = { fg = "#131415" }`)
 	h.typeText(":waves.")
 	h.enter()
 	s := h.drawn()
-	for _, role := range []theme.Role{theme.ScrollbackSys, theme.Link} {
+	for _, role := range []theme.Role{theme.Link} {
 		if !strings.Contains(s, th.SGR(role)) {
 			t.Errorf("scrollback doesn't draw %s", role)
 		}
