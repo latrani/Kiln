@@ -1,0 +1,167 @@
+package relay
+
+import (
+	"context"
+	"net/http"
+	"net/netip"
+	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+
+	"github.com/latrani/Kiln/internal/relay/wire"
+	"github.com/latrani/Kiln/internal/str"
+)
+
+// silentResume opens a ?resume=1 socket that names nothing yet.
+func silentResume(t *testing.T, base string) *websocket.Conn {
+	t.Helper()
+	c, _, err := websocket.Dial(context.Background(), base+"/?resume=1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.CloseNow() })
+	return c
+}
+
+// closedWith is the code c was refused or closed with within wait, or
+// -1 if it's still open.
+func closedWith(c *websocket.Conn, wait time.Duration) websocket.StatusCode {
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	defer cancel()
+	typ, b, err := c.Read(ctx)
+	if ctx.Err() != nil {
+		return -1
+	}
+	if m, _ := wire.Decode(b); err == nil && typ == websocket.MessageText && m.T == wire.Refused {
+		return websocket.StatusCode(m.Code)
+	}
+	return websocket.CloseStatus(err)
+}
+
+// tryResume opens a ?resume=1 socket that names nothing yet, or reports
+// the HTTP status it was refused with.
+func tryResume(t *testing.T, base string) (*websocket.Conn, int) {
+	t.Helper()
+	c, res, err := websocket.Dial(context.Background(), base+"/?resume=1", nil)
+	if err != nil {
+		if res == nil {
+			t.Fatal(err)
+		}
+		return nil, res.StatusCode
+	}
+	t.Cleanup(func() { c.CloseNow() })
+	return c, 0
+}
+
+// Refused before the upgrade: a refused socket mustn't linger in a close
+// handshake its sender never answers.
+func TestWaitingResumesAreCapped(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "max_per_ip = 2\n")
+	silentResume(t, base) // counted before the upgrade, so before Dial returns
+	silentResume(t, base)
+	if c, status := tryResume(t, base); c != nil || status != http.StatusTooManyRequests {
+		t.Errorf("a third waiting resume: status %d, want %d", status, http.StatusTooManyRequests)
+	}
+	eventually(t, "refusal not logged", func() bool { return logs.has(str.RelayRefusedResuming(local)) })
+}
+
+// A client can hold more than max_per_ip (a resume from a new address
+// moves its count there without a check): it can still resume them all
+// at once.
+func TestWaitingCapCoversWhatsHeld(t *testing.T) {
+	m := newMuck(t)
+	s, base, logs := holdRelay(t, m, "max_per_ip = 3\n")
+	for range 3 {
+		p := openPage(t, base, m.port)
+		m.conn(t)
+		p.c.CloseNow()
+	}
+	eventually(t, "never held", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 3 })
+	a, err := ParseConfig("relay.toml", []byte("max_per_ip = 2\n"+world(m.port, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.SetConfig(a)
+	for i := range 3 {
+		if c, status := tryResume(t, base); c == nil {
+			t.Errorf("resume %d of 3 held: refused with %d", i+1, status)
+		}
+	}
+}
+
+func TestWaitingResumeSlotFrees(t *testing.T) {
+	m := newMuck(t)
+	_, base, _ := holdRelay(t, m, "max_per_ip = 2\n")
+	a := silentResume(t, base)
+	silentResume(t, base)
+	a.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Resume, Token: "nope"}))
+	if code := closedWith(a, 2*time.Second); code != wire.CodeGone {
+		t.Fatalf("bad token: closed with %d", code)
+	}
+	if c, status := tryResume(t, base); c == nil {
+		t.Errorf("a waiting resume after one named its token: refused with %d", status)
+	}
+}
+
+func TestResumeAtTheCapStillWorks(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "max_per_ip = 2\n")
+	p, q := openPage(t, base, m.port), openPage(t, base, m.port)
+	m.conn(t)
+	m.conn(t)
+	p.c.CloseNow()
+	q.c.CloseNow()
+	eventually(t, "never held", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
+	done := make(chan string, 2)
+	for _, tok := range []string{p.token, q.token} {
+		go func() {
+			c, _, err := websocket.Dial(context.Background(), base+"/?resume=1", nil)
+			if err != nil {
+				done <- err.Error()
+				return
+			}
+			defer c.CloseNow()
+			c.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Resume, Token: tok}))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, b, err := c.Read(ctx)
+			if err != nil {
+				done <- err.Error()
+				return
+			}
+			m, _ := wire.Decode(b)
+			done <- m.T
+		}()
+	}
+	for range 2 {
+		if got := <-done; got != wire.Resumed {
+			t.Errorf("resuming at the cap: %s", got)
+		}
+	}
+}
+
+func TestWaitingResumesGlobalCap(t *testing.T) {
+	a, _ := ParseConfig("relay.toml", []byte("max_conns = 2\n"))
+	s := &Server{}
+	wait := func(ip string) websocket.StatusCode { return s.waitResume(netip.MustParseAddr(ip), a) }
+	if wait("192.0.2.1") != 0 || wait("192.0.2.2") != 0 {
+		t.Fatal("first two refused")
+	}
+	if code := wait("192.0.2.3"); code != wire.CodeBusy {
+		t.Errorf("third: code %d, want %d", code, wire.CodeBusy)
+	}
+	s.doneResume(netip.MustParseAddr("192.0.2.1"))
+	if wait("192.0.2.3") != 0 {
+		t.Error("the slot never came back")
+	}
+	// A relay holding more than max_conns (a lowered cap) can still
+	// resume them all.
+	s.mu.Lock()
+	s.total = 4
+	s.mu.Unlock()
+	if wait("192.0.2.4") != 0 || wait("192.0.2.5") != 0 {
+		t.Error("a relay holding 4 couldn't have 4 resumes waiting")
+	}
+}

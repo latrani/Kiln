@@ -911,6 +911,16 @@ func RelayRefusedNotListed(ip, world any) string {
 	return get("relay.refused_not_listed", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayRefusedResuming is relay.refused_resuming: "refused {ip}: too many resumes waiting to name a connection"
+func RelayRefusedResuming(ip any) string {
+	return get("relay.refused_resuming", map[string]any{"ip": ip})
+}
+
+// RelayRefusedResumingBusy is relay.refused_resuming_busy: "refused {ip}: relay full of resumes waiting to name a connection (max_conns)"
+func RelayRefusedResumingBusy(ip any) string {
+	return get("relay.refused_resuming_busy", map[string]any{"ip": ip})
+}
+
 // RelayRefusedTooMany is relay.refused_too_many: "refused {ip} → {world:%q}: too many connections"
 func RelayRefusedTooMany(ip, world any) string {
 	return get("relay.refused_too_many", map[string]any{"ip": ip, "world": world})

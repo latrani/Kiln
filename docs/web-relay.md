@@ -125,6 +125,10 @@ locking doesn't close the tab, so those keep the full hold.
 - A held connection still counts against `max_per_ip` and `max_conns`
   until it ends. Picking it up from a new address (wifi to cellular)
   moves its count there.
+- A page picking a connection up has 10 seconds to say which one. Up to
+  `max_per_ip` such pages from one client, and `max_conns` in all, may
+  be waiting at once; they're counted apart from connections, so a
+  player at the cap can still pick up every held one.
 - While held, what the world sends is kept in memory, up to
   `max_buffer_mb` per connection and `max_total_buffer_mb` in all. Past
   that the oldest lines go (from the fullest connection, for the total),

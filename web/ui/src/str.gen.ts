@@ -754,6 +754,12 @@ export function relayRefusedNoTls(ip: unknown, world: unknown): string { return 
 /** relay.refused_not_listed: refused {ip} → {world:%q}: not on the allowlist */
 export function relayRefusedNotListed(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: not on the allowlist`; }
 
+/** relay.refused_resuming: refused {ip}: too many resumes waiting to name a connection */
+export function relayRefusedResuming(ip: unknown): string { return `refused ${ip}: too many resumes waiting to name a connection`; }
+
+/** relay.refused_resuming_busy: refused {ip}: relay full of resumes waiting to name a connection (max_conns) */
+export function relayRefusedResumingBusy(ip: unknown): string { return `refused ${ip}: relay full of resumes waiting to name a connection (max_conns)`; }
+
 /** relay.refused_too_many: refused {ip} → {world:%q}: too many connections */
 export function relayRefusedTooMany(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: too many connections`; }
 

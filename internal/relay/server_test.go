@@ -149,30 +149,31 @@ func openAsking(t *testing.T, base, host string, port int, tls bool) *websocket.
 	return c
 }
 
-// closeWhy reads until the relay closes c and returns its code and reason.
+// closeWhy reads until the relay refuses or closes c and returns the
+// code and reason.
 func closeWhy(t *testing.T, c *websocket.Conn) (websocket.StatusCode, string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	for {
-		if _, _, err := c.Read(ctx); err != nil {
+		typ, b, err := c.Read(ctx)
+		if err != nil {
 			var ce websocket.CloseError
 			errors.As(err, &ce)
 			return ce.Code, ce.Reason
 		}
+		if m, _ := wire.Decode(b); typ == websocket.MessageText && m.T == wire.Refused {
+			return websocket.StatusCode(m.Code), m.Why
+		}
 	}
 }
 
-// closeCode reads until the relay closes c and returns its code.
+// closeCode reads until the relay refuses or closes c and returns the
+// code.
 func closeCode(t *testing.T, c *websocket.Conn) websocket.StatusCode {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	for {
-		if _, _, err := c.Read(ctx); err != nil {
-			return websocket.CloseStatus(err)
-		}
-	}
+	code, _ := closeWhy(t, c)
+	return code
 }
 
 func TestPlaintextRoundTrip(t *testing.T) {

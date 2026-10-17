@@ -183,7 +183,7 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 	h.mu.Lock()
 	if h.closed {
 		h.mu.Unlock()
-		c.Close(wire.CodeGone, "")
+		refuse(c, wire.CodeGone, "")
 		return
 	}
 	old := h.ws
@@ -452,17 +452,19 @@ func (s *Server) move(h *held, ip netip.Addr) {
 }
 
 // resume attaches c, from ip, to the held connection its first message
-// names.
+// names. ServeHTTP has counted c as waiting (waitResume); resume stops
+// counting it once that message is read.
 func (s *Server) resume(c *websocket.Conn, ip netip.Addr) {
 	ctx, cancel := context.WithTimeout(context.Background(), resumeWait)
 	typ, b, err := c.Read(ctx)
 	cancel()
+	s.doneResume(ip)
 	if err != nil {
 		return
 	}
 	m, err := wire.Decode(b)
 	if typ != websocket.MessageText || err != nil || m.T != wire.Resume {
-		c.Close(websocket.StatusProtocolError, "")
+		refuse(c, websocket.StatusProtocolError, "")
 		return
 	}
 	s.mu.Lock()
@@ -470,7 +472,7 @@ func (s *Server) resume(c *websocket.Conn, ip netip.Addr) {
 	s.mu.Unlock()
 	if h == nil {
 		s.logf(str.RelayRefusedGone(ip))
-		c.Close(wire.CodeGone, "")
+		refuse(c, wire.CodeGone, "")
 		return
 	}
 	h.attach(c, ip, m.Got, true)

@@ -39,6 +39,7 @@ const (
 	Missed  = "missed"  //str:ok protocol token: Lines dropped; data goes on from At
 	Pong    = "pong"    //str:ok protocol token
 	End     = "end"     //str:ok protocol token: the world closed after At bytes; Why
+	Refused = "refused" //str:ok protocol token: Code (a close code above) and Why; then the relay hangs up
 	// Page to relay.
 	Resume = "resume" //str:ok protocol token: Token, Got (down bytes received)
 	Ping   = "ping"   //str:ok protocol token
@@ -57,8 +58,17 @@ type Msg struct {
 	Lines int    `json:"lines,omitempty"`
 	Away  int64  `json:"away,omitempty"`
 	Why   string `json:"why,omitempty"`
+	Code  int    `json:"code,omitempty"`
 	// Endpoint is a Web Push subscription's endpoint URL.
 	Endpoint string `json:"endpoint,omitempty"`
+}
+
+// RefusalError is a refused message as the close it stands for: the
+// relay says why in a message and hangs up, rather than closing with
+// that code, so a refused sender can't hold the socket open through the
+// close handshake.
+func RefusalError(m Msg) error {
+	return websocket.CloseError{Code: websocket.StatusCode(m.Code), Reason: m.Why}
 }
 
 // A side acks once AckBytes are unacknowledged, or AckEvery after the
