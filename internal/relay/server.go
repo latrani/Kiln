@@ -47,6 +47,10 @@ type Server struct {
 	// worldWriteTimeout is how long a write to a world may wait for it
 	// to read; past it the world is let go. 0: 30s.
 	worldWriteTimeout time.Duration
+	// pushClient sends pushes to pushHosts; nil: http.DefaultClient and
+	// push.Hosts. Tests point them at their own push service.
+	pushClient *http.Client
+	pushHosts  []string
 
 	cfg      atomic.Pointer[Config]
 	mu       sync.Mutex

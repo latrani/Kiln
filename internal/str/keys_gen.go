@@ -858,9 +858,29 @@ func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayPushFailed is relay.push_failed: "push {ip} → {world:%q} failed: {err}"
+func RelayPushFailed(ip, world any, err error) string {
+	return get("relay.push_failed", map[string]any{"ip": ip, "world": world, "err": err})
+}
+
+// RelayPushGone is relay.push_gone: "stopped pushing {ip} → {world:%q}: the push service says its subscription is gone"
+func RelayPushGone(ip, world any) string {
+	return get("relay.push_gone", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayPushRefused is relay.push_refused: "refused a push subscription from {ip}: {host:%q} isn't a push service"
+func RelayPushRefused(ip, host any) string {
+	return get("relay.push_refused", map[string]any{"ip": ip, "host": host})
+}
+
 // RelayPushStatus is relay.push_status: "the push service answered {status:%q}"
 func RelayPushStatus(status any) string {
 	return get("relay.push_status", map[string]any{"status": status})
+}
+
+// RelayPushed is relay.pushed: "pushed {ip} → {world:%q}"
+func RelayPushed(ip, world any) string {
+	return get("relay.pushed", map[string]any{"ip": ip, "world": world})
 }
 
 // RelayRefusedBadCert is relay.refused_bad_cert: "refused {ip} → {world:%q}: certificate: {err}"

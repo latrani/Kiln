@@ -72,6 +72,10 @@ hold = "24h"
 short_hold = "10m"
 max_buffer_mb = 4
 max_total_buffer_mb = 256
+# Push notifications while a player is away (below). Leave both out for
+# none.
+vapid_key = "/run/credentials/kiln-relay.service/vapid.pem"
+push_contact = "https://muck.example.org"
 
 [[world]]
 host = "muck.example.org"
@@ -129,6 +133,42 @@ locking doesn't close the tab, so those keep the full hold.
   says the relay let go, and does what the character's `reconnect`
   setting says.
 - Restarting the relay lets every held connection go.
+
+## Push notifications
+
+While a connection is held, the relay can tell the player's browser
+that something happened: one push the first time the world sends
+anything after the page went away, then no more until the player has
+come back and gone away again. The push carries nothing from the world,
+not even which character; the browser shows "activity while you were
+away", and tapping it opens Kiln. Kiln only asks for it for characters
+whose `notify` isn't `"none"`, once the player has allowed
+notifications.
+
+Desktop browsers and Android take it from a normal tab. iPhones and
+iPads ignore it until Kiln can be added to the Home Screen (#176).
+
+To turn it on, make the relay a key (a VAPID key, which push services
+use to check pushes come from the same sender each time), readable only
+by root:
+
+```sh
+sudo sh -c 'umask 077 && openssl ecparam -name prime256v1 -genkey -noout \
+  | openssl pkcs8 -topk8 -nocrypt -out /etc/kiln-relay/vapid.pem'
+```
+
+systemd hands it to the relay (`LoadCredential` in the unit below), at
+`/run/credentials/kiln-relay.service/vapid.pem`. Name that in
+`relay.toml` with `vapid_key` (a relative path is taken from the file's
+directory), along with `push_contact`: a web page or `mailto:` address where a push
+service can reach you about your relay's pushes. Apple refuses pushes
+whose contact isn't a real `https:` or `mailto:` address.
+
+- The relay posts to the browsers' push services (Google's, Mozilla's,
+  Apple's and Microsoft's), so its host needs outbound HTTPS to them.
+  It posts nowhere else, whatever a page asks.
+- Changing the key ends every player's subscription; each browser
+  subscribes again the next time Kiln loads in it.
 
 ## TLS trust
 
@@ -206,6 +246,7 @@ After=network-online.target
 [Service]
 ExecStart=/home/linuxbrew/.linuxbrew/bin/kiln-relay -config /etc/kiln-relay/relay.toml -web /home/linuxbrew/.linuxbrew/share/kiln/web -preset /etc/kiln-relay/preset
 DynamicUser=yes
+LoadCredential=vapid.pem:/etc/kiln-relay/vapid.pem
 LimitCORE=0
 Restart=on-failure
 
@@ -216,7 +257,9 @@ WantedBy=multi-user.target
 Write your own `brew --prefix` in place of `/home/linuxbrew/.linuxbrew`:
 systemd doesn't expand it. With `DynamicUser`, the relay runs as a user
 made up for it, so `/etc/kiln-relay` and what's in it must be readable
-by anyone (the usual 755 and 644), and so must the page under brew's
+by anyone (the usual 755 and 644), apart from the push key, which
+`LoadCredential` passes along (leave that line out without one), and so
+must the page under brew's
 prefix. If the prefix is in a home folder that others can't enter (newer
 Ubuntu makes them 750), let them through it: `sudo chmod o+x
 /home/linuxbrew`.

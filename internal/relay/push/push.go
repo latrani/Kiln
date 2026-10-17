@@ -25,7 +25,7 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// Hosts are the push services the relay will post to: exact hosts, or,
+// Hosts are the push services the relay posts to by default: exact hosts, or,
 // with a leading dot, any host ending in it. A page names the endpoint,
 // so anything else would let it point the relay at any URL.
 var Hosts = []string{
@@ -64,9 +64,9 @@ func PublicKey(k *ecdsa.PrivateKey) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// Allowed reports whether endpoint is an https URL on one of Hosts, on
-// the default port, and not too long.
-func Allowed(endpoint string) bool {
+// Allowed reports whether endpoint is an https URL on one of hosts (as
+// Hosts says them), and not too long.
+func Allowed(endpoint string, hosts []string) bool {
 	if len(endpoint) > MaxEndpoint {
 		return false
 	}
@@ -75,7 +75,7 @@ func Allowed(endpoint string) bool {
 		return false
 	}
 	h := strings.ToLower(u.Hostname())
-	for _, ok := range Hosts {
+	for _, ok := range hosts {
 		if h == ok || strings.HasPrefix(ok, ".") && strings.HasSuffix(h, ok) && len(h) > len(ok) {
 			return true
 		}

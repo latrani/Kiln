@@ -68,7 +68,7 @@ func TestAllowed(t *testing.T) {
 		"https://web.push.apple.com/x",
 		"https://db5p.notify.windows.com/w/?token=x",
 	} {
-		if !Allowed(e) {
+		if !Allowed(e, Hosts) {
 			t.Errorf("Allowed(%q) = false", e)
 		}
 	}
@@ -81,14 +81,13 @@ func TestAllowed(t *testing.T) {
 		"https://fcm.googleapis.com/" + strings.Repeat("x", 2049-len("https://fcm.googleapis.com/")),
 		"",
 	} {
-		if Allowed(e) {
+		if Allowed(e, Hosts) {
 			t.Errorf("Allowed(%.60q) = true", e)
 		}
 	}
 }
 
-// pushServer is a push service under test: Hosts names it, and its
-// client trusts it. It answers status and hands each request to seen.
+// pushServer is a push service under test, and a client that trusts it. It answers status and hands each request to seen.
 func pushServer(t *testing.T, status int, seen func(*http.Request, []byte)) (*httptest.Server, *http.Client) {
 	t.Helper()
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -97,9 +96,6 @@ func pushServer(t *testing.T, status int, seen func(*http.Request, []byte)) (*ht
 		w.WriteHeader(status)
 	}))
 	t.Cleanup(srv.Close)
-	old := Hosts
-	Hosts = []string{"127.0.0.1"}
-	t.Cleanup(func() { Hosts = old })
 	return srv, srv.Client()
 }
 

@@ -43,6 +43,7 @@ const (
 	Resume = "resume" //str:ok protocol token: Token, Got (down bytes received)
 	Ping   = "ping"   //str:ok protocol token
 	Close  = "close"  //str:ok protocol token: let the world go now
+	Push   = "push"   //str:ok protocol token: Endpoint, where to push while held ("" for nowhere)
 	// Both ways.
 	Ack = "ack" //str:ok protocol token: Got
 )
@@ -56,6 +57,8 @@ type Msg struct {
 	Lines int    `json:"lines,omitempty"`
 	Away  int64  `json:"away,omitempty"`
 	Why   string `json:"why,omitempty"`
+	// Endpoint is a Web Push subscription's endpoint URL.
+	Endpoint string `json:"endpoint,omitempty"`
 }
 
 // A side acks once AckBytes are unacknowledged, or AckEvery after the
