@@ -95,9 +95,10 @@ func run(k js.Value, p page) error {
 		return err
 	}
 	// Held connections to pick back up in this tab, saved beside the logs.
-	held := resume.Open(filepath.Join(dataDir, "relay.json"), p.saving) //str:ok
-	k.Set("synced", js.FuncOf(func(_ js.Value, a []js.Value) any { held.Synced(a[0].String()); return nil })) //str:ok
-	k.Set("tokens", js.FuncOf(func(js.Value, []js.Value) any { //str:ok
+	held := resume.Open(filepath.Join(dataDir, "relay.json"), p.saving)                                        //str:ok
+	k.Set("synced", js.FuncOf(func(_ js.Value, a []js.Value) any { held.Synced(a[0].String()); return nil }))  //str:ok
+	k.Set("push", js.FuncOf(func(_ js.Value, a []js.Value) any { wsdial.SetPush(a[0].String()); return nil })) //str:ok
+	k.Set("tokens", js.FuncOf(func(js.Value, []js.Value) any {                                                 //str:ok
 		var out []any
 		for _, t := range wsdial.Tokens() {
 			out = append(out, t)
