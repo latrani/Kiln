@@ -1414,6 +1414,3 @@ func WebTitleUnread(n int) string { return get("web.title_unread", map[string]an
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }
-
-// WebUseHereWarning is web.use_here_warning: "This will disconnect your existing session."
-func WebUseHereWarning() string { return get("web.use_here_warning", nil) }

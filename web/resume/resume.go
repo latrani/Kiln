@@ -189,6 +189,7 @@ func (s *Store) Dial(ctx context.Context, relayURL, key string, ch config.Charac
 	}
 	if !saved {
 		s.Put(key, Entry{Token: link.Token()})
+		s.Sync() // now, not at the next tick: a reload soon after can resume
 	}
 	s.mu.Lock()
 	s.links[key] = link

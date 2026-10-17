@@ -115,11 +115,14 @@ export function download(name: string, bytes: Uint8Array): void {
 export async function boot(store: Store): Promise<void> {
   const g = globalThis as any;
   let persist: any = null;
+  // handingOff: Kiln is going to another tab, which picks the characters
+  // up, so leaving mustn't tell the relay to let them go.
+  let handingOff = false;
   // The tab lock. Without Web Locks (not a secure context), every tab runs.
   const lock = navigator.locks && createTabLock({
     locks: navigator.locks,
     openChannel: () => new BroadcastChannel("kiln"),
-    onLost: () => { persist?.stop(); location.reload(); },
+    onLost: () => { handingOff = true; g.kiln?.detachLinks?.(); persist?.stop(); location.reload(); },
   });
   if (lock && !(await lock.tryTake())) {
     await new Promise<void>((ok) => {
@@ -136,7 +139,9 @@ export async function boot(store: Store): Promise<void> {
   store.set({ phase: "loading", progress: { got: 0 } });
 
   let saving = true;
-  const fs = createFS({ onChange: (p: string) => persist?.changed(p), onSync: () => persist?.flush() });
+  // A sync saves now; Go hears when it has landed (synced), which is when
+  // it may tell the relay it can forget what it sent (resume.Store).
+  const fs = createFS({ onChange: (p: string) => persist?.changed(p), onSync: (p: string) => persist?.flush().then(() => g.kiln?.synced?.(p)) });
   try {
     const db = idbStore(indexedDB);
     await db.open();
@@ -180,7 +185,9 @@ export async function boot(store: Store): Promise<void> {
   // seeds a first visit's files. Saving stops first, so nothing written on
   // the way out (drafts, at pagehide) comes back. A handoff to another
   // tab waits out the wipe (reset.ts).
-  const resets = resetter({ wipe: async () => { await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
+  // A reset lets every character go first: nothing will be left to pick
+  // them back up.
+  const resets = resetter({ wipe: async () => { g.kiln?.closeLinks?.(); await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
   store.set({ reset: resets.reset });
   // dropLinks kills the WebSockets to the relay without a word, as a dying
   // network does; Kiln resumes them.
@@ -189,7 +196,9 @@ export async function boot(store: Store): Promise<void> {
   const saveDrafts = () => act({ Do: "save_drafts" });
   // Another tab taking over: save drafts first (Go writes and syncs the
   // file before kiln.act returns), then hand the files over.
-  lock?.serve(async () => { await resets.leave(); saveDrafts(); await persist?.handOff(); }, () => location.reload());
+  // Its characters go with it: the links let go of their sockets before
+  // the last save, so nothing read after it can be acked to the relay.
+  lock?.serve(async () => { handingOff = true; g.kiln?.detachLinks?.(); await resets.leave(); saveDrafts(); await persist?.handOff(); }, () => location.reload());
 
   // Leaving the tab (another tab or app, the phone locking): save drafts,
   // so iOS killing the tab in the background loses nothing typed. Like
@@ -197,6 +206,13 @@ export async function boot(store: Store): Promise<void> {
   const leaving = () => { saveDrafts(); persist?.flush(); };
   addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") leaving(); });
   addEventListener("pagehide", leaving);
+  // A page really closing (not into the back-forward cache, not handing
+  // off) tells the relay to let its characters go soon; a reload picks
+  // them up again first.
+  addEventListener("pagehide", (e) => {
+    const tokens: string[] = g.kiln?.tokens?.() ?? [];
+    if (!e.persisted && !handingOff && tokens.length) navigator.sendBeacon(new URL("relay?short=1", location.href), tokens.join("\n"));
+  });
   // Back in view: a socket a suspended tab left can look open but be dead,
   // so Go checks each and resumes any that doesn't answer.
   addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") g.kiln?.wake?.(); });

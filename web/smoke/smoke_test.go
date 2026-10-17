@@ -278,11 +278,10 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `window.kilnGlyphs === ""`, "every glyph one cell wide")
 
 	// A second tab finds Kiln open in the first and says so, with Use
-	// here and what it costs, drawn in the first tab's theme; taking over
+	// here, drawn in the first tab's theme; taking over
 	// leaves the first tab saying so in turn.
 	ev2 := evaluator(t, another())
 	waitFor(t, ev2, `[...document.querySelectorAll("main button")].some(b => b.textContent === `+jsString(str.WebUseHere())+`)`, "the second tab offering to take over")
-	waitFor(t, ev2, `document.querySelector("main.splash").textContent.includes(`+jsString(str.WebUseHereWarning())+`)`, "the second tab warning what taking over costs")
 	if bg, bg2 := ev(`getComputedStyle(document.body).backgroundColor`), ev2(`getComputedStyle(document.body).backgroundColor`); bg != bg2 {
 		t.Errorf("the second tab's background is %s, not the first tab's %s", bg2, bg)
 	}
@@ -375,8 +374,12 @@ func buildPage(t *testing.T, root string) string {
 // fakeMuck serves TLS on a free port with a self-signed certificate:
 // a greeting, then `You say, "L"` for each line L. It returns the port
 // and the certificate's pin.
-// muckAccepts counts the connections fake MUCKs have taken.
-var muckAccepts atomic.Int32
+// muckAccepts counts the connections fake MUCKs have taken, and
+// muckEnded those that have ended.
+var muckAccepts, muckEnded atomic.Int32
+
+// relaySettings go at the top of the next launch's relay.toml.
+var relaySettings string
 
 func fakeMuck(t *testing.T) (port int, pin string) {
 	t.Helper()
@@ -405,6 +408,7 @@ func fakeMuck(t *testing.T) (port int, pin string) {
 			}
 			muckAccepts.Add(1)
 			go func() {
+				defer muckEnded.Add(1)
 				defer c.Close()
 				fmt.Fprint(c, "Welcome to the fake MUCK\r\n")
 				sc := bufio.NewScanner(c)
@@ -463,7 +467,7 @@ func config(t *testing.T, port int, pin string) (preset, cfg string) {
 		t.Fatal(err)
 	}
 	cfg = filepath.Join(dir, "relay.toml")
-	if err := os.WriteFile(cfg, fmt.Appendf(nil, "[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\npin = %q\n", port, pin), 0o644); err != nil {
+	if err := os.WriteFile(cfg, fmt.Appendf(nil, "%s[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\npin = %q\n", relaySettings, port, pin), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return preset, cfg
