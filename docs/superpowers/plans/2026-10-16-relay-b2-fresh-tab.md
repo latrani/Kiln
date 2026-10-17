@@ -27,7 +27,7 @@
 - **Log first, then `relay.json`, in the same Go stretch.** The session appends the line to the log, then calls `Keep(off)`, which rewrites `relay.json` in memfs. memfs calls back synchronously, so Go doesn't yield between the two writes and no `persist` flush can split them: whatever IndexedDB has, its saved offset matches its last saved line.
 - **Knowing a save landed.** Once a second, if a kept offset moved, Go writes `relay.json` and fsyncs it. memfs's `onSync` makes `persist` flush, and the page then calls `kiln.synced(path)`. Flushes resolve in order, so each `synced` for `relay.json` matches the oldest queued snapshot, and its offsets go to the relay as acks. With saving off (no IndexedDB), `onSync` calls `kiln.synced` at once.
 - **Telnet state** (`telnet.State`: NAWS agreed, CHARSET will/do, UTF-8) is saved with each kept offset and restored in the fresh tab's parser. While a connection is held, nobody answers the MUCK's telnet requests: Fuzzball negotiates at connect, and a request that arrives while held is answered late when the page reads it. The relay doesn't answer for the page.
-- **Handoff:** the old tab, before `persist.handOff()`, detaches every link (sockets closed without `close`, no resuming, no more acks or keeps), so nothing it reads after the final flush can be acked. The new tab loads after the handoff and resumes. `web.use_here_warning` goes (#184).
+- **Handoff:** the old tab, before `persist.handOff()`, detaches every link (sockets closed without `close`, no resuming, no more acks), so nothing it reads after the final flush can be acked. The new tab loads after the handoff and resumes. `web.use_here_warning` goes (#184).
 - **`/reset`** closes every link explicitly (the relay lets go now) before the wipe.
 - **The beacon:** `POST <relay>?short=1`, body the tokens one per line (at most 64 KiB), answered 204. The token is the authority; no Origin check. A shortened hold that's resumed goes back to the full `hold` for its next detach.
 - **A dead token at boot** (the hold ran out, the relay restarted): the resume's `ErrLetGo` is the dial error, the entry is deleted, and the session's `reconnect` setting decides, as for any failed connect.
@@ -96,7 +96,7 @@
   - `type Options struct { TLS bool; Durable bool; Resume *Held }`, `type Held struct { Token string; Kept int64 }`.
   - `func Dial(ctx context.Context, relayURL, addr string, o Options) (*Link, error)`: opens a new connection, or with `Resume` resumes that hold from `Kept` (a fresh tab). `Dialer(relayURL, tls)` stays, as `Dial` with neither option.
   - `type Link` (was `link`) with `Token() string`, `Kept(off int64)` (ack up to `off`; only `Durable` links wait for it, others ack on receipt as in B1), `Resumed() bool` (it picked up a hold rather than opening one), `OnEnd(func(error))` (the link ended for good: closed, let go, replaced, the world gone; not on `DetachAll`).
-  - `func DetachAll()`: close every socket without `close`, stop resuming, acking and keeping; links read as ended with `net.ErrClosed` and never call `OnEnd`.
+  - `func DetachAll()`: close every socket without `close`, stop resuming and acking (lines already read are still logged and kept before the handoff's last save); links read as ended with an error that says `Detached`, and never call `OnEnd`.
   - `func CloseAll()`: `Close` every link (the relay lets go now).
   - `func Tokens() []string`: live links' tokens.
   - Records get `End` set from the link's received offset.

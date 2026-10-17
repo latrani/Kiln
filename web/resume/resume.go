@@ -73,6 +73,18 @@ func (s *Store) Get(key string) (Entry, bool) {
 	return e, ok
 }
 
+// Prune deletes the entries of characters that no longer exist (exists
+// says which do): nothing would ever dial them.
+func (s *Store) Prune(exists func(key string) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k := range s.m {
+		if !exists(k) {
+			s.deleteLocked(k, "")
+		}
+	}
+}
+
 // Put saves e for key in the file (the browser saves it later; Sync says
 // when).
 func (s *Store) Put(key string, e Entry) {

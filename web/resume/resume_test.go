@@ -374,3 +374,16 @@ func TestSavingOffAcksWhatWaits(t *testing.T) {
 		t.Errorf("after saving stopped, the relay still had %q", r)
 	}
 }
+
+// Entries for characters that no longer exist go, rather than being read
+// at every start.
+func TestPruneDropsGoneCharacters(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "relay.json")
+	s := Open(path, true)
+	s.Put("fm/kit", Entry{Token: "t"})
+	s.Put("fm/ash", Entry{Token: "u"})
+	s.Prune(func(key string) bool { return key == "fm/kit" })
+	if keys := Open(path, true).Keys(); len(keys) != 1 || keys[0] != "fm/kit" {
+		t.Errorf("keys after pruning %q, want just fm/kit", keys)
+	}
+}

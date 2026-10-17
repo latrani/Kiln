@@ -141,6 +141,11 @@ func run(k js.Value, p page) error {
 		Password: func(string, string, string) (string, error) { return "", secrets.ErrNotFound },
 	})
 	a.ApplyConfig(cfg)
+	chars := map[string]bool{}
+	for _, ch := range a.AllChars() {
+		chars[app.Key(ch.World, ch.ID)] = true
+	}
+	held.Prune(func(k string) bool { return chars[k] })
 	l := webapi.New(a, func(b []byte) { p.onBatch.Invoke(string(b)) })
 	k.Set("act", js.FuncOf(func(_ js.Value, v []js.Value) any { //str:ok
 		l.Act([]byte(v[0].String()))
