@@ -267,7 +267,7 @@ away = "away until your next key or click"
 theme_not_loaded = "theme not loaded: {err}"
 
 [scrollback]
-history_ends = "─── history ends {when} ───"
+history_ends = "─── this Kiln session started {when} ───"
 loading = "─── loading older history… ───"
 
 [sidebar]

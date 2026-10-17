@@ -149,11 +149,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	h := s.hold(ip, addr, tc)
 	s.logf(str.RelayOpened(ip, addr))
-	if err := c.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Open, Token: h.token})); err != nil {
-		h.finish(false)
-		return
-	}
-	h.attach(c, ip, 0, false)
+	h.attach(c, ip, 0, false) // sends the open message once c is attached
 }
 
 // handshake runs TLS over nc with the world, trusting it as its config

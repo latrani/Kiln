@@ -882,7 +882,7 @@ func RelayServingPage(url any) string { return get("relay.serving_page", map[str
 // RelayWatchFailed is relay.watch_failed: "watching the config: {err}"
 func RelayWatchFailed(err error) string { return get("relay.watch_failed", map[string]any{"err": err}) }
 
-// ScrollbackHistoryEnds is scrollback.history_ends: "─── history ends {when} ───"
+// ScrollbackHistoryEnds is scrollback.history_ends: "─── this Kiln session started {when} ───"
 func ScrollbackHistoryEnds(when any) string {
 	return get("scrollback.history_ends", map[string]any{"when": when})
 }

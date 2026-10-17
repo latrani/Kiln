@@ -161,7 +161,8 @@ func (h *held) droppedLocked(before int) {
 func (h *held) ipLocked() netip.Addr { return h.ip }
 
 // attach carries h over c, from ip, for a page that has received got
-// bytes, until c ends. resumed says it's a resume (not the first).
+// bytes, until c ends. resumed says it's a resume; otherwise attach
+// sends the open message, with the token, first.
 func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool) {
 	s := h.s
 	ctx, cancel := context.WithCancel(context.Background())
@@ -202,6 +203,14 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 	h.upMu.Lock()
 	up := h.up
 	h.upMu.Unlock()
+	if !resumed {
+		// The token goes out only now that c is attached, so a page
+		// resuming the moment it has it replaces c, not the other way.
+		if c.Write(ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Open, Token: h.token})) != nil {
+			h.finish(false)
+			return
+		}
+	}
 	if resumed {
 		if c.Write(ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Resumed, Got: up, At: end, Away: away.Milliseconds()})) != nil {
 			h.detach(a)

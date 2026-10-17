@@ -729,3 +729,20 @@ func TestLateBeaconAfterResume(t *testing.T) {
 		t.Error("a late beacon shortened the resumed page's hold")
 	}
 }
+
+// A page that resumes the moment it has its token (it can't sooner) must
+// win: the relay attaches the first socket before it hands the token out.
+func TestResumeRightAfterOpenWins(t *testing.T) {
+	m := newMuck(t)
+	_, base, _ := holdRelay(t, m, "max_per_ip = 100\n")
+	for range 30 {
+		p := openPage(t, base, m.port)
+		w := m.conn(t)
+		q := resumePage(t, base, p.token, 0, "")
+		q.expect(wire.Resumed)
+		w.Write([]byte("hi\r\n"))
+		if d, _ := q.data(4); d != "hi\r\n" {
+			t.Fatalf("the resumed page got %q", d)
+		}
+	}
+}
