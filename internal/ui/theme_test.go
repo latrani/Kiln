@@ -750,7 +750,7 @@ func TestDayDividersRepaintAndAreNotTheNewestLine(t *testing.T) {
 	day := theme.Active().SGR(theme.ScrollbackDay)
 	n := 0
 	for _, l := range cs.sb.lines {
-		if strings.HasPrefix(ansi.Strip(l.text), "── ") { // not "─── history ends"
+		if strings.HasPrefix(ansi.Strip(l.text), "── ") { // not "─── this Kiln session started"
 			n++
 			if !strings.HasPrefix(l.text, day) {
 				t.Errorf("divider %q kept the old style", l.text)
