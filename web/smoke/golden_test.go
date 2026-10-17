@@ -217,6 +217,10 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 	} else {
 		waitFor(t, s.ev, `document.querySelector('.bottom input[type="password"]')`, "the password field")
 	}
+	// Kit's login can be sent before the app has taken the connect in,
+	// which is when it stamps "Connected since": wait for that, or the
+	// stamp can land after the clock moves on.
+	waitFor(t, s.ev, `document.body.textContent.includes(`+jsString(upTo(str.ViewConnectedSince(mark)))+`)`, "Kit connected")
 	s.clock.Advance(time.Minute)
 	s.ev(`kilnPage.act({Do: "here"})`)
 	waitFor(t, s.ev, `document.querySelector("main .scroll")`, "the main screen")
