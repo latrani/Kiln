@@ -63,8 +63,8 @@ cleanly: no aliases for old names, no migrations, no "renamed to" hints.
 ## Names
 
 The repo never uses real people's or real characters' names. In tests,
-docs and examples, the characters are Kit, Rook and Ash, and the world
-is `fm`.
+docs and examples, the characters are Kit, Rook, Ash, Mira and Sable,
+and the world is `fm`.
 
 ## Trying Kiln
 
