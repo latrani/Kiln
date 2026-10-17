@@ -447,16 +447,32 @@ func fill(w *mconn, n int) {
 	}
 }
 
+// tookIn waits until the hold token has taken in n bytes from its world:
+// written isn't read, and a slow machine reads behind.
+func tookIn(t *testing.T, s *Server, token string, n int64) {
+	t.Helper()
+	eventually(t, "never took it all in", func() bool { return bufState(s, token, func(b *buffer) bool { return b.end() == n }) })
+}
+
+// bufState is ok of the hold token's buffer, under its lock.
+func bufState(s *Server, token string, ok func(*buffer) bool) bool {
+	s.mu.Lock()
+	h := s.holds[token]
+	s.mu.Unlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return ok(&h.buf)
+}
+
 func TestBufferCapDropsOldest(t *testing.T) {
 	m := newMuck(t)
-	_, base, logs := holdRelay(t, m, "max_buffer_mb = 1\n")
+	s, base, logs := holdRelay(t, m, "max_buffer_mb = 1\n")
 	p := openPage(t, base, m.port)
 	w := m.conn(t)
 	p.c.CloseNow()
 	eventually(t, "never held", func() bool { return logs.has(str.RelayHeld(local, m.addr())) })
 	fill(w, 2<<20)
-	eventually(t, "never dropped", func() bool { return logs.has(str.RelayDropping(local, m.addr())) })
-	time.Sleep(100 * time.Millisecond) // let the rest arrive
+	tookIn(t, s, p.token, 2<<20)
 	q := resumePage(t, base, p.token, 0, "")
 	q.expect(wire.Resumed)
 	missed := q.expect(wire.Missed)
@@ -477,7 +493,7 @@ func TestBufferCapDropsOldest(t *testing.T) {
 
 func TestTotalCapDropsFromTheBiggest(t *testing.T) {
 	m := newMuck(t)
-	_, base, logs := holdRelay(t, m, "max_buffer_mb = 4\nmax_total_buffer_mb = 3\n")
+	s, base, logs := holdRelay(t, m, "max_buffer_mb = 4\nmax_total_buffer_mb = 3\n")
 	small := openPage(t, base, m.port)
 	ws := m.conn(t)
 	big := openPage(t, base, m.port)
@@ -486,10 +502,10 @@ func TestTotalCapDropsFromTheBiggest(t *testing.T) {
 	big.c.CloseNow()
 	eventually(t, "never held", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
 	fill(ws, 1<<20)
-	time.Sleep(100 * time.Millisecond)
+	tookIn(t, s, small.token, 1<<20)
 	fill(wb, 3<<20)
+	tookIn(t, s, big.token, 3<<20)
 	eventually(t, "never dropped", func() bool { return logs.has(str.RelayDropping(local, m.addr())) })
-	time.Sleep(100 * time.Millisecond)
 	q := resumePage(t, base, small.token, 0, "")
 	q.expect(wire.Resumed)
 	if f := q.next(); !f.isData() {
@@ -697,13 +713,13 @@ func TestBeaconIgnoresUnknownTokens(t *testing.T) {
 // right.
 func TestResumeBehindTheBufferSaysWhere(t *testing.T) {
 	m := newMuck(t)
-	_, base, _ := holdRelay(t, m, "")
+	s, base, _ := holdRelay(t, m, "")
 	p := openPage(t, base, m.port)
 	w := m.conn(t)
 	w.Write([]byte("one\r\n"))
 	p.data(5)
 	p.send(wire.Msg{T: wire.Ack, Got: 5})
-	time.Sleep(100 * time.Millisecond)
+	eventually(t, "the ack never landed", func() bool { return bufState(s, p.token, func(b *buffer) bool { return b.size() == 0 }) })
 	p.c.CloseNow()
 	q := resumePage(t, base, p.token, 0, "")
 	q.expect(wire.Resumed)
