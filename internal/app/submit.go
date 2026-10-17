@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/latrani/Kiln/internal/config"
@@ -306,31 +307,39 @@ func (a *App) Submit() (SubmitResult, []Effect) {
 		}
 		return SubmitResult{}, a.Connect(c.Key)
 	}
+	// Each line is its own input: a command runs, and anything else is
+	// sent. With newline_mode "flatten" the lines are joined into one.
 	text := c.Text
-	if isCommand(text) {
-		c.History.Add(text, a.d.Now())
-		c.Text = ""
-		return SubmitResult{}, a.command(c, text)
+	lines := strings.Split(text, "\n")
+	if c.Ch.NewlineMode == "flatten" {
+		lines = []string{strings.Join(lines, " ")}
 	}
-	if c.Sess == nil || c.State != session.Connected {
+	sends := slices.ContainsFunc(lines, func(l string) bool { return !isCommand(l) })
+	if sends && (c.Sess == nil || c.State != session.Connected) {
 		a.SetStatus(true, str.StatusNotConnected(c.Ch.Name))
 		return SubmitResult{}, nil
 	}
-	flatten := c.Ch.NewlineMode == "flatten"
-	if OverLimit(text, c.Ch) && text != a.confirm {
+	if sends && OverLimit(text, c.Ch) && text != a.confirm {
 		a.confirm = text
 		a.SetStatus(true, str.StatusOverLimit(c.Ch.MaxLineBytes))
 		return SubmitResult{}, nil
 	}
 	a.confirm = ""
-	lines := strings.Split(strings.TrimPrefix(text, "/"), "\n") // "//foo" sends "/foo"
-	if flatten {
-		lines = []string{strings.Join(lines, " ")}
-	}
-	res := SubmitResult{Sent: true}
-	secret := false
+	c.Text = ""
+	var res SubmitResult
+	var effs []Effect
 	for _, line := range lines {
-		e, err := c.Sess.Send(line)
+		if isCommand(line) {
+			c.History.Add(line, a.d.Now())
+			effs = append(effs, a.command(c, line)...)
+			continue
+		}
+		if c.Sess == nil || c.State != session.Connected { // a command before it disconnected
+			a.SetStatus(true, str.StatusNotConnected(c.Ch.Name))
+			break
+		}
+		out := strings.TrimPrefix(line, "/") // "//foo" sends "/foo"
+		e, err := c.Sess.Send(out)
 		if err != nil && !isLogErr(err) {
 			a.SetStatus(true, str.StatusNotSent(err))
 			break
@@ -338,14 +347,13 @@ func (a *App) Submit() (SubmitResult, []Effect) {
 		if err != nil {
 			a.SetStatus(true, err.Error())
 		}
-		secret = secret || e.Text != line // the session redacted a typed password
+		if e.Text == out { // unless the session redacted a typed password
+			c.History.Add(line, a.d.Now())
+		}
+		res.Sent = true
 		res.Echoed = a.Echo(c.Key, e) != nil
 	}
-	if !secret {
-		c.History.Add(text, a.d.Now())
-	}
-	c.Text = ""
-	return res, nil
+	return res, effs
 }
 
 // command runs a slash command. text is the whole input line, so commands

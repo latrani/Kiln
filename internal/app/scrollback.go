@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strings"
 	"time"
 
 	"github.com/latrani/Kiln/internal/history"
@@ -164,12 +165,17 @@ func (a *App) LastTime(k string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// sentOf is what es records as sent, oldest first, but login lines.
+// sentOf is what es records as sent, oldest first, but login lines, each
+// as it was typed: a line sent starting with "/" was typed with "//".
 func sentOf(es []logstore.Entry, isLogin func(string) bool) []Sent {
 	var out []Sent
 	for _, e := range es {
 		if e.Dir == logstore.Out && !isLogin(e.Text) {
-			out = append(out, Sent{Text: e.Text, At: e.Time})
+			text := e.Text
+			if strings.HasPrefix(text, "/") {
+				text = "/" + text
+			}
+			out = append(out, Sent{Text: text, At: e.Time})
 		}
 	}
 	return out

@@ -57,7 +57,35 @@ func TestSubmitSendsAndRecords(t *testing.T) {
 	}
 	kit := a.Char("fm/kit")
 	if kit.Text != "" || !slices.Equal(kit.History.Lines(), []string{"//foo"}) {
-		t.Errorf("after sending: text %q history %q", kit.Text, kit.History.Lines())
+		t.Errorf("after sending: text %q history %q; want it as typed", kit.Text, kit.History.Lines())
+	}
+}
+
+// Each line of a multi-line input is its own: a command runs, the rest
+// are sent, and each is its own history line.
+func TestSubmitTakesEachLine(t *testing.T) {
+	a, c, _ := submitApp(t, fmWorld)
+	a.SetInput("//foo\nwave\n/frob")
+	if res, _ := a.Submit(); !res.Sent || !slices.Equal(c.Sent(), []string{"/foo", "wave"}) {
+		t.Errorf("sent %q, result %+v", c.Sent(), res)
+	}
+	if a.Status().Text != str.StatusUnknownCommand("/frob") {
+		t.Errorf("status %q; want /frob run as a command", a.Status().Text)
+	}
+	if got := a.Char("fm/kit").History.Lines(); !slices.Equal(got, []string{"//foo", "wave", "/frob"}) {
+		t.Errorf("history %q", got)
+	}
+}
+
+func TestSubmitFlattenIsOneLine(t *testing.T) {
+	a, c, _ := submitApp(t, strings.Replace(fmWorld, "tls = true\n", "tls = true\nnewline_mode = \"flatten\"\n", 1))
+	a.SetInput("wave\n/frob")
+	a.Submit()
+	if !slices.Equal(c.Sent(), []string{"wave /frob"}) {
+		t.Errorf("sent %q", c.Sent())
+	}
+	if got := a.Char("fm/kit").History.Lines(); !slices.Equal(got, []string{"wave /frob"}) {
+		t.Errorf("history %q", got)
 	}
 }
 
