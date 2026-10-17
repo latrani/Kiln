@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the page into web/static: kiln.wasm and Go's matching
-# wasm_exec.js, then the page itself from web/ui (app.js, app.css, the
+# wasm_exec.js, then the page itself from web/ui (app.js, app.css, sw.js, the
 # fonts and index.html).
 set -eu
 cd "$(dirname "$0")"

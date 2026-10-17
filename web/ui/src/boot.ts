@@ -6,7 +6,8 @@
 import { createFS } from "../../static/memfs.mjs";
 import { createPersist, idbStore } from "../../static/persist.mjs";
 import { createTabLock } from "../../static/tablock.mjs";
-import { forgetAsked } from "./notify.ts";
+import { forgetAsked, permission } from "./notify.ts";
+import * as push from "./push.ts";
 import { resetter } from "./reset.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -188,7 +189,8 @@ export async function boot(store: Store): Promise<void> {
   // tab waits out the wipe (reset.ts).
   // A reset lets every character go first: nothing will be left to pick
   // them back up.
-  const resets = resetter({ wipe: async () => { g.kiln?.closeLinks?.(); await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
+  // It ends the push subscription too: nothing's left to push about.
+  const resets = resetter({ wipe: async () => { g.kiln?.closeLinks?.(); await push.unsubscribe(navigator.serviceWorker); await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
   store.set({ reset: resets.reset });
   // dropLinks kills the WebSockets to the relay without a word, as a dying
   // network does; Kiln resumes them.
@@ -243,9 +245,14 @@ export async function boot(store: Store): Promise<void> {
       store.set({}); // draw the typing where it went
     }
   };
+  // Pushes while away, once notifications are allowed: now, or when the
+  // player allows them (notify.ask).
+  const subscribe = () => push.subscribe({ keyURL: new URL("relay?push_key=1", location.href), sw: navigator.serviceWorker, send: (e) => g.kiln?.push?.(e) });
+  store.set({ subscribe });
   g.kilnReady = () => {
     g.kiln.start(relay.href, onBatch, store.state.saving); // storage may have failed since it loaded
     store.set({ phase: "running", progress: undefined });
+    if (permission() === "granted") subscribe();
   };
 
   const go = new g.Go();

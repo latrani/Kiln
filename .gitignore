@@ -9,6 +9,7 @@
 /web/ui/.test-out/
 /web/static/app.js*
 /web/static/app.css*
+/web/static/sw.js
 /web/static/fonts/
 /web/static/index.html
 /web/smoke/testdata/golden/failed/

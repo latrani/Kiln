@@ -73,3 +73,13 @@ test("without permission nothing shows", () => {
   }
   show(s, { type: "Effect", effect: "Notify", Title: "Kit", Body: "hi" }, undefined);
 });
+
+test("allowing subscribes to pushes; denying doesn't", async () => {
+  for (const [answer, want] of [["granted", 1], ["denied", 0]] as const) {
+    const { s } = running();
+    let subscribed = 0;
+    s.set({ subscribe: () => subscribed++ });
+    await ask(s, fake("default", answer).api);
+    assert.equal(subscribed, want, answer);
+  }
+});

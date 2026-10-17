@@ -1438,6 +1438,12 @@ func WebOtherTab() string { return get("web.other_tab", nil) }
 // WebPicker is web.picker: "Open a connection"
 func WebPicker() string { return get("web.picker", nil) }
 
+// WebPushBody is web.push_body: "activity while you were away"
+func WebPushBody() string { return get("web.push_body", nil) }
+
+// WebPushTitle is web.push_title: "Kiln"
+func WebPushTitle() string { return get("web.push_title", nil) }
+
 // WebReload is web.reload: "Reload"
 func WebReload() string { return get("web.reload", nil) }
 

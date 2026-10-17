@@ -1,5 +1,5 @@
 // Builds the page into an output directory (default ../static): app.js
-// and app.css from src/main.tsx, the fonts and their license, and
+// and app.css from src/main.tsx, sw.js from src/sw.ts, the fonts and their license, and
 // index.html from its template with the catalog's strings filled in.
 // With golden after the directory, the golden page (src/golden.tsx)
 // instead, for web/smoke's screenshots: never shipped.
@@ -26,6 +26,18 @@ await esbuild.build({
   assetNames: "fonts/[name]",
   minify: true,
   sourcemap: true,
+  target: ["es2022"],
+  logLevel: "warning",
+});
+// The service worker (push only), at the page's level so its scope is
+// the page's.
+await esbuild.build({
+  absWorkingDir: here,
+  entryPoints: ["src/sw.ts"],
+  bundle: true,
+  format: "iife",
+  outfile: join(out, "sw.js"),
+  minify: true,
   target: ["es2022"],
   logLevel: "warning",
 });

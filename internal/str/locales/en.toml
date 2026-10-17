@@ -519,6 +519,11 @@ notify_dismiss = "Don't ask about notifications"
 # Said after the click when the browser won't show them.
 notify_denied = "this browser blocks Kiln's notifications: allow them in the site's settings"
 notify_unsupported = "this browser can't show notifications (on an iPhone or iPad, add Kiln to the Home Screen first)"
+# The notification a push from the relay shows: something happened on a
+# held connection while the player was away. It says no more, because
+# the push carries nothing.
+push_title = "Kiln"
+push_body = "activity while you were away"
 # The browser tab's title; with unread lines, how many.
 title = "Kiln"
 title_unread = "({n}) Kiln"
