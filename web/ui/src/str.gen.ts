@@ -647,6 +647,9 @@ export function relayConfigReloadFailed(err: unknown): string { return `config n
 /** relay.config_unknown_key: {path}: unknown setting {key:%q} */
 export function relayConfigUnknownKey(path: unknown, key: unknown): string { return `${path}: unknown setting ${q(key)}`; }
 
+/** relay.dropping: dropping lines {ip} → {world:%q}: buffer full */
+export function relayDropping(ip: unknown, world: unknown): string { return `dropping lines ${ip} → ${q(world)}: buffer full`; }
+
 /** relay.flag_config: the relay's config file (relay.toml) */
 export function relayFlagConfig(): string { return `the relay's config file (relay.toml)`; }
 
@@ -658,6 +661,12 @@ export function relayFlagPreset(): string { return `serve these files at /kiln/p
 
 /** relay.flag_web: serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web) */
 export function relayFlagWeb(): string { return `serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)`; }
+
+/** relay.held: held {ip} → {world:%q} */
+export function relayHeld(ip: unknown, world: unknown): string { return `held ${ip} → ${q(world)}`; }
+
+/** relay.hold_expired: let go {ip} → {world:%q}: held {dur} with no one back */
+export function relayHoldExpired(ip: unknown, world: unknown, dur: unknown): string { return `let go ${ip} → ${q(world)}: held ${dur} with no one back`; }
 
 /** relay.listening: kiln-relay listening on {addr} */
 export function relayListening(addr: unknown): string { return `kiln-relay listening on ${addr}`; }
@@ -680,6 +689,9 @@ export function relayRefusedBadPeer(peer: unknown): string { return `refused ${q
 /** relay.refused_busy: refused {ip} → {world:%q}: relay full (max_conns) */
 export function relayRefusedBusy(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: relay full (max_conns)`; }
 
+/** relay.refused_gone: refused {ip}: no held connection for that token */
+export function relayRefusedGone(ip: unknown): string { return `refused ${ip}: no held connection for that token`; }
+
 /** relay.refused_no_tls: refused {ip} → {world:%q}: client asked for TLS, world is plaintext */
 export function relayRefusedNoTls(ip: unknown, world: unknown): string { return `refused ${ip} → ${q(world)}: client asked for TLS, world is plaintext`; }
 
@@ -691,6 +703,9 @@ export function relayRefusedTooMany(ip: unknown, world: unknown): string { retur
 
 /** relay.refused_unreachable: refused {ip} → {world:%q}: {err} */
 export function relayRefusedUnreachable(ip: unknown, world: unknown, err: unknown): string { return `refused ${ip} → ${q(world)}: ${e(err)}`; }
+
+/** relay.resumed: resumed {ip} → {world:%q} after {away} */
+export function relayResumed(ip: unknown, world: unknown, away: unknown): string { return `resumed ${ip} → ${q(world)} after ${away}`; }
 
 /** relay.serving_page: serving the page at {url} */
 export function relayServingPage(url: unknown): string { return `serving the page at ${url}`; }

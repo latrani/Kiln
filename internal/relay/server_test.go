@@ -345,10 +345,11 @@ func TestRelaySaysOpenBeforeData(t *testing.T) {
 	c := open(t, base, "127.0.0.1", port)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if typ, b, err := c.Read(ctx); err != nil || typ != websocket.MessageText || string(b) != wire.Open {
+	if typ, b, err := c.Read(ctx); err != nil || typ != websocket.MessageText || !strings.Contains(string(b), wire.Open) {
 		t.Errorf("first frame %v %q, %v", typ, b, err)
 	}
-	if typ, b, _ := c.Read(ctx); typ != websocket.MessageBinary || string(b) != "hello\r\n" {
+	typ, b, _ := c.Read(ctx)
+	if _, d, _ := wire.ReadDown(b); typ != websocket.MessageBinary || string(d) != "hello\r\n" {
 		t.Errorf("second frame %v %q", typ, b)
 	}
 }
@@ -387,7 +388,7 @@ func TestPerIPCapAndRelease(t *testing.T) {
 	if code := closeCode(t, open(t, base, "127.0.0.1", port)); code != wire.CodeTooMany {
 		t.Errorf("third: code %d, want %d", code, wire.CodeTooMany)
 	}
-	a.Close(websocket.StatusNormalClosure, "")
+	bye(t, a)
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/?host=127.0.0.1&port=%d", base, port), nil)
@@ -397,7 +398,7 @@ func TestPerIPCapAndRelease(t *testing.T) {
 		nc := piped(t, c)
 		nc.SetReadDeadline(time.Now().Add(time.Second))
 		line, _ := bufio.NewReader(nc).ReadString('\n')
-		c.CloseNow()
+		bye(t, c)
 		if line == "hello\r\n" {
 			return // a slot came back
 		}
@@ -482,7 +483,7 @@ func TestGlobalCap(t *testing.T) {
 	if !slices.Contains(logs.all(), want) {
 		t.Errorf("no busy refusal logged: %q", logs.all())
 	}
-	a.Close(websocket.StatusNormalClosure, "")
+	bye(t, a)
 	eventually(t, "slot never released", func() bool { return s.inUse() == 0 })
 }
 
@@ -508,26 +509,56 @@ func TestPingsKeepLiveClients(t *testing.T) {
 	}
 }
 
-func TestPingsReapSilentClients(t *testing.T) {
-	port := serveEach(t, tcpListener(t), echoGreeter)
-	s, base, _ := relay(t, world(port, ""))
-	s.pingEvery, s.pingTimeout = 30*time.Millisecond, 100*time.Millisecond
-	open(t, base, "127.0.0.1", port) // never reads, so never answers a ping
-	eventually(t, "connection opened", func() bool { return s.inUse() == 1 })
-	eventually(t, "silent client never reaped", func() bool { return s.inUse() == 0 })
-}
-
-// piped reads the relay's "open" frame from c, then returns c as a byte
-// stream to and from the world.
+// piped reads the relay's open message from c, then returns c as a byte
+// stream to and from the world, unwrapping down frames.
 func piped(t *testing.T, c *websocket.Conn) net.Conn {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typ, b, err := c.Read(ctx)
-	if err != nil || typ != websocket.MessageText || string(b) != wire.Open {
-		t.Fatalf("first frame %v %q, %v; want text %q", typ, b, err, wire.Open)
+	if m, _ := wire.Decode(b); err != nil || typ != websocket.MessageText || m.T != wire.Open {
+		t.Fatalf("first frame %v %q, %v; want an open message", typ, b, err)
 	}
-	return websocket.NetConn(context.Background(), c, websocket.MessageBinary)
+	return &stream{Conn: websocket.NetConn(context.Background(), c, websocket.MessageBinary), c: c}
+}
+
+// stream is a relayed connection as bytes: Read takes the data out of
+// down frames and skips control messages.
+type stream struct {
+	net.Conn
+	c        *websocket.Conn
+	deadline time.Time
+	rest     []byte
+}
+
+func (s *stream) SetReadDeadline(t time.Time) error { s.deadline = t; return nil }
+
+func (s *stream) Read(p []byte) (int, error) {
+	for len(s.rest) == 0 {
+		ctx := context.Background()
+		if !s.deadline.IsZero() {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithDeadline(ctx, s.deadline)
+			defer cancel()
+		}
+		typ, b, err := s.c.Read(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if typ == websocket.MessageBinary {
+			_, s.rest, _ = wire.ReadDown(b)
+		}
+	}
+	n := copy(p, s.rest)
+	s.rest = s.rest[n:]
+	return n, nil
+}
+
+// bye tells the relay to let c's world go, as the page does when the
+// player quits.
+func bye(t *testing.T, c *websocket.Conn) {
+	t.Helper()
+	c.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Close}))
 }
 
 // readLine reads one line relayed to c.

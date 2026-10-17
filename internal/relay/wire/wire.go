@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -95,4 +96,75 @@ func ReadDown(b []byte) (at time.Time, p []byte, err error) {
 		return time.Time{}, nil, errShort
 	}
 	return time.UnixMilli(int64(binary.BigEndian.Uint64(b))), b[8:], nil
+}
+
+// An Acker decides when a side acknowledges what it has received: once
+// AckBytes are unacknowledged, or AckEvery after the first unacknowledged
+// byte. Send is called with no lock held.
+type Acker struct {
+	Send func(got int64)
+
+	mu       sync.Mutex
+	got, ack int64
+	t        *time.Timer
+	stopped  bool
+}
+
+// NewAcker starts counting from got, which needs no ack.
+func NewAcker(got int64, send func(got int64)) *Acker {
+	return &Acker{Send: send, got: got, ack: got}
+}
+
+// Received counts n more bytes.
+func (a *Acker) Received(n int) { a.Skip(a.Got() + int64(n)) }
+
+// Skip moves what's been received on to got (past bytes the other side
+// dropped), if that's further.
+func (a *Acker) Skip(got int64) {
+	a.mu.Lock()
+	if a.stopped || got <= a.got {
+		a.mu.Unlock()
+		return
+	}
+	a.got = got
+	if a.got-a.ack >= AckBytes {
+		a.ack = a.got
+		a.mu.Unlock()
+		a.Send(got)
+		return
+	}
+	if a.t == nil {
+		a.t = time.AfterFunc(AckEvery, a.flush)
+	}
+	a.mu.Unlock()
+}
+
+// Got is how much has been received.
+func (a *Acker) Got() int64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.got
+}
+
+func (a *Acker) flush() {
+	a.mu.Lock()
+	a.t = nil
+	if a.stopped || a.got == a.ack {
+		a.mu.Unlock()
+		return
+	}
+	a.ack = a.got
+	got := a.got
+	a.mu.Unlock()
+	a.Send(got)
+}
+
+// Stop sends no more acks.
+func (a *Acker) Stop() {
+	a.mu.Lock()
+	a.stopped = true
+	if a.t != nil {
+		a.t.Stop()
+	}
+	a.mu.Unlock()
 }

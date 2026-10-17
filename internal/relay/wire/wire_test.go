@@ -48,3 +48,39 @@ func TestMsgRoundTrip(t *testing.T) {
 		t.Errorf("Decode(not JSON) = %v, want an error", err)
 	}
 }
+
+func TestAckerAcksAtAckBytes(t *testing.T) {
+	sent := make(chan int64, 4)
+	a := NewAcker(10, func(got int64) { sent <- got })
+	defer a.Stop()
+	a.Received(AckBytes)
+	select {
+	case got := <-sent:
+		if got != 10+AckBytes {
+			t.Errorf("acked %d, want %d", got, 10+AckBytes)
+		}
+	default:
+		t.Error("no ack at AckBytes")
+	}
+}
+
+func TestAckerAcksAfterAckEvery(t *testing.T) {
+	sent := make(chan int64, 4)
+	a := NewAcker(0, func(got int64) { sent <- got })
+	defer a.Stop()
+	a.Received(3)
+	a.Skip(7)
+	select {
+	case got := <-sent:
+		if got != 7 {
+			t.Errorf("acked %d, want 7", got)
+		}
+	case <-time.After(3 * AckEvery):
+		t.Fatal("no ack after AckEvery")
+	}
+	select {
+	case got := <-sent:
+		t.Errorf("a second ack %d with nothing new", got)
+	case <-time.After(AckEvery + 200*time.Millisecond):
+	}
+}

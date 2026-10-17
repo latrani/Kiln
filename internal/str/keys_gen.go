@@ -763,6 +763,11 @@ func RelayConfigUnknownKey(path, key any) string {
 	return get("relay.config_unknown_key", map[string]any{"path": path, "key": key})
 }
 
+// RelayDropping is relay.dropping: "dropping lines {ip} → {world:%q}: buffer full"
+func RelayDropping(ip, world any) string {
+	return get("relay.dropping", map[string]any{"ip": ip, "world": world})
+}
+
 // RelayFlagConfig is relay.flag_config: "the relay's config file (relay.toml)"
 func RelayFlagConfig() string { return get("relay.flag_config", nil) }
 
@@ -774,6 +779,16 @@ func RelayFlagPreset() string { return get("relay.flag_preset", nil) }
 
 // RelayFlagWeb is relay.flag_web: "serve the built page at /kiln/ (web/static, or Homebrew's share/kiln/web)"
 func RelayFlagWeb() string { return get("relay.flag_web", nil) }
+
+// RelayHeld is relay.held: "held {ip} → {world:%q}"
+func RelayHeld(ip, world any) string {
+	return get("relay.held", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayHoldExpired is relay.hold_expired: "let go {ip} → {world:%q}: held {dur} with no one back"
+func RelayHoldExpired(ip, world, dur any) string {
+	return get("relay.hold_expired", map[string]any{"ip": ip, "world": world, "dur": dur})
+}
 
 // RelayListening is relay.listening: "kiln-relay listening on {addr}"
 func RelayListening(addr any) string { return get("relay.listening", map[string]any{"addr": addr}) }
@@ -806,6 +821,9 @@ func RelayRefusedBusy(ip, world any) string {
 	return get("relay.refused_busy", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayRefusedGone is relay.refused_gone: "refused {ip}: no held connection for that token"
+func RelayRefusedGone(ip any) string { return get("relay.refused_gone", map[string]any{"ip": ip}) }
+
 // RelayRefusedNoTls is relay.refused_no_tls: "refused {ip} → {world:%q}: client asked for TLS, world is plaintext"
 func RelayRefusedNoTls(ip, world any) string {
 	return get("relay.refused_no_tls", map[string]any{"ip": ip, "world": world})
@@ -824,6 +842,11 @@ func RelayRefusedTooMany(ip, world any) string {
 // RelayRefusedUnreachable is relay.refused_unreachable: "refused {ip} → {world:%q}: {err}"
 func RelayRefusedUnreachable(ip, world any, err error) string {
 	return get("relay.refused_unreachable", map[string]any{"ip": ip, "world": world, "err": err})
+}
+
+// RelayResumed is relay.resumed: "resumed {ip} → {world:%q} after {away}"
+func RelayResumed(ip, world, away any) string {
+	return get("relay.resumed", map[string]any{"ip": ip, "world": world, "away": away})
 }
 
 // RelayServingPage is relay.serving_page: "serving the page at {url}"
