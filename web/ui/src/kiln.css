@@ -108,6 +108,12 @@ a.s { text-decoration: underline; }
 .lrow { display: grid; grid-template-columns: 5ch 1ch 1ch 1ch 1fr; cursor: default; }
 .lrow > :nth-child(1) { grid-column: 1; }
 .lrow .gutter { grid-column: 3; cursor: pointer; }
+/* A selected or excluded line's glyph on every row it wraps to, as the
+   TUI's: the gutter takes the row's height without adding to it, and
+   the glyphs past the line's last row are cut. */
+.lrow .gutter.r-log-selected, .lrow .gutter.r-log-excluded { contain: size; overflow: hidden; white-space: pre; }
+.lrow .gutter.r-log-selected::after { content: var(--g-selected-rows); }
+.lrow .gutter.r-log-excluded::after { content: var(--g-excluded-rows); }
 .lrow .ltext { grid-column: 5; min-width: 0; }
 .lrow .ltext .line { padding-left: 0; text-indent: 0; }
 .lrow mark { color: inherit; background: none; }
