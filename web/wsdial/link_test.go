@@ -341,22 +341,24 @@ func TestMissedNote(t *testing.T) {
 	for i := range 2048 {
 		fmt.Fprintf(wc, "%04d %s\r\n", i, line)
 	}
-	var missed conn.Line
+	// The relay drops about half: a megabyte's worth, its chunks' cost
+	// counted too.
+	missed := 0
 	var after []string
 	for len(after) < 3 {
 		l := lines(t, c, 1)[0]
-		switch {
-		case l.Note && strings.HasPrefix(l.Text, str.ConnMissed(1024)):
-			missed = l
-		case !l.Note && missed.Text != "":
+		if l.Note && missed == 0 {
+			for n := 900; n <= 1100; n++ {
+				if l.Text == str.ConnMissed(n) {
+					missed = n
+				}
+			}
+		} else if !l.Note && missed > 0 {
 			after = append(after, l.Text[:4])
 		}
 	}
-	if missed.Text != str.ConnMissed(1024) {
-		t.Errorf("missed note %q, want %q", missed.Text, str.ConnMissed(1024))
-	}
-	if strings.Join(after, " ") != "1024 1025 1026" {
-		t.Errorf("after the note: %q, want the lines past the drop, in order", after)
+	if want := fmt.Sprintf("%04d %04d %04d", missed, missed+1, missed+2); strings.Join(after, " ") != want {
+		t.Errorf("after missing %d: %q, want the lines past the drop, in order", missed, after)
 	}
 }
 

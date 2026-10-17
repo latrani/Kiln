@@ -1,6 +1,8 @@
 package relay
 
 import (
+	"bytes"
+	"slices"
 	"sort"
 	"time"
 )
@@ -10,10 +12,13 @@ import (
 // new WebSocket. Offsets count every byte the world has sent on the
 // connection. When it's too full, whole lines are dropped from the front
 // and counted, so the page can say how many it missed.
+//
+// Each read from the world is its own chunk, so what's acked or dropped
+// is freed, not kept behind a slice of one big array.
 type buffer struct {
-	data    []byte
-	base    int64
 	chunks  []chunk // ascending; each ends past base
+	base    int64
+	n       int     // bytes held
 	cuts    []int64 // ascending offsets past base where a line ends
 	drops   []drop  // dropped lines the page may not know about
 	cutter  cutter
@@ -21,11 +26,16 @@ type buffer struct {
 }
 
 // A chunk is one read from the world, and when it arrived. It's sent as
-// one frame.
+// one frame. p runs up to end.
 type chunk struct {
 	end int64
 	at  time.Time
+	p   []byte
 }
+
+// chunkCost is roughly what a chunk costs beyond its bytes: the slice,
+// the time, and the allocator's rounding.
+const chunkCost = 64
 
 // A drop is a dropped line ending at end; n counts the lines dropped
 // on the connection up to it.
@@ -34,14 +44,15 @@ type drop struct {
 	n   int
 }
 
-func (b *buffer) end() int64 { return b.base + int64(len(b.data)) }
+func (b *buffer) end() int64 { return b.base + int64(b.n) }
 
-func (b *buffer) size() int { return len(b.data) }
+// size is roughly the memory b holds: its bytes and each chunk's cost.
+func (b *buffer) size() int { return b.n + chunkCost*len(b.chunks) }
 
 func (b *buffer) add(p []byte, at time.Time) {
 	start := b.end()
-	b.data = append(b.data, p...)
-	b.chunks = append(b.chunks, chunk{b.end(), at})
+	b.n += len(p)
+	b.chunks = append(b.chunks, chunk{b.end(), at, bytes.Clone(p)})
 	for _, c := range b.cutter.cuts(p) {
 		b.cuts = append(b.cuts, start+int64(c))
 	}
@@ -54,7 +65,7 @@ func (b *buffer) ack(got int64) {
 	for i < len(b.drops) && b.drops[i].end <= got {
 		i++
 	}
-	b.drops = b.drops[i:]
+	b.drops = slices.Delete(b.drops, 0, i)
 }
 
 // forget moves base up to off, if that's past it.
@@ -63,18 +74,26 @@ func (b *buffer) forget(off int64) {
 		return
 	}
 	off = min(off, b.end())
-	b.data = b.data[off-b.base:]
+	b.n -= int(off - b.base)
 	b.base = off
 	i := 0
 	for i < len(b.chunks) && b.chunks[i].end <= off {
 		i++
 	}
-	b.chunks = b.chunks[i:]
+	// Delete, not reslice: the chunks dropped from the front must not
+	// stay reachable through the slice's array.
+	b.chunks = slices.Delete(b.chunks, 0, i)
+	if len(b.chunks) > 0 {
+		c := &b.chunks[0]
+		if skip := len(c.p) - int(c.end-off); skip > 0 {
+			c.p = bytes.Clone(c.p[skip:])
+		}
+	}
 	i = 0
 	for i < len(b.cuts) && b.cuts[i] <= off {
 		i++
 	}
-	b.cuts = b.cuts[i:]
+	b.cuts = slices.Delete(b.cuts, 0, i)
 }
 
 // dropLine drops the oldest whole line. It's false when no line in the
@@ -100,7 +119,7 @@ func (b *buffer) next(pos int64) (missed int, from int64, at time.Time, p []byte
 	from = max(pos, b.base)
 	for _, c := range b.chunks {
 		if c.end > from {
-			return missed, from, c.at, b.data[from-b.base : c.end-b.base], true
+			return missed, from, c.at, c.p[len(c.p)-int(c.end-from):], true
 		}
 	}
 	if missed > 0 {
@@ -115,7 +134,8 @@ func (b *buffer) next(pos int64) (missed int, from int64, at time.Time, p []byte
 const forceCut = 64 << 10
 
 // A cutter finds where lines end in a world's telnet stream, never inside
-// a telnet command or subnegotiation (where a '\n' is just a byte).
+// a telnet command or subnegotiation (where a '\n' is just a byte), and
+// cuts a run of forceCut bytes without one anyway.
 type cutter struct {
 	state byte
 	run   int // bytes since the last cut
@@ -160,6 +180,12 @@ func (c *cutter) cuts(p []byte) []int {
 		case inSB:
 			if ch == tIAC {
 				c.state = inSBIAC
+			} else if c.run >= forceCut {
+				// Past any real subnegotiation (telnet.Parser gives up at
+				// 4 KiB): it's data, and the run can be cut.
+				c.state = inData
+				out = append(out, i+1)
+				c.run = 0
 			}
 		case inSBIAC:
 			if ch == tSE {

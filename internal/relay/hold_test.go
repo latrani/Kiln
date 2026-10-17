@@ -260,7 +260,7 @@ func TestDetachKeepsTheMuck(t *testing.T) {
 	eventually(t, "never buffered", func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return s.buffered == len("while away\r\n")
+		return s.buffered == len("while away\r\n")+chunkCost
 	})
 	q := resumePage(t, base, p.token, 0, "")
 	r := q.expect(wire.Resumed)

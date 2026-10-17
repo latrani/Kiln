@@ -77,8 +77,8 @@ func TestNextResendsFromPos(t *testing.T) {
 			t.Errorf("next(%d) = %+v, want %+v", c.pos, got, c.want)
 		}
 	}
-	if b.end() != 4 || b.size() != 4 {
-		t.Errorf("end, size = %d, %d; want 4, 4", b.end(), b.size())
+	if b.end() != 4 {
+		t.Errorf("end = %d, want 4", b.end())
 	}
 }
 
@@ -87,8 +87,8 @@ func TestAckForgets(t *testing.T) {
 	b.add([]byte("a\n"), t1)
 	b.add([]byte("b\n"), t2)
 	b.ack(2)
-	if b.size() != 2 {
-		t.Errorf("size = %d, want 2", b.size())
+	if b.n != 2 || len(b.chunks) != 1 {
+		t.Errorf("held %d bytes in %d chunks, want 2 in 1", b.n, len(b.chunks))
 	}
 	if got, want := next(&b, 0), (step{0, 2, t2, "b\n", true}); got != want {
 		t.Errorf("next(0) = %+v, want %+v", got, want)
@@ -134,5 +134,49 @@ func TestDropLineNeedsACut(t *testing.T) {
 	b.add([]byte("prompt> "), t3)
 	if b.dropLine() {
 		t.Error("dropLine = true with no line end")
+	}
+}
+
+// retained is the memory b's chunks hold, dead bytes included.
+func retained(b *buffer) int {
+	n := 0
+	for _, c := range b.chunks {
+		n += cap(c.p)
+	}
+	return n
+}
+
+func TestAckFreesMemory(t *testing.T) {
+	var b buffer
+	chunk := bytes.Repeat([]byte("x"), 10<<10-1)
+	for range 100 {
+		b.add(append(chunk, '\n'), t1)
+	}
+	b.ack(b.end() - 10)
+	if r := retained(&b); r > 10<<10 {
+		t.Errorf("after acking all but 10 bytes, %d bytes held, want one chunk's at most", r)
+	}
+	for b.dropLine() {
+	}
+	if r := retained(&b); r != 0 {
+		t.Errorf("after dropping every line, %d bytes held", r)
+	}
+}
+
+func TestSizeCountsEachChunk(t *testing.T) {
+	var b buffer
+	for range 100 {
+		b.add([]byte("a"), t1)
+	}
+	if b.size() <= 100 {
+		t.Errorf("size %d for 100 one-byte chunks: it should count what each costs", b.size())
+	}
+}
+
+func TestCutterGivesUpOnEndlessSubnegotiation(t *testing.T) {
+	var c cutter
+	p := append([]byte{iac, sb, 24}, bytes.Repeat([]byte("x"), 64<<10)...)
+	if got := c.cuts(p); len(got) != 1 {
+		t.Errorf("cuts = %v, want one forced cut in a subnegotiation that never ends", got)
 	}
 }
