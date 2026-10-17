@@ -22,9 +22,9 @@ test("glyphs: ▼ open, > folded (• when something under it is filtered), × o
   assert.deepEqual(g, [[str.glyph.open, ""], [str.glyph.collapsed, str.glyph.filtered], [str.glyph.collapsed, ""], [str.glyph.remove, ""]]);
 });
 
-test("a blank row ends each group, each top-level tag's tree in one and each text row", () => {
-  const rows = panelRows([E("", { Group: "category", Parent: true }), E("a", { Parent: true }), E("a/b"), E("c"), E("", { Group: "flag", Parent: true }), E("s"), E("t", { Text: true })]);
-  assert.deepEqual(rows.flatMap((r) => (r.kind === "entry" ? [r.endsGroup] : [])), [false, false, true, true, false, true, true]);
+test("a blank row follows each parent, and ends each group, each top-level tag's tree in one and each text row", () => {
+  const rows = panelRows([E("", { Group: "category", Parent: true }), E("a", { Parent: true }), E("a/b"), E("a/c"), E("c"), E("", { Group: "flag", Parent: true }), E("s"), E("t", { Text: true })]);
+  assert.deepEqual(rows.flatMap((r) => (r.kind === "entry" ? [r.endsGroup] : [])), [true, true, false, true, true, true, true, true]);
 });
 
 test("the highlight: kept if it's there, else the first entry; moves stop at the ends", () => {

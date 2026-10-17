@@ -12,7 +12,8 @@ import { roleClass } from "../theme.ts";
 // FilterPanel is log mode's filter panel in the sidebar, as the TUI's:
 // each entry its name (indented a column a level; ▼ > on a parent, × on
 // a text row) and under it its Hide and Only, a blank row after each
-// group, each top-level tag in one and each text row, + Text last. Hide and Only are toggle buttons; each entry holds a group
+// parent, each group, each top-level tag in one and each text row, +
+// Text last. Hide and Only are toggle buttons; each entry holds a group
 // named by its entry, so they're read with it. A group's ▼ > is its fold
 // button, named by the entry too, as it's the TUI's fold control. The
 // highlight is the

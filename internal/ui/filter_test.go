@@ -47,14 +47,14 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("f")
 	side := panelSide(h)
 	// Parents start folded; → opens one.
-	want := []string{catsRow(), buttons(), glyphCollapsed + " page", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
+	want := []string{catsRow(), buttons(), "", glyphCollapsed + " page", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "", "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.keys("down", "right")
-	want = []string{catsRow(), buttons(), glyphOpen + " page", buttons(), "in", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
+	want = []string{catsRow(), buttons(), "", glyphOpen + " page", buttons(), "", "in", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "", "self", buttons()} // + Text scrolled below
 	for i, w := range want {
 		if side := panelSide(h); side[i] != w {
 			t.Fatalf("opened: panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -135,7 +135,7 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
-	if got := panelSide(h)[2]; got != glyphCollapsed+" page "+glyphFiltered {
+	if got := panelSide(h)[3]; got != glyphCollapsed+" page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
 	}
 }
@@ -171,24 +171,24 @@ func TestPanelClicks(t *testing.T) {
 	unfold(h)
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH + y, Button: tea.MouseLeft}) }
-	// Rows: 0 ▼ Categories, 1 buttons, 2 ▼ page, 3 buttons, 4 in,
-	// 5 buttons, 6 blank, 7 sent, 8 buttons, 9 blank, 10 ▼ Flags,
-	// 11 buttons, 12 self, 13 buttons. Depth 1 starts at column 2:
-	// "  Hide · Only".
+	// Rows: 0 ▼ Categories, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
+	// 5 blank, 6 in, 7 buttons, 8 blank, 9 sent, 10 buttons, 11 blank,
+	// 12 ▼ Flags, 13 buttons, 14 blank, 15 self, 16 buttons. Depth 1
+	// starts at column 2: "  Hide · Only".
 	hideX, onlyX := 2, 2+len(str.FilterHide())+xansi.StringWidth(str.Separator())
-	click(hideX, 13)
+	click(hideX, 16)
 	if !f.Hidden(scene.Item{Name: "self"}) {
 		t.Error("clicking self's Hide")
 	}
-	click(onlyX, 3)
+	click(onlyX, 4)
 	if o, _ := f.Only(); o != (scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
-	click(2, 2) // the ▼
+	click(2, 3) // the ▼
 	if !h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] {
 		t.Error("clicking ▼ should collapse page")
 	}
-	click(4, 12-2) // rows moved up two: self's name is now row 10
+	click(4, 15-3) // rows moved up three: self's name is now row 12
 	if h.br().Panel.Sel.Item != (scene.Item{Name: "self"}) {
 		t.Errorf("clicking a name selects it: %v", h.br().Panel.Sel)
 	}
@@ -218,10 +218,9 @@ func TestPanelScrolls(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side, listH := panelSide(h), h.br().Panel.listH
-	// Categories × 2 rows, 12 tags and sent × 3 rows + "+ Text" = 42
-	// rows; all but one of the list's rows show, above the hint, which is
-	// its last.
-	if want := str.ViewMoreBelow(42 - (listH - 1)); side[listH-1] != want {
+	// Categories, 12 tags and sent × 3 rows + "+ Text" = 43 rows; all
+	// but one of the list's rows show, above the hint, which is its last.
+	if want := str.ViewMoreBelow(43 - (listH - 1)); side[listH-1] != want {
 		t.Fatalf("the list's last row = %q, want %q:\n%s", side[listH-1], want, h.screen())
 	}
 	for range 40 {

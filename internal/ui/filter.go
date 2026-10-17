@@ -123,8 +123,9 @@ func (b *browse) toggleFold(sel filterSel) { b.fold(sel, !b.cs.Collapsed[sel.Ite
 func panelIndent(depth int) int { return 1 + depth }
 
 // panelRows lays the panel out: per entry its name and its
-// Hide and Only buttons, a blank row after each group, each top-level tag
-// in one (with its children) and each text row; + Text last.
+// Hide and Only buttons, a blank row after each parent (open or folded),
+// each group, each top-level tag in one (with its children) and each
+// text row; + Text last.
 func (b *browse) panelRows(w int) []panelRow {
 	var rows []panelRow
 	f := &b.cs.Filter
@@ -170,7 +171,7 @@ func (b *browse) panelRows(w int) []panelRow {
 		rows = append(rows,
 			panelRow{text: indent + theme.Paint(role, name), entry: i, sel: e.sel(), kind: prName},
 			panelRow{text: indent + theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
-		if next := es[i+1]; next.Depth == 0 || next.Depth == 1 && e.Item.Group == "" { // a blank row ends a group, and a tree in one
+		if next := es[i+1]; e.Parent || next.Depth == 0 || next.Depth == 1 && e.Item.Group == "" { // a blank row follows a parent, and ends a group and a tree in one
 			rows = append(rows, panelRow{entry: i, kind: prBlank})
 		}
 	}

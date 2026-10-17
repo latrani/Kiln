@@ -16,7 +16,7 @@ export interface FilterEntry {
 }
 
 // PanelRow is an entry the panel lists, as it reads (its glyph, name and
-// what follows it; a blank row after it when it ends a group or a tree in one),
+// what follows it; a blank row after it when it's a parent or ends a group or a tree in one),
 // or + Text.
 export type PanelRow =
   | { kind: "entry"; key: string; e: FilterEntry; glyph: string; name: string; after: string; endsGroup: boolean }
@@ -41,8 +41,8 @@ export function panelRows(entries: FilterEntry[]): PanelRow[] {
     const it = e.Item;
     const glyph = it.Text ? str.glyph.remove : e.Parent ? (e.Folded ? str.glyph.collapsed : str.glyph.open) : "";
     const after = e.Parent && e.Folded && e.FilteredUnder ? str.glyph.filtered : "";
-    const next = shown[i + 1]?.Depth ?? 0; // a blank row ends a group, and a tree in one
-    return { kind: "entry", key: entryKey(it), e, glyph, name: itemName(it), after, endsGroup: next === 0 || (next === 1 && !it.Group) };
+    const next = shown[i + 1]?.Depth ?? 0; // a blank row follows a parent, and ends a group and a tree in one
+    return { kind: "entry", key: entryKey(it), e, glyph, name: itemName(it), after, endsGroup: e.Parent || next === 0 || (next === 1 && !it.Group) };
   });
   return [...rows, { kind: "add", key: "+" }];
 }
