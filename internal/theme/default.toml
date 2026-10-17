@@ -44,7 +44,6 @@
 "scrollback.day"         = { faint = true }
 "scrollback.history_end" = { faint = true }
 "scrollback.loading"     = { faint = true }
-"scrollback.echo"        = { faint = true }
 "scrollback.sys"         = { faint = true }
 "scrollback.pill"        = { reverse = true }
 "scrollback.selection"   = { reverse = true }
@@ -122,4 +121,5 @@
 # "match" styles only the text the tag's pattern matched.
 [tags]
 "self"       = { bold = true }
+"sent"       = { faint = true }
 "highlight"  = { fg = "catppuccin.yellow", bold = true, scope = "match" }

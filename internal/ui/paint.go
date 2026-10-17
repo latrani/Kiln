@@ -13,13 +13,15 @@ import (
 // dayRule is drawn either side of a day's label.
 const dayRule = glyph.Rule + glyph.Rule
 
-// paint draws l for the terminal: a server line in its tags' styles
-// from hl, over the server's own colors; Kiln's lines in their roles.
+// paint draws l for the terminal: a server or sent line in its tags'
+// styles from hl, over the server's own colors; Kiln's lines in their
+// roles.
 // It only reads hl, so it's safe off the UI goroutine.
 func paint(hl *rules.Highlighter, l app.Line) string {
 	switch l.Kind {
-	case app.Echo:
-		return theme.Paint(theme.ScrollbackEcho, gutterMark+l.Text())
+	case app.Echo: // its tag styles the gutter mark too
+		text := gutterMark + l.Text()
+		return style.Highlight(text, hl.Runs(ansi.Strip(text), l.Tags))
 	case app.Sys:
 		return theme.Paint(theme.ScrollbackSys, glyph.Sys+" "+l.Text())
 	case app.Day:

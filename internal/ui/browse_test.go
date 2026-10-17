@@ -16,6 +16,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/kilntest"
@@ -1161,7 +1162,8 @@ func TestLogShortHistorySitsAtBottom(t *testing.T) {
 }
 
 // With local_echo off, the log view leaves out what you sent, like the
-// scrollback does; the lines stay loaded, so turning it on brings them back.
+// scrollback does: the sent tag starts hidden. The lines stay loaded, so
+// showing the tag brings them back.
 func TestBrowseRespectsLocalEcho(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
@@ -1183,9 +1185,9 @@ func TestBrowseRespectsLocalEcho(t *testing.T) {
 		t.Error("cursor landed on a sent line")
 	}
 
-	h.m.chars["fm/kit"].Ch.LocalEcho = true
+	h.kitFilter().ToggleHide(scene.Item{Name: classify.SentTag}, nil)
 	if s := h.screen(); !strings.Contains(s, "21:03") {
-		t.Errorf("sent line missing with local_echo on:\n%s", s)
+		t.Errorf("sent line missing with the sent tag shown:\n%s", s)
 	}
 }
 

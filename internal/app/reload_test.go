@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/latrani/Kiln/internal/config"
@@ -40,5 +41,28 @@ func TestReloadKeepsTheConfigOnAnError(t *testing.T) {
 	}
 	if s := a.Status(); !s.Err || s.Text != str.StatusConfigNotReloaded(err) {
 		t.Errorf("status = %+v", s)
+	}
+}
+
+// Log mode's sent tag starts hidden unless local_echo is on, and follows
+// local_echo when it changes, but not when anything else does.
+func TestSentFilterFollowsLocalEcho(t *testing.T) {
+	a, dir := reloadApp(t)
+	openAll(t, a, "fm/kit")
+	f := &a.Char("fm/kit").Filter
+	if !f.Hidden(sentItem) {
+		t.Fatal("sent shown with local_echo off")
+	}
+	f.ToggleHide(sentItem, nil)
+	writeWorlds(t, dir, map[string]string{"fm": strings.Replace(fmWorld, "tls = true\n", "tls = true\nautoconnect = true\n", 1)})
+	a.Reload()
+	if f.Hidden(sentItem) {
+		t.Error("another setting's change put sent's default back")
+	}
+	f.ToggleHide(sentItem, nil)
+	writeWorlds(t, dir, map[string]string{"fm": strings.Replace(fmWorld, "tls = true\n", "tls = true\nlocal_echo = true\n", 1)})
+	a.Reload()
+	if f.Hidden(sentItem) {
+		t.Error("sent hidden after local_echo turned on")
 	}
 }

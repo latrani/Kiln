@@ -20,14 +20,14 @@ Filters        ‹│fm · Kit                                       ? focus  ·
   @0-1 fg=#a0e3e1; @2-5 bold,fg=#c0edeb,bg=#0b3d3b; @6-8 fg=#a0e3e1; @9-12 fg=#8bb1b0; @13-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+ sent           │                                                               
+  @0-0 fg=#a0e3e1; @1-4 bold,fg=#a0e3e1; @5-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+  Hide · Only   │                                                               
+  @0-1 fg=#a0e3e1; @2-5 bold,fg=#c0edeb,bg=#0b3d3b; @6-8 fg=#a0e3e1; @9-12 fg=#8bb1b0; @13-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
  + Text         │                                                               
   @0-0 fg=#a0e3e1; @1-6 bold,fg=#c0edeb,bg=#0b3d3b; @7-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               

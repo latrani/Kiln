@@ -53,7 +53,7 @@ A pack can give its tags a look too, with `[palette]` (and `[palette.light]`, `[
 
 ## Tags
 
-A pack's tags are its own: a pack for another server can use other names (`tell` rather than `page`). These are the fuzzball pack's, and Kiln's own two, which it adds on any server: `self`, for lines that mention your character, and `highlight`, from `/highlight`.
+A pack's tags are its own: a pack for another server can use other names (`tell` rather than `page`). These are the fuzzball pack's, and Kiln's own three, which it adds on any server: `self`, for lines that mention your character, `highlight`, from `/highlight`, and `sent`, for every line you send.
 
 | Tag | Lines |
 |---|---|
@@ -64,5 +64,6 @@ A pack's tags are its own: a pack for another server can use other names (`tell`
 | `system` | messages from the MUCK itself (not Kiln's own `*` lines) |
 | `self` | lines that mention you (Kiln adds these) |
 | `highlight` | lines matching a `/highlight` |
+| `sent` | lines you send (Kiln adds these; classify rules never see them, and they never notify) |
 
 `say` and `pose` aren't tagged: on a MUCK they're the bulk of ordinary scene text, not something to set apart.

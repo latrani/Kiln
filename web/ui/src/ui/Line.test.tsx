@@ -25,8 +25,14 @@ test("links are links, opening a new tab", () => {
   assert.ok(html.includes(roleClass("link")));
 });
 
+test("a sent line wears its whole-line tag looks itself, so its glyph does too", () => {
+  const looks = { dark: { sent: { Faint: true }, hi: { Bold: true, Match: true } }, light: {} };
+  const html = render(<Line line={L({ Kind: "echo", Plain: "x", Spans: [{ Text: "x" }], Tags: [{ Name: "sent" }, { Name: "hi" }] })} tags={looks} />);
+  assert.match(html, /^<div class="line l-echo s" style="opacity:.6"/);
+});
+
 test("Kiln's lines wear their roles", () => {
-  for (const [Kind, role] of [["echo", "scrollback.echo"], ["sys", "scrollback.sys"], ["day", "scrollback.day"], ["history_end", "scrollback.history_end"]] as const) {
+  for (const [Kind, role] of [["sys", "scrollback.sys"], ["day", "scrollback.day"], ["history_end", "scrollback.history_end"]] as const) {
     assert.ok(render(<Line line={L({ Kind, Plain: "x", Spans: [{ Text: "x" }] })} tags={tags} />).includes(roleClass(role)), Kind);
   }
 });

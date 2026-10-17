@@ -299,3 +299,37 @@ func TestTagsListsFilteredTags(t *testing.T) {
 		t.Errorf("Tags lists only named tags: %v", got)
 	}
 }
+
+// An item hidden by default starts hidden, and clearing its kind's filter
+// puts it back hidden even after it was shown; Only on it shows it.
+func TestFilterDefaults(t *testing.T) {
+	var f Filter
+	sent, its := tag("sent"), append(items(), tag("sent"))
+	f.SetDefault(sent, true)
+	if !f.Hidden(sent) || f.Active() {
+		t.Fatalf("hidden %v, active %v; want hidden by default, nothing set", f.Hidden(sent), f.Active())
+	}
+	f.ToggleHide(sent, its)
+	if f.Hidden(sent) || !f.Active() {
+		t.Errorf("shown: hidden %v, active %v", f.Hidden(sent), f.Active())
+	}
+	f.PressOnly(tag("self"), its)
+	f.PressOnly(tag("self"), its) // clears the tag filters
+	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"sent"}) {
+		t.Errorf("after clearing: hidden %q, want just sent, as by default", got)
+	}
+	f.PressOnly(sent, its)
+	if f.Hidden(sent) || !f.Visible([]string{"sent"}, "") || f.Visible([]string{"self"}, "") {
+		t.Error("Only on an item hidden by default should show just it")
+	}
+	f.PressOnly(sent, its)
+	f.SetDefault(sent, false)
+	if f.Hidden(sent) || f.Active() {
+		t.Errorf("default off: hidden %v, active %v", f.Hidden(sent), f.Active())
+	}
+	f.PressOnly(tag("self"), its)
+	f.SetDefault(sent, false)
+	if !f.Hidden(sent) {
+		t.Error("an Only on another tag should keep it hidden")
+	}
+}

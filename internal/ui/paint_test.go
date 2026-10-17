@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func TestPaintKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	th, err := theme.FromTOML("[tags]\npage = { fg = \"#2053ff\", bold = true, scope = \"match\" }\n")
+	th, err := theme.FromTOML("[tags]\npage = { fg = \"#2053ff\", bold = true, scope = \"match\" }\nsent = { italic = true }\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,8 +32,12 @@ func TestPaintKinds(t *testing.T) {
 		t.Errorf("server line = %q, want %q", got, want)
 	}
 	echo := r.Line(logstore.Entry{Dir: logstore.Out, Text: "hi"})
-	if got, want := paint(hl, echo), theme.Paint(theme.ScrollbackEcho, gutterMark+"hi"); got != want {
-		t.Errorf("echo line = %q, want %q", got, want)
+	runs := hl.Runs(gutterMark+"hi", echo.Tags)
+	if len(runs) != 1 || runs[0].End != len(gutterMark+"hi") || !strings.Contains(runs[0].SGR, "3") {
+		t.Fatalf("sent runs %+v, want the sent tag's look over the whole line", runs)
+	}
+	if got, want := paint(hl, echo), style.Highlight(gutterMark+"hi", runs); got != want {
+		t.Errorf("echo line = %q, want %q: the sent tag's look, gutter mark and all", got, want)
 	}
 	sys := r.Line(logstore.Entry{Dir: logstore.Sys, Text: "connected"})
 	if got, want := paint(hl, sys), theme.Paint(theme.ScrollbackSys, "* connected"); got != want {

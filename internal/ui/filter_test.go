@@ -11,6 +11,7 @@ import (
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
+	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
@@ -42,14 +43,14 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("f")
 	side := panelSide(h)
 	// Parents start folded; → opens one.
-	want := []string{str.FilterUntagged(), buttons(), "", glyphCollapsed + " page", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want := []string{str.FilterUntagged(), buttons(), "", glyphCollapsed + " page", buttons(), "", "self", buttons(), "", classify.SentTag, buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.keys("down", "right")
-	want = []string{str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want = []string{str.FilterUntagged(), buttons(), "", glyphOpen + " page", buttons(), "in", buttons(), "", "self", buttons(), "", classify.SentTag, buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side := panelSide(h); side[i] != w {
 			t.Fatalf("opened: panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -75,8 +76,8 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 	h.kitFilter().PressOnly(scene.Item{Name: "self"}, h.br().Items())
 	s := h.drawn()
 	on := func(label string) string { return theme.Paint(theme.FilterButtonOn, label) }
-	if strings.Count(s, on(str.FilterHide())) != 3 || strings.Count(s, on(str.FilterOnly())) != 1 {
-		t.Errorf("want Hide lit on Untagged, page and page/in, Only on self:\n%q", s)
+	if strings.Count(s, on(str.FilterHide())) != 4 || strings.Count(s, on(str.FilterOnly())) != 1 {
+		t.Errorf("want Hide lit on Untagged, page, page/in and sent, Only on self:\n%q", s)
 	}
 }
 
@@ -208,9 +209,9 @@ func TestPanelScrolls(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side, listH := panelSide(h), h.br().Panel.listH
-	// 12 tags × 3 rows + "+ Text" = 37 rows; all but one of the list's
-	// rows show, above the hint, which is its last.
-	if want := str.ViewMoreBelow(37 - (listH - 1)); side[listH-1] != want {
+	// 12 tags and sent × 3 rows + "+ Text" = 40 rows; all but one of the
+	// list's rows show, above the hint, which is its last.
+	if want := str.ViewMoreBelow(40 - (listH - 1)); side[listH-1] != want {
 		t.Fatalf("the list's last row = %q, want %q:\n%s", side[listH-1], want, h.screen())
 	}
 	for range 40 {

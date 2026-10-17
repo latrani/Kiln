@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/latrani/Kiln/internal/classify"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -223,12 +224,12 @@ func (g *Log) SetStatus(isErr bool, msg string) { g.Status, g.StatusErr = msg, i
 // ClearStatus takes log mode's message down.
 func (g *Log) ClearStatus() { g.Status = "" }
 
-// Shows reports whether l is drawn: sent lines only with local_echo on
-// (they're logged either way), and whatever the filter lets through. The
-// lines stay loaded, so turning local_echo on brings them back.
-func (g *Log) Shows(l *LogLine) bool {
-	return g.c.Echoes(l.Entry) && g.c.Filter.Visible(l.Tags, l.Lower)
-}
+// Shows reports whether l is drawn: whatever the filter lets through.
+func (g *Log) Shows(l *LogLine) bool { return g.c.Filter.Visible(l.Tags, l.Lower) }
+
+// sentItem is the filter's row for sent lines. It's hidden by default
+// unless local_echo is on.
+var sentItem = scene.Item{Name: classify.SentTag}
 
 // Visible is the shown lines, oldest first.
 func (g *Log) Visible() []*LogLine {

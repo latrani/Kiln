@@ -152,9 +152,10 @@ func TestFilter(t *testing.T) {
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterUntagged()), "the panel, Untagged focused")
 	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.BrowseHintsNoneAway())+` && document.querySelector(".ffoot").textContent === `+jsString(strings.Join([]string{str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyLog()}, str.Separator())), "the footers, the panel focused on Untagged")
 
-	// ↓ to + Text, Enter: the prompt. "fake muck", typed key by key there,
-	// has an f and no panel key reaches the panel; Enter adds it, the new
-	// row focused.
+	// ↓ past sent to + Text, Enter: the prompt. "fake muck", typed key by
+	// key there, has an f and no panel key reaches the panel; Enter adds
+	// it, the new row focused.
+	pressKey(t, ws, "ArrowDown", 40)
 	pressKey(t, ws, "ArrowDown", 40)
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterAddText()), "+ Text")
 	pressKey(t, ws, "Enter", 13)

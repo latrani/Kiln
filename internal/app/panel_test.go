@@ -52,11 +52,11 @@ func entryNames(es []PanelEntry) []string {
 func TestEntriesListFoldedAwayChildren(t *testing.T) {
 	_, g := panelLog(t)
 	es := g.Entries()
-	if got := entryNames(es); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q"}) || !es[0].Parent || es[1].Depth != 1 {
+	if got := entryNames(es); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q", "sent"}) || !es[0].Parent || es[1].Depth != 1 {
 		t.Fatalf("entries %q, %+v; want p folded, its children listed folded away", got, es[:2])
 	}
 	g.Fold("p", false)
-	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q"}) {
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q", "sent"}) {
 		t.Errorf("unfolded: %q", got)
 	}
 	g.Fold("q", true) // no children: nothing to fold
@@ -71,7 +71,7 @@ func TestFoldsOutliveLogMode(t *testing.T) {
 	g.Fold("p", false)
 	a.CloseLog("fm/kit")
 	g = a.OpenLog("fm/kit")
-	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q"}) {
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "p/a", "p/b", "q", "sent"}) {
 		t.Errorf("after reopening: %q; p should stay unfolded", got)
 	}
 }
@@ -87,7 +87,7 @@ func TestTextRowsAddAndRemove(t *testing.T) {
 	if !g.RemoveText("one") || g.RemoveText("one") {
 		t.Fatal("RemoveText should report only a term it removed")
 	}
-	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q", "text:three"}) {
+	if got := entryNames(g.Entries()); !slices.Equal(got, []string{"p", "(p/a)", "(p/b)", "q", "sent", "text:three"}) {
 		t.Errorf("entries after removing one: %q", got)
 	}
 }

@@ -16,6 +16,10 @@ import (
 // or one of its aliases.
 const SelfTag = "self"
 
+// SentTag is every line you sent, and only those: classify rules never
+// see them.
+const SentTag = "sent"
+
 // Classifier holds one character's compiled classify rules.
 type Classifier struct {
 	rules []rule

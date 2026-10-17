@@ -9,10 +9,11 @@ export interface Tags {
   light: Record<string, TagLook>;
 }
 
-// Kiln's own lines wear their roles; kiln.css draws their glyphs.
+// Kiln's own lines wear their roles; kiln.css draws their glyphs. A sent
+// line wears its tags instead; see echoStyle.
 const kindClass: Record<LineData["Kind"], string> = {
   server: "l-server",
-  echo: "l-echo " + roleClass("scrollback.echo"),
+  echo: "l-echo",
   sys: "l-sys " + roleClass("scrollback.sys"),
   day: "l-day " + roleClass("scrollback.day"),
   history_end: "l-history_end " + roleClass("scrollback.history_end"),
@@ -57,9 +58,20 @@ export function sameLine(a: Pick<LineProps, "line" | "tags"> & Partial<LineProps
   return a.line === b.line && a.tags === b.tags && a.class === b.class && a.seq === b.seq;
 }
 
+// echoStyle is a sent line's whole-line tag looks, worn by the line itself
+// so the glyph kiln.css draws before it takes them too, as the TUI's
+// gutter mark does. Its tags match nothing, so match-scoped looks don't
+// apply.
+function echoStyle(line: LineData, tags: Tags): string {
+  if (line.Kind !== "echo") return "";
+  const names = (line.Tags ?? []).map((t) => t.Name).filter((n) => !tags.dark[n]?.Match);
+  return names.length ? spanStyle({ Text: "", Tags: names }, tags.dark, tags.light) : "";
+}
+
 function LineView({ line, tags, class: extra, seq }: LineProps) {
+  const style = echoStyle(line, tags);
   return (
-    <div class={"line " + kindClass[line.Kind] + (extra ? " " + extra : "")} data-seq={seq}>
+    <div class={"line " + kindClass[line.Kind] + (style ? " s" : "") + (extra ? " " + extra : "")} style={style || undefined} data-seq={seq}>
       {(line.Spans ?? []).map((s, i) => <SpanView key={i} s={s} tags={tags} />)}
     </div>
   );

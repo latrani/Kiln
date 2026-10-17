@@ -63,6 +63,7 @@ type Filter struct {
 	hasOnly bool
 	texts   []string
 	known   map[Item]bool // items Sync has seen
+	dflt    map[Item]bool // items hidden by default; see SetDefault
 }
 
 func (f *Filter) init() {
@@ -71,6 +72,24 @@ func (f *Filter) init() {
 	}
 	if f.known == nil {
 		f.known = map[Item]bool{}
+	}
+	if f.dflt == nil {
+		f.dflt = map[Item]bool{}
+	}
+}
+
+// SetDefault sets whether it is hidden by default, and hides or shows it
+// to match, unless an Only of its kind it isn't related to keeps it
+// hidden. Clearing its kind's filter puts it back to its default.
+func (f *Filter) SetDefault(it Item, hide bool) {
+	f.init()
+	if hide {
+		f.dflt[it], f.hidden[it] = true, true
+		return
+	}
+	delete(f.dflt, it)
+	if !f.hasOnly || f.only.Text != it.Text || related(f.only, it) {
+		delete(f.hidden, it)
 	}
 }
 
@@ -105,8 +124,24 @@ func (f *Filter) Tags() []string {
 	return out
 }
 
-// Active reports whether anything is hidden or has Only.
-func (f *Filter) Active() bool { return len(f.hidden) > 0 || f.hasOnly }
+// Active reports whether anything has Only, or is hidden or shown other
+// than by default.
+func (f *Filter) Active() bool {
+	if f.hasOnly {
+		return true
+	}
+	for it := range f.hidden {
+		if !f.dflt[it] {
+			return true
+		}
+	}
+	for it := range f.dflt {
+		if !f.hidden[it] {
+			return true
+		}
+	}
+	return false
+}
 
 // ResetSeen forgets which items Sync has seen, so a new log-mode
 // session, which loads its lines afresh, lights each item by the filter
@@ -141,12 +176,18 @@ func (f *Filter) hide(it Item, items []Item) {
 	f.hidden[it] = true
 }
 
-// clearKind drops the Only and every Hide of text's kind.
+// clearKind drops the Only and every Hide of text's kind, then hides
+// that kind's items hidden by default.
 func (f *Filter) clearKind(text bool) {
 	f.hasOnly = false
 	for it := range f.hidden {
 		if it.Text == text {
 			delete(f.hidden, it)
+		}
+	}
+	for it := range f.dflt {
+		if it.Text == text {
+			f.hidden[it] = true
 		}
 	}
 }
@@ -189,6 +230,11 @@ func (f *Filter) PressOnly(it Item, items []Item) {
 	}
 	f.clearKind(it.Text)
 	f.only, f.hasOnly = it, true
+	for o := range f.hidden { // hidden by default, but Only shows it
+		if related(it, o) {
+			delete(f.hidden, o)
+		}
+	}
 	for _, o := range items {
 		if o.Text == it.Text && !related(it, o) {
 			f.hidden[o] = true

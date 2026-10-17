@@ -33,6 +33,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -77,6 +80,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -130,6 +136,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -188,6 +197,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -244,6 +256,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -307,6 +322,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -369,6 +387,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -428,6 +449,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -479,6 +503,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [
@@ -528,6 +555,9 @@
     "Bold": true,
     "Reverse": true,
     "Match": true
+   },
+   "sent": {
+    "Faint": true
    }
   },
   "Want": [

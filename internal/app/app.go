@@ -91,13 +91,6 @@ func (c *Char) compile() error {
 // same lines, same numbers, new tags.
 func (c *Char) Relined() int { return c.relines }
 
-// Echoes reports whether e belongs in the scrollback and log mode:
-// everything but sent lines, which only show with local_echo on. They're
-// logged either way.
-func (c *Char) Echoes(e logstore.Entry) bool {
-	return e.Dir != logstore.Out || c.Ch.LocalEcho
-}
-
 // Status is the statusline's message. Gen goes up with each new one, so
 // a front end can time out the one it saw.
 type Status struct {
@@ -193,6 +186,9 @@ func (a *App) ApplyConfig(cfg *config.Config) ConfigResult {
 			continue
 		}
 		retag := !reflect.DeepEqual(tagInputs(c.Ch), tagInputs(ch))
+		if ch.LocalEcho != c.Ch.LocalEcho {
+			c.Filter.SetDefault(sentItem, !ch.LocalEcho)
+		}
 		c.Ch, c.Orphan = ch, false
 		if err := c.compile(); err != nil {
 			res.Errs[k] = err
@@ -279,6 +275,7 @@ func (a *App) Open(k string) (*Char, error) {
 		return nil, nil
 	}
 	c := &Char{Key: k, Ch: ch, sentGen: -1}
+	c.Filter.SetDefault(sentItem, !ch.LocalEcho)
 	c.History.all = &a.sent
 	err := c.compile()
 	a.chars[k] = c

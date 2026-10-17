@@ -1,11 +1,13 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
@@ -21,7 +23,8 @@ func TestRender(t *testing.T) {
 		want string
 	}{
 		{"plain", in("hi"), nil, false, "hi\x1b[0m"},
-		{"sent", logstore.Entry{Dir: logstore.Out, Text: ":grins."}, nil, false, "\x1b[2m> :grins.\x1b[0m"},
+		{"sent", logstore.Entry{Dir: logstore.Out, Text: ":grins."},
+			[]style.Run{{Start: 0, End: 9, SGR: "\x1b[2m"}}, false, "\x1b[2m> :grins.\x1b[0m"},
 		{"sys", logstore.Entry{Dir: logstore.Sys, Text: "connected"}, nil, false, "\x1b[2m* connected\x1b[0m"},
 		{"styled priority", in("Mira pages: hi"),
 			[]style.Run{{Start: 0, End: 14, SGR: "\x1b[1;38;2;255;159;67m"}}, true,
@@ -43,6 +46,15 @@ func TestRender(t *testing.T) {
 				t.Errorf("render = %q, want %q", got, c.want)
 			}
 		})
+	}
+}
+
+// A sent line wears the sent tag's look, "> " and all.
+func TestSentRuns(t *testing.T) {
+	e := logstore.Entry{Dir: logstore.Out, Text: ":grins."}
+	want := []style.Run{{Start: 0, End: len("> :grins."), SGR: "\x1b[2m"}} // the built-in theme's sent: faint
+	if got := sentRuns(rules.New(theme.Builtin()), e); !slices.Equal(got, want) {
+		t.Errorf("sentRuns = %+v, want %+v", got, want)
 	}
 }
 
