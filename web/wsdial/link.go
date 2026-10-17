@@ -83,7 +83,9 @@ type Link struct {
 	kept     int64 // the last offset acked as kept
 	resumed  bool  // it picked up a hold rather than opening one
 	onEnd    func(error)
-	ended    bool          // onEnd has been called, or never will be (detached)
+	ended    bool // onEnd has been called, or never will be (detached)
+	endErr   error
+	detached bool          // left to another tab: no onEnd
 	poke     chan struct{} // Wake: try resuming now
 	pong     chan struct{}
 	pinging  bool        // a Wake's ping is waiting for its pong
@@ -226,6 +228,9 @@ func (l *Link) OnEnd(f func(error)) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.onEnd = f
+	if l.ended && !l.detached {
+		go f(l.endErr) // it ended before anyone asked
+	}
 }
 
 // Kept says the page has saved everything up to off: a durable link acks
@@ -246,7 +251,7 @@ func (l *Link) endLocked(err error) {
 	if l.ended {
 		return
 	}
-	l.ended = true
+	l.ended, l.endErr = true, err
 	if f := l.onEnd; f != nil {
 		go f(err)
 	}
@@ -667,7 +672,7 @@ func DetachAll() {
 	for _, l := range live() {
 		l.wmu.Lock()
 		l.mu.Lock()
-		l.closed, l.ended = true, true
+		l.closed, l.ended, l.detached = true, true, true
 		if l.err == nil {
 			l.err = errDetached{}
 		}

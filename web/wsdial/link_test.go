@@ -621,3 +621,24 @@ func TestTokens(t *testing.T) {
 		t.Error("a closed link's token is still listed")
 	}
 }
+
+// A link that ended before anyone asked still says so.
+func TestOnEndAfterTheEnd(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	c, l, err := dialWith(t, u, w, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.conn(t).Close()
+	for range c.Lines() {
+	}
+	ended := make(chan error, 1)
+	l.OnEnd(func(err error) { ended <- err })
+	select {
+	case <-ended:
+	case <-time.After(2 * time.Second):
+		t.Error("OnEnd after the link ended was never called")
+	}
+}
