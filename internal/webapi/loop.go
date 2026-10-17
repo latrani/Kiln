@@ -51,6 +51,9 @@ type Loop struct {
 // Options are how Run starts.
 type Options struct {
 	Autoconnect bool   // open and connect autoconnect characters first
+	// Resume are characters (keys) with a held connection saved: they're
+	// opened and connected first too, whatever their autoconnect.
+	Resume []string
 	Drafts      string // the file drafts are saved to and restored from; "" for none
 	ConfigDir   string // where themes are read from; "" for the built-in only
 
@@ -126,8 +129,8 @@ func (l *Loop) take() (any, bool) {
 }
 
 // Run drains the loop until ctx is done or the core quits. It first
-// loads saved drafts, opens and connects autoconnect characters if
-// asked, then sends everything.
+// loads saved drafts, opens and connects held characters and (if asked)
+// autoconnect ones, then sends everything.
 func (l *Loop) Run(ctx context.Context, opts Options) {
 	defer func() {
 		l.mu.Lock()
@@ -139,13 +142,14 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 	l.drafts = loadDrafts(opts.Drafts)
 	l.onDisk = maps.Clone(l.drafts)
 	var effs []app.Effect
-	if opts.Autoconnect {
-		for _, ch := range l.a.AllChars() {
-			if ch.Autoconnect {
-				k := app.Key(ch.World, ch.ID)
-				l.open(k)
-				effs = append(effs, l.a.Connect(k)...)
-			}
+	held := map[string]bool{}
+	for _, k := range opts.Resume {
+		held[k] = true
+	}
+	for _, ch := range l.a.AllChars() {
+		if k := app.Key(ch.World, ch.ID); held[k] || opts.Autoconnect && ch.Autoconnect {
+			l.open(k)
+			effs = append(effs, l.a.Connect(k)...)
 		}
 	}
 	if d := l.drafts[""]; d != "" && l.a.Char(l.a.Active()) == nil {

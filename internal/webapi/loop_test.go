@@ -1284,3 +1284,16 @@ func TestSidebarAction(t *testing.T) {
 		t.Errorf("sidebar shut: %v", b)
 	}
 }
+
+// Characters with a held connection saved come back at start, whatever
+// their autoconnect says.
+func TestResumeConnectsHeldCharacters(t *testing.T) {
+	a, dir := newApp(t)
+	h := startWith(t, a, dir, Options{Resume: []string{"fm/rook", "fm/nobody"}})
+	if c := h.a.Char("fm/rook"); c == nil || c.Sess == nil {
+		t.Error("Rook, held, wasn't connected at start")
+	}
+	if c := h.a.Char("fm/kit"); c != nil && c.Sess != nil {
+		t.Error("Kit, not held and not autoconnect, was connected")
+	}
+}
