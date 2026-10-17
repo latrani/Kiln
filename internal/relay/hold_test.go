@@ -691,3 +691,23 @@ func TestBeaconIgnoresUnknownTokens(t *testing.T) {
 		t.Errorf("GET short=1: %d, want 400", resp.StatusCode)
 	}
 }
+
+// A page resuming from behind what the relay still has (it acked more
+// than it says it got) hears where the data starts, so its offsets stay
+// right.
+func TestResumeBehindTheBufferSaysWhere(t *testing.T) {
+	m := newMuck(t)
+	_, base, _ := holdRelay(t, m, "")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	w.Write([]byte("one\r\n"))
+	p.data(5)
+	p.send(wire.Msg{T: wire.Ack, Got: 5})
+	time.Sleep(100 * time.Millisecond)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	q.expect(wire.Resumed)
+	if w2 := q.expect(wire.Missed); w2.Lines != 0 || w2.At != 5 {
+		t.Errorf("missed %+v, want no lines, data from 5", w2)
+	}
+}

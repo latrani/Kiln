@@ -5,10 +5,12 @@ package wsdial
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/relay"
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -290,7 +293,7 @@ func TestWakeResumesASilentSocket(t *testing.T) {
 	c, err := conn.Dial(context.Background(), conn.Options{Host: "127.0.0.1", Port: w.port,
 		DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
 			t, _ := target(u, addr, false)
-			return dialLink(ctx, open, t, resumeTarget(u))
+			return dialLink(ctx, open, t, resumeTarget(u), false)
 		}})
 	if err != nil {
 		t.Fatal(err)
@@ -477,5 +480,144 @@ func TestCloseBeforeOpenSaysDropped(t *testing.T) {
 		DialContext: Dialer("ws"+strings.TrimPrefix(hs.URL, "http"), false)})
 	if err == nil || err.Error() != str.ConnRelayDropped() {
 		t.Errorf("err = %v, want %q", err, str.ConnRelayDropped())
+	}
+}
+
+// dialWith dials w's world through the relay at u with o, returning the
+// conn and its link.
+func dialWith(t *testing.T, u string, w *world, o Options) (*conn.Conn, *Link, error) {
+	t.Helper()
+	var l *Link
+	c, err := conn.Dial(context.Background(), conn.Options{Host: "127.0.0.1", Port: w.port,
+		DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
+			var err error
+			l, err = Dial(ctx, u, addr, o)
+			if err != nil {
+				return nil, err // not a nil *Link in an interface
+			}
+			return l, nil
+		}})
+	if err == nil {
+		t.Cleanup(func() { c.Close() })
+	}
+	return c, l, err
+}
+
+func TestDurableAcksOnlyWhatsKept(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	c, l, err := dialWith(t, u, w, Options{Durable: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.conn(t).Write([]byte("1\r\n2\r\n3\r\n"))
+	got := lines(t, c, 3)
+	time.Sleep(2 * wire.AckEvery) // a received-bytes ack would have gone by now
+	l.Kept(got[1].Off)
+	time.Sleep(200 * time.Millisecond)
+	token := l.Token()
+	DetachAll()
+	c2, l2, err := dialWith(t, u, w, Options{Durable: true, Resume: &Held{Token: token}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !l2.Resumed() {
+		t.Error("a resume from a token isn't Resumed")
+	}
+	again := lines(t, c2, 2)
+	if texts(again)[0] != "3" {
+		t.Errorf("after keeping line 2, the relay sent %q, want from line 3", texts(again))
+	}
+}
+
+func TestFreshResume(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	c, l, err := dialWith(t, u, w, Options{Durable: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wc := w.conn(t)
+	wc.Write([]byte("1\r\n2\r\n"))
+	got := lines(t, c, 2)
+	l.Kept(got[0].Off)
+	time.Sleep(200 * time.Millisecond)
+	token := l.Token()
+	DetachAll()
+	wc.Write([]byte("3\r\n"))
+	c2, _, err := dialWith(t, u, w, Options{Durable: true, Resume: &Held{Token: token, Kept: got[0].Off}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := texts(lines(t, c2, 3)); strings.Join(got, " ") != "2 3" {
+		t.Errorf("fresh resume got %q, want 2 3", got)
+	}
+	if w.n.Load() != 1 {
+		t.Errorf("the world took %d connections", w.n.Load())
+	}
+}
+
+func TestFreshResumeLetGo(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	if _, _, err := dialWith(t, u, w, Options{Resume: &Held{Token: "nope"}}); !errors.Is(err, ErrLetGo) {
+		t.Errorf("err = %v, want ErrLetGo", err)
+	}
+}
+
+func TestOnEndNotOnDetach(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	_, l, err := dialWith(t, u, w, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ended := make(chan error, 1)
+	l.OnEnd(func(err error) { ended <- err })
+	DetachAll()
+	select {
+	case err := <-ended:
+		t.Errorf("OnEnd(%v) on a detach", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	_, l2, _ := dialWith(t, u, w, Options{})
+	l2.OnEnd(func(err error) { ended <- err })
+	l2.Close()
+	select {
+	case <-ended:
+	case <-time.After(2 * time.Second):
+		t.Error("no OnEnd on Close")
+	}
+}
+
+func TestCloseAllLetsGo(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	dialWith(t, u, w, Options{})
+	wc := w.conn(t)
+	CloseAll()
+	select {
+	case <-wc.done:
+	case <-time.After(2 * time.Second):
+		t.Error("CloseAll didn't let the world go")
+	}
+}
+
+func TestTokens(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	_, l, _ := dialWith(t, u, w, Options{})
+	if !slices.Contains(Tokens(), l.Token()) {
+		t.Errorf("Tokens() = %q, missing %q", Tokens(), l.Token())
+	}
+	l.Close()
+	if slices.Contains(Tokens(), l.Token()) {
+		t.Error("a closed link's token is still listed")
 	}
 }

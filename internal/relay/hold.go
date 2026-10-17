@@ -272,7 +272,9 @@ func (h *held) write(a *attachment, pos int64) {
 			p = append([]byte(nil), p...)
 			h.mu.Unlock()
 			err := error(nil)
-			if missed > 0 {
+			if missed > 0 || from > pos {
+				// Say where the data goes on from: past lines dropped, or
+				// past bytes the page acked but says it didn't get.
 				err = a.c.Write(a.ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Missed, Lines: missed, At: from}))
 			}
 			if err == nil && len(p) > 0 {

@@ -110,8 +110,9 @@ func (b *buffer) dropLine() bool {
 
 // next is what a writer that has sent up to pos sends next: missed lines
 // dropped past pos (say so before the data, which then goes on from
-// from), and the rest of the chunk holding from, stamped at. ok is false
-// when there's nothing to send.
+// from), and the rest of the chunk holding from, stamped at. from is past
+// pos, with nothing missed, for a writer behind what's been acked. ok is
+// false when there's nothing to send.
 func (b *buffer) next(pos int64) (missed int, from int64, at time.Time, p []byte, ok bool) {
 	if i := sort.Search(len(b.drops), func(i int) bool { return b.drops[i].end > pos }); i < len(b.drops) {
 		missed = b.dropped - b.drops[i].n + 1
@@ -122,8 +123,8 @@ func (b *buffer) next(pos int64) (missed int, from int64, at time.Time, p []byte
 			return missed, from, c.at, c.p[len(c.p)-int(c.end-from):], true
 		}
 	}
-	if missed > 0 {
-		return missed, from, time.Time{}, nil, true
+	if missed > 0 || from > pos {
+		return missed, from, time.Time{}, nil, true // the writer says where data goes on from
 	}
 	return 0, 0, time.Time{}, nil, false
 }
