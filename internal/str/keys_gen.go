@@ -693,6 +693,11 @@ func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
 }
 
+// RelayConfigBadContact is relay.config_bad_contact: "{path}: push_contact {value:%q} must start with \"https:\" or \"mailto:\""
+func RelayConfigBadContact(path, value any) string {
+	return get("relay.config_bad_contact", map[string]any{"path": path, "value": value})
+}
+
 // RelayConfigBadHold is relay.config_bad_hold: "{path}: hold {value:%q} isn't a length of time · use one like \"24h\" or \"90m\""
 func RelayConfigBadHold(path, value any) string {
 	return get("relay.config_bad_hold", map[string]any{"path": path, "value": value})
@@ -733,9 +738,19 @@ func RelayConfigBadTrust(path, host, value any) string {
 	return get("relay.config_bad_trust", map[string]any{"path": path, "host": host, "value": value})
 }
 
+// RelayConfigBadVapid is relay.config_bad_vapid: "{path}: vapid_key {key:%q} isn't a P-256 private key · make one with openssl (see docs/web-relay.md)"
+func RelayConfigBadVapid(path, key any) string {
+	return get("relay.config_bad_vapid", map[string]any{"path": path, "key": key})
+}
+
 // RelayConfigBothTrust is relay.config_both_trust: "{path}: {host} has both tls_trust and pin · use one"
 func RelayConfigBothTrust(path, host any) string {
 	return get("relay.config_both_trust", map[string]any{"path": path, "host": host})
+}
+
+// RelayConfigContactNoKey is relay.config_contact_no_key: "{path}: push_contact does nothing without vapid_key"
+func RelayConfigContactNoKey(path any) string {
+	return get("relay.config_contact_no_key", map[string]any{"path": path})
 }
 
 // RelayConfigDuplicate is relay.config_duplicate: "{path}: {world:%q} is listed twice"
@@ -748,6 +763,11 @@ func RelayConfigDuplicate(path, world any) string {
 //   - other: "{path}: {n} worlds"
 func RelayConfigLoaded(n int, path any) string {
 	return count("relay.config_loaded", n, map[string]any{"n": n, "path": path})
+}
+
+// RelayConfigNoContact is relay.config_no_contact: "{path}: vapid_key needs push_contact, a web page or email push services can reach you at, like \"https://muck.example.org\""
+func RelayConfigNoContact(path any) string {
+	return get("relay.config_no_contact", map[string]any{"path": path})
 }
 
 // RelayConfigNoHost is relay.config_no_host: "{path}: world {n} has no host"
@@ -783,6 +803,11 @@ func RelayConfigReloadFailed(err error) string {
 // RelayConfigUnknownKey is relay.config_unknown_key: "{path}: unknown setting {key:%q}"
 func RelayConfigUnknownKey(path, key any) string {
 	return get("relay.config_unknown_key", map[string]any{"path": path, "key": key})
+}
+
+// RelayConfigVapidReading is relay.config_vapid_reading: "{path}: reading vapid_key: {err}"
+func RelayConfigVapidReading(path any, err error) string {
+	return get("relay.config_vapid_reading", map[string]any{"path": path, "err": err})
 }
 
 // RelayDropping is relay.dropping: "dropping lines {ip} → {world:%q}: buffer full"
@@ -831,6 +856,11 @@ func RelayNeedConfig() string { return get("relay.need_config", nil) }
 // RelayOpened is relay.opened: "open {ip} → {world:%q}"
 func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayPushStatus is relay.push_status: "the push service answered {status:%q}"
+func RelayPushStatus(status any) string {
+	return get("relay.push_status", map[string]any{"status": status})
 }
 
 // RelayRefusedBadCert is relay.refused_bad_cert: "refused {ip} → {world:%q}: certificate: {err}"

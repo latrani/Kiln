@@ -4,11 +4,13 @@
 package relay
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"net"
 	"net/netip"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,6 +19,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/relay/push"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -60,14 +63,25 @@ type Config struct {
 	// are dropped. 0: 4 and 256.
 	MaxBufferMB      int `toml:"max_buffer_mb"`
 	MaxTotalBufferMB int `toml:"max_total_buffer_mb"`
+	// VAPIDKey is a PEM PKCS#8 P-256 private key file, relative to this
+	// file's directory, that signs Web Push messages; PushContact (an
+	// https: or mailto: URL) is who push services may ask about them.
+	// Without a key the relay sends no pushes.
+	VAPIDKey    string `toml:"vapid_key"`
+	PushContact string `toml:"push_contact"`
 
 	proxies   []netip.Prefix
+	vapid     *ecdsa.PrivateKey
 	hold      time.Duration
 	shortHold time.Duration
 }
 
 // ShortHoldFor is how long a connection whose page closed is held.
 func (a *Config) ShortHoldFor() time.Duration { return or(a.shortHold, 10*time.Minute) }
+
+// Push is the key that signs pushes and the contact they name, or nil
+// when the relay sends none.
+func (a *Config) Push() (*ecdsa.PrivateKey, string) { return a.vapid, a.PushContact }
 
 // HoldFor is how long a detached connection is held.
 func (a *Config) HoldFor() time.Duration { return or(a.hold, 24*time.Hour) }
@@ -154,6 +168,9 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 		}
 		a.shortHold = d
 	}
+	if err := a.loadVAPID(path); err != nil {
+		return nil, err
+	}
 	for _, s := range a.TrustedProxies {
 		p, err := parsePrefix(s)
 		if err != nil {
@@ -162,6 +179,32 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 		a.proxies = append(a.proxies, p)
 	}
 	return &a, nil
+}
+
+// loadVAPID reads vapid_key, beside path, and checks push_contact.
+func (a *Config) loadVAPID(path string) error {
+	switch {
+	case a.VAPIDKey == "" && a.PushContact != "":
+		return errors.New(str.RelayConfigContactNoKey(path))
+	case a.VAPIDKey == "":
+		return nil
+	case a.PushContact == "":
+		return errors.New(str.RelayConfigNoContact(path))
+	case !strings.HasPrefix(a.PushContact, "https:") && !strings.HasPrefix(a.PushContact, "mailto:"): //str:ok URL schemes
+		return errors.New(str.RelayConfigBadContact(path, a.PushContact))
+	}
+	kp := a.VAPIDKey
+	if !filepath.IsAbs(kp) {
+		kp = filepath.Join(filepath.Dir(path), kp)
+	}
+	b, err := os.ReadFile(kp)
+	if err != nil {
+		return str.Wrap(str.RelayConfigVapidReading(path, err), err)
+	}
+	if a.vapid, err = push.ParseKey(b); err != nil {
+		return errors.New(str.RelayConfigBadVapid(path, a.VAPIDKey))
+	}
+	return nil
 }
 
 // checkTrust checks that w says how it's trusted, if it's TLS, and not
