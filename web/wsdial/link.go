@@ -653,16 +653,23 @@ func Wake() {
 	}
 }
 
+// errDetached is how a link left to another tab ends. Detached tells a
+// session it isn't a disconnect: the other tab carries on.
+type errDetached struct{}
+
+func (errDetached) Error() string  { return "left to another tab" } //str:ok never shown: sessions say nothing for it
+func (errDetached) Detached() bool { return true }
+
 // DetachAll leaves every link's held connection to another tab: its
-// socket closes without a word to the relay, and it stops resuming,
-// acking and keeping. Its conn ends (net.ErrClosed) without OnEnd.
+// socket closes without a word to the relay, and it stops resuming and
+// acking. Its conn ends (errDetached) without OnEnd.
 func DetachAll() {
 	for _, l := range live() {
 		l.wmu.Lock()
 		l.mu.Lock()
 		l.closed, l.ended = true, true
 		if l.err == nil {
-			l.err = net.ErrClosed
+			l.err = errDetached{}
 		}
 		s := l.sock
 		l.sock = nil

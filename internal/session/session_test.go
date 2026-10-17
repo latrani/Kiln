@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1091,5 +1092,39 @@ func eventually(t *testing.T, what string, ok func() bool) {
 		if time.Now().After(deadline) {
 			t.Fatal(what)
 		}
+	}
+}
+
+// detachedErr is a connection left to another tab (wsdial.DetachAll).
+type detachedErr struct{}
+
+func (detachedErr) Error() string  { return "left to another tab" }
+func (detachedErr) Detached() bool { return true }
+
+// A connection left to another tab isn't a disconnect: nothing is logged
+// (the other tab's scrollback would show it), and the session doesn't
+// redial.
+func TestDetachedIsNoDisconnect(t *testing.T) {
+	fc := newFakeConn()
+	fc.err = detachedErr{}
+	log := &memLog{}
+	var dials atomic.Int32
+	ch := kit
+	ch.Login = ""
+	s := New(Options{Char: ch, Log: log, Backoff: func(int) time.Duration { return time.Millisecond },
+		Dial: func(context.Context) (LineConn, error) { dials.Add(1); return fc, nil }})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	waitFor(t, s, isState(Connected))
+	n := len(log.Texts())
+	fc.Close()
+	waitFor(t, s, isState(Disconnected))
+	time.Sleep(100 * time.Millisecond)
+	if got := log.Texts(); len(got) != n {
+		t.Errorf("logged %q when the connection was left to another tab", got[n:])
+	}
+	if n := dials.Load(); n != 1 {
+		t.Errorf("dialed %d times, want 1", n)
 	}
 }

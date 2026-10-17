@@ -442,6 +442,17 @@ func (s *Session) Run(ctx context.Context) {
 			continue
 		}
 
+		// Left to another tab (the web build handing Kiln over), which
+		// carries on with it: not a disconnect to log, nothing to redial.
+		var left interface{ Detached() bool }
+		if errors.As(c.Err(), &left) && left.Detached() {
+			s.state(Disconnected, nil)
+			if !s.stayDown(ctx) {
+				return
+			}
+			continue
+		}
+
 		reason := str.SessionClosedByServer()
 		if err := c.Err(); err != nil {
 			reason = err.Error()
