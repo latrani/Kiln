@@ -66,8 +66,10 @@ max_per_ip = 8
 # Connections in all.
 max_conns = 256
 # How long a connection is held after its page goes away (below), and
-# how much is kept for each one meanwhile, and for all of them, in MB.
+# after its tab closes; how much is kept for each one meanwhile, and for
+# all of them, in MB.
 hold = "24h"
+short_hold = "10m"
 max_buffer_mb = 4
 max_total_buffer_mb = 256
 
@@ -104,8 +106,17 @@ switching apps or losing its network, a tab suspended in the
 background), the relay keeps the world connection open and holds it
 for `hold` (24 hours unless you set it). Kiln picks it back up when it
 comes back: no reconnect, no log-in, and the lines that arrived
-meanwhile come in with the times they reached the relay. A player
-quitting or closing the character lets the world go at once.
+meanwhile come in with the times they reached the relay. That's so in
+the same tab, and in a fresh one in the same browser: a reload, **Use
+here** in another tab, or a tab the phone discarded. The browser saves
+each character's place beside its logs, and the relay keeps everything
+past the last place the browser has saved.
+
+A player quitting or closing the character, or `/reset`, lets the world
+go at once. A tab that really closes tells the relay as it goes, and the
+relay lets its characters go after `short_hold` (10 minutes) unless the
+page comes back first, as a reload does. A phone switching apps or
+locking doesn't close the tab, so those keep the full hold.
 
 - A held connection still counts against `max_per_ip` and `max_conns`
   until it ends. Picking it up from a new address (wifi to cellular)

@@ -61,11 +61,20 @@ func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 // allowed, connects to it, doing TLS with the world itself unless it's
 // plaintext, and carries it as package wire says. tls=1 says the
 // client's world file asks for TLS, which a plaintext world refuses.
-// ?resume=1 picks up a held connection instead.
+// ?resume=1 picks up a held connection instead, and a POST with
+// ?short=1 is a closing page's beacon (beacon).
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a := s.cfg.Load()
 	if a == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if r.URL.Query().Get("short") == "1" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		s.beacon(w, r)
 		return
 	}
 	ip, ok := s.clientIP(r, a)

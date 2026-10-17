@@ -17,13 +17,13 @@ import (
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
-	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/webapi"
 	"github.com/latrani/Kiln/web/backup"
+	"github.com/latrani/Kiln/web/resume"
 	"github.com/latrani/Kiln/web/tz"
 	"github.com/latrani/Kiln/web/wsdial"
 )
@@ -94,6 +94,23 @@ func run(k js.Value, p page) error {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return err
 	}
+	// Held connections to pick back up in this tab, saved beside the logs.
+	held := resume.Open(filepath.Join(dataDir, "relay.json"), p.saving) //str:ok
+	k.Set("synced", js.FuncOf(func(_ js.Value, a []js.Value) any { held.Synced(a[0].String()); return nil })) //str:ok
+	k.Set("tokens", js.FuncOf(func(js.Value, []js.Value) any { //str:ok
+		var out []any
+		for _, t := range wsdial.Tokens() {
+			out = append(out, t)
+		}
+		return out
+	}))
+	k.Set("detachLinks", js.FuncOf(func(js.Value, []js.Value) any { wsdial.DetachAll(); return nil })) //str:ok
+	k.Set("closeLinks", js.FuncOf(func(js.Value, []js.Value) any { wsdial.CloseAll(); return nil }))   //str:ok
+	go func() {
+		for range time.Tick(time.Second) {
+			held.Sync()
+		}
+	}()
 	var mu sync.Mutex
 	writers := map[logstore.Layout]*logstore.Writer{}
 	a := app.New(app.Deps{
@@ -103,12 +120,13 @@ func run(k js.Value, p page) error {
 		Load:      config.Load,
 		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {
 			// The relay does TLS, trusting the world as its config says, so
-			// the world file's tls only says what to ask for. A terminal's
-			// size until the page says how wide it is (resize).
-			return conn.Dial(ctx, conn.Options{
-				Host: ch.Host, Port: ch.Port, Width: 80, Height: 24,
-				DialContext: wsdial.Dialer(p.relay, ch.TLS),
-			})
+			// the world file's tls only says what to ask for. A held
+			// connection saved for the character is picked back up.
+			c, err := held.Dial(ctx, p.relay, app.Key(ch.World, ch.ID), ch)
+			if err != nil {
+				return nil, err
+			}
+			return c, nil
 		},
 		NewLog: func(l logstore.Layout) session.Appender {
 			mu.Lock()
@@ -123,12 +141,18 @@ func run(k js.Value, p page) error {
 		Password: func(string, string, string) (string, error) { return "", secrets.ErrNotFound },
 	})
 	a.ApplyConfig(cfg)
+	chars := map[string]bool{}
+	for _, ch := range a.AllChars() {
+		chars[app.Key(ch.World, ch.ID)] = true
+	}
+	held.Prune(func(k string) bool { return chars[k] })
 	l := webapi.New(a, func(b []byte) { p.onBatch.Invoke(string(b)) })
 	k.Set("act", js.FuncOf(func(_ js.Value, v []js.Value) any { //str:ok
 		l.Act([]byte(v[0].String()))
 		return nil
 	}))
 	k.Set("storageFailed", js.FuncOf(func(js.Value, []js.Value) any { //str:ok
+		held.SavingOff()
 		l.Say(true, str.WebNotSaving())
 		return nil
 	}))
@@ -136,7 +160,7 @@ func run(k js.Value, p page) error {
 		l.Say(true, str.WebNotSaving())
 	}
 	l.Run(context.Background(), webapi.Options{
-		Autoconnect: true, Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir, //str:ok
+		Autoconnect: true, Resume: held.Keys(), Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir, //str:ok
 		Backup:  func() ([]byte, error) { return backup.Zip(cfgDir) },
 		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir) },
 	})

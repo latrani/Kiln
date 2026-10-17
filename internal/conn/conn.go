@@ -3,6 +3,7 @@
 package conn
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -29,6 +30,9 @@ type Options struct {
 	KnownHosts KnownHosts
 	Width      int // reported via NAWS
 	Height     int
+	// Telnet is what another tab agreed with the server on this same
+	// connection, picked up again; nil for a new connection.
+	Telnet *telnet.State
 	// DialContext opens the raw connection (TLS, if on, runs over it).
 	// nil: a plain TCP dial. The web build dials through kiln-relay.
 	// Its ctx bounds the dial and the TLS handshake together and is
@@ -43,6 +47,13 @@ type Line struct {
 	Text string
 	At   time.Time // when it arrived; zero: when it's read
 	Note bool
+	// Off is where the line ends in the relay's stream (just past its
+	// newline), a point a fresh tab can resume from; 0 when there's no
+	// such point (not through a relay, a line cut for length).
+	Off int64
+	// Telnet is what had been agreed with the server at Off, for a fresh
+	// tab resuming from there.
+	Telnet telnet.State
 }
 
 // Record is one read from a connection that comes through a relay: bytes
@@ -55,6 +66,8 @@ type Record struct {
 	// Gap says bytes before this one were dropped: a line or telnet
 	// sequence half-read before it is gone.
 	Gap bool
+	// End is the stream offset just past Data.
+	End int64
 }
 
 // RecordReader is a net.Conn that reads Records. Dial reads one through
@@ -111,6 +124,9 @@ func Dial(ctx context.Context, o Options) (*Conn, error) {
 		lines:   make(chan Line, 64),
 		prompts: make(chan string, 1),
 		parser:  telnet.NewParser(o.Width, o.Height),
+	}
+	if o.Telnet != nil {
+		c.parser.Restore(*o.Telnet)
 	}
 	go c.readLoop()
 	go c.processLoop()
@@ -204,15 +220,9 @@ func (c *Conn) processLoop() {
 				c.lines <- Line{Text: rec.Note, At: rec.At, Note: true}
 				continue
 			}
-			c.mu.Lock()
-			data, reply := c.parser.Feed(rec.Data)
-			if len(reply) > 0 {
-				c.nc.Write(reply)
-			}
-			c.mu.Unlock()
-			lines := s.push(data)
-			for _, line := range lines {
-				c.lines <- Line{Text: line, At: rec.At}
+			lines := c.feed(&s, rec)
+			for _, l := range lines {
+				c.lines <- l
 			}
 			if len(lines) > 0 {
 				lastPrompt = ""
@@ -233,6 +243,47 @@ func (c *Conn) processLoop() {
 			}
 		}
 	}
+}
+
+// feed parses rec and returns its complete lines. It feeds the parser up
+// to each raw newline in turn, so a newline that ends a line (not one
+// inside a telnet sequence) gives that line its stream offset.
+func (c *Conn) feed(s *splitter, rec Record) []Line {
+	var out []Line
+	start := rec.End - int64(len(rec.Data))
+	p := rec.Data
+	for len(p) > 0 {
+		n := bytes.IndexByte(p, '\n') + 1
+		if n == 0 {
+			n = len(p)
+		}
+		c.mu.Lock()
+		data, reply := c.parser.Feed(p[:n])
+		if len(reply) > 0 {
+			c.nc.Write(reply)
+		}
+		clean := p[n-1] == '\n' && c.parser.InData()
+		st := c.parser.State()
+		c.mu.Unlock()
+		lines := s.push(data)
+		for i, l := range lines {
+			line := Line{Text: l, At: rec.At}
+			if clean && rec.End > 0 && i == len(lines)-1 {
+				line.Off = start + int64(len(rec.Data)-len(p)+n)
+				line.Telnet = st
+			}
+			out = append(out, line)
+		}
+		p = p[n:]
+	}
+	return out
+}
+
+// TelnetState is what's been agreed with the server.
+func (c *Conn) TelnetState() telnet.State {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.parser.State()
 }
 
 // Lines delivers received lines. It is closed when the connection ends;

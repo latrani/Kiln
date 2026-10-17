@@ -723,6 +723,11 @@ func RelayConfigBadProxy(path, addr any) string {
 	return get("relay.config_bad_proxy", map[string]any{"path": path, "addr": addr})
 }
 
+// RelayConfigBadShortHold is relay.config_bad_short_hold: "{path}: short_hold {value:%q} isn't a length of time · use one like \"10m\""
+func RelayConfigBadShortHold(path, value any) string {
+	return get("relay.config_bad_short_hold", map[string]any{"path": path, "value": value})
+}
+
 // RelayConfigBadTrust is relay.config_bad_trust: "{path}: {host} has tls_trust {value:%q} · the only value is \"ca\"; use pin = \"sha256:…\" for a pinned certificate"
 func RelayConfigBadTrust(path, host, value any) string {
 	return get("relay.config_bad_trust", map[string]any{"path": path, "host": host, "value": value})
@@ -805,6 +810,11 @@ func RelayHeld(ip, world any) string {
 // RelayHoldExpired is relay.hold_expired: "let go {ip} → {world:%q}: held {dur} with no one back"
 func RelayHoldExpired(ip, world, dur any) string {
 	return get("relay.hold_expired", map[string]any{"ip": ip, "world": world, "dur": dur})
+}
+
+// RelayLettingGo is relay.letting_go: "letting go {ip} → {world:%q} in {dur}: its page closed"
+func RelayLettingGo(ip, world, dur any) string {
+	return get("relay.letting_go", map[string]any{"ip": ip, "world": world, "dur": dur})
 }
 
 // RelayListening is relay.listening: "kiln-relay listening on {addr}"
@@ -1404,6 +1414,3 @@ func WebTitleUnread(n int) string { return get("web.title_unread", map[string]an
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }
-
-// WebUseHereWarning is web.use_here_warning: "This will disconnect your existing session."
-func WebUseHereWarning() string { return get("web.use_here_warning", nil) }

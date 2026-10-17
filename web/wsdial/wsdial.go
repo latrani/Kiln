@@ -7,6 +7,7 @@
 package wsdial
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/url"
@@ -49,6 +50,18 @@ func target(relayURL, addr string, tls bool) (string, error) {
 	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil
+}
+
+// Dialer returns a conn.Options.DialContext that reaches addr through the
+// relay at relayURL, asking for TLS if tls: Dial, with nothing saved.
+func Dialer(relayURL string, tls bool) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, _, addr string) (net.Conn, error) {
+		l, err := Dial(ctx, relayURL, addr, Options{TLS: tls})
+		if err != nil {
+			return nil, err
+		}
+		return l, nil
+	}
 }
 
 // resumeTarget is the relay URL a held connection resumes at.

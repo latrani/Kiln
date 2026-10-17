@@ -34,13 +34,11 @@ test("loading shows progress in the status line", () => {
   assert.ok(page({ phase: "loading", progress: { got: 2_100_000, total: 6_400_000 } }).includes(loadingText(2_100_000, 6_400_000)));
 });
 
-test("another tab: the splash, not the five areas, with what Use here costs", () => {
+test("another tab: the splash, not the five areas, and Use here", () => {
   const html = page({ phase: "locked", onUseHere: () => {} });
   assert.match(html, /<main class="splash">/);
   assert.ok(html.includes(`>${str.webTitle()}</h1>`) && html.includes(str.webOtherTab()));
-  assert.match(html, new RegExp(`<p id="([^"]+)"[^>]*>${str.webUseHereWarning()}</p>`));
-  const id = /<p id="([^"]+)"/.exec(html)![1];
-  assert.match(html, new RegExp(`<button[^>]*aria-describedby="${id}"[^>]*>${str.webUseHere()}</button>`));
+  assert.match(html, new RegExp(`<button[^>]*>${str.webUseHere()}</button>`));
   for (const area of ["<nav", "<header", 'class="bottom', 'class="status ']) assert.ok(!html.includes(area), area);
 });
 

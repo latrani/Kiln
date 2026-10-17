@@ -124,9 +124,8 @@ closes the tab in the background.
 
 One tab runs Kiln at a time. A second tab shows a splash in the theme
 Kiln last drew with, offering **Use here**, which moves Kiln over; the
-first tab saves, disconnects its characters (the splash warns of this),
-and shows the same offer. Keeping the connections across the move is
-#187.
+first tab saves, leaves its characters to the new tab (which picks them
+up from the relay without logging in), and shows the same offer.
 
 A preset is laid out like a `/backup` zip: `config/…` is the config
 dir. Preset files are written only where nothing is saved, so your edits

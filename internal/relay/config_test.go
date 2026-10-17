@@ -81,6 +81,17 @@ func TestParseHoldAndBuffers(t *testing.T) {
 	}
 }
 
+func TestParseShortHold(t *testing.T) {
+	a, _ := ParseConfig("relay.toml", []byte(sample))
+	if a.ShortHoldFor() != 10*time.Minute {
+		t.Errorf("default short hold %v, want 10m", a.ShortHoldFor())
+	}
+	a, err := ParseConfig("relay.toml", []byte("short_hold = \"5m\"\n"+sample))
+	if err != nil || a.ShortHoldFor() != 5*time.Minute {
+		t.Errorf("short hold %v, %v; want 5m", a.ShortHoldFor(), err)
+	}
+}
+
 func TestTrusted(t *testing.T) {
 	a, _ := ParseConfig("relay.toml", []byte(sample))
 	for ip, want := range map[string]bool{
@@ -124,6 +135,7 @@ func TestParseErrors(t *testing.T) {
 		{"hold word", "hold = \"soon\"\n", str.RelayConfigBadHold("relay.toml", "soon")},
 		{"hold negative", "hold = \"-1h\"\n", str.RelayConfigBadHold("relay.toml", "-1h")},
 		{"hold zero", "hold = \"0s\"\n", str.RelayConfigBadHold("relay.toml", "0s")},
+		{"short hold word", "short_hold = \"soon\"\n", str.RelayConfigBadShortHold("relay.toml", "soon")},
 		{"negative buffer", "max_buffer_mb = -1\n", str.RelayConfigBadLimit("relay.toml", "max_buffer_mb")},
 		{"zero total buffer", "max_total_buffer_mb = 0\n", str.RelayConfigBadLimit("relay.toml", "max_total_buffer_mb")},
 	} {

@@ -52,12 +52,12 @@ var errReplaced = errors.New(str.ConnRelayReplaced())
 // setting decides what happens next.
 var ErrLetGo = errors.New(str.ConnRelayLetGo())
 
-// A link is a world connection through the relay that outlives any one
+// A Link is a world connection through the relay that outlives any one
 // WebSocket. When its socket dies without Close, it resumes the held
 // connection on a new one, resending what the relay hadn't acknowledged,
 // so the connection above it never sees a break. It's a net.Conn and a
 // conn.RecordReader.
-type link struct {
+type Link struct {
 	open      opener
 	resumeURL string
 	token     string
@@ -79,9 +79,16 @@ type link struct {
 	outBase  int64  // the offset of out[0]
 	closed   bool
 	resuming bool
+	durable  bool  // acks wait for Kept
+	kept     int64 // the last offset acked as kept
+	resumed  bool  // it picked up a hold rather than opening one
+	onEnd    func(error)
+	ended    bool // onEnd has been called, or never will be (detached)
+	endErr   error
+	detached bool          // left to another tab: no onEnd
 	poke     chan struct{} // Wake: try resuming now
 	pong     chan struct{}
-	pinging  bool // a Wake's ping is waiting for its pong
+	pinging  bool        // a Wake's ping is waiting for its pong
 	note     *resumeNote // shown once the replay reaches it
 }
 
@@ -93,12 +100,98 @@ type resumeNote struct {
 
 var (
 	linksMu sync.Mutex
-	links   = map[*link]bool{}
+	links   = map[*Link]bool{}
 )
+
+// Options say how Dial reaches a world.
+type Options struct {
+	TLS bool // the world file asks for TLS
+	// Durable links ack only what Kept says the page has saved, so the
+	// relay keeps the rest for a fresh tab. Otherwise a link acks what it
+	// receives.
+	Durable bool
+	// Resume picks up this held connection (a fresh tab) instead of
+	// opening a new one.
+	Resume *Held
+}
+
+// Held is a held connection a page saved: its token, and the offset just
+// past the last line it kept.
+type Held struct {
+	Token string
+	Kept  int64
+}
+
+// Dial reaches addr (host:port) through the relay at relayURL (ws:// or
+// wss://). It returns once the relay has reached the world, or resumed
+// the held connection, so a refusal is a dial error; a hold the relay no
+// longer has is ErrLetGo.
+func Dial(ctx context.Context, relayURL, addr string, o Options) (*Link, error) {
+	if o.Resume != nil {
+		return resumeLink(ctx, openSocket, resumeTarget(relayURL), *o.Resume, o.Durable)
+	}
+	u, err := target(relayURL, addr, o.TLS)
+	if err != nil {
+		return nil, err
+	}
+	return dialLink(ctx, openSocket, u, resumeTarget(relayURL), o.Durable)
+}
+
+// newLink is a link over s, registered, reading.
+func newLink(open opener, resumeURL, token string, s socket, durable bool) *Link {
+	l := &Link{open: open, resumeURL: resumeURL, token: token, sock: s, durable: durable,
+		poke: make(chan struct{}, 1), pong: make(chan struct{}, 1)}
+	l.cond = sync.NewCond(&l.mu)
+	if !durable {
+		l.ack = wire.NewAcker(0, l.sendAck)
+	}
+	return l
+}
+
+func (l *Link) start(s socket) {
+	linksMu.Lock()
+	links[l] = true
+	linksMu.Unlock()
+	go l.readFrom(s)
+}
+
+// resumeLink picks up held on a socket to resumeURL.
+func resumeLink(ctx context.Context, open opener, resumeURL string, held Held, durable bool) (*Link, error) {
+	s, err := open(ctx, resumeURL)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Write(ctx, websocket.MessageText, wire.Encode(wire.Msg{T: wire.Resume, Token: held.Token, Got: held.Kept})); err != nil {
+		s.CloseNow()
+		return nil, err
+	}
+	typ, b, err := s.Read(ctx)
+	if err != nil {
+		s.CloseNow()
+		if websocket.CloseStatus(err) == wire.CodeGone {
+			return nil, ErrLetGo
+		}
+		return nil, explain(err)
+	}
+	m, err := wire.Decode(b)
+	if typ != websocket.MessageText || err != nil || m.T != wire.Resumed {
+		s.CloseNow()
+		return nil, errors.New(str.ConnRelayDropped())
+	}
+	l := newLink(open, resumeURL, held.Token, s, durable)
+	l.got, l.outBase, l.resumed = held.Kept, m.Got, true
+	if l.ack != nil {
+		l.ack = wire.NewAcker(held.Kept, l.sendAck)
+	}
+	l.note = &resumeNote{at: m.At, away: time.Duration(m.Away) * time.Millisecond}
+	l.noteLocked()
+	l.start(s)
+	return l, nil
+}
 
 // dialLink opens target and waits for the relay's open message. A refusal
 // is a dial error. resumeURL is where it resumes.
-func dialLink(ctx context.Context, open opener, target, resumeURL string) (*link, error) {
+func dialLink(ctx context.Context, open opener, target, resumeURL string, durable bool) (*Link, error) {
 	s, err := open(ctx, target)
 	if err != nil {
 		return nil, err
@@ -116,19 +209,56 @@ func dialLink(ctx context.Context, open opener, target, resumeURL string) (*link
 		s.CloseNow()
 		return nil, errors.New(str.ConnRelayDropped())
 	}
-	l := &link{open: open, resumeURL: resumeURL, token: m.Token, sock: s,
-		poke: make(chan struct{}, 1), pong: make(chan struct{}, 1)}
-	l.cond = sync.NewCond(&l.mu)
-	l.ack = wire.NewAcker(0, l.sendAck)
-	linksMu.Lock()
-	links[l] = true
-	linksMu.Unlock()
-	go l.readFrom(s)
+	l := newLink(open, resumeURL, m.Token, s, durable)
+	l.start(s)
 	return l, nil
 }
 
+// Token is the relay's name for the held connection.
+func (l *Link) Token() string { return l.token }
+
+// Resumed reports whether Dial picked up a held connection rather than
+// opening a new one.
+func (l *Link) Resumed() bool { return l.resumed }
+
+// OnEnd has f called once when the link ends for good (closed, let go,
+// replaced, the world gone), but not when DetachAll leaves it for
+// another tab.
+func (l *Link) OnEnd(f func(error)) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.onEnd = f
+	if l.ended && !l.detached {
+		go f(l.endErr) // it ended before anyone asked
+	}
+}
+
+// Kept says the page has saved everything up to off: a durable link acks
+// it, so the relay can forget it.
+func (l *Link) Kept(off int64) {
+	l.mu.Lock()
+	if !l.durable || l.closed || off <= l.kept {
+		l.mu.Unlock()
+		return
+	}
+	l.kept = off
+	l.mu.Unlock()
+	l.sendAck(off)
+}
+
+// endLocked calls onEnd, once. l.mu is held.
+func (l *Link) endLocked(err error) {
+	if l.ended {
+		return
+	}
+	l.ended, l.endErr = true, err
+	if f := l.onEnd; f != nil {
+		go f(err)
+	}
+}
+
 // readFrom takes what the relay sends on s until s dies.
-func (l *link) readFrom(s socket) {
+func (l *Link) readFrom(s socket) {
 	for {
 		typ, b, err := s.Read(context.Background())
 		if err != nil {
@@ -141,13 +271,15 @@ func (l *link) readFrom(s socket) {
 				continue
 			}
 			l.mu.Lock()
-			l.recs = append(l.recs, conn.Record{Data: p, At: at})
 			l.got += int64(len(p))
+			l.recs = append(l.recs, conn.Record{Data: p, At: at, End: l.got})
 			l.lastAt = at
 			l.noteLocked()
 			l.cond.Broadcast()
 			l.mu.Unlock()
-			l.ack.Received(len(p))
+			if l.ack != nil {
+				l.ack.Received(len(p))
+			}
 			continue
 		}
 		m, err := wire.Decode(b)
@@ -163,12 +295,18 @@ func (l *link) readFrom(s socket) {
 			l.mu.Unlock()
 		case wire.Missed:
 			l.mu.Lock()
-			l.recs = append(l.recs, conn.Record{Note: str.ConnMissed(m.Lines), At: l.lastAt, Gap: true})
+			rec := conn.Record{At: l.lastAt, Gap: true}
+			if m.Lines > 0 {
+				rec.Note = str.ConnMissed(m.Lines)
+			}
+			l.recs = append(l.recs, rec)
 			l.got = max(l.got, m.At)
 			l.noteLocked()
 			l.cond.Broadcast()
 			l.mu.Unlock()
-			l.ack.Skip(m.At)
+			if l.ack != nil {
+				l.ack.Skip(m.At)
+			}
 		case wire.Pong:
 			select {
 			case l.pong <- struct{}{}:
@@ -188,7 +326,7 @@ func (l *link) readFrom(s socket) {
 
 // noteLocked queues the resumed note once the replay has caught up.
 // l.mu is held.
-func (l *link) noteLocked() {
+func (l *Link) noteLocked() {
 	if l.note != nil && l.got >= l.note.at {
 		l.recs = append(l.recs, conn.Record{Note: str.ConnResumed(l.note.away.Round(time.Second)), At: time.Now()})
 		l.note = nil
@@ -196,7 +334,7 @@ func (l *link) noteLocked() {
 }
 
 // lost handles s dying: resume, unless the link is done with it.
-func (l *link) lost(s socket, err error) {
+func (l *Link) lost(s socket, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.sock != s || l.closed || l.err != nil {
@@ -219,7 +357,7 @@ func (l *link) lost(s socket, err error) {
 
 // resume tries to pick the held connection up on a new socket until it
 // does, the relay says it's gone, or the link is closed.
-func (l *link) resume() {
+func (l *Link) resume() {
 	start := time.Now()
 	told := false
 	for try := 0; ; try++ {
@@ -253,7 +391,7 @@ func (l *link) resume() {
 }
 
 // tryResume opens a socket and asks for the held connection.
-func (l *link) tryResume() (socket, wire.Msg, error) {
+func (l *Link) tryResume() (socket, wire.Msg, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), resumeTimeout)
 	defer cancel()
 	s, err := l.open(ctx, l.resumeURL)
@@ -282,7 +420,7 @@ func (l *link) tryResume() (socket, wire.Msg, error) {
 
 // attach carries on over s, which the relay resumed with m: resend what
 // it hadn't written to the world.
-func (l *link) attach(s socket, m wire.Msg) {
+func (l *Link) attach(s socket, m wire.Msg) {
 	l.wmu.Lock()
 	defer l.wmu.Unlock()
 	l.mu.Lock()
@@ -318,7 +456,7 @@ func sendData(s socket, p []byte) {
 }
 
 // bye tells the relay, over s, to let the world go, and closes s.
-func (l *link) bye(s socket) {
+func (l *Link) bye(s socket) {
 	l.wmu.Lock()
 	defer l.wmu.Unlock()
 	l.mu.Lock()
@@ -328,27 +466,30 @@ func (l *link) bye(s socket) {
 	l.mu.Unlock()
 	s.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Close}))
 	s.Close(websocket.StatusNormalClosure, "")
-	l.ack.Stop()
+	if l.ack != nil {
+		l.ack.Stop()
+	}
 }
 
 // fail ends the link with err once what's queued has been read.
-func (l *link) fail(err error) {
+func (l *Link) fail(err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.failLocked(err)
 }
 
-func (l *link) failLocked(err error) {
+func (l *Link) failLocked(err error) {
 	if l.err == nil {
 		l.err = err
 	}
+	l.endLocked(l.err)
 	l.cond.Broadcast()
 	linksMu.Lock()
 	delete(links, l)
 	linksMu.Unlock()
 }
 
-func (l *link) sendAck(got int64) {
+func (l *Link) sendAck(got int64) {
 	l.wmu.Lock()
 	defer l.wmu.Unlock()
 	l.mu.Lock()
@@ -359,7 +500,7 @@ func (l *link) sendAck(got int64) {
 	}
 }
 
-func (l *link) ReadRecord() (conn.Record, error) {
+func (l *Link) ReadRecord() (conn.Record, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for len(l.recs) == 0 && l.err == nil {
@@ -374,7 +515,7 @@ func (l *link) ReadRecord() (conn.Record, error) {
 }
 
 // Read is ReadRecord's bytes, notes left out.
-func (l *link) Read(p []byte) (int, error) {
+func (l *Link) Read(p []byte) (int, error) {
 	for len(l.rest) == 0 {
 		r, err := l.ReadRecord()
 		if err != nil {
@@ -389,7 +530,7 @@ func (l *link) Read(p []byte) (int, error) {
 
 // Write sends p, or keeps it to send once the link has resumed. It fails
 // only once the link has ended.
-func (l *link) Write(p []byte) (int, error) {
+func (l *Link) Write(p []byte) (int, error) {
 	l.wmu.Lock()
 	defer l.wmu.Unlock()
 	l.mu.Lock()
@@ -415,7 +556,7 @@ func (l *link) Write(p []byte) (int, error) {
 }
 
 // Close tells the relay to let the world go, and stops resuming.
-func (l *link) Close() error {
+func (l *Link) Close() error {
 	l.wmu.Lock()
 	l.mu.Lock()
 	if l.closed {
@@ -429,6 +570,7 @@ func (l *link) Close() error {
 	}
 	s, got := l.sock, l.got
 	l.sock = nil
+	l.endLocked(net.ErrClosed)
 	l.cond.Broadcast()
 	l.mu.Unlock()
 	bye := wire.Encode(wire.Msg{T: wire.Close})
@@ -437,7 +579,9 @@ func (l *link) Close() error {
 		s.Close(websocket.StatusNormalClosure, "")
 	}
 	l.wmu.Unlock()
-	l.ack.Stop()
+	if l.ack != nil {
+		l.ack.Stop()
+	}
 	linksMu.Lock()
 	delete(links, l)
 	linksMu.Unlock()
@@ -465,7 +609,7 @@ func (l *link) Close() error {
 
 // ping checks s answers within wakeWait, and drops it if not. One runs
 // at a time, so two wakes can't take each other's pong.
-func (l *link) ping(s socket) {
+func (l *Link) ping(s socket) {
 	l.mu.Lock()
 	if l.pinging {
 		l.mu.Unlock()
@@ -514,6 +658,61 @@ func Wake() {
 	}
 }
 
+// errDetached is how a link left to another tab ends. Detached tells a
+// session it isn't a disconnect: the other tab carries on.
+type errDetached struct{}
+
+func (errDetached) Error() string  { return "left to another tab" } //str:ok never shown: sessions say nothing for it
+func (errDetached) Detached() bool { return true }
+
+// DetachAll leaves every link's held connection to another tab: its
+// socket closes without a word to the relay, and it stops resuming and
+// acking. Its conn ends (errDetached) without OnEnd.
+func DetachAll() {
+	for _, l := range live() {
+		l.wmu.Lock()
+		l.mu.Lock()
+		l.closed, l.ended, l.detached = true, true, true
+		if l.err == nil {
+			l.err = errDetached{}
+		}
+		s := l.sock
+		l.sock = nil
+		l.cond.Broadcast()
+		l.mu.Unlock()
+		l.wmu.Unlock()
+		if l.ack != nil {
+			l.ack.Stop()
+		}
+		linksMu.Lock()
+		delete(links, l)
+		linksMu.Unlock()
+		select {
+		case l.poke <- struct{}{}:
+		default:
+		}
+		if s != nil {
+			s.CloseNow()
+		}
+	}
+}
+
+// CloseAll closes every link: the relay lets their worlds go now.
+func CloseAll() {
+	for _, l := range live() {
+		l.Close()
+	}
+}
+
+// Tokens are the live links' tokens.
+func Tokens() []string {
+	var out []string
+	for _, l := range live() {
+		out = append(out, l.token)
+	}
+	return out
+}
+
 // DropAll kills every link's socket without a word to the relay, as a
 // dying network would. Tests use it; the links resume.
 func DropAll() {
@@ -527,21 +726,21 @@ func DropAll() {
 	}
 }
 
-func live() []*link {
+func live() []*Link {
 	linksMu.Lock()
 	defer linksMu.Unlock()
-	out := make([]*link, 0, len(links))
+	out := make([]*Link, 0, len(links))
 	for l := range links {
 		out = append(out, l)
 	}
 	return out
 }
 
-func (l *link) LocalAddr() net.Addr                { return pageAddr{} }
-func (l *link) RemoteAddr() net.Addr               { return pageAddr{} }
-func (l *link) SetDeadline(t time.Time) error      { return nil }
-func (l *link) SetReadDeadline(t time.Time) error  { return nil }
-func (l *link) SetWriteDeadline(t time.Time) error { return nil }
+func (l *Link) LocalAddr() net.Addr                { return pageAddr{} }
+func (l *Link) RemoteAddr() net.Addr               { return pageAddr{} }
+func (l *Link) SetDeadline(t time.Time) error      { return nil }
+func (l *Link) SetReadDeadline(t time.Time) error  { return nil }
+func (l *Link) SetWriteDeadline(t time.Time) error { return nil }
 
 type pageAddr struct{}
 

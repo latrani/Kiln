@@ -14,22 +14,6 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// Dialer returns a conn.Options.DialContext that reaches addr through the
-// relay at relayURL (ws:// or wss://), asking for TLS if tls, using the
-// page's WebSocket. It returns once the relay says it has reached the
-// world, so a refusal is a dial error.
-// coder/websocket's browser build drops the close code once the socket
-// closes, and the code is how the relay says why it refused.
-func Dialer(relayURL string, tls bool) func(ctx context.Context, network, addr string) (net.Conn, error) {
-	return func(ctx context.Context, _, addr string) (net.Conn, error) {
-		u, err := target(relayURL, addr, tls)
-		if err != nil {
-			return nil, err
-		}
-		return dialLink(ctx, openSocket, u, resumeTarget(relayURL))
-	}
-}
-
 // pageSocket is the page's WebSocket as a socket. Writes don't wait for
 // the browser to send (MUCK traffic is small).
 type pageSocket struct {

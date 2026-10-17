@@ -70,9 +70,12 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
   const dirty = new Set();
   let timer = null, chain = Promise.resolve(), failed = false, stopped = false, queued = false;
 
+  // run saves what's changed, and says whether everything changed before
+  // it started is now saved.
   async function run() {
     queued = false;
-    if (stopped || dirty.size === 0) return;
+    if (stopped) return false;
+    if (dirty.size === 0) return true;
     const paths = [...dirty];
     dirty.clear();
     const puts = [], dels = [];
@@ -82,9 +85,11 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
     }
     try {
       await store.apply(puts, dels);
+      return true;
     } catch (e) {
       for (const p of paths) dirty.add(p);
       if (!failed) { failed = true; onError(e); }
+      return false;
     }
   }
 
@@ -101,7 +106,9 @@ export function createPersist({ store, fs, onError = () => {}, delay = 500, setT
       clearTimer(timer);
       timer = setTimer(persist.flush, delay);
     },
-    // flush saves now; flushes run one at a time.
+    // flush saves now; flushes run one at a time. It resolves true once
+    // everything changed before it was asked is saved, false if that
+    // save failed or saving has stopped.
     flush() {
       clearTimer(timer);
       timer = null;

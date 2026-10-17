@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -363,7 +364,7 @@ func TestNotesComeBetweenLines(t *testing.T) {
 func TestNoteForgetsWhatWasHalfRead(t *testing.T) {
 	t1 := time.UnixMilli(1000)
 	for name, half := range map[string][]byte{
-		"half a line":          []byte("hel"),
+		"half a line":           []byte("hel"),
 		"half a subnegotiation": {telnet.IAC, telnet.SB, 24},
 	} {
 		c := dialRecords(t, Record{Data: half, At: t1}, Record{Note: "missed", At: t1, Gap: true}, Record{Data: []byte("lo\r\n"), At: t1})
@@ -383,5 +384,73 @@ func TestNoteWithoutAGapKeepsTheLine(t *testing.T) {
 	want := []Line{{Text: "resumed", At: t1, Note: true}, {Text: "hello", At: t1}}
 	if !slices.Equal(got, want) {
 		t.Errorf("lines %+v, want %+v", got, want)
+	}
+}
+
+func offsets(ls []Line) []string {
+	var out []string
+	for _, l := range ls {
+		out = append(out, fmt.Sprintf("%s@%d", l.Text, l.Off))
+	}
+	return out
+}
+
+func TestLinesKnowTheirOffsets(t *testing.T) {
+	c := dialRecords(t, Record{Data: []byte("a\r\nb"), End: 4}, Record{Data: []byte("\r\nc\r\n"), End: 9})
+	if got, want := offsets(collectLines(t, c)), []string{"a@3", "b@6", "c@9"}; !slices.Equal(got, want) {
+		t.Errorf("lines %q, want %q", got, want)
+	}
+}
+
+func TestNewlineInSubnegotiationIsNoLineEnd(t *testing.T) {
+	p := append([]byte{telnet.IAC, telnet.SB, telnet.OptNAWS, 0, '\n', 0, 24, telnet.IAC, telnet.SE}, "hi\r\n"...)
+	c := dialRecords(t, Record{Data: p, End: int64(len(p))})
+	if got, want := offsets(collectLines(t, c)), []string{fmt.Sprintf("hi@%d", len(p))}; !slices.Equal(got, want) {
+		t.Errorf("lines %q, want %q", got, want)
+	}
+}
+
+func TestMCPLineHasNoLine(t *testing.T) {
+	p := []byte("#$#mcp version: 2.1 to: 2.1\r\nhi\r\n")
+	c := dialRecords(t, Record{Data: p, End: int64(len(p))})
+	if got, want := offsets(collectLines(t, c)), []string{fmt.Sprintf("hi@%d", len(p))}; !slices.Equal(got, want) {
+		t.Errorf("lines %q, want %q", got, want)
+	}
+}
+
+func TestTelnetRestored(t *testing.T) {
+	a, b := net.Pipe()
+	t.Cleanup(func() { a.Close(); b.Close() })
+	got := make(chan []byte, 1)
+	go func() { buf := make([]byte, 64); n, _ := b.Read(buf); got <- buf[:n] }()
+	c, err := Dial(context.Background(), Options{Host: "fm", Port: 1, Width: 80, Height: 24, Telnet: &telnet.State{NAWS: true},
+		DialContext: func(context.Context, string, string) (net.Conn, error) { return a, nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Resize(100, 30)
+	select {
+	case msg := <-got:
+		if len(msg) < 3 || msg[0] != telnet.IAC || msg[1] != telnet.SB || msg[2] != telnet.OptNAWS {
+			t.Errorf("sent %v, want NAWS", msg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("a restored NAWS sent nothing on resize")
+	}
+	if !c.TelnetState().NAWS {
+		t.Error("TelnetState lost NAWS")
+	}
+}
+
+// A line's telnet state is what was agreed when it ended, not what the
+// parser agreed later in the same read: a fresh tab resuming from that
+// line replays what came after it.
+func TestLineTelnetIsAtItsEnd(t *testing.T) {
+	p := append([]byte("a\r\n"), telnet.IAC, telnet.DO, telnet.OptNAWS)
+	p = append(p, "b\r\n"...)
+	c := dialRecords(t, Record{Data: p, End: int64(len(p))})
+	got := collectLines(t, c)
+	if len(got) != 2 || got[0].Telnet.NAWS || !got[1].Telnet.NAWS {
+		t.Errorf("lines %+v: want a before NAWS, b after", got)
 	}
 }

@@ -1,9 +1,11 @@
 # Copy to dev-relay.toml (gitignored) and list the worlds your
 # preset.local uses. See docs/web-relay.md.
 
-# How long a connection is held after the page goes away, and how much
-# is buffered for it meanwhile (the defaults):
+# How long a connection is held after the page goes away (short_hold:
+# after its tab closed), and how much is buffered for it meanwhile (the
+# defaults):
 # hold = "24h"
+# short_hold = "10m"
 # max_buffer_mb = 4
 # max_total_buffer_mb = 256
 

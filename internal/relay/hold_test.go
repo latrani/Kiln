@@ -620,6 +620,116 @@ func TestStuckWorldDoesntBlockResume(t *testing.T) {
 	}
 }
 
+// beacon posts tokens as a closing page's sendBeacon does.
+func beacon(t *testing.T, base string, tokens ...string) int {
+	t.Helper()
+	u := "http" + strings.TrimPrefix(base, "ws") + "/?short=1"
+	resp, err := http.Post(u, "text/plain", strings.NewReader(strings.Join(tokens, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	return resp.StatusCode
+}
+
+func TestBeaconShortensTheHold(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	if code := beacon(t, base, p.token); code != http.StatusNoContent {
+		t.Errorf("beacon: %d, want 204", code)
+	}
+	p.c.CloseNow()
+	if !closed(w, 3*time.Second) {
+		t.Fatal("a closed page's hold wasn't shortened")
+	}
+	eventually(t, "nothing logged", func() bool { return logs.has(upTo(str.RelayLettingGo(local, m.addr(), mark))) })
+}
+
+func TestBeaconForADetachedHold(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.c.CloseNow()
+	eventually(t, "never held", func() bool { return logs.has(str.RelayHeld(local, m.addr())) })
+	beacon(t, base, p.token)
+	if !closed(w, 3*time.Second) {
+		t.Fatal("a detached hold wasn't shortened")
+	}
+}
+
+func TestResumeClearsTheShortHold(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	beacon(t, base, p.token)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	q.expect(wire.Resumed)
+	q.c.CloseNow()
+	eventually(t, "never held twice", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
+	if closed(w, 500*time.Millisecond) {
+		t.Error("a resumed hold kept the short hold")
+	}
+}
+
+func TestBeaconIgnoresUnknownTokens(t *testing.T) {
+	m := newMuck(t)
+	_, base, _ := holdRelay(t, m, "")
+	if code := beacon(t, base, "nope", ""); code != http.StatusNoContent {
+		t.Errorf("beacon: %d, want 204", code)
+	}
+	resp, err := http.Get("http" + strings.TrimPrefix(base, "ws") + "/?short=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("GET short=1: %d, want 400", resp.StatusCode)
+	}
+}
+
+// A page resuming from behind what the relay still has (it acked more
+// than it says it got) hears where the data starts, so its offsets stay
+// right.
+func TestResumeBehindTheBufferSaysWhere(t *testing.T) {
+	m := newMuck(t)
+	_, base, _ := holdRelay(t, m, "")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	w.Write([]byte("one\r\n"))
+	p.data(5)
+	p.send(wire.Msg{T: wire.Ack, Got: 5})
+	time.Sleep(100 * time.Millisecond)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	q.expect(wire.Resumed)
+	if w2 := q.expect(wire.Missed); w2.Lines != 0 || w2.At != 5 {
+		t.Errorf("missed %+v, want no lines, data from 5", w2)
+	}
+}
+
+// The closing page's beacon can land after the new page has resumed (a
+// reload): it mustn't shorten the new page's hold.
+func TestLateBeaconAfterResume(t *testing.T) {
+	m := newMuck(t)
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	p := openPage(t, base, m.port)
+	w := m.conn(t)
+	p.c.CloseNow()
+	q := resumePage(t, base, p.token, 0, "")
+	q.expect(wire.Resumed)
+	beacon(t, base, p.token) // the old page's, late
+	q.c.CloseNow()
+	eventually(t, "never held twice", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
+	if closed(w, 500*time.Millisecond) {
+		t.Error("a late beacon shortened the resumed page's hold")
+	}
+}
+
 // A page that resumes the moment it has its token (it can't sooner) must
 // win: the relay attaches the first socket before it hands the token out.
 func TestResumeRightAfterOpenWins(t *testing.T) {

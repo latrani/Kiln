@@ -229,3 +229,16 @@ test("idbStore.open succeeds when the open does, and stops the timer", async () 
   await opened;
   assert.equal(cleared, 1);
 });
+
+test("flush says whether its save landed", async () => {
+  const { store, fs, p } = setup();
+  write(fs, "/home/a", "1");
+  assert.equal(await p.flush(), true);
+  write(fs, "/home/a", "2");
+  store.fail = true;
+  assert.equal(await p.flush(), false, "a failed save");
+  assert.equal(await p.flush(), true, "the retry");
+  p.stop();
+  write(fs, "/home/a", "3");
+  assert.equal(await p.flush(), false, "stopped: nothing is saved");
+});
