@@ -74,6 +74,7 @@ type link struct {
 	resuming bool
 	poke     chan struct{} // Wake: try resuming now
 	pong     chan struct{}
+	pinging  bool // a Wake's ping is waiting for its pong
 	note     *resumeNote // shown once the replay reaches it
 }
 
@@ -152,7 +153,7 @@ func (l *link) readFrom(s socket) {
 			l.mu.Unlock()
 		case wire.Missed:
 			l.mu.Lock()
-			l.recs = append(l.recs, conn.Record{Note: str.ConnMissed(m.Lines), At: l.lastAt})
+			l.recs = append(l.recs, conn.Record{Note: str.ConnMissed(m.Lines), At: l.lastAt, Gap: true})
 			l.got = max(l.got, m.At)
 			l.noteLocked()
 			l.cond.Broadcast()
@@ -169,6 +170,8 @@ func (l *link) readFrom(s socket) {
 				err = errors.New(m.Why) // the relay's reason, as Go's net errors say it
 			}
 			l.fail(err)
+			l.bye(s) // nobody else will: a session doesn't close a conn the world closed
+			return
 		}
 	}
 }
@@ -292,6 +295,20 @@ func (l *link) attach(s socket, m wire.Msg) {
 	if len(resend) > 0 {
 		s.Write(context.Background(), websocket.MessageBinary, resend)
 	}
+}
+
+// bye tells the relay, over s, to let the world go, and closes s.
+func (l *link) bye(s socket) {
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
+	l.mu.Lock()
+	if l.sock == s {
+		l.sock = nil
+	}
+	l.mu.Unlock()
+	s.Write(context.Background(), websocket.MessageText, wire.Encode(wire.Msg{T: wire.Close}))
+	s.Close(websocket.StatusNormalClosure, "")
+	l.ack.Stop()
 }
 
 // fail ends the link with err once what's queued has been read.
@@ -426,8 +443,21 @@ func (l *link) Close() error {
 	return nil
 }
 
-// ping checks s answers within wakeWait, and drops it if not.
+// ping checks s answers within wakeWait, and drops it if not. One runs
+// at a time, so two wakes can't take each other's pong.
 func (l *link) ping(s socket) {
+	l.mu.Lock()
+	if l.pinging {
+		l.mu.Unlock()
+		return
+	}
+	l.pinging = true
+	l.mu.Unlock()
+	defer func() {
+		l.mu.Lock()
+		l.pinging = false
+		l.mu.Unlock()
+	}()
 	select {
 	case <-l.pong:
 	default:

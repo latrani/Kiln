@@ -175,8 +175,9 @@ func (h *held) attach(c *websocket.Conn, ip netip.Addr, got int64, resumed bool)
 	h.cond.Broadcast()
 	h.mu.Unlock()
 	if old != nil {
-		old.c.Close(wire.CodeReplaced, "")
-		old.cancel()
+		// On its own: a socket a suspended phone left may never answer
+		// the close handshake. It's gone, so it writes nothing meanwhile.
+		go func() { old.c.Close(wire.CodeReplaced, ""); old.cancel() }()
 	}
 	s.move(h, ip)
 

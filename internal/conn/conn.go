@@ -52,6 +52,9 @@ type Record struct {
 	Data []byte
 	At   time.Time
 	Note string
+	// Gap says bytes before this one were dropped: a line or telnet
+	// sequence half-read before it is gone.
+	Gap bool
 }
 
 // RecordReader is a net.Conn that reads Records. Dial reads one through
@@ -190,6 +193,13 @@ func (c *Conn) processLoop() {
 				return
 			}
 			at = rec.At
+			if rec.Gap {
+				s = splitter{}
+				c.mu.Lock()
+				c.parser.Skip()
+				c.mu.Unlock()
+				timer.Stop()
+			}
 			if rec.Note != "" {
 				c.lines <- Line{Text: rec.Note, At: rec.At, Note: true}
 				continue

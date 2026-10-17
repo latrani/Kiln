@@ -373,3 +373,46 @@ func TestCloseSaysClose(t *testing.T) {
 		t.Error("closing didn't let the world go")
 	}
 }
+
+// The world hanging up ends the link without anyone calling Close (a
+// session doesn't), and must free the relay's slot.
+func TestWorldClosingFreesTheSlot(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "max_per_ip = 1\n", nil)
+	c, err := conn.Dial(context.Background(), conn.Options{Host: "127.0.0.1", Port: w.port, DialContext: Dialer(u, false)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.conn(t).Close()
+	for range c.Lines() {
+	}
+	eventually(t, "the slot stayed taken", func() bool {
+		c, err := conn.Dial(context.Background(), conn.Options{Host: "127.0.0.1", Port: w.port, DialContext: Dialer(u, false)})
+		if err == nil {
+			c.Close()
+		}
+		return err == nil
+	})
+}
+
+// Two wakes at once (visibilitychange and pageshow both fire on a
+// bfcache restore) must not drop a socket that answers.
+func TestDoubleWakeKeepsAHealthySocket(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	c := dialWorld(t, u, w)
+	w.conn(t)
+	for range 3 {
+		for range 10 {
+			go Wake()
+		}
+		time.Sleep(wakeWait + 300*time.Millisecond)
+	}
+	select {
+	case l := <-c.Lines():
+		t.Errorf("got %+v, want nothing: a healthy socket was dropped", l)
+	default:
+	}
+}

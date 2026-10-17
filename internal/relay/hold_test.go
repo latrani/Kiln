@@ -424,8 +424,12 @@ func TestNewerAttachWins(t *testing.T) {
 	_, base, _ := holdRelay(t, m, "")
 	p := openPage(t, base, m.port)
 	w := m.conn(t)
+	start := time.Now()
 	q := resumePage(t, base, p.token, 0, "")
 	q.expect(wire.Resumed)
+	if d := time.Since(start); d > time.Second {
+		t.Errorf("resumed after %v: replacing a silent attachment shouldn't wait on it", d)
+	}
 	if code := closeCode(t, p.c); code != wire.CodeReplaced {
 		t.Errorf("older: code %d, want %d", code, wire.CodeReplaced)
 	}
