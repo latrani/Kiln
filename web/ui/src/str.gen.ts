@@ -591,6 +591,9 @@ export function relayCertNotPinned(): string { return `it doesn't match the pin 
 /** relay.closed: closed {ip} → {world:%q}: {up} bytes up, {down} down, {dur} */
 export function relayClosed(ip: unknown, world: unknown, up: unknown, down: unknown, dur: unknown): string { return `closed ${ip} → ${q(world)}: ${up} bytes up, ${down} down, ${dur}`; }
 
+/** relay.config_bad_hold: {path}: hold {value:%q} isn't a length of time · use one like "24h" or "90m" */
+export function relayConfigBadHold(path: unknown, value: unknown): string { return `${path}: hold ${q(value)} isn't a length of time · use one like "24h" or "90m"`; }
+
 /** relay.config_bad_limit: {path}: {key} must be 1 or more */
 export function relayConfigBadLimit(path: unknown, key: unknown): string { return `${path}: ${key} must be 1 or more`; }
 

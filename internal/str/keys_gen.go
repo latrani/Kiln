@@ -676,6 +676,11 @@ func RelayClosed(ip, world, up, down, dur any) string {
 	return get("relay.closed", map[string]any{"ip": ip, "world": world, "up": up, "down": down, "dur": dur})
 }
 
+// RelayConfigBadHold is relay.config_bad_hold: "{path}: hold {value:%q} isn't a length of time · use one like \"24h\" or \"90m\""
+func RelayConfigBadHold(path, value any) string {
+	return get("relay.config_bad_hold", map[string]any{"path": path, "value": value})
+}
+
 // RelayConfigBadLimit is relay.config_bad_limit: "{path}: {key} must be 1 or more"
 func RelayConfigBadLimit(path, key any) string {
 	return get("relay.config_bad_limit", map[string]any{"path": path, "key": key})
