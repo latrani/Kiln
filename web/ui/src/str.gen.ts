@@ -350,6 +350,9 @@ export function connRelayNoTls(): string { return `the web relay doesn't use TLS
 /** conn.relay_not_listed: this world isn't on the web relay's list */
 export function connRelayNotListed(): string { return `this world isn't on the web relay's list`; }
 
+/** conn.relay_replaced: another page picked up this connection */
+export function connRelayReplaced(): string { return `another page picked up this connection`; }
+
 /** conn.relay_too_many: too many connections from your address · close one and try again */
 export function connRelayTooMany(): string { return `too many connections from your address · close one and try again`; }
 

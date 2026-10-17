@@ -40,6 +40,13 @@ var (
 	resumeTimeout = 15 * time.Second
 )
 
+// maxFrame is the most data put in one frame, well under the relay's
+// read limit (1 MiB), however much is written at once.
+const maxFrame = 64 << 10
+
+// errReplaced is another page resuming this connection: this one is done.
+var errReplaced = errors.New(str.ConnRelayReplaced())
+
 // ErrLetGo is the relay no longer holding the connection (its hold ran
 // out, or it restarted). It isn't Permanent: the session's reconnect
 // setting decides what happens next.
@@ -99,6 +106,9 @@ func dialLink(ctx context.Context, open opener, target, resumeURL string) (*link
 	typ, b, err := s.Read(ctx)
 	if err != nil {
 		s.CloseNow()
+		if st := websocket.CloseStatus(err); st == websocket.StatusNormalClosure || st == websocket.StatusGoingAway {
+			return nil, errors.New(str.ConnRelayDropped()) // closed without saying why
+		}
 		return nil, explain(err)
 	}
 	m, err := wire.Decode(b)
@@ -195,7 +205,7 @@ func (l *link) lost(s socket, err error) {
 	l.sock = nil
 	switch websocket.CloseStatus(err) {
 	case wire.CodeReplaced:
-		l.failLocked(net.ErrClosed)
+		l.failLocked(errReplaced)
 		return
 	case wire.CodeGone:
 		l.failLocked(ErrLetGo)
@@ -292,8 +302,18 @@ func (l *link) attach(s socket, m wire.Msg) {
 	l.cond.Broadcast()
 	l.mu.Unlock()
 	go l.readFrom(s)
-	if len(resend) > 0 {
-		s.Write(context.Background(), websocket.MessageBinary, resend)
+	sendData(s, resend)
+}
+
+// sendData writes p to s in frames of at most maxFrame. A failure shows
+// up as the socket dying.
+func sendData(s socket, p []byte) {
+	for len(p) > 0 {
+		n := min(len(p), maxFrame)
+		if s.Write(context.Background(), websocket.MessageBinary, p[:n]) != nil {
+			return
+		}
+		p = p[n:]
 	}
 }
 
@@ -389,7 +409,7 @@ func (l *link) Write(p []byte) (int, error) {
 	s := l.sock
 	l.mu.Unlock()
 	if s != nil {
-		s.Write(context.Background(), websocket.MessageBinary, p) // a failure shows up as the socket dying
+		sendData(s, p)
 	}
 	return len(p), nil
 }

@@ -402,6 +402,9 @@ func ConnRelayNoTls() string { return get("conn.relay_no_tls", nil) }
 // ConnRelayNotListed is conn.relay_not_listed: "this world isn't on the web relay's list"
 func ConnRelayNotListed() string { return get("conn.relay_not_listed", nil) }
 
+// ConnRelayReplaced is conn.relay_replaced: "another page picked up this connection"
+func ConnRelayReplaced() string { return get("conn.relay_replaced", nil) }
+
 // ConnRelayTooMany is conn.relay_too_many: "too many connections from your address · close one and try again"
 func ConnRelayTooMany() string { return get("conn.relay_too_many", nil) }
 

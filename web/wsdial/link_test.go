@@ -418,3 +418,64 @@ func TestDoubleWakeKeepsAHealthySocket(t *testing.T) {
 	default:
 	}
 }
+
+// A line bigger than the relay takes in one frame (a huge paste) gets
+// through, live and when resent after a drop.
+func TestHugeWriteGetsThrough(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	c := dialWorld(t, u, w)
+	w.conn(t)
+	big := strings.Repeat("x", 3<<20)
+	c.Send(big)
+	DropAll()
+	c.Send(big)
+	want := big + "\r\n" + big + "\r\n"
+	eventually(t, "the world never read both", func() bool { return len(w.got()) >= len(want) })
+	if w.got() != want {
+		t.Errorf("the world read %d bytes, want %d: each line once", len(w.got()), len(want))
+	}
+}
+
+// A newer page picking the connection up ends this one with words a
+// player can read.
+func TestReplacedSaysSo(t *testing.T) {
+	fast(t)
+	w := newWorld(t)
+	u, _ := holdRelay(t, w, "", nil)
+	c := dialWorld(t, u, w)
+	w.conn(t)
+	var token string
+	for _, l := range live() {
+		token = l.token
+	}
+	s, err := openSocket(context.Background(), resumeTarget(u))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.CloseNow()
+	s.Write(context.Background(), websocket.MessageText, []byte(`{"t":"resume","token":"`+token+`"}`))
+	for range c.Lines() {
+	}
+	if c.Err() == nil || c.Err().Error() != str.ConnRelayReplaced() {
+		t.Errorf("Err = %v, want %q", c.Err(), str.ConnRelayReplaced())
+	}
+}
+
+// The relay closing before it says open, without a refusal's code, is a
+// dropped relay, said in the catalog's words.
+func TestCloseBeforeOpenSaysDropped(t *testing.T) {
+	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := websocket.Accept(w, r, nil)
+		if err == nil {
+			c.Close(websocket.StatusGoingAway, "")
+		}
+	}))
+	t.Cleanup(hs.Close)
+	_, err := conn.Dial(context.Background(), conn.Options{Host: "127.0.0.1", Port: 1,
+		DialContext: Dialer("ws"+strings.TrimPrefix(hs.URL, "http"), false)})
+	if err == nil || err.Error() != str.ConnRelayDropped() {
+		t.Errorf("err = %v, want %q", err, str.ConnRelayDropped())
+	}
+}
