@@ -159,3 +159,36 @@ func TestDisablingAnOptionIsAcknowledgedOnce(t *testing.T) {
 		t.Errorf("re-enable reply=%v want %v", reply, want)
 	}
 }
+
+func TestStateRoundTrip(t *testing.T) {
+	p := NewParser(80, 24)
+	p.Feed([]byte{IAC, DO, OptNAWS, IAC, WILL, OptCharset})
+	p.Feed([]byte{IAC, SB, OptCharset, 1, ';', 'U', 'T', 'F', '-', '8', IAC, SE})
+	st := p.State()
+	if st != (State{NAWS: true, CharsetDo: true, UTF8: true}) {
+		t.Errorf("State = %+v", st)
+	}
+	q := NewParser(80, 24)
+	q.Restore(st)
+	if !q.UTF8() || q.Resize(100, 30) == nil {
+		t.Error("a restored parser forgot UTF-8 or NAWS")
+	}
+	if _, reply := q.Feed([]byte{IAC, DO, OptNAWS}); reply != nil {
+		t.Errorf("a restored parser re-agreed to NAWS: %v", reply)
+	}
+}
+
+func TestInData(t *testing.T) {
+	p := NewParser(80, 24)
+	if !p.InData() {
+		t.Error("a new parser isn't in data")
+	}
+	p.Feed([]byte{IAC, SB, OptNAWS})
+	if p.InData() {
+		t.Error("in data inside a subnegotiation")
+	}
+	p.Feed([]byte{0, 80, IAC, SE})
+	if !p.InData() {
+		t.Error("not in data after IAC SE")
+	}
+}

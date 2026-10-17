@@ -69,6 +69,28 @@ func NewParser(width, height int) *Parser {
 	return &Parser{width: clamp16(width), height: clamp16(height)}
 }
 
+// State is what's been agreed with the server, so a parser in a new tab
+// can carry on a connection another one negotiated.
+type State struct {
+	NAWS        bool `json:"naws"`
+	CharsetWill bool `json:"charset_will"`
+	CharsetDo   bool `json:"charset_do"`
+	UTF8        bool `json:"utf8"`
+}
+
+// State is what p has agreed.
+func (p *Parser) State() State {
+	return State{NAWS: p.naws, CharsetWill: p.charsetWill, CharsetDo: p.charsetDo, UTF8: p.utf8}
+}
+
+// Restore takes up what another parser agreed.
+func (p *Parser) Restore(s State) {
+	p.naws, p.charsetWill, p.charsetDo, p.utf8 = s.NAWS, s.CharsetWill, s.CharsetDo, s.UTF8
+}
+
+// InData reports whether p is between commands: the next byte is data.
+func (p *Parser) InData() bool { return p.st == stData }
+
 // Skip forgets a command or subnegotiation cut off partway, as when bytes
 // in the middle of the stream were dropped: the next byte is data.
 // Negotiated options stay.
