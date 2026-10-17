@@ -82,6 +82,10 @@ func TestNoPushWhileAttached(t *testing.T) {
 	p.send(wire.Msg{T: wire.Push, Endpoint: ps.url + "/push/kit"})
 	w.Write([]byte("hi\r\n"))
 	p.data(4)
+	// Acked, as a live page does. Otherwise, with the test no longer
+	// reading, the relay's fast pings go unanswered, it detaches, and it
+	// rightly pushes for output the page never said it got.
+	p.send(wire.Msg{T: wire.Ack, Got: 4})
 	time.Sleep(200 * time.Millisecond)
 	if n := ps.posts.Load(); n != 0 {
 		t.Errorf("%d pushes while attached", n)

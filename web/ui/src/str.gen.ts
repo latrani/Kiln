@@ -1114,6 +1114,9 @@ export function viewTooSmall(min_w: unknown, min_h: unknown, w: unknown, h: unkn
 /** web.announce: {name}: {line} */
 export function webAnnounce(name: unknown, line: unknown): string { return `${name}: ${line}`; }
 
+/** web.app_name: Kiln */
+export function webAppName(): string { return `Kiln`; }
+
 /** web.char_priority: {name}, {n} unread, including priority */
 export function webCharPriority(name: unknown, n: number): string { return `${name}, ${n} unread, including priority`; }
 

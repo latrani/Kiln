@@ -145,8 +145,9 @@ away", and tapping it opens Kiln. Kiln only asks for it for characters
 whose `notify` isn't `"none"`, once the player has allowed
 notifications.
 
-Desktop browsers and Android take it from a normal tab. iPhones and
-iPads ignore it until Kiln can be added to the Home Screen (#176).
+Desktop browsers and Android take it from a normal tab. On an iPhone or
+iPad, Kiln must be added to the Home Screen first (below), and
+notifications allowed from inside it.
 
 To turn it on, make the relay a key (a VAPID key, which push services
 use to check pushes come from the same sender each time), readable only
@@ -169,6 +170,17 @@ whose contact isn't a real `https:` or `mailto:` address.
   It posts nowhere else, whatever a page asks.
 - Changing the key ends every player's subscription; each browser
   subscribes again the next time Kiln loads in it.
+
+## On a phone's Home Screen
+
+Players can add Kiln to a Home Screen (Share, then Add to Home Screen),
+and it opens as its own app, named Kiln, with its icon. Newer iPhones
+open every site added that way as an app.
+
+The page keeps its files (and the preset) in the browser, so Kiln
+launches with no network too, though it can't reach a world then. With
+a network it always asks the relay for the page first, so a new release
+reaches players on their next launch, as it does in a browser tab.
 
 ## TLS trust
 

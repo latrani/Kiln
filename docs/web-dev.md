@@ -68,6 +68,9 @@ later, which runs TypeScript directly): `npm ci` there once; `npm test` runs its
 - `src/str.gen.ts`: the catalog and glyphs, made by
   `go generate ./internal/str`; don't edit it by hand.
 - `fonts/`: JetBrains Mono 2.304 and its license (OFL).
+- `icons/`: Kiln's icon (`kiln.svg`) and the PNGs rendered from it.
+  After changing the icon, run `icons/render.sh` (needs `brew install
+  librsvg`) and commit the PNGs.
 
 `web/static` holds the boot modules (`memfs.mjs`, `persist.mjs`,
 `tablock.mjs`, bundled into the page) and, once built, the page.

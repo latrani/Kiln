@@ -10,6 +10,11 @@
 // it and coming back clears it.
 export const awayTag = "kiln-away"; // str:ok notification tag
 
+// ownsCache is whether a cache is Kiln's (sw.ts keeps the page in
+// kiln-…). Cache Storage is the whole site's: other apps there keep
+// theirs.
+export const ownsCache = (name: string): boolean => name === "kiln" || name.startsWith("kiln-"); // str:ok cache names
+
 export interface Subscriber {
   keyURL: URL; // the relay's ?push_key=1
   sw: ServiceWorkerContainer | undefined;
@@ -43,14 +48,16 @@ export async function subscribe(o: Subscriber): Promise<void> {
   }
 }
 
-// unsubscribe ends this browser's subscription: /reset.
-export async function unsubscribe(sw: ServiceWorkerContainer | undefined): Promise<void> {
-  try {
-    const sub = await (await sw?.getRegistration())?.pushManager?.getSubscription();
-    await sub?.unsubscribe();
-  } catch (e) {
-    console.error("push", e); // str:ok log tag
-  }
+// forget ends this browser's subscription, drops the page kept for
+// offline and unregisters the worker: /reset.
+export async function forget(sw: ServiceWorkerContainer | undefined, caches: CacheStorage | undefined = globalThis.caches, log: (...a: unknown[]) => void = console.error): Promise<void> {
+  // Each step on its own: one failing (a push service out of reach)
+  // mustn't leave the rest undone.
+  const step = async (f: () => Promise<unknown>) => { try { await f(); } catch (e) { log("reset", e); } }; // str:ok log tag
+  const reg = await sw?.getRegistration().catch(() => undefined);
+  await step(async () => (await reg?.pushManager?.getSubscription())?.unsubscribe());
+  await step(async () => { for (const n of (await caches?.keys()) ?? []) if (ownsCache(n)) await caches!.delete(n); });
+  await step(async () => reg?.unregister());
 }
 
 // clearAway closes the away notification: the player's back.

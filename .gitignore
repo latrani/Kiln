@@ -10,6 +10,9 @@
 /web/static/app.js*
 /web/static/app.css*
 /web/static/sw.js
+/web/static/manifest.json
+/web/static/icon*
+/web/static/apple-touch-icon.png
 /web/static/fonts/
 /web/static/index.html
 /web/smoke/testdata/golden/failed/
