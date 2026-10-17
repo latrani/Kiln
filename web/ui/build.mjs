@@ -31,8 +31,8 @@ await esbuild.build({
   target: ["es2022"],
   logLevel: "warning",
 });
-// The service worker (push only), at the page's level so its scope is
-// the page's.
+// The service worker (offline launches and pushes), at the page's
+// level so its scope is the page's.
 await esbuild.build({
   absWorkingDir: here,
   entryPoints: ["src/sw.ts"],
@@ -58,8 +58,8 @@ const manifest = {
   theme_color: terminalDark.bg,
   icons: [
     { src: "icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
-    { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any maskable" },
-    { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any maskable" },
+    { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
+    { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
   ],
 };
 await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");

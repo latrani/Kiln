@@ -61,8 +61,8 @@ test("the manifest names Kiln and its icons", (t) => {
   assert.equal(m.background_color, terminalDark.bg);
   assert.deepEqual(m.icons, [
     { src: "icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
-    { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any maskable" },
-    { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any maskable" },
+    { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
+    { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
   ]);
   for (const i of m.icons) assert.ok(existsSync(join(out, i.src)), i.src);
 });

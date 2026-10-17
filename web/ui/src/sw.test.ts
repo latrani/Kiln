@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheName, cleanCaches, onClick, onFetch, onPush } from "./sw.ts";
+import { cleanCaches, keepLaunch, onClick, onFetch, onPush } from "./sw.ts";
 import type { Options, Worker } from "./sw.ts";
 import * as str from "./str.gen.ts";
 
@@ -65,87 +65,121 @@ function fakeCaches(names: string[] = []) {
 }
 
 const scope = "https://fm.example/kiln/";
-const get = (path: string, mode = "cors") => ({ url: scope + path, method: "GET", mode });
+const req = (path: string, mode = "cors") => ({ url: scope + path, method: "GET", mode });
+const files = ["", "app.js", "app.css", "wasm_exec.js", "kiln.wasm", "preset/manifest.json"].map((f) => scope + f);
 
-// net is a worker whose network answers with answer(url), or throws
-// when it's undefined (offline).
-function net(answer: ((url: string) => Response) | undefined) {
+// site is a worker whose network serves build: each file's text is
+// `${path} ${build}`, stamped with the build; undefined is offline.
+function site(build: string | undefined) {
   const c = fakeCaches();
   const { w } = worker(0);
   w.caches = c.caches;
+  const fetched: string[] = [];
+  let fail = "";
   w.fetch = async (r) => {
-    if (!answer) throw new TypeError("offline");
-    return answer(r.url);
+    const url = typeof r === "string" ? r : r.url;
+    fetched.push(url);
+    if (build === undefined || url === fail) throw new TypeError("offline");
+    const path = url.slice(scope.length).replace(/\?.*/, "");
+    return new Response(`${path} ${build}`, { headers: { "last-modified": build } });
   };
-  const flush = () => new Promise((ok) => setTimeout(ok, 10)); // stores go on after the answer
-  return { w, c, flush, go: (a: typeof answer) => { answer = a; } };
+  return { w, c, fetched, go: (b: string | undefined) => { build = b; }, failOn: (u: string) => { fail = u; } };
 }
 
-const ok = (body: string, etag: string) => () => new Response(body, { headers: { etag } });
+const text = async (p: Promise<Response> | undefined) => (await p!).text();
 
-test("online, the network answers, and a changed file is kept", async () => {
-  const { w, c, flush, go } = net(ok("v1", "a"));
-  assert.equal(await (await onFetch(w, get("app.js"))!).text(), "v1");
-  await flush();
-  assert.equal(c.puts(), 1);
-  await onFetch(w, get("app.js"));
-  await flush();
-  assert.equal(c.puts(), 1, "an unchanged file is stored again");
-  go(ok("v2", "b"));
-  assert.equal(await (await onFetch(w, get("app.js"))!).text(), "v2", "online, a new build always wins");
-  await flush();
-  assert.equal(c.puts(), 2);
-  go(undefined);
-  assert.equal(await (await onFetch(w, get("app.js"))!).text(), "v2", "offline, the last one kept");
+test("online, every file comes from the network, and nothing is kept as it passes", async () => {
+  const s = site("v1");
+  assert.equal(await text(onFetch(s.w, req("app.js"), "page", "")), "app.js v1");
+  assert.equal(s.c.puts(), 0);
 });
 
-test("offline, a launch at any address of the page gets the kept page", async () => {
-  const { w, flush, go } = net(ok("<html>", "p"));
-  await onFetch(w, get("", "navigate"));
-  await flush();
-  go(undefined);
-  for (const path of ["", "?record", "index.html"]) {
-    const r = await onFetch(w, get(path, "navigate"));
-    assert.equal(await (await r!).text(), "<html>", path);
-  }
-  await assert.rejects(onFetch(w, get("kiln.wasm"))!, "nothing kept: the browser's own offline answer");
+test("a launch's files are kept as one set, and an offline launch gets that set", async () => {
+  const s = site("v1");
+  assert.equal(await keepLaunch(s.w, files), true);
+  s.go(undefined);
+  assert.equal(await text(onFetch(s.w, req("?record", "navigate"), "", "kit")), " v1");
+  assert.equal(await text(onFetch(s.w, req("kiln.wasm"), "kit", "")), "kiln.wasm v1");
+  assert.equal(await text(onFetch(s.w, req("preset/manifest.json"), "kit", "")), "preset/manifest.json v1");
 });
 
-test("a failed or opaque answer is passed on but never kept over a good one", async () => {
-  const { w, c, flush, go } = net(ok("good", "g"));
-  await onFetch(w, get("app.css"));
-  await flush();
-  for (const bad of [() => new Response("nope", { status: 404 }), () => new Response("oops", { status: 500 })]) {
-    go(bad);
-    await onFetch(w, get("app.css"));
-    await flush();
+test("a launch from the kept page gets only kept files, even once the network's back", async () => {
+  const s = site("v1");
+  await keepLaunch(s.w, files);
+  s.go(undefined);
+  await onFetch(s.w, req("", "navigate"), "", "kit");
+  s.go("v2"); // a new build, and the network back, mid-launch
+  assert.equal(await text(onFetch(s.w, req("kiln.wasm"), "kit", "")), "kiln.wasm v1", "a v1 page must run the v1 wasm");
+});
+
+test("online, a file that fails isn't answered from the kept set: no mixing builds", async () => {
+  const s = site("v1");
+  await keepLaunch(s.w, files);
+  s.go("v2");
+  // (Rook: the worker remembers pages by id, and Kit launched offline above.)
+  assert.equal(await text(onFetch(s.w, req("", "navigate"), "", "rook")), " v2");
+  s.failOn(scope + "kiln.wasm");
+  await assert.rejects(onFetch(s.w, req("kiln.wasm"), "rook", "")!);
+});
+
+test("an unchanged launch keeps nothing new; a new build replaces the whole set", async () => {
+  const s = site("v1");
+  await keepLaunch(s.w, files);
+  const puts = s.c.puts();
+  assert.equal(await keepLaunch(s.w, files), true);
+  assert.equal(s.c.puts(), puts, "an unchanged launch rewrote the set (the wasm is 15 MB)");
+  s.go("v2");
+  assert.equal(await keepLaunch(s.w, files), true);
+  assert.equal([...s.c.all.keys()].filter((k) => k.startsWith("kiln-") && k !== "kiln-meta").length, 1, "the old set wasn't dropped");
+  s.go(undefined);
+  assert.equal(await text(onFetch(s.w, req("", "navigate"), "", "kit")), " v2");
+  assert.equal(await text(onFetch(s.w, req("app.js"), "kit", "")), "app.js v2");
+});
+
+test("a set that can't all be fetched isn't kept: the last whole set stays", async () => {
+  const s = site("v1");
+  await keepLaunch(s.w, files);
+  s.go("v2");
+  s.failOn(scope + "kiln.wasm");
+  assert.equal(await keepLaunch(s.w, files), false);
+  s.go(undefined);
+  assert.equal(await text(onFetch(s.w, req("", "navigate"), "", "kit")), " v1");
+  assert.equal(await text(onFetch(s.w, req("kiln.wasm"), "kit", "")), "kiln.wasm v1");
+});
+
+test("a redirected or failed answer spoils the set", async () => {
+  for (const bad of [
+    () => Object.defineProperty(new Response("login"), "redirected", { value: true }),
+    () => new Response("nope", { status: 404 }),
+  ]) {
+    const s = site("v1");
+    s.w.fetch = async () => bad();
+    assert.equal(await keepLaunch(s.w, files), false);
   }
-  assert.equal(c.puts(), 1);
-  go(undefined);
-  assert.equal(await (await onFetch(w, get("app.css"))!).text(), "good");
+});
+
+test("offline with nothing kept, the browser gives its own answer", async () => {
+  const s = site(undefined);
+  await assert.rejects(onFetch(s.w, req("", "navigate"), "", "kit")!);
 });
 
 test("the relay, other sites and anything but GET are left to the browser", () => {
-  const { w } = net(ok("x", "x"));
-  for (const r of [get("relay"), get("relay?push_key=1"), get("relay?short=1"),
+  const s = site("v1");
+  for (const r of [req("relay"), req("relay?push_key=1"), req("relay?short=1"),
     { url: "https://elsewhere.example/kiln/app.js", method: "GET", mode: "cors" }, { url: "https://fm.example/other/app.js", method: "GET", mode: "cors" },
-    { ...get("app.js"), method: "POST" }]) {
-    assert.equal(onFetch(w, r), undefined, `${r.method} ${r.url}`);
+    { ...req("app.js"), method: "POST" }]) {
+    assert.equal(onFetch(s.w, r, "kit", ""), undefined, `${r.method} ${r.url}`);
   }
 });
 
-test("the preset is kept like the page: it's seeded at every launch", async () => {
-  const { w, flush, go } = net(ok(`["config/worlds/fm.toml"]`, "m"));
-  await onFetch(w, get("preset/manifest.json"));
-  await flush();
-  go(undefined);
-  assert.equal(await (await onFetch(w, get("preset/manifest.json"))!).text(), `["config/worlds/fm.toml"]`);
-});
-
-test("activating drops caches by other names", async () => {
-  const c = fakeCaches([cacheName, "old"]);
-  const { w } = worker(0);
-  w.caches = c.caches;
-  await cleanCaches(w);
-  assert.deepEqual([...c.all.keys()], [cacheName]);
+test("cleaning drops Kiln's old sets, never another app's caches", async () => {
+  const s = site("v1");
+  await keepLaunch(s.w, files);
+  await s.c.caches.open("kiln-0");
+  await s.c.caches.open("kiln"); // the old single cache
+  await s.c.caches.open("someone-elses");
+  await cleanCaches(s.w);
+  const left = [...s.c.all.keys()].sort();
+  assert.equal(left.length, 3, JSON.stringify(left));
+  assert.ok(left.includes("someone-elses") && left.includes("kiln-meta"));
 });

@@ -79,11 +79,22 @@ test("forgetting drops the subscription, the kept page and the worker", async ()
   const f = fakes({ existing: keyBytes() });
   const done: string[] = [];
   (await f.opts.sw!.getRegistration() as any).unregister = async () => { done.push("unregister"); return true; };
-  const caches = { async delete(n: string) { done.push(`delete ${n}`); return true; } } as unknown as CacheStorage;
+  const caches = { async keys() { return ["kiln-meta", "kiln-1", "someone-elses"]; }, async delete(n: string) { done.push(`delete ${n}`); return true; } } as unknown as CacheStorage;
   await forget(f.opts.sw, caches);
   assert.deepEqual(f.calls, ["unsubscribe"]);
-  assert.deepEqual(done, ["delete kiln", "unregister"]);
+  assert.deepEqual(done, ["delete kiln-meta", "delete kiln-1", "unregister"]);
   await forget(undefined, undefined);
+});
+
+test("a step of forgetting that fails doesn't stop the rest", async () => {
+  const f = fakes({ existing: keyBytes() });
+  const done: string[] = [];
+  const reg = await f.opts.sw!.getRegistration() as any;
+  reg.unregister = async () => { done.push("unregister"); return true; };
+  (await reg.pushManager.getSubscription()).unsubscribe = async () => { throw new Error("push service out of reach"); };
+  const caches = { async keys() { return ["kiln-1"]; }, async delete(n: string) { done.push(`delete ${n}`); return true; } } as unknown as CacheStorage;
+  await forget(f.opts.sw, caches, () => {});
+  assert.deepEqual(done, ["delete kiln-1", "unregister"]);
 });
 
 test("coming back clears the away notification, and only that one", async () => {

@@ -7,6 +7,7 @@ import { createFS } from "../../static/memfs.mjs";
 import { createPersist, idbStore } from "../../static/persist.mjs";
 import { createTabLock } from "../../static/tablock.mjs";
 import { forgetAsked, permission } from "./notify.ts";
+import { launched } from "./offline.ts";
 import * as push from "./push.ts";
 import { resetter } from "./reset.ts";
 import type { Event, Store } from "./store.ts";
@@ -139,8 +140,11 @@ export async function boot(store: Store): Promise<void> {
   }
   store.set({ phase: "loading", progress: { got: 0 } });
   // The service worker keeps the page for a launch with no network (and
-  // shows pushes). None off localhost without https.
+  // shows pushes). None off localhost without https. It learns which
+  // files to keep from the page's resource entries (offline.ts), so
+  // they mustn't run out: a preset can have many files.
   navigator.serviceWorker?.register("sw.js").catch((e) => console.error("sw", e)); // str:ok file name, log tag
+  performance.setResourceTimingBufferSize?.(5000);
 
   let saving = true;
   // A sync saves now; Go hears when it has landed (synced), which is when
@@ -248,6 +252,7 @@ export async function boot(store: Store): Promise<void> {
       const s = store.state;
       typing.ready(send, s.chars[s.active] ? s.active : ""); // after the batch: it says what Kiln opened with
       store.set({}); // draw the typing where it went
+      launched(navigator.serviceWorker); // Kiln runs: keep this launch's files for offline
     }
   };
   // Pushes while away, once notifications are allowed: now, or when the
