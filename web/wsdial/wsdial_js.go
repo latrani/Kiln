@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -62,7 +63,7 @@ func dial(ctx context.Context, u string) (net.Conn, error) {
 	})
 	c.on("message", func(e js.Value) { //str:ok
 		if d := e.Get("data"); d.Type() == js.TypeString { //str:ok
-			if d.String() == openFrame {
+			if d.String() == wire.Open {
 				c.mu.Lock()
 				c.ready = true
 				c.mu.Unlock()

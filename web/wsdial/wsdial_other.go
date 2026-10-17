@@ -9,6 +9,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -32,7 +33,7 @@ func Dialer(relayURL string, tls bool) func(ctx context.Context, network, addr s
 			c.CloseNow()
 			return nil, explain(err)
 		}
-		if typ != websocket.MessageText || string(b) != openFrame {
+		if typ != websocket.MessageText || string(b) != wire.Open {
 			c.CloseNow()
 			return nil, errors.New(str.ConnRelayDropped())
 		}

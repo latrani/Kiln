@@ -19,24 +19,9 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/latrani/Kiln/internal/conn"
+	"github.com/latrani/Kiln/internal/relay/wire"
 	"github.com/latrani/Kiln/internal/str"
 )
-
-// Close codes the relay ends a refused connection with. Kiln's web build
-// (web/wsdial) turns them into messages.
-const (
-	CodeNotListed   websocket.StatusCode = 4403 // world not on the allowlist
-	CodeNoTLS       websocket.StatusCode = 4426 // client asked for TLS, world is plaintext here
-	CodeTooMany     websocket.StatusCode = 4429 // too many connections from this IP
-	CodeUnreachable websocket.StatusCode = 4502 // the dial failed; the reason says why
-	CodeBusy        websocket.StatusCode = 4503 // the relay is at max_conns
-	CodeBadCert     websocket.StatusCode = 4526 // the world's certificate failed its pin or CA check
-)
-
-// OpenFrame is the text frame the relay sends once it has reached the
-// world (and done TLS), before any of the world's bytes. Until it comes,
-// a client hasn't connected: a close instead is a refusal.
-const OpenFrame = "open" //str:ok protocol token
 
 // defaultHandshakeTimeout bounds the relay's dial and TLS handshake. It's
 // well under the page's conn.DialTimeout, whose clock starts first, so the
@@ -101,22 +86,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wl, ok := a.Lookup(host, port)
 	if !ok {
 		s.logf(str.RelayRefusedNotListed(ip, addr))
-		c.Close(CodeNotListed, "")
+		c.Close(wire.CodeNotListed, "")
 		return
 	}
 	if wl.Plaintext && r.URL.Query().Get("tls") == "1" {
 		s.logf(str.RelayRefusedNoTls(ip, addr))
-		c.Close(CodeNoTLS, "")
+		c.Close(wire.CodeNoTLS, "")
 		return
 	}
 	switch s.acquire(ip, a) {
-	case CodeTooMany:
+	case wire.CodeTooMany:
 		s.logf(str.RelayRefusedTooMany(ip, addr))
-		c.Close(CodeTooMany, "")
+		c.Close(wire.CodeTooMany, "")
 		return
-	case CodeBusy:
+	case wire.CodeBusy:
 		s.logf(str.RelayRefusedBusy(ip, addr))
-		c.Close(CodeBusy, "")
+		c.Close(wire.CodeBusy, "")
 		return
 	}
 	defer s.release(ip)
@@ -136,18 +121,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if errors.As(err, &pin) {
 				why = str.RelayCertNotPinned() // the log has the fingerprints
 			}
-			c.Close(CodeBadCert, why)
+			c.Close(wire.CodeBadCert, why)
 			return
 		}
 	}
 	dcancel()
 	if err != nil {
 		s.logf(str.RelayRefusedUnreachable(ip, addr, err))
-		c.Close(CodeUnreachable, reason(err))
+		c.Close(wire.CodeUnreachable, reason(err))
 		return
 	}
 	defer tc.Close()
-	if err := c.Write(ctx, websocket.MessageText, []byte(OpenFrame)); err != nil {
+	if err := c.Write(ctx, websocket.MessageText, []byte(wire.Open)); err != nil {
 		return
 	}
 	go s.keepAlive(ctx, c)
@@ -269,11 +254,11 @@ func (s *Server) acquire(ip netip.Addr, a *Config) websocket.StatusCode {
 		s.open = map[netip.Prefix]int{}
 	}
 	if s.total >= or(a.MaxConns, 256) {
-		return CodeBusy
+		return wire.CodeBusy
 	}
 	b := bucket(ip)
 	if s.open[b] >= or(a.MaxPerIP, 8) {
-		return CodeTooMany
+		return wire.CodeTooMany
 	}
 	s.open[b]++
 	s.total++
