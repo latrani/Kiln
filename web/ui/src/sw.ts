@@ -36,15 +36,16 @@ export interface Req {
 }
 
 // onFetch answers req from the network, keeping what it gets, or from
-// what's kept when the network fails. undefined: not the page's own file
-// (the relay, the preset, another site, not a GET), so the browser
-// fetches it as if there were no worker.
+// what's kept when the network fails. The preset is kept too: its files
+// are seeded at every launch, not saved. undefined: not the page's own
+// file (the relay, another site, not a GET), so the browser fetches it
+// as if there were no worker.
 export function onFetch(w: Worker, req: Req): Promise<Response> | undefined {
   const scope = new URL(w.registration.scope);
   const url = new URL(req.url);
   if (req.method !== "GET" || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return undefined;
   const rel = url.pathname.slice(scope.pathname.length);
-  if (rel === "relay" || rel.startsWith("preset/")) return undefined; // str:ok paths
+  if (rel === "relay") return undefined; // str:ok path
   const key = url.origin + url.pathname; // ?record and the like don't make another file
   return (async () => {
     try {

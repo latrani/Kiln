@@ -125,13 +125,21 @@ test("a failed or opaque answer is passed on but never kept over a good one", as
   assert.equal(await (await onFetch(w, get("app.css"))!).text(), "good");
 });
 
-test("the relay, the preset, other sites and anything but GET are left to the browser", () => {
+test("the relay, other sites and anything but GET are left to the browser", () => {
   const { w } = net(ok("x", "x"));
-  for (const r of [get("relay"), get("relay?push_key=1"), get("relay?short=1"), get("preset/manifest.json"), get("preset/config/worlds/fm.toml"),
+  for (const r of [get("relay"), get("relay?push_key=1"), get("relay?short=1"),
     { url: "https://elsewhere.example/kiln/app.js", method: "GET", mode: "cors" }, { url: "https://fm.example/other/app.js", method: "GET", mode: "cors" },
     { ...get("app.js"), method: "POST" }]) {
     assert.equal(onFetch(w, r), undefined, `${r.method} ${r.url}`);
   }
+});
+
+test("the preset is kept like the page: it's seeded at every launch", async () => {
+  const { w, flush, go } = net(ok(`["config/worlds/fm.toml"]`, "m"));
+  await onFetch(w, get("preset/manifest.json"));
+  await flush();
+  go(undefined);
+  assert.equal(await (await onFetch(w, get("preset/manifest.json"))!).text(), `["config/worlds/fm.toml"]`);
 });
 
 test("activating drops caches by other names", async () => {
