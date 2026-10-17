@@ -63,13 +63,15 @@ test("the manifest names Kiln and its icons", (t) => {
     { src: "icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
     { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
     { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
+    { src: "icon-maskable-192.png", type: "image/png", sizes: "192x192", purpose: "maskable" },
+    { src: "icon-maskable-512.png", type: "image/png", sizes: "512x512", purpose: "maskable" },
   ]);
   for (const i of m.icons) assert.ok(existsSync(join(out, i.src)), i.src);
 });
 
 test("the PNGs are the sizes they say", (t) => {
   const out = built(t);
-  for (const [f, n] of [["icon-192.png", 192], ["icon-512.png", 512], ["apple-touch-icon.png", 180]] as const) {
+  for (const [f, n] of [["icon-192.png", 192], ["icon-512.png", 512], ["icon-maskable-192.png", 192], ["icon-maskable-512.png", 512], ["apple-touch-icon.png", 180]] as const) {
     const b = readFileSync(join(out, f));
     assert.equal(b.toString("latin1", 12, 16), "IHDR", f);
     assert.deepEqual([b.readUInt32BE(16), b.readUInt32BE(20)], [n, n], f);

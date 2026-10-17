@@ -46,7 +46,7 @@ await esbuild.build({
 await copyFile(join(here, "fonts", "OFL.txt"), join(out, "fonts", "OFL.txt"));
 // The icons (rendered from icons/kiln.svg by icons/render.sh) and the
 // manifest that makes Kiln installable as a Home Screen app.
-for (const f of ["icon-192.png", "icon-512.png", "apple-touch-icon.png"]) await copyFile(join(here, "icons", f), join(out, f));
+for (const f of ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png", "apple-touch-icon.png"]) await copyFile(join(here, "icons", f), join(out, f));
 await copyFile(join(here, "icons", "kiln.svg"), join(out, "icon.svg"));
 const manifest = {
   name: str.webAppName(),
@@ -60,6 +60,9 @@ const manifest = {
     { src: "icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
     { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
     { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
+    // Android crops to its own shape: the art fitted inside the safe zone.
+    { src: "icon-maskable-192.png", type: "image/png", sizes: "192x192", purpose: "maskable" },
+    { src: "icon-maskable-512.png", type: "image/png", sizes: "512x512", purpose: "maskable" },
   ],
 };
 await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
