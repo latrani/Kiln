@@ -470,6 +470,10 @@ flag_preset = "serve these files at /kiln/preset/ for the page to preload (confi
 
 # The web page's own text (like every entry, also in web/ui/src/str.gen.ts).
 [web]
+# On the status line at load, when worlds the player had saved are no
+# longer on the relay's allowlist and so have been taken away; worlds is
+# their ids, joined with list_separator.
+worlds_gone = { one = "{worlds} is gone: it's no longer on this relay", other = "{worlds} are gone: they're no longer on this relay" }
 # The collapsed sidebar's ≡ button, for screen readers: its name, then
 # the activity beside it, joined with the separator ("Sidebar · 5
 # unread · priority"); and the ‹ that collapses the sidebar.

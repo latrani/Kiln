@@ -66,23 +66,27 @@ function loadScript(src: string): Promise<void> {
 // ones to write, where nothing is; and the worlds already saved, whose
 // served copy still says where to connect: the relay's allowlist does,
 // so Go gives the saved world its host, port and TLS (AdoptServer).
-// Anything not under config/ is neither.
-export function presetFiles(files: string[], saved: (rel: string) => boolean): { seed: string[]; adopt: { world: string; file: string }[] } {
-  const seed: string[] = [], adopt: { world: string; file: string }[] = [];
+// Anything not under config/ is neither. worlds is every world the relay
+// serves: a saved one it doesn't is gone from its allowlist.
+export function presetFiles(files: string[], saved: (rel: string) => boolean): { seed: string[]; adopt: { world: string; file: string }[]; worlds: string[] } {
+  const seed: string[] = [], adopt: { world: string; file: string }[] = [], worlds: string[] = [];
   for (const f of files) {
     const rel = f.startsWith("config/") ? f.slice("config/".length) : "";
     if (!rel) continue;
+    const world = rel.startsWith("worlds/") && rel.endsWith(".toml") ? rel.slice("worlds/".length, -".toml".length) : "";
+    if (world) worlds.push(world);
     if (!saved(rel)) seed.push(f);
-    else if (rel.startsWith("worlds/") && rel.endsWith(".toml")) adopt.push({ world: rel.slice("worlds/".length, -".toml".length), file: f });
+    else if (world) adopt.push({ world, file: f });
   }
-  return { seed, adopt };
+  return { seed, adopt, worlds };
 }
 
 // seedPreset writes the preset's files where nothing is saved yet: a
 // saved copy (the user's edits) wins, but for where a world connects.
 // Seeded files aren't saved, so an untouched preset world follows the
-// server. The served copies of saved worlds go to Go as
-// kilnServedWorlds, world → bytes, before it loads the config. The
+// server. Before Go loads the config it hears the served copies of saved
+// worlds, as kilnServedWorlds (world → bytes), and every world served,
+// as kilnRelayWorlds: a saved world not among them is taken away. The
 // preset is laid out like a backup: config/… is the config dir.
 // Anything else is ignored (TLS pins live in the relay's config).
 async function seedPreset(fs: any): Promise<void> {
@@ -92,11 +96,12 @@ async function seedPreset(fs: any): Promise<void> {
     if (!res.ok) throw new Error(`preset/${f}: ${res.status}`);
     return new Uint8Array(await res.arrayBuffer());
   };
-  const { seed, adopt } = presetFiles(files, (rel) => fs.exists(`${CONFIG}/${rel}`));
+  const { seed, adopt, worlds } = presetFiles(files, (rel) => fs.exists(`${CONFIG}/${rel}`));
   for (const f of seed) fs.writeFileAll(`${CONFIG}/${f.slice("config/".length)}`, await get(f));
   const served: Record<string, Uint8Array> = {};
   for (const a of adopt) served[a.world] = await get(a.file);
   (globalThis as any).kilnServedWorlds = served;
+  (globalThis as any).kilnRelayWorlds = worlds;
 }
 
 // toBase64 is bytes as base64, a chunk at a time: one call with every

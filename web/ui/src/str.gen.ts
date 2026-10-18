@@ -1237,6 +1237,14 @@ export function webTitleUnread(n: number): string { return `(${n}) Kiln`; }
 /** web.use_here: Use here */
 export function webUseHere(): string { return `Use here`; }
 
+/** web.worlds_gone: one: {worlds} is gone: it's no longer on this relay · other: {worlds} are gone: they're no longer on this relay */
+export function webWorldsGone(n: number, worlds: unknown): string {
+  switch (plural.select(n)) {
+    case "one": return `${worlds} is gone: it's no longer on this relay`;
+    default: return `${worlds} are gone: they're no longer on this relay`;
+  }
+}
+
 /** The glyphs Kiln draws (internal/glyph). */
 export const glyph = {
   echo: "›",

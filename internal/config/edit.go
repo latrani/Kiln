@@ -496,6 +496,17 @@ func DeleteWorld(dir, world string) error {
 	return os.Remove(path)
 }
 
+// RemoveWorld removes worlds/<world>.toml, characters and all: for a
+// world that's gone from where it came from (kiln-relay's allowlist).
+// Logs, saved passwords and certificates aren't touched.
+func RemoveWorld(dir, world string) error {
+	path, err := worldPath(dir, world)
+	if err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
 // editWorld applies an edit to the world file at path, checks that the
 // result still loads, and replaces the file with it.
 func editWorld(dir, path string, edit func(*tomlDoc) ([]span, error)) error {

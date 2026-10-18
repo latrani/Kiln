@@ -245,8 +245,10 @@ It leaves out dotfiles (`.DS_Store`, `.git`) and won't serve them. A
 preset file is written into a player's browser only where nothing is
 saved yet, so a player's own edits win (see `docs/web-dev.md`), but for
 where a world connects: a saved world takes its host, port and TLS from
-`relay.toml` on every load. In the page, those are shown but can't be
-changed, and there's no `+ World`.
+`relay.toml` on every load, and one that's left `relay.toml` is taken
+away, characters and all, with a note on the status line. In the page,
+a world's host, port, TLS and cert trust are shown but can't be changed,
+and there's no `+ World`.
 
 ## nginx
 

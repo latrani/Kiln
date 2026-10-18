@@ -242,3 +242,17 @@ func TestAdoptServer(t *testing.T) {
 		t.Errorf("adopted %+v; want the served host, port 7777, no TLS, the saved login and packs", s)
 	}
 }
+
+// RemoveWorld takes a world away, characters and all.
+func TestRemoveWorld(t *testing.T) {
+	dir := editDir(t, uglyWorld)
+	if err := RemoveWorld(dir, "fm"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "worlds", "fm.toml")); !os.IsNotExist(err) {
+		t.Errorf("fm.toml is still there: %v", err)
+	}
+	if err := RemoveWorld(dir, "../config"); err == nil {
+		t.Error("a path outside worlds/ was taken as a world")
+	}
+}

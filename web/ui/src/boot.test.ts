@@ -58,5 +58,5 @@ test("a file's bytes go to Go as base64, however large", () => {
 test("the preset's files: written where nothing's saved; a saved world's served copy kept for Go to take where to connect from", () => {
   const saved = new Set(["worlds/fm.toml", "config.toml"]);
   const got = presetFiles(["config/config.toml", "config/worlds/bay.toml", "config/worlds/fm.toml", "known_hosts"], (rel) => saved.has(rel));
-  assert.deepEqual(got, { seed: ["config/worlds/bay.toml"], adopt: [{ world: "fm", file: "config/worlds/fm.toml" }] });
+  assert.deepEqual(got, { seed: ["config/worlds/bay.toml"], adopt: [{ world: "fm", file: "config/worlds/fm.toml" }], worlds: ["bay", "fm"] }, "the worlds the relay serves: any other saved one is gone");
 });

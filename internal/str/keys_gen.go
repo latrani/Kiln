@@ -1504,3 +1504,10 @@ func WebTitleUnread(n int) string { return get("web.title_unread", map[string]an
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }
+
+// WebWorldsGone is web.worlds_gone, by count:
+//   - one: "{worlds} is gone: it's no longer on this relay"
+//   - other: "{worlds} are gone: they're no longer on this relay"
+func WebWorldsGone(n int, worlds any) string {
+	return count("web.worlds_gone", n, map[string]any{"n": n, "worlds": worlds})
+}
