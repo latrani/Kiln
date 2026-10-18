@@ -11,6 +11,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall/js"
 	"time"
@@ -83,6 +84,7 @@ func run(k js.Value, p page) error {
 	if err := config.EnsureDefaults(cfgDir); err != nil {
 		return err
 	}
+	gone := syncWorlds(cfgDir)
 	cfg, err := config.Load(cfgDir)
 	if err != nil {
 		return err
@@ -142,6 +144,9 @@ func run(k js.Value, p page) error {
 		Password: func(string, string, string) (string, error) { return "", secrets.ErrNotFound },
 	})
 	a.ApplyConfig(cfg)
+	if len(gone) > 0 {
+		a.SetStatus(false, str.WebWorldsGone(len(gone), strings.Join(gone, str.ListSeparator())))
+	}
 	chars := map[string]bool{}
 	for _, ch := range a.AllChars() {
 		chars[app.Key(ch.World, ch.ID)] = true
@@ -166,4 +171,49 @@ func run(k js.Value, p page) error {
 		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir) },
 	})
 	return nil
+}
+
+// syncWorlds makes the saved worlds the relay's, from what boot.ts's
+// seedPreset found in the preset: each saved world in kilnServedWorlds
+// (world → bytes) takes the relay's host, port and TLS, as the allowlist
+// says where the page may connect and a player can't change them in the
+// page; and a saved world not in kilnRelayWorlds (every world served) is
+// gone from the allowlist, so it's removed. It returns the removed
+// worlds. One that won't take is said in the console and left as it
+// was.
+func syncWorlds(cfgDir string) (gone []string) {
+	fail := func(err error) { js.Global().Get("console").Call("error", str.CliError(err)) } //str:ok
+	if served := js.Global().Get("kilnServedWorlds"); served.Type() == js.TypeObject {      //str:ok
+		keys := js.Global().Get("Object").Call("keys", served) //str:ok
+		for i := range keys.Length() {
+			world := keys.Index(i).String()
+			v := served.Get(world)
+			b := make([]byte, v.Length())
+			js.CopyBytesToGo(b, v)
+			if err := config.AdoptServer(cfgDir, world, b); err != nil {
+				fail(err)
+			}
+		}
+	}
+	listed := js.Global().Get("kilnRelayWorlds") //str:ok
+	if listed.Type() != js.TypeObject {
+		return nil
+	}
+	keep := map[string]bool{}
+	for i := range listed.Length() {
+		keep[listed.Index(i).String()] = true
+	}
+	files, _ := os.ReadDir(filepath.Join(cfgDir, "worlds")) //str:ok
+	for _, f := range files {
+		world, ok := strings.CutSuffix(f.Name(), ".toml") //str:ok
+		if !ok || f.IsDir() || keep[world] {
+			continue
+		}
+		if err := config.RemoveWorld(cfgDir, world); err != nil {
+			fail(err)
+			continue
+		}
+		gone = append(gone, world)
+	}
+	return gone
 }

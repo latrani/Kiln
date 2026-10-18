@@ -66,6 +66,9 @@ type Server struct {
 // SetConfig replaces the config; connections already open stay open.
 func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 
+// Config is the config as it is now.
+func (s *Server) Config() *Config { return s.cfg.Load() }
+
 // ServeHTTP upgrades to a WebSocket and, if the world in ?host=&port= is
 // allowed, connects to it, doing TLS with the world itself unless it's
 // plaintext, and carries it as package wire says. tls=1 says the
@@ -140,7 +143,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		refuse(c, wire.CodeNotListed, "")
 		return
 	}
-	if wl.Plaintext && r.URL.Query().Get("tls") == "1" {
+	if !wl.TLS && r.URL.Query().Get("tls") == "1" {
 		s.logf(str.RelayRefusedNoTls(ip, addr))
 		refuse(c, wire.CodeNoTLS, "")
 		return
@@ -158,7 +161,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	addr = net.JoinHostPort(wl.Host, strconv.Itoa(port))
 	dctx, dcancel := context.WithTimeout(context.Background(), or(s.HandshakeTimeout, defaultHandshakeTimeout))
 	tc, err := s.dial(dctx, addr)
-	if err == nil && !wl.Plaintext {
+	if err == nil && wl.TLS {
 		tc, err = s.handshake(dctx, tc, addr, wl)
 		if certErr(err) {
 			dcancel()

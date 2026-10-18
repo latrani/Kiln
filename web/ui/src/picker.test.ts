@@ -9,20 +9,20 @@ const worlds = [
 ];
 const kinds = (rows: { kind: string }[]) => rows.map((r) => r.kind).join(" ");
 
-test("characters not open, under their worlds, each world ending with + Character, then + World", () => {
+test("characters not open, under their worlds, each world ending with + Character; no + World on the web", () => {
   const rows = pickerRows(worlds, { "fm/kit": {} }, "");
-  assert.equal(kinds(rows), "world char add_char world char add_char add_world");
-  assert.deepEqual(pickable(rows), ["=Bay", "Bay/ash", "+Bay", "=fm", "fm/rook", "+fm", "+"]);
+  assert.equal(kinds(rows), "world char add_char world char add_char", "the worlds are the relay's");
+  assert.deepEqual(pickable(rows), ["=Bay", "Bay/ash", "+Bay", "=fm", "fm/rook", "+fm"]);
 });
 
 test("the filter matches a name, an alias or the world, ignoring case and spaces around it", () => {
-  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ")), ["=Bay", "Bay/ash", "+Bay", "+"]);
-  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm")), ["=fm", "fm/kit", "fm/rook", "+fm", "+"]);
+  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ")), ["=Bay", "Bay/ash", "+Bay"]);
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm")), ["=fm", "fm/kit", "fm/rook", "+fm"]);
 });
 
 test("a world whose name matches is listed with nothing to offer; one that doesn't, isn't", () => {
   const rows = pickerRows(worlds, { "fm/kit": {}, "fm/rook": {} }, "f");
-  assert.equal(kinds(rows), "world add_char add_world");
+  assert.equal(kinds(rows), "world add_char");
 });
 
 test("the highlight stays on its row, else goes to the first character, else the first row", () => {
@@ -33,21 +33,19 @@ test("the highlight stays on its row, else goes to the first character, else the
   assert.equal(fixPick(pickerRows(worlds, { "Bay/ash": {}, "fm/kit": {}, "fm/rook": {} }, ""), ""), "=Bay");
 });
 
-test("nothing matches: only + World", () => {
+test("nothing matches: no rows, nothing highlighted", () => {
   const rows = pickerRows(worlds, {}, "zzz");
-  assert.equal(kinds(rows), "add_world");
-  assert.equal(fixPick(rows, "fm/kit"), "+");
-  assert.equal(movePick(rows, "+", 1), "+");
+  assert.equal(kinds(rows), "");
+  assert.equal(fixPick(rows, "fm/kit"), "");
 });
 
 test("↑/↓ move a row, stopping at the ends; PgUp/PgDn a page of rows", () => {
   const rows = pickerRows(worlds, {}, "");
   assert.equal(movePick(rows, "Bay/ash", -1), "=Bay");
   assert.equal(movePick(rows, "=Bay", -1), "=Bay");
-  assert.equal(movePick(rows, "+fm", 1), "+");
-  assert.equal(movePick(rows, "+", 1), "+");
+  assert.equal(movePick(rows, "+fm", 1), "+fm", "the last row");
   assert.equal(pagePick(rows, "Bay/ash", 1, 3), "fm/kit", "three rows on: + Character, fm, then Kit");
-  assert.equal(pagePick(rows, "+", -1, 100), "=Bay");
+  assert.equal(pagePick(rows, "+fm", -1, 100), "=Bay");
 });
 
 test("choosing a character picks it and closes the picker; + Character opens the name form", () => {
@@ -107,7 +105,7 @@ test("an answer to something else leaves the picker be", () => {
   assert.equal(s.state.picker?.adding, "fm");
 });
 
-test("choosing a world's row or + World opens its editor (Go is asked); leaving one keeps its edits", () => {
+test("choosing a world's row opens its editor (Go is asked); leaving one keeps its edits", () => {
   const sent: any[] = [];
   const s = new Store();
   s.set({ phase: "running", act: (o: object) => sent.push(o) });
@@ -115,8 +113,6 @@ test("choosing a world's row or + World opens its editor (Go is asked); leaving 
   s.openPicker();
   choose(s, "=fm");
   assert.deepEqual(sent.at(-1), { Do: "settings", World: "fm", Char: "" });
-  choose(s, "+");
-  assert.deepEqual(sent.at(-1), { Do: "settings", World: "", Char: "" });
 });
 
 const keyT = (mods: { ctrlKey?: boolean; altKey?: boolean }) => ({ ...key("t", mods), code: "KeyT" });

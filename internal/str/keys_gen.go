@@ -729,14 +729,9 @@ func RelayConfigBadOrigin(path, pattern any) string {
 	return get("relay.config_bad_origin", map[string]any{"path": path, "pattern": pattern})
 }
 
-// RelayConfigBadPin is relay.config_bad_pin: "{path}: {host} has pin {value:%q} · use \"sha256:\" and 64 hex digits, as in Kiln's known_hosts"
-func RelayConfigBadPin(path, host, value any) string {
-	return get("relay.config_bad_pin", map[string]any{"path": path, "host": host, "value": value})
-}
-
-// RelayConfigBadPort is relay.config_bad_port: "{path}: {host} has bad port {port}"
-func RelayConfigBadPort(path, host, port any) string {
-	return get("relay.config_bad_port", map[string]any{"path": path, "host": host, "port": port})
+// RelayConfigBadPin is relay.config_bad_pin: "{path}: world {world:%q} has pin {value:%q} · use \"sha256:\" and 64 hex digits, as in Kiln's known_hosts"
+func RelayConfigBadPin(path, value, world any) string {
+	return get("relay.config_bad_pin", map[string]any{"path": path, "value": value, "world": world})
 }
 
 // RelayConfigBadProxy is relay.config_bad_proxy: "{path}: trusted_proxies has bad address {addr:%q}"
@@ -749,9 +744,9 @@ func RelayConfigBadShortHold(path, value any) string {
 	return get("relay.config_bad_short_hold", map[string]any{"path": path, "value": value})
 }
 
-// RelayConfigBadTrust is relay.config_bad_trust: "{path}: {host} has tls_trust {value:%q} · the only value is \"ca\"; use pin = \"sha256:…\" for a pinned certificate"
-func RelayConfigBadTrust(path, host, value any) string {
-	return get("relay.config_bad_trust", map[string]any{"path": path, "host": host, "value": value})
+// RelayConfigBadTrust is relay.config_bad_trust: "{path}: world {world:%q} has tls_trust {value:%q} · the only value is \"ca\"; use pin = \"sha256:…\" for a pinned certificate"
+func RelayConfigBadTrust(path, value, world any) string {
+	return get("relay.config_bad_trust", map[string]any{"path": path, "value": value, "world": world})
 }
 
 // RelayConfigBadVapid is relay.config_bad_vapid: "{path}: vapid_key {key:%q} isn't a P-256 private key · make one with openssl (see docs/web-relay.md)"
@@ -759,9 +754,9 @@ func RelayConfigBadVapid(path, key any) string {
 	return get("relay.config_bad_vapid", map[string]any{"path": path, "key": key})
 }
 
-// RelayConfigBothTrust is relay.config_both_trust: "{path}: {host} has both tls_trust and pin · use one"
-func RelayConfigBothTrust(path, host any) string {
-	return get("relay.config_both_trust", map[string]any{"path": path, "host": host})
+// RelayConfigBothTrust is relay.config_both_trust: "{path}: world {world:%q} has both tls_trust and pin · use one"
+func RelayConfigBothTrust(path, world any) string {
+	return get("relay.config_both_trust", map[string]any{"path": path, "world": world})
 }
 
 // RelayConfigContactNoKey is relay.config_contact_no_key: "{path}: push_contact does nothing without vapid_key"
@@ -772,6 +767,11 @@ func RelayConfigContactNoKey(path any) string {
 // RelayConfigDuplicate is relay.config_duplicate: "{path}: {world:%q} is listed twice"
 func RelayConfigDuplicate(path, world any) string {
 	return get("relay.config_duplicate", map[string]any{"path": path, "world": world})
+}
+
+// RelayConfigDuplicateId is relay.config_duplicate_id: "{path}: world id {id:%q} is listed twice"
+func RelayConfigDuplicateId(path, id any) string {
+	return get("relay.config_duplicate_id", map[string]any{"path": path, "id": id})
 }
 
 // RelayConfigLoaded is relay.config_loaded, by count:
@@ -786,24 +786,19 @@ func RelayConfigNoContact(path any) string {
 	return get("relay.config_no_contact", map[string]any{"path": path})
 }
 
-// RelayConfigNoHost is relay.config_no_host: "{path}: world {n} has no host"
-func RelayConfigNoHost(path any, n int) string {
-	return get("relay.config_no_host", map[string]any{"path": path, "n": n})
+// RelayConfigNoId is relay.config_no_id: "{path}: world {n} has no id"
+func RelayConfigNoId(path any, n int) string {
+	return get("relay.config_no_id", map[string]any{"path": path, "n": n})
 }
 
-// RelayConfigNoPorts is relay.config_no_ports: "{path}: {host} has no ports"
-func RelayConfigNoPorts(path, host any) string {
-	return get("relay.config_no_ports", map[string]any{"path": path, "host": host})
+// RelayConfigNoTrust is relay.config_no_trust: "{path}: world {world:%q} needs tls_trust = \"ca\" or a pin (or tls = false)"
+func RelayConfigNoTrust(path, world any) string {
+	return get("relay.config_no_trust", map[string]any{"path": path, "world": world})
 }
 
-// RelayConfigNoTrust is relay.config_no_trust: "{path}: {host} needs tls_trust = \"ca\" or a pin (or plaintext = true)"
-func RelayConfigNoTrust(path, host any) string {
-	return get("relay.config_no_trust", map[string]any{"path": path, "host": host})
-}
-
-// RelayConfigPlaintextTrust is relay.config_plaintext_trust: "{path}: {host} is plaintext, so it can't have tls_trust or pin"
-func RelayConfigPlaintextTrust(path, host any) string {
-	return get("relay.config_plaintext_trust", map[string]any{"path": path, "host": host})
+// RelayConfigPlaintextTrust is relay.config_plaintext_trust: "{path}: world {world:%q} has tls = false, so it can't have tls_trust or pin"
+func RelayConfigPlaintextTrust(path, world any) string {
+	return get("relay.config_plaintext_trust", map[string]any{"path": path, "world": world})
 }
 
 // RelayConfigReading is relay.config_reading: "reading {path}: {err}"
@@ -824,6 +819,11 @@ func RelayConfigUnknownKey(path, key any) string {
 // RelayConfigVapidReading is relay.config_vapid_reading: "{path}: reading vapid_key: {err}"
 func RelayConfigVapidReading(path any, err error) string {
 	return get("relay.config_vapid_reading", map[string]any{"path": path, "err": err})
+}
+
+// RelayConfigWorld is relay.config_world: "{path}: world {id:%q}"
+func RelayConfigWorld(path, id any) string {
+	return get("relay.config_world", map[string]any{"path": path, "id": id})
 }
 
 // RelayDropping is relay.dropping: "dropping lines {ip} → {world:%q}: buffer full"
@@ -872,6 +872,11 @@ func RelayNeedConfig() string { return get("relay.need_config", nil) }
 // RelayOpened is relay.opened: "open {ip} → {world:%q}"
 func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
+}
+
+// RelayPresetWorldsIgnored is relay.preset_worlds_ignored: "{dir}: config/worlds is ignored · the page's worlds come from relay.toml"
+func RelayPresetWorldsIgnored(dir any) string {
+	return get("relay.preset_worlds_ignored", map[string]any{"dir": dir})
 }
 
 // RelayPushFailed is relay.push_failed: "push {ip} → {world:%q} failed: {err}"
@@ -1499,3 +1504,10 @@ func WebTitleUnread(n int) string { return get("web.title_unread", map[string]an
 
 // WebUseHere is web.use_here: "Use here"
 func WebUseHere() string { return get("web.use_here", nil) }
+
+// WebWorldsGone is web.worlds_gone, by count:
+//   - one: "{worlds} is gone: it's no longer on this relay"
+//   - other: "{worlds} are gone: they're no longer on this relay"
+func WebWorldsGone(n int, worlds any) string {
+	return count("web.worlds_gone", n, map[string]any{"n": n, "worlds": worlds})
+}

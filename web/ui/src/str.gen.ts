@@ -635,11 +635,8 @@ export function relayConfigBadLimit(path: unknown, key: unknown): string { retur
 /** relay.config_bad_origin: {path}: origins has bad pattern {pattern:%q} · use a host, like "muck.example.org" or "*.example.org" */
 export function relayConfigBadOrigin(path: unknown, pattern: unknown): string { return `${path}: origins has bad pattern ${q(pattern)} · use a host, like "muck.example.org" or "*.example.org"`; }
 
-/** relay.config_bad_pin: {path}: {host} has pin {value:%q} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts */
-export function relayConfigBadPin(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has pin ${q(value)} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts`; }
-
-/** relay.config_bad_port: {path}: {host} has bad port {port} */
-export function relayConfigBadPort(path: unknown, host: unknown, port: unknown): string { return `${path}: ${host} has bad port ${port}`; }
+/** relay.config_bad_pin: {path}: world {world:%q} has pin {value:%q} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts */
+export function relayConfigBadPin(path: unknown, value: unknown, world: unknown): string { return `${path}: world ${q(world)} has pin ${q(value)} · use "sha256:" and 64 hex digits, as in Kiln's known_hosts`; }
 
 /** relay.config_bad_proxy: {path}: trusted_proxies has bad address {addr:%q} */
 export function relayConfigBadProxy(path: unknown, addr: unknown): string { return `${path}: trusted_proxies has bad address ${q(addr)}`; }
@@ -647,20 +644,23 @@ export function relayConfigBadProxy(path: unknown, addr: unknown): string { retu
 /** relay.config_bad_short_hold: {path}: short_hold {value:%q} isn't a length of time · use one like "10m" */
 export function relayConfigBadShortHold(path: unknown, value: unknown): string { return `${path}: short_hold ${q(value)} isn't a length of time · use one like "10m"`; }
 
-/** relay.config_bad_trust: {path}: {host} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate */
-export function relayConfigBadTrust(path: unknown, host: unknown, value: unknown): string { return `${path}: ${host} has tls_trust ${q(value)} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate`; }
+/** relay.config_bad_trust: {path}: world {world:%q} has tls_trust {value:%q} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate */
+export function relayConfigBadTrust(path: unknown, value: unknown, world: unknown): string { return `${path}: world ${q(world)} has tls_trust ${q(value)} · the only value is "ca"; use pin = "sha256:…" for a pinned certificate`; }
 
 /** relay.config_bad_vapid: {path}: vapid_key {key:%q} isn't a P-256 private key · make one with openssl (see docs/web-relay.md) */
 export function relayConfigBadVapid(path: unknown, key: unknown): string { return `${path}: vapid_key ${q(key)} isn't a P-256 private key · make one with openssl (see docs/web-relay.md)`; }
 
-/** relay.config_both_trust: {path}: {host} has both tls_trust and pin · use one */
-export function relayConfigBothTrust(path: unknown, host: unknown): string { return `${path}: ${host} has both tls_trust and pin · use one`; }
+/** relay.config_both_trust: {path}: world {world:%q} has both tls_trust and pin · use one */
+export function relayConfigBothTrust(path: unknown, world: unknown): string { return `${path}: world ${q(world)} has both tls_trust and pin · use one`; }
 
 /** relay.config_contact_no_key: {path}: push_contact does nothing without vapid_key */
 export function relayConfigContactNoKey(path: unknown): string { return `${path}: push_contact does nothing without vapid_key`; }
 
 /** relay.config_duplicate: {path}: {world:%q} is listed twice */
 export function relayConfigDuplicate(path: unknown, world: unknown): string { return `${path}: ${q(world)} is listed twice`; }
+
+/** relay.config_duplicate_id: {path}: world id {id:%q} is listed twice */
+export function relayConfigDuplicateId(path: unknown, id: unknown): string { return `${path}: world id ${q(id)} is listed twice`; }
 
 /** relay.config_loaded: one: {path}: 1 world · other: {path}: {n} worlds */
 export function relayConfigLoaded(n: number, path: unknown): string {
@@ -673,17 +673,14 @@ export function relayConfigLoaded(n: number, path: unknown): string {
 /** relay.config_no_contact: {path}: vapid_key needs push_contact, a web page or email push services can reach you at, like "https://muck.example.org" */
 export function relayConfigNoContact(path: unknown): string { return `${path}: vapid_key needs push_contact, a web page or email push services can reach you at, like "https://muck.example.org"`; }
 
-/** relay.config_no_host: {path}: world {n} has no host */
-export function relayConfigNoHost(path: unknown, n: number): string { return `${path}: world ${n} has no host`; }
+/** relay.config_no_id: {path}: world {n} has no id */
+export function relayConfigNoId(path: unknown, n: number): string { return `${path}: world ${n} has no id`; }
 
-/** relay.config_no_ports: {path}: {host} has no ports */
-export function relayConfigNoPorts(path: unknown, host: unknown): string { return `${path}: ${host} has no ports`; }
+/** relay.config_no_trust: {path}: world {world:%q} needs tls_trust = "ca" or a pin (or tls = false) */
+export function relayConfigNoTrust(path: unknown, world: unknown): string { return `${path}: world ${q(world)} needs tls_trust = "ca" or a pin (or tls = false)`; }
 
-/** relay.config_no_trust: {path}: {host} needs tls_trust = "ca" or a pin (or plaintext = true) */
-export function relayConfigNoTrust(path: unknown, host: unknown): string { return `${path}: ${host} needs tls_trust = "ca" or a pin (or plaintext = true)`; }
-
-/** relay.config_plaintext_trust: {path}: {host} is plaintext, so it can't have tls_trust or pin */
-export function relayConfigPlaintextTrust(path: unknown, host: unknown): string { return `${path}: ${host} is plaintext, so it can't have tls_trust or pin`; }
+/** relay.config_plaintext_trust: {path}: world {world:%q} has tls = false, so it can't have tls_trust or pin */
+export function relayConfigPlaintextTrust(path: unknown, world: unknown): string { return `${path}: world ${q(world)} has tls = false, so it can't have tls_trust or pin`; }
 
 /** relay.config_reading: reading {path}: {err} */
 export function relayConfigReading(path: unknown, err: unknown): string { return `reading ${path}: ${e(err)}`; }
@@ -696,6 +693,9 @@ export function relayConfigUnknownKey(path: unknown, key: unknown): string { ret
 
 /** relay.config_vapid_reading: {path}: reading vapid_key: {err} */
 export function relayConfigVapidReading(path: unknown, err: unknown): string { return `${path}: reading vapid_key: ${e(err)}`; }
+
+/** relay.config_world: {path}: world {id:%q} */
+export function relayConfigWorld(path: unknown, id: unknown): string { return `${path}: world ${q(id)}`; }
 
 /** relay.dropping: dropping lines {ip} → {world:%q}: buffer full */
 export function relayDropping(ip: unknown, world: unknown): string { return `dropping lines ${ip} → ${q(world)}: buffer full`; }
@@ -732,6 +732,9 @@ export function relayNeedConfig(): string { return `kiln-relay needs -config PAT
 
 /** relay.opened: open {ip} → {world:%q} */
 export function relayOpened(ip: unknown, world: unknown): string { return `open ${ip} → ${q(world)}`; }
+
+/** relay.preset_worlds_ignored: {dir}: config/worlds is ignored · the page's worlds come from relay.toml */
+export function relayPresetWorldsIgnored(dir: unknown): string { return `${dir}: config/worlds is ignored · the page's worlds come from relay.toml`; }
 
 /** relay.push_failed: push {ip} → {world:%q} failed: {err} */
 export function relayPushFailed(ip: unknown, world: unknown, err: unknown): string { return `push ${ip} → ${q(world)} failed: ${e(err)}`; }
@@ -1233,6 +1236,14 @@ export function webTitleUnread(n: number): string { return `(${n}) Kiln`; }
 
 /** web.use_here: Use here */
 export function webUseHere(): string { return `Use here`; }
+
+/** web.worlds_gone: one: {worlds} is gone: it's no longer on this relay · other: {worlds} are gone: they're no longer on this relay */
+export function webWorldsGone(n: number, worlds: unknown): string {
+  switch (plural.select(n)) {
+    case "one": return `${worlds} is gone: it's no longer on this relay`;
+    default: return `${worlds} are gone: they're no longer on this relay`;
+  }
+}
 
 /** The glyphs Kiln draws (internal/glyph). */
 export const glyph = {

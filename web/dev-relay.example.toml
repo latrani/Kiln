@@ -1,5 +1,6 @@
-# Copy to dev-relay.toml (gitignored) and list the worlds your
-# preset.local uses. See docs/web-relay.md.
+# Copy to dev-relay.toml (gitignored) and point its [[world]] at a real
+# MUCK. Each [[world]] is a world file with an id, and the page's world
+# too. See docs/web-relay.md.
 
 # How long a connection is held after the page goes away (short_hold:
 # after its tab closed), and how much is buffered for it meanwhile (the
@@ -14,5 +15,11 @@
 # push_contact = "https://muck.example.org"
 
 [[world]]
+id = "fm"
 host = "muck.example.org"
-ports = [8899]
+port = 8899
+# For a TLS world: tls = true, and tls_trust = "ca" or pin = "sha256:…".
+
+[[world.characters]]
+id = "kit"
+name = "Kit"

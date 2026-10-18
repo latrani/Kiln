@@ -372,20 +372,40 @@ func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
 		return g, settings{}, Rules{}, err
 	}
-	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
+	base := defaultSettings()
 	base.overlay(g.Defaults.settings)
 	return g, base, Rules{Priority: g.Defaults.Priority, Quiet: g.Defaults.Quiet, Flags: g.Defaults.Flags}, nil
 }
 
+// defaultSettings is what a world has with nothing set anywhere.
+func defaultSettings() settings {
+	return settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
+}
+
+// CheckWorldFile says what loading worlds/<id>.toml with contents data
+// would refuse, without the rest of a config: for a world file made
+// elsewhere (kiln-relay's allowlist). Its messages start with where in
+// place of the file's name. Its packs aren't looked for: they're the
+// player's, and loading says when one is missing.
+func CheckWorldFile(where, id string, data []byte) error {
+	_, err := loadWorldData("", id+".toml", where, data, defaultSettings(), Rules{}, nil)
+	return err
+}
+
 func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]pack) (World, error) {
-	return loadWorldData(dir, path, nil, base, baseRules, packs)
+	return loadWorldData(dir, path, "", nil, base, baseRules, packs)
 }
 
 // loadWorldData is loadWorld with the file's contents given as data,
-// or read from path when data is nil.
-func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules, packs map[string]pack) (World, error) {
+// or read from path when data is nil. Its messages name the file, or
+// start with where if it's set. With packs nil, the world's packs
+// aren't loaded.
+func loadWorldData(dir, path, where string, data []byte, base settings, baseRules Rules, packs map[string]pack) (World, error) {
 	id := strings.TrimSuffix(filepath.Base(path), ".toml")
-	rel := filepath.Join("worlds", filepath.Base(path))
+	rel, name := filepath.Join("worlds", filepath.Base(path)), filepath.Base(path)
+	if where != "" {
+		rel, name = where, where
+	}
 	if !idRE.MatchString(id) {
 		return World{}, errors.New(str.ConfigBadWorldId(rel, id))
 	}
@@ -394,7 +414,7 @@ func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules
 		if err := decodeFile(path, &wf, false); err != nil {
 			return World{}, err
 		}
-	} else if err := decodeBytes(path, data, &wf); err != nil {
+	} else if err := decodeBytes(name, data, &wf); err != nil {
 		return World{}, err
 	}
 	if wf.Host == "" {
@@ -423,6 +443,9 @@ func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules
 	worldRules := baseRules
 	var packLooks []theme.Layer
 	for _, p := range wf.Use {
+		if packs == nil {
+			break
+		}
 		pk, err := loadPack(dir, p, packs)
 		if err != nil {
 			return World{}, fmt.Errorf("%s: %w", rel, err)
@@ -551,20 +574,21 @@ func decodeFile(path string, v any, optional bool) error {
 	if err != nil {
 		return err
 	}
-	return decodeBytes(path, b, v)
+	return decodeBytes(filepath.Base(path), b, v)
 }
 
-// decodeBytes is decodeFile for contents already read from path.
-func decodeBytes(path string, b []byte, v any) error {
+// decodeBytes is decodeFile for contents already read; name is what
+// its messages call the file.
+func decodeBytes(name string, b []byte, v any) error {
 	md, err := toml.Decode(string(b), v)
 	if err != nil {
-		return fmt.Errorf("%s: %w", filepath.Base(path), err)
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	_, world := v.(*worldFile)
 	_, pk := v.(*packFile) // worlds, their characters and packs have looks
 	for _, k := range md.Undecoded() {
 		if !(world || pk) || !inLooks(k) {
-			return errors.New(str.ConfigUnknownKey(filepath.Base(path), k.String()))
+			return errors.New(str.ConfigUnknownKey(name, k.String()))
 		}
 	}
 	return nil

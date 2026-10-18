@@ -69,7 +69,7 @@ func (w *world) conn(t *testing.T) net.Conn {
 
 func relayFor(t *testing.T, w *world) string {
 	t.Helper()
-	cfg, err := relay.ParseConfig("relay.toml", []byte(fmt.Sprintf("[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\nplaintext = true\n", w.port)))
+	cfg, err := relay.ParseConfig("relay.toml", []byte(fmt.Sprintf("[[world]]\nid = \"fm\"\nhost = \"127.0.0.1\"\nport = %d\n", w.port)))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,7 +8,6 @@ const fmSettings = { Host: "muck.test", Port: 8888, TLS: true, TLSTrust: "", Use
   NewlineMode: null, Autoconnect: true, Reconnect: null, Notify: null, LocalEcho: null };
 const fm = () => newEditor({ World: "fm", Char: "", Name: "", WorldSettings: fmSettings, Inherited: inh }, false);
 const kit = () => newEditor({ World: "fm", Char: "kit", Name: "Kit", CharSettings: { Aliases: ["kitty"], Autoconnect: null, Reconnect: false, Notify: "all", LocalEcho: null }, Inherited: inh }, true);
-const fresh = () => newEditor({ World: "", Char: "", Name: "", WorldSettings: { Host: "", Port: 0, TLS: false, TLSTrust: "", Use: ["fuzzball"], Login: null, MaxLineBytes: null, NewlineMode: null, Autoconnect: null, Reconnect: null, Notify: null, LocalEcho: null }, Inherited: inh }, false);
 
 test("a world's form: the TUI's fields, in order, the rest behind More settings", () => {
   const ed = fm();
@@ -16,8 +15,10 @@ test("a world's form: the TUI's fields, in order, the rest behind More settings"
   assert.deepEqual(ed.fields.filter((f) => !f.extra).map((f) => f.key), ["host", "port", "tls"]);
   assert.deepEqual(ed.fields.filter((f) => f.extra).map((f) => f.key),
     ["tls_trust", "use", "login", "max_line_bytes", "newline_mode", "autoconnect", "reconnect", "notify", "local_echo"]);
-  assert.equal(fresh().fields[0].key, "id", "a new world asks for its id first");
-  assert.equal(fresh().title, str.editorNewWorld());
+});
+
+test("a world's host, port, TLS and cert trust are the relay's: shown, not edited", () => {
+  assert.deepEqual(fm().fields.filter((f) => f.fixed).map((f) => f.key), ["host", "port", "tls", "tls_trust"], "and how it's trusted: the relay decides");
 });
 
 test("a choice offers what it inherits first, as the TUI's", () => {
@@ -45,14 +46,15 @@ test("saving untouched writes back what was read: unset stays unset", () => {
 });
 
 test("edits read as the TUI reads them: lists split on commas and spaces, numbers or 0", () => {
-  let ed = fresh();
-  for (const [k, v] of [["id", "zz"], ["host", "zz.test"], ["port", "77x"], ["use", "a, b c"], ["max_line_bytes", ""], ["reconnect", "off"]] as const) ed = edit(ed, k, v);
+  let ed = fm();
+  for (const [k, v] of [["use", "a, b c"], ["max_line_bytes", "12x"], ["reconnect", "off"]] as const) ed = edit(ed, k, v);
   const a = saveAction(ed) as any;
-  assert.equal(a.Do, "add_world");
-  assert.equal(a.ID, "zz");
-  assert.equal(a.WorldSettings.Port, 0, "an unreadable port is 0, which the save refuses");
+  assert.equal(a.Do, "save_world");
+  assert.deepEqual([a.WorldSettings.Host, a.WorldSettings.Port, a.WorldSettings.TLS], ["muck.test", 8888, true], "the relay's, as read");
   assert.deepEqual(a.WorldSettings.Use, ["a", "b", "c"]);
-  assert.equal(a.WorldSettings.MaxLineBytes, null);
+  assert.equal(a.WorldSettings.MaxLineBytes, 0, "an unreadable number is 0, which the save refuses");
+  ed = edit(ed, "max_line_bytes", "");
+  assert.equal((saveAction(ed) as any).WorldSettings.MaxLineBytes, null);
   assert.equal(a.WorldSettings.Reconnect, false);
 });
 
@@ -85,14 +87,12 @@ test("a refusal counts, opens More settings for a field inside it, and names the
   assert.equal(refuse(fm(), [{ Field: "", Msg: "z" }]).more, false);
 });
 
-test("delete: a world or a character; a new world has nothing to delete", () => {
+test("delete: a world or a character", () => {
   assert.deepEqual(deleteAction(fm()), { Do: "delete_world", World: "fm" });
   assert.deepEqual(deleteAction(kit()), { Do: "delete_character", World: "fm", Char: "kit" });
-  assert.equal(deleteAction(fresh()), undefined);
 });
 
 test("targets key as the picker's rows do", () => {
   assert.equal(targetKey(fm().target), "=fm");
   assert.equal(targetKey(kit().target), "fm/kit");
-  assert.equal(targetKey(fresh().target), "+");
 });

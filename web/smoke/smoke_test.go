@@ -58,6 +58,13 @@ func launchWith(t *testing.T, pin func(port int) string) (ws *websocket.Conn, an
 // serves the page from.
 func launchFrom(t *testing.T, pin func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn, static string) {
 	t.Helper()
+	ws, another, static, _ = launchAll(t, pin)
+	return ws, another, static
+}
+
+// launchAll is launchFrom, also returning the relay's config file.
+func launchAll(t *testing.T, pin func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn, static, cfg string) {
+	t.Helper()
 	chrome := chromePath(t)
 	root, _ := filepath.Abs("../..")
 	static = buildPage(t, root)
@@ -65,10 +72,10 @@ func launchFrom(t *testing.T, pin func(port int) string) (ws *websocket.Conn, an
 	if pin != nil {
 		certPin = pin(muckPort)
 	}
-	preset, cfg := config(t, muckPort, certPin)
-	page := startRelay(t, root, static, preset, cfg)
+	cfg = config(t, muckPort, certPin)
+	page := startRelay(t, root, static, cfg)
 	ws, tab := openTab(t, chrome, page+"?record")
-	return ws, func() *websocket.Conn { return tab(page) }, static
+	return ws, func() *websocket.Conn { return tab(page) }, static, cfg
 }
 
 // TestTypingAnywhere types with focus outside any control: an IME's
@@ -461,29 +468,21 @@ func lines(c net.Conn, what string, n int) {
 	}
 }
 
-// config writes a preset with the fake world, and a relay config that
-// pins it to pin.
-func config(t *testing.T, port int, pin string) (preset, cfg string) {
+// config writes a relay config allowing the fake world, pinned to pin,
+// with its characters: the page's world.
+func config(t *testing.T, port int, pin string) (cfg string) {
 	t.Helper()
-	dir := t.TempDir()
-	preset = filepath.Join(dir, "preset")
-	if err := os.MkdirAll(filepath.Join(preset, "config", "worlds"), 0o755); err != nil {
+	cfg = filepath.Join(t.TempDir(), "relay.toml")
+	world := fmt.Sprintf("[[world]]\nid = \"fake\"\nhost = \"127.0.0.1\"\nport = %d\ntls = true\npin = %q\n\n[[world.characters]]\nid = \"tester\"\nname = \"Tester\"\n\n[[world.characters]]\nid = \"second\"\nname = \"Second\"\n\n[[world.characters]]\nid = \"historian\"\nname = \"Historian\"\n", port, pin)
+	if err := os.WriteFile(cfg, []byte(relaySettings+world), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	world := fmt.Sprintf("host = \"127.0.0.1\"\nport = %d\ntls = true\ntls_trust = \"pin\"\n\n[[characters]]\nid = \"tester\"\nname = \"Tester\"\n\n[[characters]]\nid = \"second\"\nname = \"Second\"\n\n[[characters]]\nid = \"historian\"\nname = \"Historian\"\n", port)
-	if err := os.WriteFile(filepath.Join(preset, "config", "worlds", "fake.toml"), []byte(world), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg = filepath.Join(dir, "relay.toml")
-	if err := os.WriteFile(cfg, fmt.Appendf(nil, "%s[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\npin = %q\n", relaySettings, port, pin), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	return preset, cfg
+	return cfg
 }
 
 // startRelay runs kiln-relay on a free port, serving the page and the
-// preset, and returns the page's URL.
-func startRelay(t *testing.T, root, static, preset, cfg string) string {
+// allowlist's worlds, and returns the page's URL.
+func startRelay(t *testing.T, root, static, cfg string) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -497,7 +496,7 @@ func startRelay(t *testing.T, root, static, preset, cfg string) string {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building kiln-relay: %v\n%s", err, out)
 	}
-	relay := exec.Command(bin, "-listen", addr, "-config", cfg, "-web", static, "-preset", preset)
+	relay := exec.Command(bin, "-listen", addr, "-config", cfg, "-web", static)
 	relay.Stdout, relay.Stderr = os.Stderr, os.Stderr
 	if err := relay.Start(); err != nil {
 		t.Fatal(err)

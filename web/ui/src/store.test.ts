@@ -113,7 +113,7 @@ test("the picker: opened with its highlight on the first character; Start drops 
   s.openPicker();
   assert.deepEqual(s.state.picker, { filter: "", sel: "fm/kit" });
   s.setPicker({ filter: "zzz" });
-  assert.equal(s.state.picker?.sel, "+", "nothing matches: + World");
+  assert.equal(s.state.picker?.sel, "", "nothing matches: nothing highlighted");
   s.apply([{ type: "Start" }]);
   assert.equal(s.state.picker, undefined);
 });
@@ -130,7 +130,7 @@ test("Saved and Problems are the latest answer, numbered", () => {
 test("the picker's highlight follows what Go sends: worlds coming, the highlighted character opening", () => {
   const s = new Store();
   s.openPicker(); // before the worlds came: nothing to highlight
-  assert.equal(s.state.picker?.sel, "+", "no worlds yet: + World");
+  assert.equal(s.state.picker?.sel, "", "no worlds yet: nothing highlighted");
   s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] }]);
   assert.equal(s.state.picker?.sel, "fm/kit");
   s.apply([{ type: "Char", Key: "fm/kit", World: "fm", Name: "Kit" }]);
@@ -209,18 +209,6 @@ test("an answer to something else leaves the editor be", () => {
   assert.equal(editor(s)?.pending, "save_world");
 });
 
-test("a new world saved: back to the picker, on its + Character", () => {
-  const { s } = running();
-  s.openPicker();
-  s.openEditor({ kind: "new_world" }, false);
-  s.apply([{ ...fmSettings, World: "" }]);
-  s.editField("id", "zz");
-  s.sendEditor({ Do: "add_world" });
-  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }, { ID: "zz", Characters: [] }] }, { type: "Saved", Op: "add_world", World: "", Char: "" }]);
-  assert.equal(editor(s), undefined);
-  assert.equal(s.state.picker?.sel, "+zz");
-});
-
 test("deleting the edited character closes the editor; nothing's parked or drafted", () => {
   const { s } = running();
   s.openEditor({ kind: "char", world: "fm", char: "kit" }, true);
@@ -279,18 +267,6 @@ test("an editor opened in the picker stays open when the active character change
   s.apply([fmSettings]);
   s.apply([{ type: "Active", Key: "fm/rook" }]);
   assert.ok(editor(s));
-});
-
-test("a first world saved lands on its + Character, though the worlds came in the same batch", () => {
-  const s = new Store();
-  s.set({ phase: "running", act: () => {} });
-  s.openPicker();
-  s.openEditor({ kind: "new_world" }, false);
-  s.apply([{ ...fmSettings, World: "" }]);
-  s.editField("id", "fm");
-  s.sendEditor({ Do: "add_world" });
-  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }] }, { type: "Saved", Op: "add_world", World: "", Char: "" }]);
-  assert.equal(s.state.picker?.sel, "+fm");
 });
 
 test("+ Connection with a main-view editor up parks it on its character, as the TUI's", () => {

@@ -220,3 +220,39 @@ func TestNotifyRoundTrips(t *testing.T) {
 		t.Errorf("file:\n%s", got)
 	}
 }
+
+// A saved world takes where to connect from a world file served for it
+// (the relay's allowlist), keeping the rest; agreeing, it's untouched.
+func TestAdoptServer(t *testing.T) {
+	dir := editDir(t, uglyWorld)
+	if err := AdoptServer(dir, "fm", []byte("host = \"furrymuck.com\"\nport = 8899\ntls = true\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got := readWorld(t, dir); got != uglyWorld {
+		t.Fatalf("an agreeing server changed the file:\n%s", got)
+	}
+	if err := AdoptServer(dir, "fm", []byte("host = \"muck.example.org\"\nport = 7777\ntls = false\nlogin = \"theirs\"\n")); err != nil {
+		t.Fatal(err)
+	}
+	s, _, err := ReadWorld(dir, "fm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Host != "muck.example.org" || s.Port != 7777 || s.TLS || s.Login != nil || len(s.Use) != 1 {
+		t.Errorf("adopted %+v; want the served host, port 7777, no TLS, the saved login and packs", s)
+	}
+}
+
+// RemoveWorld takes a world away, characters and all.
+func TestRemoveWorld(t *testing.T) {
+	dir := editDir(t, uglyWorld)
+	if err := RemoveWorld(dir, "fm"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "worlds", "fm.toml")); !os.IsNotExist(err) {
+		t.Errorf("fm.toml is still there: %v", err)
+	}
+	if err := RemoveWorld(dir, "../config"); err == nil {
+		t.Error("a path outside worlds/ was taken as a world")
+	}
+}

@@ -6,7 +6,7 @@ to real MUCKs over the internet.
 The page is being built (part 3 of #125): it's Kiln's main screen, the
 picker, the password form, the editor and log mode so far. Open a connection with `+ Connection` in the sidebar, Ctrl+O, or
 Enter with nothing open. Edit a world or character from the picker
-(Enter on a world, `+ World`), with Ctrl+T (Mac) or Alt+T, or with
+(Enter on a world), with Ctrl+T (Mac) or Alt+T, or with
 `/edit` and `/edit world`. In the editor Enter saves, Esc cancels, and
 Ctrl+T or Alt+T hides it, keeping the edits.
 Ctrl+L or the `Log` chip opens log mode for the character showing (and
@@ -31,10 +31,9 @@ it. Esc closes log mode.
 
 ```sh
 web/build.sh
-cp -R web/preset.example web/preset.local      # edit config/worlds/*.toml
-cp web/dev-relay.example.toml web/dev-relay.toml  # list the same worlds
+cp web/dev-relay.example.toml web/dev-relay.toml  # edit its [[world]]s
 go run ./cmd/kiln-relay -listen localhost:8080 -config web/dev-relay.toml \
-  -web web/static -preset web/preset.local
+  -web web/static
 ```
 
 Open http://localhost:8080/kiln/. Rebuild with `web/build.sh` and reload
@@ -130,11 +129,17 @@ Kiln last drew with, offering **Use here**, which moves Kiln over; the
 first tab saves, leaves its characters to the new tab (which picks them
 up from the relay without logging in), and shows the same offer.
 
-A preset is laid out like a `/backup` zip: `config/…` is the config
-dir. Preset files are written only where nothing is saved, so your edits
-to a preset world win over the server's copy. A preset world you delete
-comes back on the next visit.
+The page's worlds are the relay's: each `[[world]]` in
+`web/dev-relay.toml` is a world file with an `id`, served as the preset's
+`worlds/<id>.toml` (docs/web-relay.md). There's no `+ World`, and a
+world's host, port, TLS and cert trust can't be changed in the page. Preset files are
+written only where nothing is saved, so your edits to a world (its
+login, its characters) win over the server's copy; its host, port and
+TLS follow the relay's on every load, and a world that's left
+`dev-relay.toml` is taken away. A world you delete
+comes back on the next visit. `-preset DIR` adds other config, laid out
+like a `/backup` zip: `config/…` is the config dir.
 
 The relay does TLS, so TLS pins live in its config, not the browser:
-give each TLS world in `web/dev-relay.toml` a `pin` or `tls_trust = "ca"`
-(docs/web-relay.md).
+give each TLS world in `web/dev-relay.toml` `tls = true` and a `pin` or
+`tls_trust = "ca"`.

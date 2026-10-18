@@ -199,21 +199,19 @@ const exists = (s: State, k: string): boolean =>
   k.startsWith("=") ? Object.values(s.chars).some((c: any) => "=" + c.World === k) : !!s.chars[k];
 
 // settle is s after Go's answer to the editor's save or delete, as the
-// TUI's save and delete calls: refused, it shows why; saved, it closes (a
-// new world's to the picker, on its + Character), and a deleted world's
-// drafts go with it.
+// TUI's save and delete calls: refused, it shows why; saved, it closes,
+// and a deleted world's drafts go with it.
 function settle(s: State, a: Answer): State {
   const ed = s.picker!.edit!;
   if (a.Problems) return { ...s, picker: { ...s.picker!, edit: refuse(ed, a.Problems) } };
   if (a.Op === "delete_world" && ed.target.kind === "world") s = dropWorld(s, ed.target.world);
-  if (a.Op === "add_world") return { ...s, picker: { ...s.picker!, edit: undefined, filter: "", sel: "+" + String(ed.values.id) } };
   return shut(s);
 }
 
 // dropWorld is s without the drafts and parked editors of world w, which
 // is gone.
 function dropWorld(s: State, w: string): State {
-  const keep = (m: Record<string, Editor>) => Object.fromEntries(Object.entries(m).filter(([, d]) => d.target.kind === "new_world" || d.target.world !== w));
+  const keep = (m: Record<string, Editor>) => Object.fromEntries(Object.entries(m).filter(([, d]) => d.target.world !== w));
   return { ...s, drafts: keep(s.drafts), parked: keep(s.parked) };
 }
 
@@ -449,8 +447,7 @@ export class Store {
       return;
     }
     this.set({ opening: { key: k, closeAll } });
-    const w = t.kind === "new_world" ? "" : t.world;
-    this.state.act?.({ Do: "settings", World: w, Char: t.kind === "char" ? t.char : "" });
+    this.state.act?.({ Do: "settings", World: t.world, Char: t.kind === "char" ? t.char : "" });
   }
 
   // closeEditor drops the editor's edits (Esc).

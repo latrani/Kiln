@@ -6,23 +6,29 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
 
+	"github.com/latrani/Kiln/internal/relay"
 	"github.com/latrani/Kiln/internal/str"
 )
 
+// worldsDir is where the page's world files are, in the preset.
+const worldsDir = "config/worlds/" //str:ok path
+
 // webRoutes serves the built page at /kiln/ and a preset at
-// /kiln/preset/, with a manifest of the preset's files made on each
-// request, so it never drifts from the folder; with no preset the
-// manifest is empty and the page starts with nothing preloaded. nginx
-// proxies all of /kiln/ here. A preset is laid out like a backup:
-// config/… and known_hosts. Everything is no-cache: browsers check
-// again on each load, so a new release reaches players once the relay
-// restarts. logf hears why a manifest failed; the browser only that it
-// did.
-func webRoutes(mux *http.ServeMux, web, preset string, logf func(string)) {
+// /kiln/preset/: the allowlist's worlds (worlds, the config as it is
+// now) as config/worlds/<id>.toml, and the files in a preset folder
+// besides its own config/worlds, with a manifest of them all made on
+// each request, so it never drifts from the folder or a reloaded
+// relay.toml. nginx proxies all of /kiln/ here. A preset is laid out
+// like a backup: config/… and known_hosts. Everything is no-cache:
+// browsers check again on each load, so a new release reaches players
+// once the relay restarts. logf hears why a manifest failed; the
+// browser only that it did.
+func webRoutes(mux *http.ServeMux, web, preset string, worlds func() []relay.World, logf func(string)) {
 	mux.Handle("/kiln/", noCache(http.StripPrefix("/kiln/", http.FileServer(http.Dir(web)))))                        //str:ok
 	mux.Handle("/kiln/preset/manifest.json", noCache(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //str:ok
 		m := []string{}
@@ -34,11 +40,35 @@ func webRoutes(mux *http.ServeMux, web, preset string, logf func(string)) {
 				return
 			}
 		}
+		m = slices.DeleteFunc(m, func(f string) bool { return strings.HasPrefix(f, worldsDir) })
+		for _, wl := range worlds() {
+			m = append(m, worldsDir+wl.ID+".toml") //str:ok file name
+		}
+		sort.Strings(m)
 		w.Header().Set("Content-Type", "application/json") //str:ok
 		json.NewEncoder(w).Encode(m)
 	})))
+	mux.Handle("/kiln/preset/"+worldsDir, noCache(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //str:ok
+		name := strings.TrimPrefix(r.URL.Path, "/kiln/preset/"+worldsDir) //str:ok
+		for _, wl := range worlds() {
+			if name == wl.ID+".toml" { //str:ok file name
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8") //str:ok
+				w.Write(wl.File())
+				return
+			}
+		}
+		http.NotFound(w, r)
+	})))
 	if preset != "" {
 		mux.Handle("/kiln/preset/", noCache(noDots(http.StripPrefix("/kiln/preset/", http.FileServer(http.Dir(preset)))))) //str:ok
+	}
+}
+
+// checkPresetWorlds says, through logf, that a preset's own worlds are
+// ignored: the page's worlds are the allowlist's.
+func checkPresetWorlds(preset string, logf func(string)) {
+	if fi, err := os.Stat(filepath.Join(preset, filepath.FromSlash(worldsDir))); err == nil && fi.IsDir() {
+		logf(str.RelayPresetWorldsIgnored(preset))
 	}
 }
 

@@ -32,14 +32,13 @@ import (
 // URL. trust is "" for a plaintext world, "ca", or a pin.
 func relayURL(t *testing.T, port int, trust string) string {
 	t.Helper()
-	w := fmt.Sprintf("[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port)
+	w := fmt.Sprintf("[[world]]\nid = \"fm\"\nhost = \"127.0.0.1\"\nport = %d\n", port)
 	switch trust {
 	case "":
-		w += "plaintext = true\n"
 	case "ca":
-		w += "tls_trust = \"ca\"\n"
+		w += "tls = true\ntls_trust = \"ca\"\n"
 	default:
-		w += fmt.Sprintf("pin = %q\n", trust)
+		w += fmt.Sprintf("tls = true\npin = %q\n", trust)
 	}
 	a, err := relay.ParseConfig("relay.toml", []byte(w))
 	if err != nil {

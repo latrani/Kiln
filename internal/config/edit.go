@@ -433,7 +433,7 @@ func WriteCharacter(dir, world, id string, s CharacterSettings) error {
 // characterTable finds character id's [[characters]] table.
 func (d *tomlDoc) characterTable(path, world, id string) (int, error) {
 	var wf worldFile
-	if err := decodeBytes(path, d.b, &wf); err != nil {
+	if err := decodeBytes(filepath.Base(path), d.b, &wf); err != nil {
 		return 0, err
 	}
 	n, err := characterIndex(wf, world, id)
@@ -496,6 +496,17 @@ func DeleteWorld(dir, world string) error {
 	return os.Remove(path)
 }
 
+// RemoveWorld removes worlds/<world>.toml, characters and all: for a
+// world that's gone from where it came from (kiln-relay's allowlist).
+// Logs, saved passwords and certificates aren't touched.
+func RemoveWorld(dir, world string) error {
+	path, err := worldPath(dir, world)
+	if err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
 // editWorld applies an edit to the world file at path, checks that the
 // result still loads, and replaces the file with it.
 func editWorld(dir, path string, edit func(*tomlDoc) ([]span, error)) error {
@@ -516,7 +527,7 @@ func editWorld(dir, path string, edit func(*tomlDoc) ([]span, error)) error {
 	if err != nil {
 		return err
 	}
-	if _, err := loadWorldData(dir, path, out, base, Rules{}, map[string]pack{}); err != nil {
+	if _, err := loadWorldData(dir, path, "", out, base, Rules{}, map[string]pack{}); err != nil {
 		return err
 	}
 	return replaceFile(path, out)
@@ -545,4 +556,21 @@ func replaceFile(path string, b []byte) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// AdoptServer gives the saved worlds/<world>.toml the host, port, TLS
+// and tls_trust of served, a world file for it from elsewhere
+// (kiln-relay's allowlist, which says where the web build may connect),
+// keeping everything else. Nothing is written when they agree.
+func AdoptServer(dir, world string, served []byte) error {
+	var wf worldFile
+	if err := decodeBytes(world+".toml", served, &wf); err != nil {
+		return err
+	}
+	s, _, err := ReadWorld(dir, world)
+	if err != nil {
+		return err
+	}
+	s.Host, s.Port, s.TLS, s.TLSTrust = wf.Host, wf.Port, wf.TLS, wf.TLSTrust
+	return WriteWorld(dir, world, s)
 }
