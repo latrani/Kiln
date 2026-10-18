@@ -6,9 +6,10 @@ worlds in its allowlist (the `[[world]]` list in `relay.toml`); that list
 is the real boundary. For a TLS world, the relay opens the TLS
 connection itself, trusting the world's certificate as `relay.toml` says.
 
-The relay also serves the page itself, and a preset: the worlds a
-player's browser starts with. So one process and one nginx block run
-the whole web build.
+The relay also serves the page itself, and a preset: the allowlist's
+worlds, as the world files a player's browser starts with, and any
+other config you give it. So one process and one nginx block run the
+whole web build, and the worlds are written down once.
 
 ## What the relay can see
 
@@ -46,14 +47,16 @@ The relay's flags:
 
 - `-config PATH`: the relay's config file, `relay.toml` (below). Required.
 - `-web DIR`: serve the page at `/kiln/`.
-- `-preset DIR`: serve a preset at `/kiln/preset/` (below). Without it
-  the page starts with nothing preset.
+- `-preset DIR`: serve other config files at `/kiln/preset/` (below).
+  The allowlist's worlds are served with or without it.
 - `-listen ADDR`: where to listen; `127.0.0.1:7801` by default.
 
 ## relay.toml
 
 Say `/etc/kiln-relay/relay.toml`. Its `[[world]]` entries are the
-allowlist.
+allowlist, and the page's worlds: each is a Kiln world file (as in
+`worlds/<id>.toml`, see `docs/configuration.md`) with an `id`, its file's
+name, and the relay's trust keys.
 
 ```toml
 # Hosts (beyond the relay's own) whose pages may use this relay.
@@ -78,23 +81,41 @@ vapid_key = "/run/credentials/kiln-relay.service/vapid.pem"
 push_contact = "https://muck.example.org"
 
 [[world]]
+id = "fm"
 host = "muck.example.org"
-ports = [8899]
-plaintext = true
+port = 8899
 
 [[world]]
+id = "fm-tls"
 host = "muck.example.org"
-ports = [8888]
+port = 8888
+tls = true
 pin = "sha256:…"    # a self-signed certificate (below)
+login = "connect {name} {password}"
+
+# Characters players start with, as in a world file.
+[[world.characters]]
+id = "kit"
+name = "Kit"
 
 [[world]]
+id = "friends"
 host = "friends.example.net"
-ports = [7777]
+port = 7777
+tls = true
 tls_trust = "ca"    # a certificate from a real CA
 ```
 
 `origins` are host patterns (`*.example.org`, `localhost:8080`), not
-URLs. A host and port may appear in only one `[[world]]`.
+URLs. A host and port may appear in only one `[[world]]`, and an id
+in only one, ignoring case.
+
+The relay reads `id`, `host`, `port`, `tls`, `tls_trust` and `pin`.
+Everything else in a `[[world]]` (`login`, `use`, `characters`, …) is
+for players: the page is served the table, without `id` and `pin`, as
+`worlds/<id>.toml`. The relay checks it as Kiln would and refuses a
+world file Kiln would refuse, saying which world. Packs named in
+`use` aren't checked: they're the player's.
 
 The relay reloads the file when it changes, following a symlink to its
 target. If the new file has an error, it logs it and keeps the old one.
@@ -188,8 +209,8 @@ reaches players on their next launch, as it does in a browser tab.
 
 ## TLS trust
 
-Every world without `plaintext = true` is TLS, and says how the relay
-trusts it. Nothing is trusted on first use.
+Every world with `tls = true` says how the relay trusts it. Nothing is
+trusted on first use.
 
 - A world with a certificate from a real CA: `tls_trust = "ca"`. The
   relay checks it against the system's root certificates.
@@ -200,24 +221,28 @@ trusts it. Nothing is trusted on first use.
 If the certificate doesn't match, the relay refuses the connection and
 the player sees that it refused the world's certificate. A player's
 world file can't turn TLS off for a TLS world here; one that asks for TLS
-on a `plaintext` world is refused rather than sent in the clear.
+on a world with `tls = false` is refused rather than sent in the clear.
 
 ## Preset
 
-A preset is laid out like a `/backup` zip, in a folder of its own, say
-`/etc/kiln-relay/preset/`:
+The page's worlds come from `relay.toml`, so a preset folder is only
+needed for other config players should start with. It's laid out like
+a `/backup` zip, in a folder of its own, say `/etc/kiln-relay/preset/`:
 
 ```
 /etc/kiln-relay/preset/
-  config/worlds/fm.toml
+  config/config.toml
 ```
 
-`config/` is Kiln's config folder: worlds, and any other config file you
-want players to start with. The relay lists the folder for the page on
-each request, so adding or editing a file needs no restart. It leaves
-out dotfiles (`.DS_Store`, `.git`) and won't serve them. A preset
-file is written into a player's browser only where nothing is saved
-yet, so a player's own edits win (see `docs/web-dev.md`).
+`config/` is Kiln's config folder. Its `worlds/` is ignored (the relay
+says so when it starts): the worlds are the allowlist's. The relay
+lists the folder and the allowlist for the page on each request, so
+adding or editing a file, or reloading `relay.toml`, needs no restart.
+It leaves out dotfiles (`.DS_Store`, `.git`) and won't serve them. A
+preset file is written into a player's browser only where nothing is
+saved yet, so a player's own edits win (see `docs/web-dev.md`). In the
+page, a world's host, port and TLS are shown but can't be changed, and
+there's no `+ World`.
 
 ## nginx
 
