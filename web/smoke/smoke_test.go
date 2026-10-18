@@ -525,10 +525,23 @@ func openTab(t *testing.T, chrome, page string) (*websocket.Conn, func(page stri
 	profile := t.TempDir()
 	cmd := exec.Command(chrome, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+profile,
 		"--no-first-run", "--no-default-browser-check", "about:blank")
+	// What Chrome says, shown if the test fails: a tab or browser that
+	// dies mid-test drops the DevTools connection (EOF) without a reason.
+	logPath := filepath.Join(t.TempDir(), "chrome.log")
+	if f, err := os.Create(logPath); err == nil {
+		cmd.Stdout, cmd.Stderr = f, f
+		t.Cleanup(func() { f.Close() })
+	}
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { cmd.Process.Kill(); cmd.Wait() })
+	t.Cleanup(func() {
+		cmd.Process.Kill()
+		cmd.Wait()
+		if b, _ := os.ReadFile(logPath); t.Failed() && len(b) > 0 {
+			t.Logf("Chrome said:\n%s", b[max(0, len(b)-4096):])
+		}
+	})
 	var port string
 	for deadline := time.Now().Add(15 * time.Second); port == ""; {
 		if b, err := os.ReadFile(filepath.Join(profile, "DevToolsActivePort")); err == nil {
