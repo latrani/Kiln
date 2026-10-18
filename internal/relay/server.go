@@ -66,6 +66,9 @@ type Server struct {
 // SetConfig replaces the config; connections already open stay open.
 func (s *Server) SetConfig(a *Config) { s.cfg.Store(a) }
 
+// Config is the config as it is now.
+func (s *Server) Config() *Config { return s.cfg.Load() }
+
 // ServeHTTP upgrades to a WebSocket and, if the world in ?host=&port= is
 // allowed, connects to it, doing TLS with the world itself unless it's
 // plaintext, and carries it as package wire says. tls=1 says the

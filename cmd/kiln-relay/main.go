@@ -57,7 +57,10 @@ func run(args []string, logw io.Writer) error {
 	mux := http.NewServeMux()
 	mux.Handle("/kiln/relay", s) //str:ok
 	if *web != "" {
-		webRoutes(mux, *web, *preset, logf)
+		if *preset != "" {
+			checkPresetWorlds(*preset, logf)
+		}
+		webRoutes(mux, *web, *preset, func() []relay.World { return s.Config().Worlds }, logf)
 		logf(str.RelayServingPage("http://" + addr + "/kiln/")) //str:ok
 	}
 	logf(str.RelayListening(addr))

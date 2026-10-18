@@ -733,6 +733,9 @@ export function relayNeedConfig(): string { return `kiln-relay needs -config PAT
 /** relay.opened: open {ip} → {world:%q} */
 export function relayOpened(ip: unknown, world: unknown): string { return `open ${ip} → ${q(world)}`; }
 
+/** relay.preset_worlds_ignored: {dir}: config/worlds is ignored · the page's worlds come from relay.toml */
+export function relayPresetWorldsIgnored(dir: unknown): string { return `${dir}: config/worlds is ignored · the page's worlds come from relay.toml`; }
+
 /** relay.push_failed: push {ip} → {world:%q} failed: {err} */
 export function relayPushFailed(ip: unknown, world: unknown, err: unknown): string { return `push ${ip} → ${q(world)} failed: ${e(err)}`; }
 

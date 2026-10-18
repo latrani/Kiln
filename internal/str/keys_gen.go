@@ -874,6 +874,11 @@ func RelayOpened(ip, world any) string {
 	return get("relay.opened", map[string]any{"ip": ip, "world": world})
 }
 
+// RelayPresetWorldsIgnored is relay.preset_worlds_ignored: "{dir}: config/worlds is ignored · the page's worlds come from relay.toml"
+func RelayPresetWorldsIgnored(dir any) string {
+	return get("relay.preset_worlds_ignored", map[string]any{"dir": dir})
+}
+
 // RelayPushFailed is relay.push_failed: "push {ip} → {world:%q} failed: {err}"
 func RelayPushFailed(ip, world any, err error) string {
 	return get("relay.push_failed", map[string]any{"ip": ip, "world": world, "err": err})
