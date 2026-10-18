@@ -342,28 +342,28 @@ func TestFilterRelightsAcrossSessions(t *testing.T) {
 }
 
 func TestPanelIsFastOnLargeHistories(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.key("ctrl+l")
-	b := h.br()
-	for i := range 50000 {
-		tag := fmt.Sprintf("p%d/c%d", i%10, i%4)
-		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Seq: logSeqAfter(b.Lines), Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, Tags: []string{tag}, Lower: "x"})
-	}
-	b.Cursor = b.Lines[len(b.Lines)-1]
-	h.key("f")
-	for i := range 5 {
-		h.br().Fold(scene.Item{Name: fmt.Sprintf("p%d", i)}, true)
-	}
-	for range 60 {
-		h.key("down") // to + Text
-	}
-	start := time.Now()
-	for range 20 {
-		h.screen()
-	}
-	if d := time.Since(start); d > 400*time.Millisecond {
-		t.Errorf("20 frames with the panel open on 50k lines took %v", d)
-	}
+	scales(t, "20 frames with the panel open", func(n int) time.Duration {
+		h := newHarness(t, map[string]string{"fm": fmWorld})
+		h.key("ctrl+l")
+		b := h.br()
+		for i := range n {
+			tag := fmt.Sprintf("p%d/c%d", i%10, i%4)
+			b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Seq: logSeqAfter(b.Lines), Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: "x"}, Day: "2026-09-24"}, Tags: []string{tag}, Lower: "x"})
+		}
+		b.Cursor = b.Lines[len(b.Lines)-1]
+		h.key("f")
+		for i := range 5 {
+			h.br().Fold(scene.Item{Name: fmt.Sprintf("p%d", i)}, true)
+		}
+		for range 60 {
+			h.key("down") // to + Text
+		}
+		start := time.Now()
+		for range 20 {
+			h.screen()
+		}
+		return time.Since(start)
+	})
 }
 
 // The panel takes log mode's own keys: Ctrl+C backs out of it, j/k move.
