@@ -7,8 +7,8 @@ import * as str from "./str.gen.ts";
 // Target is what an editor adds or edits.
 export type Target = { kind: "world"; world: string } | { kind: "char"; world: string; char: string };
 
-// targetKey names a target as the picker's rows do: "+" for a new
-// world, "=world", "world/char". One editor (or draft) per key.
+// targetKey names a target as the picker's rows do: "=world",
+// "world/char". One editor (or draft) per key.
 export const targetKey = (t: Target): string => (t.kind === "world" ? "=" + t.world : `${t.world}/${t.char}`);
 
 // targetOf is the target Go's Settings (or a settings action) is for.
@@ -63,14 +63,15 @@ function inheritChoice(key: string, label: string, inherits: string, options: st
   return { kind: "choice", key, label, extra, options: [{ value: "", shown: str.editorDefault(shown(inherits)) }, ...options.map((o) => ({ value: o, shown: shown(o) }))] };
 }
 
-// worldFields is a world's form. Its host, port and TLS are fixed: on
-// the web they're the relay's allowlist's, which the page can't change.
+// worldFields is a world's form. Its host, port, TLS and cert trust are
+// fixed: on the web they're the relay's allowlist's, which the page
+// can't change.
 function worldFields(inh: Inherited): Field[] {
   return [
     { kind: "text", key: "host", label: str.editorHost(), fixed: true },
     { kind: "text", key: "port", label: str.editorPort(), fixed: true },
     { kind: "toggle", key: "tls", label: str.editorTls(), fixed: true },
-    inheritChoice("tls_trust", str.editorCertTrust(), "pin", ["pin", "ca"], true),
+    { ...inheritChoice("tls_trust", str.editorCertTrust(), "pin", ["pin", "ca"], true), fixed: true },
     { kind: "text", key: "use", label: str.editorPacks(), hint: str.editorNone(), extra: true },
     { kind: "text", key: "login", label: str.editorLogin(), hint: str.editorDefaultHint(inh.Login || str.editorNone()), extra: true },
     { kind: "text", key: "max_line_bytes", label: str.editorMaxBytes(), hint: str.editorDefaultHint(inh.MaxLineBytes), extra: true },
@@ -152,8 +153,7 @@ export function saveAction(ed: Editor): { Do: string; [k: string]: unknown } {
   return { Do: "save_world", World: t.world, WorldSettings: s };
 }
 
-// deleteAction is the action that deletes what ed edits; none for a new
-// world.
+// deleteAction is the action that deletes what ed edits.
 export function deleteAction(ed: Editor): { Do: string; [k: string]: unknown } | undefined {
   const t = ed.target;
   if (t.kind === "char") return { Do: "delete_character", World: t.world, Char: t.char };

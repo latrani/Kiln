@@ -133,8 +133,8 @@ function useBodyKeys(root: { current: HTMLFormElement | null }, onKeyDown: (e: K
 }
 
 // Row is one field: its label, its control, and what's wrong with it. A
-// fixed field is the browser's read-only input, drawn dim (a checkbox
-// has no read-only, so a fixed one is disabled).
+// fixed field is the browser's read-only input, drawn dim (a checkbox or
+// a choice has no read-only, so a fixed one is disabled).
 function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store; focus: string; off: boolean }) {
   const id = "ed-" + f.key;
   const err = errorOf(ed, f.key);
@@ -164,13 +164,14 @@ function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store;
     // The TUI's ◄ v ►: a radio group showing only the chosen option (the
     // arrows choose, as a radio group's do), ◄ ► while focused.
     control = (
-      <span role="radiogroup" class={lit ? "choice " + lit : "choice"} aria-labelledby={id + "-label"} aria-invalid={err ? "true" : undefined} aria-describedby={desc}>
+      <span role="radiogroup" class={"choice" + (f.fixed ? " " + roleClass("form.hint") : lit ? " " + lit : "")} aria-labelledby={id + "-label"} aria-invalid={err ? "true" : undefined} aria-describedby={desc}>
         {f.options.map((o, i) => (
           <label key={o.value}>
             <input type="radio" id={v === o.value ? id : undefined} data-f={f.key} class="sr-only" name={id} value={o.value}
               aria-invalid={err ? "true" : undefined} aria-describedby={desc}
-              checked={v === o.value} disabled={off} onChange={() => store.editField(f.key, o.value)} />
+              checked={v === o.value} disabled={off || f.fixed} onChange={() => store.editField(f.key, o.value)} />
             <span onClick={(e) => {
+              if (f.fixed) return;
               // Only the chosen option shows: a click on it takes the next,
               // as Space does in the TUI, and the group keeps the focus.
               e.preventDefault();

@@ -17,8 +17,8 @@ test("a world's form: the TUI's fields, in order, the rest behind More settings"
     ["tls_trust", "use", "login", "max_line_bytes", "newline_mode", "autoconnect", "reconnect", "notify", "local_echo"]);
 });
 
-test("a world's host, port and TLS are the relay's: shown, not edited", () => {
-  assert.deepEqual(fm().fields.filter((f) => f.fixed).map((f) => f.key), ["host", "port", "tls"]);
+test("a world's host, port, TLS and cert trust are the relay's: shown, not edited", () => {
+  assert.deepEqual(fm().fields.filter((f) => f.fixed).map((f) => f.key), ["host", "port", "tls", "tls_trust"], "and how it's trusted: the relay decides");
 });
 
 test("a choice offers what it inherits first, as the TUI's", () => {
