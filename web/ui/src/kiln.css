@@ -10,10 +10,15 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 
 /* The TUI's five areas: the sidebar the full height on the left, a
    divider a character wide, then the top bar, scrollback, bottom pane and
-   status line stacked on the right. */
+   status line stacked on the right. The page runs edge to edge
+   (viewport-fit=cover) and the grid keeps out of the phone's corners,
+   notch, home indicator and toolbars; the terminal background fills
+   them. */
 .kiln {
   display: grid;
   height: 100dvh;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
   grid-template-columns: var(--side) 1ch 1fr; /* layout.ts's sidebarCSS */
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
@@ -167,7 +172,7 @@ a.s { text-decoration: underline; }
 .status .scope .chip { float: none; }
 /* The splash, while another tab has Kiln: centered, a line between
    each part. */
-.splash { min-height: 100dvh; box-sizing: border-box; padding: 1lh 2ch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1lh; text-align: center; }
+.splash { min-height: 100dvh; box-sizing: border-box; padding: calc(1lh + env(safe-area-inset-top, 0)) calc(2ch + env(safe-area-inset-right, 0)) calc(1lh + env(safe-area-inset-bottom, 0)) calc(2ch + env(safe-area-inset-left, 0)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1lh; text-align: center; }
 .splash h1, .splash p { font-size: inherit; margin: 0; }
 /* Buttons are the TUI's chips: flat, shaded by their role (form.button). */
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0 1ch; cursor: pointer; }
