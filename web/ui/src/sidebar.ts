@@ -123,3 +123,30 @@ export function becomeNarrow(store: Store, narrow: boolean): void {
   store.set({ narrow, narrowOpen: false });
   if (narrow && logShows(s, s.active) && s.logView[s.active]?.focus === "panel") focusLog(store);
 }
+
+// A point a touch passed, in CSS pixels.
+export interface Point { x: number; y: number }
+
+// swipeDir reads a touch from a to b over ms milliseconds as a flick:
+// left or right, when it went at least 50px across, more than twice as
+// far across as up or down, within 600ms. Anything else (a tap, a
+// scroll, a slow drag to select) is no flick.
+export function swipeDir(a: Point, b: Point, ms: number): "left" | "right" | undefined {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (ms > 600 || Math.abs(dx) < 50 || Math.abs(dx) <= 2 * Math.abs(dy)) return undefined;
+  return dx > 0 ? "right" : "left";
+}
+
+// swiped is a flick on the page (#236): narrow, right opens the sidebar
+// and left closes it, as ≡ and ‹ do, or with the picker's list up
+// closes the picker, as Esc does; but not while a character's being
+// named or an editor's open over the picker, where Ctrl+O does nothing
+// either, so nothing typed is lost. Wide, nothing: the sidebar has its
+// column. The TUI has no touch, so no counterpart.
+export function swiped(store: Store, dir: "left" | "right"): void {
+  const s = store.state;
+  if (!s.narrow || (dir === "right") === narrowShown(s)) return;
+  if (dir === "left" && listing(s)) {
+    if (s.picker?.adding === undefined && !s.picker?.edit) store.closePicker();
+  } else toggleSidebar(store);
+}
