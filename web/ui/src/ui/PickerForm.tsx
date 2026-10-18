@@ -103,7 +103,10 @@ export function NameField({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
   const ref = useRef<HTMLInputElement>(null);
   const seen = useRef(state.answer?.n ?? 0);
-  useEffect(() => ref.current?.focus(), []);
+  // Focus as it mounts, in the tap's own turn: iOS opens the keyboard
+  // for a focus only while it's handling a tap, and an effect comes
+  // later.
+  useLayoutEffect(() => ref.current?.focus(), []);
   useEffect(() => {
     const a = state.answer;
     if (a && a.n > seen.current) {
@@ -134,7 +137,7 @@ export function NameField({ state, store }: { state: State; store: Store }) {
   return (
     <>
       <span class={"name-field " + roleClass("picker.add")}>
-        <input id="kiln-name" ref={ref} value={p.name ?? ""} aria-label={str.pickerName()} autocomplete="off" spellcheck={false}
+        <input id="kiln-name" ref={ref} value={p.name ?? ""} aria-label={str.pickerName()} placeholder={str.pickerName()} autocomplete="off" spellcheck={false}
           disabled={state.phase === "stopped"} aria-invalid={p.error ? "true" : undefined} aria-describedby="kiln-name-note kiln-name-hint"
           onKeyDown={onKeyDown} onInput={onInput} />
       </span>

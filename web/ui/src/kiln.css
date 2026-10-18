@@ -62,6 +62,7 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side .pick.naming { cursor: auto; overflow: visible; white-space: normal; }
 .side .name-field { display: flex; margin-left: 1ch; padding-left: 1ch; }
 .side .name-field input { flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
+.side .name-field input::placeholder { color: var(--role-form-hint-fg); opacity: 1; }
 .side .name-note { display: block; padding-left: 1ch; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The filter panel, as the TUI's: rows of text, each a block (a flex row
    would drop the indent, a run of spaces alone), cut with … when long. */

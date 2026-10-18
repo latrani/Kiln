@@ -374,6 +374,7 @@ test("adding a character: the name in the sidebar, in + Character's place; a pro
   assert.ok(!nav.includes(str.pickerAddCharacter()), "the field takes + Character's place");
   assert.match(nav, new RegExp(`id="pick-\\+fm"[^>]*><span class="name-field ${roleClass("picker.add")}"><input id="kiln-name"`));
   assert.match(nav, new RegExp(`aria-label="${str.pickerName()}"`));
+  assert.match(nav, new RegExp(`placeholder="${str.pickerName()}"`), "says what to type while empty, as the TUI's");
   assert.match(nav, /aria-invalid="true"/);
   assert.match(nav, new RegExp(`class="name-note ${roleClass("picker.error")}">no spaces<`));
   const pane = bottom(html);

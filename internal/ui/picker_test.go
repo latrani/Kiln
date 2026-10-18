@@ -359,10 +359,10 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	if h.m.picker.edit == nil {
 		t.Fatalf("no character editor:\n%s", h.screen())
 	}
-	// The name goes where + Character was (rows: fm, Rook, it, + World);
-	// the input area keeps only the hint.
-	if got := strings.TrimSpace(sideRow(h, 2)); got != "" {
-		t.Errorf("the name field = %q, want it empty", got)
+	// The name goes where + Character was (rows: fm, Rook, it, + World),
+	// showing what to type while empty; the input area keeps only the hint.
+	if got := strings.TrimSpace(sideRow(h, 2)); got != str.PickerName() {
+		t.Errorf("the empty name field = %q, want its hint", got)
 	}
 	if got := strings.TrimSpace(sideRow(h, 3)); got != addWorldLabel {
 		t.Errorf("row under the name field = %q", got)

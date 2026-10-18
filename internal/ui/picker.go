@@ -235,7 +235,7 @@ func (m *Model) choose(sel string) tea.Cmd {
 	case sel == addWorldSel:
 		m.openWorldEditor("")
 	case strings.HasPrefix(sel, "+"):
-		name := textField(str.PickerName())
+		name := withHint(textField(str.PickerName()), str.PickerName())
 		name.accept = config.NameChars
 		m.setEditor(&editor{form: newForm(addCharHint, name), kind: addChar, world: strings.TrimPrefix(sel, "+")})
 	default:
@@ -296,9 +296,13 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 
 // nameField draws the name being added, in place of "+ Character" and
 // in its colors: one space in, filling the row, scrolled to keep the
-// cursor in view. It returns the cursor's column too.
+// cursor in view; empty, its hint, dim. It returns the cursor's column
+// too.
 func nameField(f *form, w int) (line string, col int) {
 	in := f.fields[0].in
+	if in.Empty() && f.fields[0].hint != "" {
+		return fit(" "+theme.Fill(theme.PickerAdd, " "+theme.Paint(theme.FormHint, f.fields[0].hint), w-1), w), 2
+	}
 	rows, _, c := in.Render(1<<20, 0, false, false)
 	text, c := strings.TrimPrefix(rows[0], gutterMark), c-gutterWidth
 	tw := max(1, w-2) // the text's columns, between the chip's leading space and the row's end
