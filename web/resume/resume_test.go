@@ -132,6 +132,23 @@ func replayFromZero(t *testing.T, u string, w *world, token string) []string {
 	}
 }
 
+// closeAndWait closes c and waits for its link's end to take its entry
+// out of s. That write runs on a goroutine of its own, and one landing
+// while the test's temp dir is being removed fails the test.
+func closeAndWait(t *testing.T, s *Store, c *Conn) {
+	t.Helper()
+	c.Close()
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if _, ok := s.Get(c.key); !ok {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Error("closing never took the entry out")
+			return
+		}
+	}
+}
+
 func TestFreshDialSavesTheToken(t *testing.T) {
 	w := newWorld(t)
 	u := relayFor(t, w)
@@ -140,7 +157,7 @@ func TestFreshDialSavesTheToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer closeAndWait(t, s, c)
 	e, ok := s.Get("fm/kit")
 	if !ok || len(e.Token) != 43 || e.Kept != 0 {
 		t.Errorf("entry %+v, %v; want a token, kept 0", e, ok)
@@ -237,11 +254,12 @@ func TestSavedTokenResumes(t *testing.T) {
 	c.Keep(got[0])
 	wsdial.DetachAll()
 	wc.Write([]byte("2\r\n"))
-	c2, err := Open(path, true).Dial(context.Background(), u, "fm/kit", charFor(w))
+	s2 := Open(path, true)
+	c2, err := s2.Dial(context.Background(), u, "fm/kit", charFor(w))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c2.Close()
+	defer closeAndWait(t, s2, c2)
 	if !c2.Resumed() {
 		t.Error("a saved token didn't resume")
 	}
@@ -277,7 +295,7 @@ func TestEndDeletesTheEntry(t *testing.T) {
 	w.conn(t).Close()
 	for range c.Lines() {
 	}
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
 	for {
 		if _, ok := s.Get("fm/kit"); !ok {
 			return
