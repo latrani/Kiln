@@ -58,6 +58,13 @@ func launchWith(t *testing.T, pin func(port int) string) (ws *websocket.Conn, an
 // serves the page from.
 func launchFrom(t *testing.T, pin func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn, static string) {
 	t.Helper()
+	ws, another, static, _ = launchAll(t, pin)
+	return ws, another, static
+}
+
+// launchAll is launchFrom, also returning the relay's config file.
+func launchAll(t *testing.T, pin func(port int) string) (ws *websocket.Conn, another func() *websocket.Conn, static, cfg string) {
+	t.Helper()
 	chrome := chromePath(t)
 	root, _ := filepath.Abs("../..")
 	static = buildPage(t, root)
@@ -65,10 +72,10 @@ func launchFrom(t *testing.T, pin func(port int) string) (ws *websocket.Conn, an
 	if pin != nil {
 		certPin = pin(muckPort)
 	}
-	cfg := config(t, muckPort, certPin)
+	cfg = config(t, muckPort, certPin)
 	page := startRelay(t, root, static, cfg)
 	ws, tab := openTab(t, chrome, page+"?record")
-	return ws, func() *websocket.Conn { return tab(page) }, static
+	return ws, func() *websocket.Conn { return tab(page) }, static, cfg
 }
 
 // TestTypingAnywhere types with focus outside any control: an IME's

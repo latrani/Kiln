@@ -111,6 +111,7 @@ URLs. A host and port may appear in only one `[[world]]`, and an id
 in only one, ignoring case.
 
 The relay reads `id`, `host`, `port`, `tls`, `tls_trust` and `pin`.
+`tls` is off unless set, so a TLS world needs `tls = true` (below).
 Everything else in a `[[world]]` (`login`, `use`, `characters`, …) is
 for players: the page is served the table, without `id` and `pin`, as
 `worlds/<id>.toml`. The relay checks it as Kiln would and refuses a
@@ -209,8 +210,10 @@ reaches players on their next launch, as it does in a browser tab.
 
 ## TLS trust
 
-Every world with `tls = true` says how the relay trusts it. Nothing is
-trusted on first use.
+A world is plaintext unless it says `tls = true`, as in a Kiln world
+file: leave it out and the relay carries that world's traffic in the
+clear. Every world with `tls = true` says how the relay trusts it.
+Nothing is trusted on first use.
 
 - A world with a certificate from a real CA: `tls_trust = "ca"`. The
   relay checks it against the system's root certificates.
@@ -240,9 +243,10 @@ lists the folder and the allowlist for the page on each request, so
 adding or editing a file, or reloading `relay.toml`, needs no restart.
 It leaves out dotfiles (`.DS_Store`, `.git`) and won't serve them. A
 preset file is written into a player's browser only where nothing is
-saved yet, so a player's own edits win (see `docs/web-dev.md`). In the
-page, a world's host, port and TLS are shown but can't be changed, and
-there's no `+ World`.
+saved yet, so a player's own edits win (see `docs/web-dev.md`), but for
+where a world connects: a saved world takes its host, port and TLS from
+`relay.toml` on every load. In the page, those are shown but can't be
+changed, and there's no `+ World`.
 
 ## nginx
 

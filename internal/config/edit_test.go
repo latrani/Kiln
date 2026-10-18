@@ -220,3 +220,25 @@ func TestNotifyRoundTrips(t *testing.T) {
 		t.Errorf("file:\n%s", got)
 	}
 }
+
+// A saved world takes where to connect from a world file served for it
+// (the relay's allowlist), keeping the rest; agreeing, it's untouched.
+func TestAdoptServer(t *testing.T) {
+	dir := editDir(t, uglyWorld)
+	if err := AdoptServer(dir, "fm", []byte("host = \"furrymuck.com\"\nport = 8899\ntls = true\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got := readWorld(t, dir); got != uglyWorld {
+		t.Fatalf("an agreeing server changed the file:\n%s", got)
+	}
+	if err := AdoptServer(dir, "fm", []byte("host = \"muck.example.org\"\nport = 7777\ntls = false\nlogin = \"theirs\"\n")); err != nil {
+		t.Fatal(err)
+	}
+	s, _, err := ReadWorld(dir, "fm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Host != "muck.example.org" || s.Port != 7777 || s.TLS || s.Login != nil || len(s.Use) != 1 {
+		t.Errorf("adopted %+v; want the served host, port 7777, no TLS, the saved login and packs", s)
+	}
+}

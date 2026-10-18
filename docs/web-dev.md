@@ -134,7 +134,8 @@ The page's worlds are the relay's: each `[[world]]` in
 `worlds/<id>.toml` (docs/web-relay.md). There's no `+ World`, and a
 world's host, port and TLS can't be changed in the page. Preset files are
 written only where nothing is saved, so your edits to a world (its
-login, its characters) win over the server's copy. A world you delete
+login, its characters) win over the server's copy; its host, port and
+TLS follow the relay's on every load. A world you delete
 comes back on the next visit. `-preset DIR` adds other config, laid out
 like a `/backup` zip: `config/…` is the config dir.
 

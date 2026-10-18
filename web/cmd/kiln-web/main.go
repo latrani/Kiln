@@ -83,6 +83,7 @@ func run(k js.Value, p page) error {
 	if err := config.EnsureDefaults(cfgDir); err != nil {
 		return err
 	}
+	adoptServed(cfgDir)
 	cfg, err := config.Load(cfgDir)
 	if err != nil {
 		return err
@@ -166,4 +167,26 @@ func run(k js.Value, p page) error {
 		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir) },
 	})
 	return nil
+}
+
+// adoptServed gives each saved world the page found in the preset
+// (boot.ts's kilnServedWorlds, world → bytes) the relay's host, port and
+// TLS: the allowlist says where the page may connect, and a player can't
+// change them in the page. One that won't take is said in the console
+// and left as it was.
+func adoptServed(cfgDir string) {
+	served := js.Global().Get("kilnServedWorlds") //str:ok
+	if served.Type() != js.TypeObject {
+		return
+	}
+	keys := js.Global().Get("Object").Call("keys", served) //str:ok
+	for i := range keys.Length() {
+		world := keys.Index(i).String()
+		v := served.Get(world)
+		b := make([]byte, v.Length())
+		js.CopyBytesToGo(b, v)
+		if err := config.AdoptServer(cfgDir, world, b); err != nil {
+			js.Global().Get("console").Call("error", str.CliError(err)) //str:ok
+		}
+	}
 }

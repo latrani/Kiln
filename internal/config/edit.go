@@ -546,3 +546,20 @@ func replaceFile(path string, b []byte) error {
 	}
 	return os.Rename(tmp.Name(), path)
 }
+
+// AdoptServer gives the saved worlds/<world>.toml the host, port, TLS
+// and tls_trust of served, a world file for it from elsewhere
+// (kiln-relay's allowlist, which says where the web build may connect),
+// keeping everything else. Nothing is written when they agree.
+func AdoptServer(dir, world string, served []byte) error {
+	var wf worldFile
+	if err := decodeBytes(world+".toml", served, &wf); err != nil {
+		return err
+	}
+	s, _, err := ReadWorld(dir, world)
+	if err != nil {
+		return err
+	}
+	s.Host, s.Port, s.TLS, s.TLSTrust = wf.Host, wf.Port, wf.TLS, wf.TLSTrust
+	return WriteWorld(dir, world, s)
+}

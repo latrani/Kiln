@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadingText, readWithProgress, toBase64 } from "./boot.ts";
+import { loadingText, presetFiles, readWithProgress, toBase64 } from "./boot.ts";
 import * as str from "./str.gen.ts";
 
 const res = (chunks: number[], length?: number, encoding?: string) =>
@@ -54,3 +54,9 @@ test("a file's bytes go to Go as base64, however large", () => {
   assert.equal(toBase64(new Uint8Array()), "");
 });
 
+
+test("the preset's files: written where nothing's saved; a saved world's served copy kept for Go to take where to connect from", () => {
+  const saved = new Set(["worlds/fm.toml", "config.toml"]);
+  const got = presetFiles(["config/config.toml", "config/worlds/bay.toml", "config/worlds/fm.toml", "known_hosts"], (rel) => saved.has(rel));
+  assert.deepEqual(got, { seed: ["config/worlds/bay.toml"], adopt: [{ world: "fm", file: "config/worlds/fm.toml" }] });
+});
