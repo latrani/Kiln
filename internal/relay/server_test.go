@@ -118,14 +118,14 @@ func (l *logLines) first() string {
 // world is a relay.toml world for 127.0.0.1:port. trust is "" for a
 // plaintext world, "ca", or a pin.
 func world(port int, trust string) string {
-	w := fmt.Sprintf("[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\n", port)
+	w := fmt.Sprintf("[[world]]\nid = \"w%d\"\nhost = \"127.0.0.1\"\nport = %d\n", port, port)
 	switch trust {
 	case "":
-		return w + "plaintext = true\n"
+		return w
 	case "ca":
-		return w + "tls_trust = \"ca\"\n"
+		return w + "tls = true\ntls_trust = \"ca\"\n"
 	}
-	return w + fmt.Sprintf("pin = %q\n", trust)
+	return w + fmt.Sprintf("tls = true\npin = %q\n", trust)
 }
 
 func open(t *testing.T, base, host string, port int) *websocket.Conn {

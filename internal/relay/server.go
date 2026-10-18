@@ -140,7 +140,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		refuse(c, wire.CodeNotListed, "")
 		return
 	}
-	if wl.Plaintext && r.URL.Query().Get("tls") == "1" {
+	if !wl.TLS && r.URL.Query().Get("tls") == "1" {
 		s.logf(str.RelayRefusedNoTls(ip, addr))
 		refuse(c, wire.CodeNoTLS, "")
 		return
@@ -158,7 +158,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	addr = net.JoinHostPort(wl.Host, strconv.Itoa(port))
 	dctx, dcancel := context.WithTimeout(context.Background(), or(s.HandshakeTimeout, defaultHandshakeTimeout))
 	tc, err := s.dial(dctx, addr)
-	if err == nil && !wl.Plaintext {
+	if err == nil && wl.TLS {
 		tc, err = s.handshake(dctx, tc, addr, wl)
 		if certErr(err) {
 			dcancel()

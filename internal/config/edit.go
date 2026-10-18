@@ -433,7 +433,7 @@ func WriteCharacter(dir, world, id string, s CharacterSettings) error {
 // characterTable finds character id's [[characters]] table.
 func (d *tomlDoc) characterTable(path, world, id string) (int, error) {
 	var wf worldFile
-	if err := decodeBytes(path, d.b, &wf); err != nil {
+	if err := decodeBytes(filepath.Base(path), d.b, &wf); err != nil {
 		return 0, err
 	}
 	n, err := characterIndex(wf, world, id)
@@ -516,7 +516,7 @@ func editWorld(dir, path string, edit func(*tomlDoc) ([]span, error)) error {
 	if err != nil {
 		return err
 	}
-	if _, err := loadWorldData(dir, path, out, base, Rules{}, map[string]pack{}); err != nil {
+	if _, err := loadWorldData(dir, path, "", out, base, Rules{}, map[string]pack{}); err != nil {
 		return err
 	}
 	return replaceFile(path, out)

@@ -475,7 +475,7 @@ func config(t *testing.T, port int, pin string) (preset, cfg string) {
 		t.Fatal(err)
 	}
 	cfg = filepath.Join(dir, "relay.toml")
-	if err := os.WriteFile(cfg, fmt.Appendf(nil, "%s[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\npin = %q\n", relaySettings, port, pin), 0o644); err != nil {
+	if err := os.WriteFile(cfg, fmt.Appendf(nil, "%s[[world]]\nid = \"fake\"\nhost = \"127.0.0.1\"\nport = %d\ntls = true\npin = %q\n", relaySettings, port, pin), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return preset, cfg

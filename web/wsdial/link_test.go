@@ -102,7 +102,7 @@ func (h *swappable) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.s.Load
 // hold.
 func holdRelay(t *testing.T, w *world, settings string, dial func(context.Context, string, string) (net.Conn, error)) (string, func()) {
 	t.Helper()
-	cfg, err := relay.ParseConfig("relay.toml", []byte(settings+fmt.Sprintf("[[world]]\nhost = \"127.0.0.1\"\nports = [%d]\nplaintext = true\n", w.port)))
+	cfg, err := relay.ParseConfig("relay.toml", []byte(settings+fmt.Sprintf("[[world]]\nid = \"fm\"\nhost = \"127.0.0.1\"\nport = %d\n", w.port)))
 	if err != nil {
 		t.Fatal(err)
 	}

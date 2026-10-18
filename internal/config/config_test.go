@@ -733,16 +733,15 @@ func TestThemeAndAppearance(t *testing.T) {
 
 func TestCheckWorldFile(t *testing.T) {
 	ok := "host = \"muck.example.org\"\nport = 8899\nuse = [\"nosuch\"]\n\n[[characters]]\nid = \"kit\"\nname = \"Kit\"\n"
-	if err := CheckWorldFile("fm", []byte(ok)); err != nil {
+	if err := CheckWorldFile("here", "fm", []byte(ok)); err != nil {
 		t.Errorf("a good world: %v (packs are the player's, not checked)", err)
 	}
-	rel := filepath.Join("worlds", "fm.toml")
 	for _, c := range []struct{ id, data, want string }{
-		{"fm", "logn = \"x\"\n" + ok, str.ConfigUnknownKey("fm.toml", "logn")},
-		{"fm", "port = 8899\n", str.ConfigHostRequired(rel)},
-		{"bad id", ok, str.ConfigBadWorldId(filepath.Join("worlds", "bad id.toml"), "bad id")},
+		{"fm", "logn = \"x\"\n" + ok, str.ConfigUnknownKey("here", "logn")},
+		{"fm", "port = 8899\n", str.ConfigHostRequired("here")},
+		{"bad id", ok, str.ConfigBadWorldId("here", "bad id")},
 	} {
-		if err := CheckWorldFile(c.id, []byte(c.data)); err == nil || err.Error() != c.want {
+		if err := CheckWorldFile("here", c.id, []byte(c.data)); err == nil || err.Error() != c.want {
 			t.Errorf("CheckWorldFile(%q, %q) = %v, want %q", c.id, c.data, err, c.want)
 		}
 	}

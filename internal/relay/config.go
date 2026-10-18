@@ -4,6 +4,7 @@
 package relay
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"net"
@@ -11,30 +12,39 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/relay/push"
 	"github.com/latrani/Kiln/internal/str"
 )
 
-// World is a MUCK the relay will connect to.
+// World is a MUCK the relay will connect to. Its [[world]] table is a
+// Kiln world file (see internal/config) with an id, its file's name,
+// and how the relay trusts it; the page is served the rest as the
+// world's file.
 type World struct {
-	Host  string `toml:"host"`
-	Ports []int  `toml:"ports"`
-	// Plaintext allows non-TLS traffic. Off, the world is TLS.
-	Plaintext bool `toml:"plaintext"`
+	ID   string `toml:"id"`
+	Host string `toml:"host"`
+	Port int    `toml:"port"`
+	TLS  bool   `toml:"tls"`
 	// How the relay trusts a TLS world: TLSTrust "ca" (a real CA), or a
 	// pinned certificate, "sha256:…" as conn.Fingerprint makes it. A TLS
 	// world has exactly one; nothing is trusted on first use.
 	TLSTrust string `toml:"tls_trust"`
 	Pin      string `toml:"pin"`
+
+	file []byte
 }
+
+// File is w as a Kiln world file, worlds/<id>.toml: its table without
+// id and pin, which are the relay's.
+func (w World) File() []byte { return w.file }
 
 // Config is the relay's config file, relay.toml. Its [[world]] list is the
 // allowlist.
@@ -110,34 +120,51 @@ func ParseConfig(path string, b []byte) (*Config, error) {
 	if err != nil {
 		return nil, str.Wrap(str.RelayConfigReading(path, err), err)
 	}
-	if und := md.Undecoded(); len(und) > 0 {
-		return nil, errors.New(str.RelayConfigUnknownKey(path, und[0].String()))
+	// A world's other keys are its file's, which Kiln's check reads.
+	for _, k := range md.Undecoded() {
+		if k[0] != "world" { //str:ok config key
+			return nil, errors.New(str.RelayConfigUnknownKey(path, k.String()))
+		}
 	}
-	seen := map[string]bool{}
+	var raw struct {
+		World []map[string]any `toml:"world"`
+	}
+	if _, err := toml.Decode(string(b), &raw); err != nil {
+		return nil, str.Wrap(str.RelayConfigReading(path, err), err)
+	}
+	ids, seen := map[string]bool{}, map[string]bool{}
 	for i, w := range a.Worlds {
+		if w.ID == "" {
+			return nil, errors.New(str.RelayConfigNoId(path, i+1))
+		}
+		t := raw.World[i]
+		delete(t, "id")  //str:ok config key
+		delete(t, "pin") //str:ok config key
+		var f bytes.Buffer
+		if err := toml.NewEncoder(&f).Encode(t); err != nil {
+			return nil, str.Wrap(str.RelayConfigReading(path, err), err)
+		}
+		if err := config.CheckWorldFile(str.RelayConfigWorld(path, w.ID), w.ID, f.Bytes()); err != nil {
+			return nil, err
+		}
+		// Case-insensitively, as world ids name log folders.
+		if ids[strings.ToLower(w.ID)] {
+			return nil, errors.New(str.RelayConfigDuplicateId(path, w.ID))
+		}
+		ids[strings.ToLower(w.ID)] = true
 		h := normHost(w.Host)
-		if h == "" {
-			return nil, errors.New(str.RelayConfigNoHost(path, i+1))
+		// Lookup takes the first match, so a second entry would be
+		// silently ignored.
+		hp := net.JoinHostPort(h, strconv.Itoa(w.Port))
+		if seen[hp] {
+			return nil, errors.New(str.RelayConfigDuplicate(path, hp))
 		}
-		if len(w.Ports) == 0 {
-			return nil, errors.New(str.RelayConfigNoPorts(path, h))
-		}
-		for _, p := range w.Ports {
-			if p < 1 || p > 65535 {
-				return nil, errors.New(str.RelayConfigBadPort(path, h, p))
-			}
-			// Lookup takes the first match, so a second entry would be
-			// silently ignored.
-			hp := net.JoinHostPort(h, strconv.Itoa(p))
-			if seen[hp] {
-				return nil, errors.New(str.RelayConfigDuplicate(path, hp))
-			}
-			seen[hp] = true
-		}
-		if err := checkTrust(path, h, w); err != nil {
+		seen[hp] = true
+		if err := checkTrust(path, w); err != nil {
 			return nil, err
 		}
 		a.Worlds[i].Host = h
+		a.Worlds[i].file = f.Bytes()
 	}
 	for i, o := range a.Origins {
 		n := normHost(o)
@@ -209,26 +236,26 @@ func (a *Config) loadVAPID(path string) error {
 
 // checkTrust checks that w says how it's trusted, if it's TLS, and not
 // if it isn't.
-func checkTrust(path, host string, w World) error {
-	if w.Plaintext {
+func checkTrust(path string, w World) error {
+	if !w.TLS {
 		if w.TLSTrust != "" || w.Pin != "" {
-			return errors.New(str.RelayConfigPlaintextTrust(path, host))
+			return errors.New(str.RelayConfigPlaintextTrust(path, w.ID))
 		}
 		return nil
 	}
 	switch {
 	case w.TLSTrust != "" && w.Pin != "":
-		return errors.New(str.RelayConfigBothTrust(path, host))
+		return errors.New(str.RelayConfigBothTrust(path, w.ID))
 	case w.TLSTrust != "":
 		if w.TLSTrust != "ca" { //str:ok config vocabulary
-			return errors.New(str.RelayConfigBadTrust(path, host, w.TLSTrust))
+			return errors.New(str.RelayConfigBadTrust(path, w.TLSTrust, w.ID))
 		}
 	case w.Pin != "":
 		if conn.ValidateFingerprint(w.Pin) != nil {
-			return errors.New(str.RelayConfigBadPin(path, host, w.Pin))
+			return errors.New(str.RelayConfigBadPin(path, w.Pin, w.ID))
 		}
 	default:
-		return errors.New(str.RelayConfigNoTrust(path, host))
+		return errors.New(str.RelayConfigNoTrust(path, w.ID))
 	}
 	return nil
 }
@@ -238,7 +265,7 @@ func checkTrust(path, host string, w World) error {
 func (a *Config) Lookup(host string, port int) (World, bool) {
 	h := normHost(host)
 	for _, w := range a.Worlds {
-		if w.Host == h && slices.Contains(w.Ports, port) {
+		if w.Host == h && w.Port == port {
 			return w, true
 		}
 	}
