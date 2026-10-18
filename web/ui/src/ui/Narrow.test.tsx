@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
-import { becomeNarrow, swallowsClick, toggleSidebar } from "../sidebar.ts";
+import { becomeNarrow, swallowsClick, swiped, swipeDir, toggleSidebar } from "../sidebar.ts";
 import { toggleLog } from "../log.ts";
 import { Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -75,4 +75,32 @@ test("opening log mode starts the narrow sidebar closed; becoming narrow closes 
   s.setLogView("fm/kit", { focus: "panel" });
   becomeNarrow(s, true);
   assert.equal(s.state.logView["fm/kit"].focus, undefined);
+});
+
+test("a flick: right opens the narrow sidebar, left closes it; slow, short or steep drags don't", () => {
+  assert.equal(swipeDir({ x: 10, y: 100 }, { x: 90, y: 110 }, 200), "right");
+  assert.equal(swipeDir({ x: 200, y: 100 }, { x: 120, y: 95 }, 200), "left");
+  assert.equal(swipeDir({ x: 10, y: 100 }, { x: 40, y: 100 }, 200), undefined, "too short");
+  assert.equal(swipeDir({ x: 10, y: 100 }, { x: 90, y: 160 }, 200), undefined, "too steep: a scroll");
+  assert.equal(swipeDir({ x: 10, y: 100 }, { x: 90, y: 100 }, 900), undefined, "too slow: a drag, or selecting");
+
+  const { s } = page();
+  swiped(s, "left");
+  assert.ok(!s.state.narrowOpen, "closed: left does nothing");
+  swiped(s, "right");
+  assert.equal(s.state.narrowOpen, true);
+  swiped(s, "right");
+  assert.equal(s.state.narrowOpen, true, "open: right does nothing");
+  swiped(s, "left");
+  assert.equal(s.state.narrowOpen, false);
+  s.openPicker();
+  s.setPicker({ adding: "fm", name: "Ash" });
+  swiped(s, "left");
+  assert.equal(s.state.picker?.name, "Ash", "naming a character: nothing, as Ctrl+O, so the name isn't lost");
+  s.setPicker({ adding: undefined, name: undefined });
+  swiped(s, "left");
+  assert.equal(s.state.picker, undefined, "the picker's list goes, as Esc");
+  s.set({ narrow: false });
+  swiped(s, "right");
+  assert.ok(!s.state.narrowOpen, "wide: a swipe does nothing");
 });

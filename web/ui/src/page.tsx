@@ -9,7 +9,7 @@ import { toggleLog } from "./log.ts";
 import { show } from "./notify.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
-import { sidebarKey, toggleSidebar } from "./sidebar.ts";
+import { sidebarKey, swipeDir, swiped, toggleSidebar } from "./sidebar.ts";
 import { logShows } from "./store.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -96,6 +96,22 @@ export function mount(store: Store): void {
     if (does === "close") store.closePicker();
     else if (does === "open") store.openPicker();
   }, true);
+  // A flick opens or closes the narrow sidebar (sidebar.ts's swiped): one
+  // finger, not starting in a field, where a drag moves the caret or
+  // selects.
+  let from: { x: number; y: number; at: number } | undefined;
+  addEventListener("touchstart", (e) => {
+    const t = e.touches;
+    const field = (e.target as Element | null)?.closest?.("input, textarea");
+    from = t.length === 1 && !field ? { x: t[0].clientX, y: t[0].clientY, at: e.timeStamp } : undefined;
+  }, { passive: true });
+  addEventListener("touchcancel", () => { from = undefined; }, { passive: true });
+  addEventListener("touchend", (e) => {
+    const t = e.changedTouches[0];
+    const dir = from && t ? swipeDir(from, { x: t.clientX, y: t.clientY }, e.timeStamp - from.at) : undefined;
+    from = undefined;
+    if (dir) swiped(store, dir);
+  }, { passive: true });
   // Once Kiln runs, tell it what the page sees of you and the pane's size.
   const stop = store.subscribe(() => {
     const { phase, act } = store.state;
