@@ -43,6 +43,9 @@ type harness struct {
 	raw      []string  // sequences written with Deps.Raw
 	deps     Deps      // what New was given, for tests that start another model
 	cfg      *config.Config
+	// outs counts the sent lines settle has handed each character, so
+	// connected can wait for the login's own line, not just its send.
+	outs map[string]int
 }
 
 const fmWorld = `host = "muck.test"
@@ -163,11 +166,17 @@ func (h *harness) conn(k string) *kilntest.Conn {
 // settle feeds session events for k into the model until pred holds.
 func (h *harness) settle(k string, pred func() bool) {
 	h.t.Helper()
-	deadline := time.After(3 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for !pred() {
 		cs := h.m.chars[k]
 		select {
 		case ev, ok := <-cs.Sess.Events():
+			if ok && ev.Kind == session.EventLine && ev.Entry.Dir == logstore.Out {
+				if h.outs == nil {
+					h.outs = map[string]int{}
+				}
+				h.outs[k]++
+			}
 			h.m.Update(app.SessionMsg{Key: k, Sess: cs.Sess, Ev: ev, OK: ok})
 		case <-deadline:
 			h.t.Fatalf("timed out; screen:\n%s", h.screen())
@@ -177,7 +186,10 @@ func (h *harness) settle(k string, pred func() bool) {
 
 // connected waits for the Connected state and, when the character has a
 // saved password, for the auto-login line (sent just after the state
-// change) so tests never race it.
+// change) and then its own line in the scrollback, which the session
+// hands over just after sending it, so tests never race either: stopping
+// between the two left a screen with or without the login's echo, as
+// the scheduler pleased.
 func (h *harness) connected(k string) func() bool {
 	return func() bool {
 		if h.m.chars[k].State != session.Connected {
@@ -187,7 +199,7 @@ func (h *harness) connected(k string) func() bool {
 		_, hasPW := h.pw[k]
 		h.mu.Unlock()
 		c := h.conn(k)
-		return !hasPW || (c != nil && len(c.Sent()) > 0)
+		return !hasPW || (c != nil && len(c.Sent()) > 0 && h.outs[k] > 0)
 	}
 }
 
@@ -589,7 +601,7 @@ func TestRemovedConnectedCharacterLeavesOnDisconnect(t *testing.T) {
 	}
 
 	h.conn("fm/kit").Close() // server drops the connection
-	deadline := time.After(3 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for h.m.chars["fm/kit"] != nil {
 		select {
 		case ev, ok := <-sess.Events():

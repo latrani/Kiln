@@ -34,10 +34,10 @@ fm              │
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │* connected to muck.test:8888                                  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
+                │›connect Kit ***                                               
+  @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-32 faint
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-79 fg=#cdc1a2
                 │›this line runs past twenty bytes                              

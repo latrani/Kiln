@@ -712,25 +712,41 @@ func TestHighlightFindSurvivesCaseFolding(t *testing.T) {
 }
 
 func TestBrowseFindIsFastOnLargeHistories(t *testing.T) {
-	h := newHarness(t, map[string]string{"fm": fmWorld})
-	h.key("ctrl+l")
-	b := h.br()
-	for i := 0; i < 50000; i++ {
-		text := fmt.Sprintf("a line %d", i)
-		if i == 0 {
-			text = "the line" // the only match, at the far end
+	scales(t, "10 find jumps", func(n int) time.Duration {
+		h := newHarness(t, map[string]string{"fm": fmWorld})
+		h.key("ctrl+l")
+		b := h.br()
+		for i := 0; i < n; i++ {
+			text := fmt.Sprintf("a line %d", i)
+			if i == 0 {
+				text = "the line" // the only match, at the far end
+			}
+			b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Seq: logSeqAfter(b.Lines), Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, Day: "2026-09-24"}, Lower: text})
 		}
-		b.Lines = append(b.Lines, &app.LogLine{Line: app.Line{Seq: logSeqAfter(b.Lines), Entry: logstore.Entry{Time: day24, Dir: logstore.In, Text: text}, Day: "2026-09-24"}, Lower: text})
-	}
-	b.Find = "the"
-	start := time.Now()
-	for i := 0; i < 10; i++ {
-		b.Cursor = b.Lines[len(b.Lines)-1]
-		b.FindOlder(false) // the whole way back every time
-		b.FindStatus()
-	}
-	if d := time.Since(start); d > 2*time.Second {
-		t.Errorf("10 find jumps on 50k lines took %v", d)
+		b.Find = "the"
+		start := time.Now()
+		for i := 0; i < 10; i++ {
+			b.Cursor = b.Lines[len(b.Lines)-1]
+			b.FindOlder(false) // the whole way back every time
+			b.FindStatus()
+		}
+		return time.Since(start)
+	})
+}
+
+// scales checks that run, timed on a history of n lines, grows about as
+// n does: on ten times the lines no more than 20 times as slow (linear is
+// about 10, a quadratic step 100), with 50ms over for timer noise. Each
+// size is its fastest of a few runs, after one to warm up, so a hiccup
+// on a busy machine doesn't count. A ratio, not a budget: a slow machine
+// (or -race) doesn't fail it, and a slower algorithm does.
+func scales(t *testing.T, what string, run func(n int) time.Duration) {
+	t.Helper()
+	run(5000) // warm: the first run pays for what's set up once
+	small := min(run(5000), run(5000), run(5000))
+	big := min(run(50000), run(50000))
+	if big > 20*small+50*time.Millisecond {
+		t.Errorf("%s: %v on 5k lines, %v on 50k: slower than the lines grew", what, small, big)
 	}
 }
 

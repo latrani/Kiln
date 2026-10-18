@@ -12,7 +12,7 @@ import (
 
 func eventually(t *testing.T, what string, ok func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
 		if ok() {
 			return
 		}

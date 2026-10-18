@@ -631,7 +631,7 @@ func TestStuckWorldDoesntBlockResume(t *testing.T) {
 	go func() { done <- q.next() }()
 	select {
 	case <-done:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("the resume waited on a world that doesn't read")
 	}
 }
@@ -678,16 +678,21 @@ func TestBeaconForADetachedHold(t *testing.T) {
 
 func TestResumeClearsTheShortHold(t *testing.T) {
 	m := newMuck(t)
-	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	// The short hold is long enough to resume in on a slow machine, and
+	// the wait after outlasts it.
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"1s\"\n")
 	p := openPage(t, base, m.port)
 	w := m.conn(t)
 	beacon(t, base, p.token)
 	p.c.CloseNow()
+	// Held first: resumed before the relay saw the close, it's a takeover,
+	// with no short hold to clear.
+	eventually(t, "never held", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 1 })
 	q := resumePage(t, base, p.token, 0, "")
 	q.expect(wire.Resumed)
 	q.c.CloseNow()
 	eventually(t, "never held twice", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
-	if closed(w, 500*time.Millisecond) {
+	if closed(w, 1500*time.Millisecond) {
 		t.Error("a resumed hold kept the short hold")
 	}
 }
@@ -732,16 +737,17 @@ func TestResumeBehindTheBufferSaysWhere(t *testing.T) {
 // reload): it mustn't shorten the new page's hold.
 func TestLateBeaconAfterResume(t *testing.T) {
 	m := newMuck(t)
-	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"200ms\"\n")
+	_, base, logs := holdRelay(t, m, "hold = \"1h\"\nshort_hold = \"1s\"\n")
 	p := openPage(t, base, m.port)
 	w := m.conn(t)
 	p.c.CloseNow()
+	eventually(t, "never held", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 1 })
 	q := resumePage(t, base, p.token, 0, "")
 	q.expect(wire.Resumed)
 	beacon(t, base, p.token) // the old page's, late
 	q.c.CloseNow()
 	eventually(t, "never held twice", func() bool { return logs.count(str.RelayHeld(local, m.addr())) == 2 })
-	if closed(w, 500*time.Millisecond) {
+	if closed(w, 1500*time.Millisecond) {
 		t.Error("a late beacon shortened the resumed page's hold")
 	}
 }

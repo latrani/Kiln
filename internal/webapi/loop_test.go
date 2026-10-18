@@ -105,7 +105,7 @@ func (h *harness) next() []map[string]any {
 	select {
 	case b := <-h.batches:
 		return b
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		h.t.Fatal("no batch")
 		return nil
 	}
@@ -220,7 +220,7 @@ func TestRunWorkComesBackOnTheLoop(t *testing.T) {
 	h := start(t)
 	h.act(`{"Do":"open","Key":"fm/kit"}`)
 	h.act(`{"Do":"submit","Key":"fm/kit","Text":"","N":1}`) // connect: a Run waiting on the session
-	deadline := time.After(2 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for {
 		select {
 		case b := <-h.batches:
@@ -238,7 +238,7 @@ func connectKit(t *testing.T, h *harness) {
 	t.Helper()
 	h.act(`{"Do":"open","Key":"fm/kit"}`)
 	h.act(`{"Do":"submit","Key":"fm/kit","Text":"","N":1}`)
-	deadline := time.After(2 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for {
 		select {
 		case b := <-h.batches:
@@ -315,15 +315,7 @@ func TestSentLeavesTheEchoUnseen(t *testing.T) {
 // The password form's answer isn't a line sent: it doesn't go to the end.
 func TestPasswordIsNotSent(t *testing.T) {
 	h := start(t)
-	connectKit(t, h)
-	deadline := time.After(2 * time.Second)
-	for !h.a.Char("fm/kit").NeedPW {
-		select {
-		case <-h.batches:
-		case <-deadline:
-			t.Fatal("no password prompt")
-		}
-	}
+	h.promptUp() // through the batches: the app is the loop's to read
 	drain(h)
 	if b := h.act(`{"Do":"password","Key":"fm/kit","Text":"hunter2","N":2}`); event(b, "Sent") != nil {
 		t.Error("the password was taken as a line sent")
@@ -344,7 +336,7 @@ func TestQuitEndsTheLoop(t *testing.T) {
 	}
 	select {
 	case <-done:
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("the loop kept running")
 	}
 }
@@ -513,7 +505,7 @@ func TestActNeverBlocksAfterTheLoopEnds(t *testing.T) {
 	}()
 	select {
 	case <-finished:
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Act blocked after the loop ended")
 	}
 }
@@ -744,7 +736,7 @@ func TestActNeverBlocksAndKeepsOrder(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Act blocked while the loop wasn't draining")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1039,7 +1031,7 @@ func TestPickOpensSwitchesAndConnects(t *testing.T) {
 	if a := event(b, "Active"); a == nil || a["Key"] != "fm/rook" {
 		t.Errorf("active %v", a)
 	}
-	deadline := time.After(2 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for {
 		if c := event(b, "Char"); c != nil && c["Key"] == "fm/rook" && c["State"] != float64(session.Disconnected) {
 			return

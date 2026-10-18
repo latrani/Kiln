@@ -224,6 +224,12 @@ func goldenScene(t *testing.T, pw map[string]string, setup func(s *scene)) *scen
 	s.clock.Advance(time.Minute)
 	s.ev(`kilnPage.act({Do: "here"})`)
 	waitFor(t, s.ev, `document.querySelector("main .scroll")`, "the main screen")
+	// The login's own line comes just after it's sent: wait for it, or a
+	// shot has it or not as the scheduler pleases (the TUI harness's
+	// connected waits the same way).
+	if _, ok := pw["fm/kit"]; ok {
+		waitFor(t, s.ev, `[...document.querySelectorAll("main .line")].some(l => l.textContent.includes("connect Kit"))`, "Kit's login in the scrollback")
+	}
 	return s
 }
 

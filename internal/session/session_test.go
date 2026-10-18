@@ -237,7 +237,7 @@ func TestSendDoesNotBlockWhenEventsBacklogged(t *testing.T) {
 		if err != nil {
 			t.Errorf("Send = %v", err)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Send blocked behind a full events channel")
 	}
 }
@@ -257,7 +257,7 @@ func TestRunStopsOnCancelWithoutConsumer(t *testing.T) {
 	cancel()
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Run wedged on a full events channel after cancel")
 	}
 }

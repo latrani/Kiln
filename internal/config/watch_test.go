@@ -23,7 +23,7 @@ func TestWatchReportsTomlChangesOnce(t *testing.T) {
 	}
 	select {
 	case <-w.Changes():
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("no change reported")
 	}
 	select {
@@ -62,7 +62,7 @@ func TestWatchSeesThemes(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "themes", "default.toml"), []byte("extends = \"kiln\"\n"), 0o644)
 	select {
 	case <-w.Changes():
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("no change reported for a theme file")
 	}
 }

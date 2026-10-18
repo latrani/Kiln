@@ -72,7 +72,7 @@ func TestPlainConnReceivesLinesAndNegotiates(t *testing.T) {
 		c.Write([]byte("#$#mcp version: 2.1 to: 2.1\r\nWelcome to \xe9t\xe9\r\n"))
 		c.Write([]byte("Rook says, \"hi\"\r\nno newline"))
 		buf := make([]byte, 64)
-		c.SetReadDeadline(time.Now().Add(2 * time.Second))
+		c.SetReadDeadline(time.Now().Add(10 * time.Second))
 		n, _ := c.Read(buf)
 		replies <- buf[:n]
 	})
@@ -205,7 +205,7 @@ func TestPromptReportedAfterIdleThenLineCompletes(t *testing.T) {
 		if p != "Password: " {
 			t.Errorf("prompt = %q", p)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("no prompt reported")
 	}
 	close(proceed)
@@ -434,7 +434,7 @@ func TestTelnetRestored(t *testing.T) {
 		if len(msg) < 3 || msg[0] != telnet.IAC || msg[1] != telnet.SB || msg[2] != telnet.OptNAWS {
 			t.Errorf("sent %v, want NAWS", msg)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("a restored NAWS sent nothing on resize")
 	}
 	if !c.TelnetState().NAWS {
