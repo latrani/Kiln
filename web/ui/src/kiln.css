@@ -13,12 +13,15 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
    status line stacked on the right. The page runs edge to edge
    (viewport-fit=cover) and the grid keeps out of the phone's corners,
    notch, home indicator and toolbars; the terminal background fills
-   them. */
+   them. With the on-screen keyboard up, it's what the keyboard leaves
+   (viewport.ts sets --vvh and --vvtop), with no room kept for the home
+   indicator, which the keyboard covers. */
 .kiln {
   display: grid;
-  height: 100dvh;
+  height: var(--vvh, 100dvh);
+  transform: translateY(var(--vvtop, 0));
   box-sizing: border-box;
-  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) var(--vvbottom, env(safe-area-inset-bottom, 0)) env(safe-area-inset-left, 0);
   grid-template-columns: var(--side) 1ch 1fr; /* layout.ts's sidebarCSS */
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
