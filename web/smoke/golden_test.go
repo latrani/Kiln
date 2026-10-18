@@ -385,7 +385,7 @@ func TestGoldenEditor(t *testing.T) {
 	// field the page can edit: an x after More settings' max line bytes.
 	s.ev(`document.querySelector(".editor details").open = true`)
 	mb := `document.getElementById("ed-max_line_bytes")`
-	waitFor(t, s.ev, mb+`.offsetParent !== null`, "More settings open")
+	waitFor(t, s.ev, mb+`.offsetParent !== null`, "the extras shown")
 	s.ev(mb + `.focus()`)
 	s.typeIn("x")
 	waitFor(t, s.ev, `document.getElementById("ed-max_line_bytes-err")`, "the field's error")
