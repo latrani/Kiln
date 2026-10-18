@@ -372,9 +372,23 @@ func loadGlobal(dir string) (globalFile, settings, Rules, error) {
 	if err := decodeFile(filepath.Join(dir, "config.toml"), &g, true); err != nil {
 		return g, settings{}, Rules{}, err
 	}
-	base := settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
+	base := defaultSettings()
 	base.overlay(g.Defaults.settings)
 	return g, base, Rules{Priority: g.Defaults.Priority, Quiet: g.Defaults.Quiet, Flags: g.Defaults.Flags}, nil
+}
+
+// defaultSettings is what a world has with nothing set anywhere.
+func defaultSettings() settings {
+	return settings{MaxLineBytes: ptr(DefaultMaxLineBytes), NewlineMode: ptr(DefaultNewlineMode), Login: ptr(DefaultLogin), Autoconnect: ptr(false), Reconnect: ptr(false), Notify: ptr(string(notify.First)), LocalEcho: ptr(false)}
+}
+
+// CheckWorldFile says what loading worlds/<id>.toml with contents data
+// would refuse, without the rest of a config: for a world file made
+// elsewhere (kiln-relay's allowlist). Its packs aren't looked for:
+// they're the player's, and loading says when one is missing.
+func CheckWorldFile(id string, data []byte) error {
+	_, err := loadWorldData("", id+".toml", data, defaultSettings(), Rules{}, nil)
+	return err
 }
 
 func loadWorld(dir, path string, base settings, baseRules Rules, packs map[string]pack) (World, error) {
@@ -382,7 +396,8 @@ func loadWorld(dir, path string, base settings, baseRules Rules, packs map[strin
 }
 
 // loadWorldData is loadWorld with the file's contents given as data,
-// or read from path when data is nil.
+// or read from path when data is nil. With packs nil, the world's packs
+// aren't loaded.
 func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules, packs map[string]pack) (World, error) {
 	id := strings.TrimSuffix(filepath.Base(path), ".toml")
 	rel := filepath.Join("worlds", filepath.Base(path))
@@ -423,6 +438,9 @@ func loadWorldData(dir, path string, data []byte, base settings, baseRules Rules
 	worldRules := baseRules
 	var packLooks []theme.Layer
 	for _, p := range wf.Use {
+		if packs == nil {
+			break
+		}
 		pk, err := loadPack(dir, p, packs)
 		if err != nil {
 			return World{}, fmt.Errorf("%s: %w", rel, err)
