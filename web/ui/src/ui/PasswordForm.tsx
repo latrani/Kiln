@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { composing } from "../input.ts";
 import type { State } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -14,7 +14,9 @@ export function PasswordForm({ state }: { state: State }) {
   const ref = useRef<HTMLInputElement>(null);
   const key = state.active;
   const c = state.chars[key];
-  useEffect(() => ref.current?.focus(), [key]);
+  // In the draw that shows it, as the input's (Input.tsx), so iOS keeps
+  // the keyboard up from the field before.
+  useLayoutEffect(() => ref.current?.focus(), [key]);
   const onSubmit = (e: Event) => {
     e.preventDefault();
     state.typing?.password(key, ref.current!.value);

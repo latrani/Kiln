@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { keyAction, strayKey } from "../input.ts";
 import { historyShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
@@ -84,7 +84,10 @@ export function Input({ state, store }: { state: State; store: Store }) {
   const said = value || panel ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does; the panel's query is a query
   const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›
 
-  useEffect(() => ref.current?.focus(), [state.active]);
+  // In the same draw that shows it, so focus goes from field to field
+  // without landing on the page between: on iOS that would drop the
+  // keyboard, and a focus that comes later can't bring it back.
+  useLayoutEffect(() => ref.current?.focus(), [state.active]);
   useEffect(() => {
     // What's typed with focus outside any control goes to the input:
     // letters, accents and IMEs too (strayKey), never a shortcut. That

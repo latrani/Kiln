@@ -14,6 +14,7 @@ import { logShows } from "./store.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 import { App } from "./ui/App.tsx";
+import { watchViewport } from "./viewport.ts";
 
 // effect does what Go asks of the page: a file to download (an export,
 // a backup), for /restore a backup to pick, for /open the picker, for
@@ -64,6 +65,7 @@ export const effect = (store: Store) => (e: Event): void => {
 // mount draws the app from store, and adds the page's keys and watches.
 export function mount(store: Store): void {
   render(<App store={store} />, document.getElementById("kiln")!);
+  watchViewport(globalThis.visualViewport, document.documentElement);
   // Added here, before any component's effects, so it runs first: the
   // input's own listener (Input.tsx) leaves alone what it took.
   // Ctrl+L for log mode, and the picker's and editor's keys from anywhere
