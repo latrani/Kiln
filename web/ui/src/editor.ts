@@ -5,15 +5,15 @@
 import * as str from "./str.gen.ts";
 
 // Target is what an editor adds or edits.
-export type Target = { kind: "new_world" } | { kind: "world"; world: string } | { kind: "char"; world: string; char: string };
+export type Target = { kind: "world"; world: string } | { kind: "char"; world: string; char: string };
 
 // targetKey names a target as the picker's rows do: "+" for a new
 // world, "=world", "world/char". One editor (or draft) per key.
-export const targetKey = (t: Target): string => (t.kind === "new_world" ? "+" : t.kind === "world" ? "=" + t.world : `${t.world}/${t.char}`);
+export const targetKey = (t: Target): string => (t.kind === "world" ? "=" + t.world : `${t.world}/${t.char}`);
 
 // targetOf is the target Go's Settings (or a settings action) is for.
 export function targetOf(e: { World: string; Char: string }): Target {
-  return e.Char ? { kind: "char", world: e.World, char: e.Char } : e.World ? { kind: "world", world: e.World } : { kind: "new_world" };
+  return e.Char ? { kind: "char", world: e.World, char: e.Char } : { kind: "world", world: e.World };
 }
 
 // Inherited is what a world or character gets for settings it leaves
@@ -24,11 +24,11 @@ export interface Inherited { Login: string; MaxLineBytes: number; NewlineMode: s
 export interface SettingsEvent { World: string; Char: string; Name: string; WorldSettings?: any; CharSettings?: any; Inherited: Inherited }
 
 // Field is one of a form's fields, keyed by its config key (what Go's
-// problems and check() name).
+// problems and check() name). A fixed one is shown, not edited.
 export type Field =
-  | { kind: "text"; key: string; label: string; hint?: string; extra?: boolean }
-  | { kind: "toggle"; key: string; label: string; extra?: boolean }
-  | { kind: "choice"; key: string; label: string; options: { value: string; shown: string }[]; extra?: boolean };
+  | { kind: "text"; key: string; label: string; hint?: string; extra?: boolean; fixed?: boolean }
+  | { kind: "toggle"; key: string; label: string; extra?: boolean; fixed?: boolean }
+  | { kind: "choice"; key: string; label: string; options: { value: string; shown: string }[]; extra?: boolean; fixed?: boolean };
 
 export type Values = Record<string, string | boolean>;
 
@@ -63,20 +63,20 @@ function inheritChoice(key: string, label: string, inherits: string, options: st
   return { kind: "choice", key, label, extra, options: [{ value: "", shown: str.editorDefault(shown(inherits)) }, ...options.map((o) => ({ value: o, shown: shown(o) }))] };
 }
 
-function worldFields(add: boolean, inh: Inherited): Field[] {
-  const f: Field[] = add ? [{ kind: "text", key: "id", label: str.editorWorld() }] : [];
-  f.push(
-    { kind: "text", key: "host", label: str.editorHost() },
-    { kind: "text", key: "port", label: str.editorPort() },
-    { kind: "toggle", key: "tls", label: str.editorTls() },
+// worldFields is a world's form. Its host, port and TLS are fixed: on
+// the web they're the relay's allowlist's, which the page can't change.
+function worldFields(inh: Inherited): Field[] {
+  return [
+    { kind: "text", key: "host", label: str.editorHost(), fixed: true },
+    { kind: "text", key: "port", label: str.editorPort(), fixed: true },
+    { kind: "toggle", key: "tls", label: str.editorTls(), fixed: true },
     inheritChoice("tls_trust", str.editorCertTrust(), "pin", ["pin", "ca"], true),
     { kind: "text", key: "use", label: str.editorPacks(), hint: str.editorNone(), extra: true },
     { kind: "text", key: "login", label: str.editorLogin(), hint: str.editorDefaultHint(inh.Login || str.editorNone()), extra: true },
     { kind: "text", key: "max_line_bytes", label: str.editorMaxBytes(), hint: str.editorDefaultHint(inh.MaxLineBytes), extra: true },
     inheritChoice("newline_mode", str.editorNewlines(), inh.NewlineMode, ["batch", "flatten"], true),
     ...charChoices(inh, true),
-  );
-  return f;
+  ];
 }
 
 function charChoices(inh: Inherited, extra: boolean): Field[] {
@@ -109,7 +109,6 @@ function valuesOf(e: SettingsEvent): Values {
     use: (s.Use ?? []).join(", "), login: s.Login ?? "", max_line_bytes: s.MaxLineBytes == null ? "" : String(s.MaxLineBytes),
     newline_mode: s.NewlineMode ?? "", autoconnect: optBool(s.Autoconnect), reconnect: optBool(s.Reconnect),
     notify: s.Notify ?? "", local_echo: optBool(s.LocalEcho) };
-  if (!e.World) v.id = "";
   return v;
 }
 
@@ -117,8 +116,8 @@ function valuesOf(e: SettingsEvent): Values {
 export function newEditor(e: SettingsEvent, closeAll: boolean): Editor {
   const target = targetOf(e);
   const fields = target.kind === "char" ? [{ kind: "text", key: "aliases", label: str.editorAliases(), hint: str.editorNone() } as Field, ...charChoices(e.Inherited, false)]
-    : worldFields(target.kind === "new_world", e.Inherited);
-  const title = target.kind === "new_world" ? str.editorNewWorld() : str.editorEditing(target.kind === "char" ? `${e.World}/${e.Name}` : e.World);
+    : worldFields(e.Inherited);
+  const title = str.editorEditing(target.kind === "char" ? `${e.World}/${e.Name}` : e.World);
   const values = valuesOf(e);
   return { target, title, fields, values, saved: JSON.stringify(values), more: false, armed: false, problems: [], live: {}, refused: 0, closeAll };
 }
@@ -137,7 +136,7 @@ export function edit(ed: Editor, key: string, value: string | boolean, check?: (
 // unsaved reports whether the values differ from what was read.
 export const unsaved = (ed: Editor): boolean => JSON.stringify(ed.values) !== ed.saved;
 
-// saveAction is the action that saves ed: add_world, save_world or
+// saveAction is the action that saves ed: save_world or
 // save_character, with the settings as Go reads them (unset is null).
 export function saveAction(ed: Editor): { Do: string; [k: string]: unknown } {
   const v = ed.values;
@@ -150,7 +149,7 @@ export function saveAction(ed: Editor): { Do: string; [k: string]: unknown } {
     Login: orNull(text(v, "login")), MaxLineBytes: text(v, "max_line_bytes") === "" ? null : num(text(v, "max_line_bytes")),
     NewlineMode: orNull(text(v, "newline_mode")), Autoconnect: boolOf(v.autoconnect), Reconnect: boolOf(v.reconnect),
     Notify: orNull(text(v, "notify")), LocalEcho: boolOf(v.local_echo) };
-  return t.kind === "new_world" ? { Do: "add_world", ID: text(v, "id"), WorldSettings: s } : { Do: "save_world", World: t.world, WorldSettings: s };
+  return { Do: "save_world", World: t.world, WorldSettings: s };
 }
 
 // deleteAction is the action that deletes what ed edits; none for a new

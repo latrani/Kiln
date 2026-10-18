@@ -381,10 +381,14 @@ func TestGoldenEditor(t *testing.T) {
 	port := `document.getElementById([...document.querySelectorAll(".bottom label")].find(l => l.textContent.startsWith(` + jsString(str.EditorPort()) + `)).htmlFor)`
 	waitFor(t, s.ev, port, "the world's editor")
 	s.shoot("editor")
-	// As the TUI's focusOn(portLabel) and x: an x after the port.
-	s.ev(`(f => { f.focus(); f.setSelectionRange(f.value.length, f.value.length); })(` + port + `)`)
+	// The port is the relay's, fixed on the web, so the error is on a
+	// field the page can edit: an x after More settings' max line bytes.
+	s.ev(`document.querySelector(".editor details").open = true`)
+	mb := `document.getElementById("ed-max_line_bytes")`
+	waitFor(t, s.ev, mb+`.offsetParent !== null`, "More settings open")
+	s.ev(mb + `.focus()`)
 	s.typeIn("x")
-	waitFor(t, s.ev, `document.getElementById(`+port+`.id + "-err")`, "the port's error")
+	waitFor(t, s.ev, `document.getElementById("ed-max_line_bytes-err")`, "the field's error")
 	s.shoot("editor-error")
 	s.done()
 }

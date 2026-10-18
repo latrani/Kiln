@@ -126,22 +126,20 @@ function PickerList({ state, store }: { state: State; store: Store }) {
             </ul>
           </li>
         ))}
-        {/* + World, in no world: a chip at the left edge, as the TUI's. */}
-        <li key="+" id="pick-+" role="option" aria-selected={p.sel === "+"} class="pick" onClick={() => choose(store, "+")}>
-          <span class={roleClass(p.sel === "+" ? "picker.selected" : "picker.add")}> {str.pickerAddWorld()} </span>
-        </li>
+        {/* No + World, unlike the TUI's: the worlds are the relay's
+            allowlist (picker.ts). */}
       </ul>
     </nav>
   );
 }
 
-// groups splits the picker's rows by world (each world's row, then its
-// rows), leaving + World, which is in no world, for after them.
+// groups splits the picker's rows by world: each world's row, then its
+// rows.
 function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
   const out: { world: string; rows: PickRow[] }[] = [];
   for (const r of rows) {
     if (r.kind === "world") out.push({ world: r.world, rows: [r] });
-    else if (r.kind !== "add_world") out.at(-1)?.rows.push(r);
+    else out.at(-1)?.rows.push(r);
   }
   return out;
 }

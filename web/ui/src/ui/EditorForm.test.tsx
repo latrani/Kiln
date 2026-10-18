@@ -36,6 +36,14 @@ test("fields are real controls with labels: text, a checkbox, radios; no select"
   assert.ok(!html.includes("<select"));
 });
 
+test("the relay's host, port and TLS are read-only and dim", () => {
+  const html = open();
+  assert.match(html, /<input(?=[^>]*id="ed-host")(?=[^>]*readonly)(?=[^>]*value="muck.test")[^>]*>/);
+  assert.match(html, /<input(?=[^>]*id="ed-port")(?=[^>]*readonly)[^>]*>/);
+  assert.match(html, /<input(?=[^>]*id="ed-tls")(?=[^>]*disabled)(?=[^>]*checked)[^>]*>/);
+  assert.match(html, new RegExp(`<span aria-hidden="true" class="${roleClass("form.hint")}">\\[x\\]</span>`), "its box dim");
+});
+
 test("More settings is a details element, closed, with the TUI's >", () => {
   const html = open();
   assert.match(html, new RegExp(`<details(?![^>]*\\sopen)[^>]*>\\s*<summary[^>]*><span aria-hidden="true" class="dglyph">${str.glyph.collapsed}</span>`));

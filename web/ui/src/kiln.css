@@ -158,6 +158,8 @@ a.s { text-decoration: underline; }
 .editor .fields { display: grid; grid-template-columns: max-content 1fr; white-space: pre; }
 .editor .control { display: flex; min-width: 0; }
 .editor input[type="text"] { flex: 1; min-width: 1ch; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
+/* A field the page can't change (a world's host and port: the relay's), dim. */
+.editor input[readonly] { color: var(--role-form-hint-fg); }
 .editor input::placeholder { color: var(--role-form-hint-fg); opacity: 1; }
 .editor input:-webkit-autofill { -webkit-text-fill-color: var(--term-fg); box-shadow: inset 0 0 0 100vmax var(--role-form-bg); }
 .editor .box, .editor .choice { position: relative; cursor: pointer; }

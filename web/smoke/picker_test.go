@@ -26,7 +26,7 @@ func TestPicker(t *testing.T) {
 	ctrlO(t, ws)
 	waitFor(t, ev, `document.activeElement === `+filter, "Ctrl+O's filter focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "sec"})
-	waitFor(t, ev, `document.querySelectorAll('nav [role="option"]').length === 4`, "the world, Second, its add row and the add-world row left")
+	waitFor(t, ev, `document.querySelectorAll('nav [role="option"]').length === 3`, "the world, Second and its add row left (no + World on the web)")
 	// A character and its add row sit one space in from the world, as the
 	// TUI's: their text starts right of the row's edge.
 	inset := func(id string) string {

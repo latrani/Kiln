@@ -17,7 +17,14 @@ export function EditorForm({ state, store }: { state: State; store: Store }) {
   const ed = state.picker!.edit!;
   const root = useRef<HTMLFormElement>(null);
   const [focus, setFocus] = useState("");
-  useEffect(() => root.current?.querySelector<HTMLElement>("input, button")?.focus(), []);
+  // Focus on the first field it can edit (past the fixed ones, and any
+  // shut in More settings), or else Save.
+  useEffect(() => {
+    for (const el of root.current?.querySelectorAll<HTMLElement>("input:not([readonly]):not([disabled]), button") ?? []) {
+      el.focus();
+      if (document.activeElement === el) return;
+    }
+  }, []);
   // After a refusal, focus goes to the first field with an error; one
   // already focused is focused anew, so a screen reader reads it and its
   // error again rather than nothing.
@@ -125,7 +132,9 @@ function useBodyKeys(root: { current: HTMLFormElement | null }, onKeyDown: (e: K
   }, []);
 }
 
-// Row is one field: its label, its control, and what's wrong with it.
+// Row is one field: its label, its control, and what's wrong with it. A
+// fixed field is the browser's read-only input, drawn dim (a checkbox
+// has no read-only, so a fixed one is disabled).
 function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store; focus: string; off: boolean }) {
   const id = "ed-" + f.key;
   const err = errorOf(ed, f.key);
@@ -135,7 +144,7 @@ function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store;
   let control;
   if (f.kind === "text") {
     control = (
-      <input id={id} data-f={f.key} type="text" value={String(v ?? "")} placeholder={f.hint} autocomplete="off" spellcheck={false} disabled={off}
+      <input id={id} data-f={f.key} type="text" value={String(v ?? "")} placeholder={f.hint} autocomplete="off" spellcheck={false} disabled={off} readOnly={f.fixed}
         aria-invalid={err ? "true" : undefined} aria-describedby={desc}
         onInput={(e) => store.editField(f.key, (e.currentTarget as HTMLInputElement).value)} />
     );
@@ -145,10 +154,10 @@ function Row({ f, ed, store, focus, off }: { f: Field; ed: Editor; store: Store;
     const box = v === true ? "[x]" : "[ ]"; // str:ok a drawn box, as form.go's
     control = (
       <label class="box">
-        <input type="checkbox" id={id} data-f={f.key} class="sr-only" checked={v === true} disabled={off}
+        <input type="checkbox" id={id} data-f={f.key} class="sr-only" checked={v === true} disabled={off || f.fixed}
           aria-invalid={err ? "true" : undefined} aria-describedby={desc}
           onChange={(e) => store.editField(f.key, (e.currentTarget as HTMLInputElement).checked)} />
-        <span aria-hidden="true" class={lit || undefined}>{box}</span>
+        <span aria-hidden="true" class={f.fixed ? roleClass("form.hint") : lit || undefined}>{box}</span>
       </label>
     );
   } else {

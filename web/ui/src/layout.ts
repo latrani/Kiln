@@ -6,7 +6,7 @@ const len = (s: string) => [...s].length;
 // chipsWidth is the narrowest the sidebar gets: wide enough for its add
 // chips, padded a space either side (the TUI's SidebarWidth).
 export function chipsWidth(): number {
-  return 2 + Math.max(len(str.sidebarOpenConnection()), 1 + len(str.pickerAddCharacter()), len(str.pickerAddWorld()));
+  return 2 + Math.max(len(str.sidebarOpenConnection()), 1 + len(str.pickerAddCharacter()));
 }
 
 // sidebarCSS is the sidebar's width as the TUI works it out, in whole
