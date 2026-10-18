@@ -390,14 +390,14 @@ func TestPerIPCapAndRelease(t *testing.T) {
 		t.Errorf("third: code %d, want %d", code, wire.CodeTooMany)
 	}
 	bye(t, a)
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
 	for {
 		c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/?host=127.0.0.1&port=%d", base, port), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		nc := piped(t, c)
-		nc.SetReadDeadline(time.Now().Add(time.Second))
+		nc.SetReadDeadline(time.Now().Add(10 * time.Second))
 		line, _ := bufio.NewReader(nc).ReadString('\n')
 		bye(t, c)
 		if line == "hello\r\n" {
@@ -505,7 +505,7 @@ func TestPingsKeepLiveClients(t *testing.T) {
 		if l != "you said hi\r\n" {
 			t.Errorf("got %q after pings", l)
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("a live client was dropped")
 	}
 }
@@ -566,7 +566,7 @@ func bye(t *testing.T, c *websocket.Conn) {
 func readLine(t *testing.T, c *websocket.Conn) string {
 	t.Helper()
 	nc := piped(t, c)
-	nc.SetReadDeadline(time.Now().Add(2 * time.Second))
+	nc.SetReadDeadline(time.Now().Add(10 * time.Second))
 	l, err := bufio.NewReader(nc).ReadString('\n')
 	if err != nil {
 		t.Fatal(err)

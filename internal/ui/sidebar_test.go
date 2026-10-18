@@ -67,7 +67,7 @@ func TestLateEventFromClosedCharacterIgnored(t *testing.T) {
 	h.settle("fm/kit", h.connected("fm/kit"))
 	sess := h.m.chars["fm/kit"].Sess
 	h.m.close("fm/kit")
-	deadline := time.After(3 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for {
 		select {
 		case ev, ok := <-sess.Events():

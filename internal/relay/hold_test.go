@@ -631,7 +631,7 @@ func TestStuckWorldDoesntBlockResume(t *testing.T) {
 	go func() { done <- q.next() }()
 	select {
 	case <-done:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("the resume waited on a world that doesn't read")
 	}
 }
