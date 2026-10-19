@@ -10,8 +10,9 @@ export type Ranges = [number, number][];
 // capability: the page does what it's for only if the host has it.
 export interface Host {
   // check is what Go says of a settings field as it's typed, "" when
-  // it's fine (app.CheckField).
-  check(field: string, value: string): string;
+  // it's fine (app.CheckField). It may answer late: callers drop an
+  // answer for a value that has moved on.
+  check(field: string, value: string): Promise<string>;
   // over is where text runs past the line limit (webapi.OverRanges).
   over(text: string, maxLineBytes: number, newlineMode: string): Ranges;
   // saveFile saves an export or a backup, named name.
@@ -35,7 +36,7 @@ export function toBase64(bytes: Uint8Array): string {
 // noHost is a host with nothing behind it: no checks, no ranges, nowhere
 // to save or show anything, and no capabilities.
 export const noHost: Host = {
-  check: () => "",
+  check: async () => "",
   over: () => [],
   saveFile: () => {},
   notify: () => {},

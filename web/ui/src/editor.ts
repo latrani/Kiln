@@ -123,15 +123,21 @@ export function newEditor(e: SettingsEvent, closeAll: boolean): Editor {
   return { target, title, fields, values, saved: JSON.stringify(values), more: false, armed: false, problems: [], live: {}, refused: 0, closeAll };
 }
 
-// edit sets field key to value: check (Go's, for text) says what's
-// wrong with it as typed, the field's refusal from the last save goes,
-// and Delete has to be pressed twice again.
-export function edit(ed: Editor, key: string, value: string | boolean, check?: (field: string, value: string) => string): Editor {
+// edit sets field key to value: the field's refusal from the last save
+// goes, and Delete has to be pressed twice again. What Go's check said
+// of it stands until Go answers for the new value (checked).
+export function edit(ed: Editor, key: string, value: string | boolean): Editor {
+  return { ...ed, values: { ...ed.values, [key]: value }, problems: ed.problems.filter((p) => p.Field !== key), armed: false };
+}
+
+// checked is ed with msg, Go's check of value, beside field key ("" is
+// fine): unchanged if the field has moved on since value was asked about.
+export function checked(ed: Editor, key: string, value: string, msg: string): Editor {
+  if (ed.values[key] !== value) return ed;
   const live = { ...ed.live };
-  const msg = typeof value === "string" && check ? check(key, value) : "";
   if (msg) live[key] = msg;
   else delete live[key];
-  return { ...ed, values: { ...ed.values, [key]: value }, live, problems: ed.problems.filter((p) => p.Field !== key), armed: false };
+  return { ...ed, live };
 }
 
 // unsaved reports whether the values differ from what was read.

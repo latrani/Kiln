@@ -35,7 +35,7 @@ export function download(name: string, bytes: Uint8Array): void {
 export function webHost(): Host {
   const kiln = () => (globalThis as any).kiln;
   return {
-    check: (field, value) => kiln()?.check?.(field, value) ?? "",
+    check: async (field, value) => kiln()?.check?.(field, value) ?? "",
     over: (text, maxLineBytes, newlineMode) => kiln()?.over?.(text, maxLineBytes, newlineMode) ?? [],
     saveFile: download,
     notify: (store, e) => show(store, e),
