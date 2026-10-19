@@ -21,11 +21,30 @@ export function Act(action: string): $CancellablePromise<void> {
 }
 
 /**
+ * AskPermission asks the OS to show Kiln's notifications, and is its
+ * answer, as the page's Permission. macOS asks only the first time;
+ * after that it answers as it did.
+ */
+export function AskPermission(): $CancellablePromise<string> {
+    return $Call.ByID(286774120);
+}
+
+/**
  * Check is what to say about a settings field as value is typed, ""
  * when it's fine: webapi.CheckField.
  */
 export function Check(field: string, value: string): $CancellablePromise<string> {
     return $Call.ByID(3638514362, field, value);
+}
+
+/**
+ * Notify shows a Notify effect as the OS's notification, about the
+ * character key. Each has an ID of its own: macOS only updates one whose
+ * ID it has seen, without showing it. With no notifications to show it
+ * does nothing.
+ */
+export function Notify(title: string, body: string, key: string): $CancellablePromise<void> {
+    return $Call.ByID(3494556823, title, body, key);
 }
 
 /**
@@ -44,6 +63,15 @@ export function Over(text: string, maxLineBytes: number, newlineMode: string): $
     return $Call.ByID(1810756648, text, maxLineBytes, newlineMode).then(($result: any) => {
         return $$createType0($result);
     });
+}
+
+/**
+ * Permission is whether the OS shows Kiln's notifications, as the page's
+ * Permission: macOS says only whether they're allowed, so "default"
+ * stands for not allowed yet or blocked, and asking tells them apart.
+ */
+export function Permission(): $CancellablePromise<string> {
+    return $Call.ByID(2385911501);
 }
 
 /**

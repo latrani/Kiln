@@ -444,10 +444,10 @@ func DesktopCancel() string { return get("desktop.cancel", nil) }
 // DesktopNotALink is desktop.not_a_link: "not a web link: {url}"
 func DesktopNotALink(url any) string { return get("desktop.not_a_link", map[string]any{"url": url}) }
 
-// DesktopNotifyDenied is desktop.notify_denied: "this system blocks Kiln's notifications: allow them in System Settings → Notifications"
+// DesktopNotifyDenied is desktop.notify_denied: "this system blocks Kiln's notifications: allow them in the system's notification settings"
 func DesktopNotifyDenied() string { return get("desktop.notify_denied", nil) }
 
-// DesktopNotifyUnsupported is desktop.notify_unsupported: "this system can't show Kiln's notifications: check System Settings → Notifications"
+// DesktopNotifyUnsupported is desktop.notify_unsupported: "this system can't show Kiln's notifications: check the system's notification settings"
 func DesktopNotifyUnsupported() string { return get("desktop.notify_unsupported", nil) }
 
 // DesktopQuit is desktop.quit: "Quit"

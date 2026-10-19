@@ -4,13 +4,16 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"log"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/str"
@@ -47,10 +50,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	k := &Kiln{cfgDir: cfgDir, dataDir: dataDir}
+	notes := &wailsNotes{ns: notifications.New()}
+	k := &Kiln{notes: notes, cfgDir: cfgDir, dataDir: dataDir}
+	notes.ns.OnNotificationResponse(func(r notifications.NotificationResult) {
+		// Off the thread it came on, which may be the main thread: a
+		// click asks the loop and the window.
+		if r.Error == nil && r.Response.ActionIdentifier == notifications.DefaultActionIdentifier {
+			go k.clicked(r.Response.UserInfo)
+		}
+	})
 	a := application.New(application.Options{
-		Name:       str.WebAppName(),
-		Services:   []application.Service{application.NewService(k)},
+		Name: str.WebAppName(),
+		// Notifications first: services shut down last first, so Kiln's
+		// loop ends before they do.
+		Services:   []application.Service{application.NewService(notes), application.NewService(k)},
 		Assets:     application.AssetOptions{Handler: application.AssetFileServerFS(page)},
 		Mac:        application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 		ShouldQuit: k.quitGate,
@@ -90,6 +103,7 @@ type wailsWindow struct {
 func (w wailsWindow) Emit(name, data string)   { w.a.Event.Emit(name, data) }
 func (w wailsWindow) OpenURL(url string) error { return w.a.Browser.OpenURL(url) }
 func (w wailsWindow) Quit()                    { w.a.Quit() }
+func (w wailsWindow) Focus()                   { w.win.UnMinimise(); w.win.Focus() }
 
 func (w wailsWindow) SaveFile(name, dir string) (string, error) {
 	d := w.a.Dialog.SaveFile().SetFilename(name).AttachToWindow(w.win)
@@ -137,4 +151,58 @@ func (w wailsWindow) ConfirmQuit(n int) bool {
 // message.
 func windowsCancel(err error) bool {
 	return err != nil && err.Error() == "cancelled by user" //str:ok: Wails' cfd.ErrorCancelled
+}
+
+// wailsNotes is Wails' notifications service, started as one of the
+// app's. If it can't start (macOS: the app isn't bundled; Linux: no
+// session bus) the app runs without notifications, and calls nothing
+// of the service's but its click hook: only its start checks that it
+// can run.
+type wailsNotes struct {
+	ns *notifications.NotificationService
+	ok atomic.Bool // started
+}
+
+func (n *wailsNotes) ServiceStartup(ctx context.Context, opts application.ServiceOptions) error {
+	if n.ns.ServiceStartup(ctx, opts) == nil {
+		n.ok.Store(true)
+	}
+	return nil
+}
+
+func (n *wailsNotes) ServiceShutdown() error {
+	if n.ok.Load() {
+		return n.ns.ServiceShutdown()
+	}
+	return nil
+}
+
+// Send waits up to 5s for macOS to take the notification.
+//
+//wails:ignore
+func (n *wailsNotes) Send(id, title, body string, data map[string]any) error {
+	if !n.ok.Load() {
+		return errNoNotifications
+	}
+	return n.ns.SendNotification(notifications.NotificationOptions{ID: id, Title: title, Body: body, Data: data})
+}
+
+// Allowed is always true on Windows and Linux.
+//
+//wails:ignore
+func (n *wailsNotes) Allowed() (bool, error) {
+	if !n.ok.Load() {
+		return false, errNoNotifications
+	}
+	return n.ns.CheckNotificationAuthorization()
+}
+
+// Ask waits for macOS's question to be answered, up to 3 minutes.
+//
+//wails:ignore
+func (n *wailsNotes) Ask() (bool, error) {
+	if !n.ok.Load() {
+		return false, errNoNotifications
+	}
+	return n.ns.RequestNotificationAuthorization()
 }

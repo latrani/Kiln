@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/latrani/Kiln/internal/app"
@@ -26,6 +29,8 @@ type window interface {
 	Emit(name, data string)
 	OpenURL(url string) error
 	Quit()
+	// Focus brings the window forward.
+	Focus()
 }
 
 // dialogs are the OS dialogs Kiln opens, so tests fake them.
@@ -38,13 +43,35 @@ type dialogs interface {
 	ConfirmQuit(n int) bool
 }
 
+// notifier is the OS's notifications, so tests fake them. Each answers
+// errNoNotifications when there are none to show.
+type notifier interface {
+	// Send shows a notification, id its own; a click on it gives data
+	// back to clicked.
+	Send(id, title, body string, data map[string]any) error
+	// Allowed is whether the OS shows Kiln's notifications.
+	Allowed() (bool, error)
+	// Ask asks the OS to show them, and is its answer.
+	Ask() (bool, error)
+}
+
+// errNoNotifications is a notifier with none to show: on macOS the app
+// isn't bundled, on Linux there's no session bus.
+var errNoNotifications = errors.New("no notifications") //str:ok: never shown
+
+// noteKey is the key of the character a notification is about, in its
+// data.
+const noteKey = "key" //str:ok
+
 // Kiln is the service the page calls: Kiln's core, the TUI's (see
 // internal/native), driven by the web API's loop. Its exported methods
 // are the page's bindings.
 type Kiln struct {
 	win             window
 	dialogs         dialogs
+	notes           notifier
 	cfgDir, dataDir string
+	notified        atomic.Uint64 // notifications sent, for their IDs
 
 	mu     sync.Mutex
 	loop   *webapi.Loop  // nil until Start
@@ -154,6 +181,83 @@ func (k *Kiln) OpenURL(link string) error {
 		return errors.New(str.DesktopNotALink(link))
 	}
 	return k.win.OpenURL(link)
+}
+
+// Notify shows a Notify effect as the OS's notification, about the
+// character key. Each has an ID of its own: macOS only updates one whose
+// ID it has seen, without showing it. With no notifications to show it
+// does nothing.
+func (k *Kiln) Notify(title, body, key string) error {
+	id := key + " " + strconv.FormatInt(time.Now().UnixNano(), 36) + " " + strconv.FormatUint(k.notified.Add(1), 36) //str:ok: an ID
+	err := k.notes.Send(id, title, body, map[string]any{noteKey: key})
+	if errors.Is(err, errNoNotifications) {
+		return nil
+	}
+	return err
+}
+
+// Permission is whether the OS shows Kiln's notifications, as the page's
+// Permission: macOS says only whether they're allowed, so "default"
+// stands for not allowed yet or blocked, and asking tells them apart.
+func (k *Kiln) Permission() (string, error) {
+	return permission(k.notes.Allowed())
+}
+
+// AskPermission asks the OS to show Kiln's notifications, and is its
+// answer, as the page's Permission. macOS asks only the first time;
+// after that it answers as it did.
+func (k *Kiln) AskPermission() (string, error) {
+	p, err := permission(k.notes.Ask())
+	if p == "default" { //str:ok
+		p = "denied" //str:ok: the page's Permission
+	}
+	return p, err
+}
+
+func permission(yes bool, err error) (string, error) {
+	switch {
+	case errors.Is(err, errNoNotifications):
+		return "unsupported", nil //str:ok: the page's Permission
+	case err != nil:
+		return "", err
+	case yes:
+		return "granted", nil //str:ok: the page's Permission
+	}
+	return "default", nil //str:ok: the page's Permission
+}
+
+// clicked is a click on a notification Notify sent, data its data: it
+// brings the window forward and switches to its character, if that's
+// still open. It asks the loop, so it's never called on the main thread
+// (which, as the app quits, waits on the loop's end); once the loop has
+// ended it does nothing.
+func (k *Kiln) clicked(data map[string]any) {
+	key, _ := data[noteKey].(string)
+	k.mu.Lock()
+	l, done := k.loop, k.done
+	k.mu.Unlock()
+	if l == nil || key == "" {
+		return
+	}
+	act, err := json.Marshal(map[string]string{"Do": "switch", "Key": key}) //str:ok: the page's switch action
+	if err != nil {
+		return
+	}
+	open := make(chan bool, 1)
+	l.Call(func(a *app.App) {
+		ok := a.Char(key) != nil
+		if ok {
+			l.Act(act) // the next turn: Call and Act never wait on the loop
+		}
+		open <- ok
+	})
+	select {
+	case ok := <-open:
+		if ok {
+			k.win.Focus()
+		}
+	case <-done:
+	}
 }
 
 func (k *Kiln) running() *webapi.Loop {

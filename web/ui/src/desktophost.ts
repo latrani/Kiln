@@ -6,6 +6,7 @@
 // argument rather than importing them, so tests fake them.
 import type { Host, Ranges } from "./host.ts";
 import { toBase64 } from "./host.ts";
+import type { Permission } from "./notify.ts";
 import type { Event, Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
@@ -22,19 +23,31 @@ export interface Kiln {
   SaveAs(name: string, data: string): Promise<void>;
   OpenURL(link: string): Promise<void>;
   Start(): Promise<void>;
+  Notify(title: string, body: string, key: string): Promise<void>;
+  Permission(): Promise<string>;
+  AskPermission(): Promise<string>;
 }
 
-// desktopHost is the desktop app's host. Notifications don't show yet:
-// the app has no notifications service.
+// permission is Go's answer as a Permission (desktop/kiln.go answers
+// with one), or "unsupported" if it can't give one.
+const permission = (p: Promise<string>): Promise<Permission> => p.then((got) => got as Permission, (e) => {
+  console.error("notify", e);
+  return "unsupported";
+});
+
+// desktopHost is the desktop app's host. Notifications are the OS's: a
+// click on one switches to its character in Go.
 export function desktopHost(kiln: Kiln): Host {
   return {
     check: (field, value) => kiln.Check(field, value),
     over: async (text, maxLineBytes, newlineMode) => (await kiln.Over(text, maxLineBytes, newlineMode)) as Ranges,
     // SaveAs takes the bytes as base64, as Wails passes a []byte.
     saveFile: (name, bytes) => { kiln.SaveAs(name, toBase64(bytes)).catch((e) => console.error("save", e)); },
-    notify: () => {},
-    permission: async () => "unsupported",
-    askPermission: async () => "unsupported",
+    notify: (_, e) => {
+      kiln.Notify(String(e.Title ?? ""), String(e.Body ?? ""), String(e.Key ?? "")).catch((err) => console.error("notify", err));
+    },
+    permission: () => permission(kiln.Permission()),
+    askPermission: () => permission(kiln.AskPermission()),
     whyNoNotify: (p) => (p === "denied" ? str.desktopNotifyDenied() : p === "unsupported" ? str.desktopNotifyUnsupported() : ""),
     worlds: true,
   };

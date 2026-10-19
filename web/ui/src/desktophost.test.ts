@@ -16,6 +16,9 @@ function fake(over: Partial<Kiln> = {}) {
     SaveAs: rec("SaveAs", undefined),
     OpenURL: rec("OpenURL", undefined),
     Start: rec("Start", undefined),
+    Notify: rec("Notify", undefined),
+    Permission: rec("Permission", "granted"),
+    AskPermission: rec("AskPermission", "denied"),
     ...over,
   };
   return { kiln, calls };
@@ -58,14 +61,40 @@ test("the desktop host adds worlds, and has no backups, reset or take-over", () 
   assert.equal(h.useHere, undefined);
 });
 
-test("the desktop host can't show notifications yet, and says why in the app's terms", async () => {
-  const h = desktopHost(fake().kiln);
-  assert.equal(await h.permission(), "unsupported");
-  assert.equal(await h.askPermission(), "unsupported");
+test("the desktop host's notifications are the OS's, and it says why not in the app's terms", async () => {
+  const { kiln, calls } = fake();
+  const h = desktopHost(kiln);
+  assert.equal(await h.permission(), "granted");
+  assert.equal(await h.askPermission(), "denied");
   assert.equal(h.whyNoNotify("denied"), str.desktopNotifyDenied());
   assert.equal(h.whyNoNotify("unsupported"), str.desktopNotifyUnsupported());
   assert.equal(h.whyNoNotify("granted"), "");
   assert.equal(h.whyNoNotify("default"), "");
+  assert.deepEqual(calls, [{ name: "Permission", args: [] }, { name: "AskPermission", args: [] }]);
+});
+
+test("the desktop host shows a Notify through the Kiln bindings", () => {
+  const { kiln, calls } = fake();
+  desktopHost(kiln).notify(new Store(() => {}), { type: "Effect", effect: "Notify", Title: "Kit", Body: "Rook pages you.", Key: "fm/kit" });
+  assert.deepEqual(calls, [{ name: "Notify", args: ["Kit", "Rook pages you.", "fm/kit"] }]);
+});
+
+test("failed notifications and permission calls aren't unhandled rejections", async () => {
+  const boom = async () => { throw new Error("timed out"); };
+  const { kiln } = fake({ Notify: boom, Permission: boom, AskPermission: boom });
+  const errs: unknown[] = [];
+  const was = console.error;
+  console.error = (...a: unknown[]) => { errs.push(a); };
+  try {
+    const h = desktopHost(kiln);
+    h.notify(new Store(() => {}), { type: "Effect", effect: "Notify", Title: "Kit", Body: "", Key: "fm/kit" });
+    assert.equal(await h.permission(), "unsupported");
+    assert.equal(await h.askPermission(), "unsupported");
+    await new Promise((r) => setTimeout(r, 0));
+  } finally {
+    console.error = was;
+  }
+  assert.equal(errs.length, 3);
 });
 
 // clicks is a document's capture-phase click listener, from openLinks.

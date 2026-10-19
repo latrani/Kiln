@@ -564,8 +564,8 @@ not_a_link = "not a web link: {url}"
 # Said after the status line's offer to allow notifications is clicked,
 # when the app can't show them: the system's settings are where they're
 # allowed.
-notify_denied = "this system blocks Kiln's notifications: allow them in System Settings → Notifications"
-notify_unsupported = "this system can't show Kiln's notifications: check System Settings → Notifications"
+notify_denied = "this system blocks Kiln's notifications: allow them in the system's notification settings"
+notify_unsupported = "this system can't show Kiln's notifications: check the system's notification settings"
 # The question quitting asks while characters are connected (the
 # window's close button quits too). Quit and Cancel are its buttons; on
 # Windows the system draws Yes and No instead, so the title stays a

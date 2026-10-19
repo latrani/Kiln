@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ type fakeWindow struct {
 	batches []string
 	opened  []string
 	quit    bool
+	focused int
 }
 
 func (f *fakeWindow) Emit(name, data string) {
@@ -45,6 +47,18 @@ func (f *fakeWindow) Quit() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.quit = true
+}
+
+func (f *fakeWindow) Focus() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.focused++
+}
+
+func (f *fakeWindow) focuses() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.focused
 }
 
 // sent is the batches so far.
@@ -95,10 +109,45 @@ func (f *fakeDialogs) asks() []int {
 	return append([]int(nil), f.asked...)
 }
 
+// note is one notification sent.
+type note struct {
+	id, title, body string
+	data            map[string]any
+}
+
+// fakeNotes is the OS's notifications: it keeps what's sent, and answers
+// whether they're allowed with allowed, and asked with ask, or err.
+type fakeNotes struct {
+	mu      sync.Mutex
+	notes   []note
+	allowed bool
+	ask     bool
+	err     error
+}
+
+func (f *fakeNotes) Send(id, title, body string, data map[string]any) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	f.notes = append(f.notes, note{id, title, body, data})
+	return nil
+}
+
+func (f *fakeNotes) Allowed() (bool, error) { return f.allowed, f.err }
+func (f *fakeNotes) Ask() (bool, error)     { return f.ask, f.err }
+
+func (f *fakeNotes) sent() []note {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]note(nil), f.notes...)
+}
+
 func newKiln(t *testing.T) (*Kiln, *fakeWindow, *fakeDialogs) {
 	t.Helper()
 	w, d := &fakeWindow{}, &fakeDialogs{}
-	k := &Kiln{win: w, dialogs: d, cfgDir: t.TempDir(), dataDir: t.TempDir()}
+	k := &Kiln{win: w, dialogs: d, notes: &fakeNotes{}, cfgDir: t.TempDir(), dataDir: t.TempDir()}
 	t.Cleanup(func() { k.ServiceShutdown() })
 	return k, w, d
 }
@@ -442,5 +491,149 @@ func TestQuitGateDoesNotWaitOnABusyLoop(t *testing.T) {
 	waitFor(t, "the app to quit", w.quitted)
 	if a := d.asks(); len(a) != 0 {
 		t.Errorf("asked %v with nothing connected", a)
+	}
+}
+
+// notes is k's fake notifications.
+func notes(k *Kiln) *fakeNotes { return k.notes.(*fakeNotes) }
+
+// macOS updates a notification whose ID it has seen without showing it,
+// so each one has its own.
+func TestNotifySendsAFreshIDEachTime(t *testing.T) {
+	k, _, _ := newKiln(t)
+	for range 2 {
+		if err := k.Notify("Kit", "Rook pages you.", "fm/kit"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sent := notes(k).sent()
+	if len(sent) != 2 {
+		t.Fatalf("sent %d notifications; want 2", len(sent))
+	}
+	if sent[0].id == sent[1].id || sent[0].id == "" {
+		t.Errorf("IDs %q and %q; want two different ones", sent[0].id, sent[1].id)
+	}
+	for _, n := range sent {
+		if n.title != "Kit" || n.body != "Rook pages you." {
+			t.Errorf("sent %q: %q; want Kit: Rook pages you.", n.title, n.body)
+		}
+	}
+}
+
+func TestNotifyWithoutNotificationsIsNoError(t *testing.T) {
+	k, _, _ := newKiln(t)
+	notes(k).err = errNoNotifications
+	if err := k.Notify("Kit", "Rook pages you.", "fm/kit"); err != nil {
+		t.Errorf("Notify with no notifications to show: %v", err)
+	}
+}
+
+func TestNotificationPermission(t *testing.T) {
+	for _, c := range []struct {
+		allowed, ask bool
+		err          error
+		perm, asked  string
+	}{
+		{allowed: true, ask: true, perm: "granted", asked: "granted"},
+		// macOS says only whether they're allowed; asking says if they're blocked.
+		{allowed: false, ask: false, perm: "default", asked: "denied"},
+		{allowed: false, ask: true, perm: "default", asked: "granted"},
+		{err: errNoNotifications, perm: "unsupported", asked: "unsupported"},
+	} {
+		k, _, _ := newKiln(t)
+		n := notes(k)
+		n.allowed, n.ask, n.err = c.allowed, c.ask, c.err
+		if p, err := k.Permission(); p != c.perm || err != nil {
+			t.Errorf("allowed %v, %v: Permission = %q, %v; want %q", c.allowed, c.err, p, err, c.perm)
+		}
+		if p, err := k.AskPermission(); p != c.asked || err != nil {
+			t.Errorf("ask %v, %v: AskPermission = %q, %v; want %q", c.ask, c.err, p, err, c.asked)
+		}
+	}
+}
+
+func TestNotificationPermissionErrorIsTheOSs(t *testing.T) {
+	k, _, _ := newKiln(t)
+	boom := errors.New("timed out")
+	notes(k).err = boom
+	if _, err := k.Permission(); !errors.Is(err, boom) {
+		t.Errorf("Permission's error = %v; want %v", err, boom)
+	}
+	if _, err := k.AskPermission(); !errors.Is(err, boom) {
+		t.Errorf("AskPermission's error = %v; want %v", err, boom)
+	}
+}
+
+// active is the active sidebar item, read on the loop.
+func active(k *Kiln) string {
+	got := make(chan string, 1)
+	k.loop.Call(func(a *app.App) { got <- a.Active() })
+	return <-got
+}
+
+// notifyKit sends a notification about Kit, showing fm's overview
+// rather than Kit, and is what a click on it gives back.
+func notifyKit(t *testing.T, k *Kiln) map[string]any {
+	t.Helper()
+	k.loop.Call(func(a *app.App) { a.Switch(app.WorldSel("fm")) })
+	waitFor(t, "fm's overview", func() bool { return active(k) == app.WorldSel("fm") })
+	if err := k.Notify("Kit", "Rook pages you.", "fm/kit"); err != nil {
+		t.Fatal(err)
+	}
+	sent := notes(k).sent()
+	if len(sent) != 1 {
+		t.Fatalf("sent %d notifications; want 1", len(sent))
+	}
+	return sent[0].data
+}
+
+func TestNotificationClickSwitchesToIt(t *testing.T) {
+	k, w, _ := startWithKit(t, true)
+	data := notifyKit(t, k)
+	k.clicked(data)
+	waitFor(t, "the switch to Kit", func() bool { return active(k) == "fm/kit" })
+	if n := w.focuses(); n != 1 {
+		t.Errorf("brought the window forward %d times; want once", n)
+	}
+}
+
+func TestNotificationClickForAClosedCharacterDoesNothing(t *testing.T) {
+	k, w, _ := startWithKit(t, true)
+	data := notifyKit(t, k)
+	k.Act(`{"Do":"close","Key":"fm/kit"}`)
+	waitFor(t, "Kit to close", func() bool {
+		gone := make(chan bool, 1)
+		k.loop.Call(func(a *app.App) { gone <- a.Char("fm/kit") == nil })
+		return <-gone
+	})
+	k.clicked(data)
+	k.clicked(map[string]any{}) // not one of Kiln's
+	if got := active(k); got == "fm/kit" {
+		t.Errorf("active = %q after a click for closed Kit", got)
+	}
+	if n := w.focuses(); n != 0 {
+		t.Errorf("brought the window forward %d times; want not at all", n)
+	}
+}
+
+// A click can come as the app quits, its main thread waiting on the
+// loop's end: it mustn't wait on the loop, or touch the window.
+func TestNotificationClickBeforeStartOrAfterShutdownDoesNothing(t *testing.T) {
+	before, w0, _ := newKiln(t)
+	before.clicked(map[string]any{"key": "fm/kit"})
+	k, w, _ := startWithKit(t, true)
+	data := notifyKit(t, k)
+	if err := k.ServiceShutdown(); err != nil {
+		t.Fatal(err)
+	}
+	clicked := make(chan struct{})
+	go func() { k.clicked(data); close(clicked) }()
+	select {
+	case <-clicked:
+	case <-time.After(10 * time.Second):
+		t.Fatal("a click after shutdown waited on the ended loop")
+	}
+	if n := w0.focuses() + w.focuses(); n != 0 {
+		t.Errorf("brought the window forward %d times; want not at all", n)
 	}
 }
