@@ -91,10 +91,12 @@ export function Input({ state, store }: { state: State; store: Store }) {
     else value = typing.text(key) ?? value;
   }
   // Go's over-limit ranges come after the text they're for; until then
-  // the last answer stands (Overflow's slices clamp to the text).
+  // the last answer stands (Overflow's slices clamp to the text). Asked
+  // before the browser paints, so an answer at once (the wasm's) draws in
+  // the same frame as the text.
   const [ranges, setRanges] = useState<Ranges>([]);
   const ask = useRef(latest<Ranges>()).current;
-  useEffect(() => ask(over(store.host, value, c), setRanges), [store.host, value, key, c?.MaxLineBytes, c?.NewlineMode]);
+  useLayoutEffect(() => ask(over(store.host, value, c), setRanges), [store.host, value, key, c?.MaxLineBytes, c?.NewlineMode]);
   const panel = historyShows(state);
   const said = value || panel ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does; the panel's query is a query
   const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›
