@@ -4,7 +4,7 @@ import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
 import { Store } from "../store.ts";
 import type { Event, State } from "../store.ts";
-import { loadingText } from "../boot.ts";
+import { loadingText } from "../progress.ts";
 import { sidebarCSS } from "../layout.ts";
 import { latte, roleClass } from "../theme.ts";
 import type { ThemeEvent } from "../types.ts";

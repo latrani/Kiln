@@ -5,12 +5,12 @@
 import "./kiln.css";
 import { bridge } from "./bridge.ts";
 import { effect, mount } from "./page.tsx";
+import { noHost } from "./host.ts";
+import type { Host } from "./host.ts";
 import { Store } from "./store.ts";
 
 // The caret blinks, so screenshots hide it.
 document.head.append(Object.assign(document.createElement("style"), { textContent: "* { caret-color: transparent !important; }" }));
-const store: Store = new Store((e) => effect(store)(e));
-mount(store);
 const ws = new URL(new URLSearchParams(location.search).get("bridge")!);
 // What the wasm's kiln answers at once, from the test's server:
 // synchronous, as the wasm's is (a synchronous request is fine in a
@@ -24,7 +24,12 @@ const ask = (path: string, q: Record<string, string>): string => {
   x.send();
   return x.responseText;
 };
-bridge(store, new WebSocket(ws), {
+// The host: Go's checks from the test's server; nothing to save or show.
+const host: Host = {
+  ...noHost,
   check: (field, value) => ask("check", { field, value }),
   over: (text, max, mode) => JSON.parse(ask("over", { text, max: String(max), mode })),
-});
+};
+const store: Store = new Store((e) => effect(store)(e), host);
+mount(store);
+bridge(store, new WebSocket(ws));

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import type { Host, Ranges } from "../host.ts";
 import { keyAction, strayKey } from "../input.ts";
 import { historyShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
@@ -21,12 +22,11 @@ function hint(c: any, running: boolean): string | undefined {
   return str.viewDisconnected();
 }
 
-// over is where the text runs past the line limit (Go's kiln.over), in
-// the browser's string offsets; none before Kiln runs.
-function over(text: string, c: any): [number, number][] {
-  const k = (globalThis as any).kiln;
-  if (!c || !k?.over || !text) return [];
-  return k.over(text, c.MaxLineBytes ?? 0, c.NewlineMode ?? "");
+// over is where the text runs past the line limit (Go's, from the
+// host), in the browser's string offsets; none with nothing open.
+function over(host: Host, text: string, c: any): Ranges {
+  if (!c || !text) return [];
+  return host.over(text, c.MaxLineBytes ?? 0, c.NewlineMode ?? "");
 }
 
 // Overflow draws text with what's over the limit in input.over_limit,
@@ -79,7 +79,7 @@ export function Input({ state, store }: { state: State; store: Store }) {
     if (typing.takes(key, go?.Ack ?? 0)) typing.adopt(key, value);
     else value = typing.text(key) ?? value;
   }
-  const ranges = over(value, c);
+  const ranges = over(store.host, value, c);
   const panel = historyShows(state);
   const said = value || panel ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does; the panel's query is a query
   const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›

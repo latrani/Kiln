@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { bridge } from "./bridge.ts";
+import { noHost } from "./host.ts";
 import { Store } from "./store.ts";
 
 const fake = () => {
@@ -12,7 +13,7 @@ const fake = () => {
 test("the bridge runs the page as the wasm does: running once open, batches into the store", () => {
   const s = new Store();
   const { ws, sock } = fake();
-  bridge(s, sock, { check: () => "", over: () => [] });
+  bridge(s, sock);
   ws.onopen();
   assert.equal(s.state.phase, "running");
   ws.onmessage({ data: JSON.stringify([{ type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Active", Key: "fm/kit" }]) });
@@ -22,7 +23,7 @@ test("the bridge runs the page as the wasm does: running once open, batches into
 test("what the page did before the first batch goes after it, in order", () => {
   const s = new Store();
   const { ws, sock, sent } = fake();
-  bridge(s, sock, { check: () => "", over: () => [] });
+  bridge(s, sock);
   ws.onopen();
   s.state.act!({ Do: "here" });
   assert.equal(sent.length, 0, "held until Go's first batch");
@@ -30,16 +31,10 @@ test("what the page did before the first batch goes after it, in order", () => {
   assert.deepEqual(sent.at(-1), { Do: "here" });
 });
 
-test("Go's field check, which the page calls as it's typed, is the one the bridge is given", () => {
-  const s = new Store();
+test("the bridge leaves the host alone", () => {
+  const host = { ...noHost };
+  const s = new Store(undefined, host);
   const { sock } = fake();
-  bridge(s, sock, { check: (f: string, v: string) => `${f}=${v}`, over: () => [] });
-  assert.equal((globalThis as any).kiln.check("port", "x"), "port=x");
-});
-
-test("Go's over-limit ranges, which the input draws as it's typed, are the bridge's too", () => {
-  const s = new Store();
-  const { sock } = fake();
-  bridge(s, sock, { check: () => "", over: () => [[1, 2]] });
-  assert.deepEqual((globalThis as any).kiln.over("abc", 1, "batch"), [[1, 2]]);
+  bridge(s, sock);
+  assert.equal(s.host, host);
 });

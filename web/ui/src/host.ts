@@ -24,6 +24,14 @@ export interface Host {
   storageFailed?(): void;
 }
 
+// toBase64 is bytes as base64, a chunk at a time: one call with every
+// byte as an argument would overflow the stack for a large file.
+export function toBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
 // noHost is a host with nothing behind it: no checks, no ranges, nowhere
 // to save or show anything, and no capabilities.
 export const noHost: Host = {

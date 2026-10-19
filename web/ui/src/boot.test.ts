@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadingText, presetFiles, readWithProgress, toBase64 } from "./boot.ts";
+import { presetFiles, readWithProgress } from "./boot.ts";
+import { toBase64 } from "./host.ts";
+import { loadingText } from "./progress.ts";
 import * as str from "./str.gen.ts";
 
 const res = (chunks: number[], length?: number, encoding?: string) =>

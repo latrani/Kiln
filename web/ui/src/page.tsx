@@ -3,7 +3,7 @@
 // watches. main.tsx boots the wasm under it; golden.tsx, for web/smoke's
 // screenshots, a WebSocket to Go in the test (bridge.ts).
 import { render } from "preact";
-import { toBase64 } from "./boot.ts";
+import { toBase64 } from "./host.ts";
 import { paneSize } from "./layout.ts";
 import { toggleLog } from "./log.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";

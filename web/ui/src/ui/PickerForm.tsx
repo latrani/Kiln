@@ -131,8 +131,7 @@ export function NameField({ state, store }: { state: State; store: Store }) {
   useKeys(ref, onKeyDown);
   const onInput = (e: Event) => {
     const name = (e.currentTarget as HTMLInputElement).value;
-    const check = (globalThis as any).kiln?.check;
-    store.setPicker({ name, error: (check && check("name", name)) || undefined });
+    store.setPicker({ name, error: store.host.check("name", name) || undefined });
   };
   return (
     <>

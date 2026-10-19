@@ -488,8 +488,7 @@ export class Store {
   editField(key: string, value: string | boolean): void {
     const p = this.state.picker;
     if (!p?.edit) return;
-    const check = (globalThis as any).kiln?.check as ((f: string, v: string) => string) | undefined;
-    this.set({ picker: { ...p, edit: edit(p.edit, key, value, check) } });
+    this.set({ picker: { ...p, edit: edit(p.edit, key, value, (f, v) => this.host.check(f, v)) } });
   }
 
   // sendEditor sends the editor's save or delete; its answer settles it
