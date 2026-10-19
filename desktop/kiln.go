@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/native"
+	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/webapi"
 )
@@ -31,6 +33,9 @@ type dialogs interface {
 	// SaveFile asks where to save a file named name, starting in dir ("":
 	// the OS's choice). "" is a cancel.
 	SaveFile(name, dir string) (path string, err error)
+	// ConfirmQuit asks whether to quit with n characters connected:
+	// true for Quit, false for Cancel.
+	ConfirmQuit(n int) bool
 }
 
 // Kiln is the service the page calls: Kiln's core, the TUI's (see
@@ -45,6 +50,10 @@ type Kiln struct {
 	loop   *webapi.Loop  // nil until Start
 	cancel func()        // stops the loop
 	done   chan struct{} // closed once the loop has ended and the core is closed
+
+	quitMu   sync.Mutex
+	quitting bool // the quit is answered: every gate lets it through
+	asking   bool // the quit question is up
 }
 
 // Start builds the core and runs the loop, once the page's listeners
@@ -169,5 +178,90 @@ func (k *Kiln) exportDir() string {
 		return dir
 	case <-done:
 		return ""
+	}
+}
+
+// gateWait is how long quitGate waits for the loop to say who's
+// connected before asking off the main thread instead.
+const gateWait = 250 * time.Millisecond
+
+// quitGate is whether a quit (Cmd+Q, the app menu's Quit, the system's)
+// or the window's closing (its close button, Alt+F4) goes ahead: Wails'
+// ShouldQuit and WindowClosing hook. Once a quit is answered every gate
+// lets it through, so the closing and quitting that follow it don't ask
+// again.
+//
+// With nothing connected the quit goes ahead. Otherwise it's held while
+// shouldQuit asks, off the gate: ShouldQuit runs on the main thread,
+// which the question needs and which the loop may be waiting on. Quit
+// quits again, and that passes. While the question is up, other gates
+// hold without asking.
+func (k *Kiln) quitGate() bool {
+	k.quitMu.Lock()
+	defer k.quitMu.Unlock()
+	if k.quitting {
+		return true
+	}
+	if k.asking {
+		return false
+	}
+	if n, ok := k.connected(time.After(gateWait)); ok && n == 0 {
+		k.quitting = true
+		return true
+	}
+	k.asking = true
+	go func() {
+		yes := k.shouldQuit()
+		k.quitMu.Lock()
+		k.asking, k.quitting = false, yes
+		k.quitMu.Unlock()
+		if yes {
+			k.win.Quit()
+		}
+	}()
+	return false
+}
+
+// shouldQuit is true when no character is connected, and otherwise asks,
+// true for Quit. It waits for the answer, so it never runs on the main
+// thread.
+func (k *Kiln) shouldQuit() bool {
+	n, _ := k.connected(nil)
+	return n == 0 || k.dialogs.ConfirmQuit(n)
+}
+
+func (k *Kiln) isAsking() bool {
+	k.quitMu.Lock()
+	defer k.quitMu.Unlock()
+	return k.asking
+}
+
+// connected is how many characters are connected, read on the loop; 0
+// when it isn't running. ok is false if timeout fired first (nil: wait
+// for the loop).
+func (k *Kiln) connected(timeout <-chan time.Time) (n int, ok bool) {
+	k.mu.Lock()
+	l, done := k.loop, k.done
+	k.mu.Unlock()
+	if l == nil {
+		return 0, true
+	}
+	got := make(chan int, 1)
+	l.Call(func(a *app.App) {
+		n := 0
+		for _, key := range a.Order() {
+			if a.Char(key).State == session.Connected {
+				n++
+			}
+		}
+		got <- n
+	})
+	select {
+	case n := <-got:
+		return n, true
+	case <-done:
+		return 0, true
+	case <-timeout:
+		return 0, false
 	}
 }

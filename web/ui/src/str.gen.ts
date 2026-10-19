@@ -380,6 +380,9 @@ export function dateDayTime(): string { return `Mon Jan 2 15:04`; }
 /** date.day_year: Mon Jan 2 2006 */
 export function dateDayYear(): string { return `Mon Jan 2 2006`; }
 
+/** desktop.cancel: Cancel */
+export function desktopCancel(): string { return `Cancel`; }
+
 /** desktop.not_a_link: not a web link: {url} */
 export function desktopNotALink(url: unknown): string { return `not a web link: ${url}`; }
 
@@ -388,6 +391,20 @@ export function desktopNotifyDenied(): string { return `this system blocks Kiln'
 
 /** desktop.notify_unsupported: this system can't show Kiln's notifications: check System Settings → Notifications */
 export function desktopNotifyUnsupported(): string { return `this system can't show Kiln's notifications: check System Settings → Notifications`; }
+
+/** desktop.quit: Quit */
+export function desktopQuit(): string { return `Quit`; }
+
+/** desktop.quit_message: one: 1 character is still connected. Quitting disconnects it. · other: {n} characters are still connected. Quitting disconnects them. */
+export function desktopQuitMessage(n: number): string {
+  switch (plural.select(n)) {
+    case "one": return `1 character is still connected. Quitting disconnects it.`;
+    default: return `${n} characters are still connected. Quitting disconnects them.`;
+  }
+}
+
+/** desktop.quit_title: Quit Kiln? */
+export function desktopQuitTitle(): string { return `Quit Kiln?`; }
 
 /** editor.aliases: Aliases */
 export function editorAliases(): string { return `Aliases`; }

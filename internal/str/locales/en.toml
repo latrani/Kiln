@@ -566,3 +566,11 @@ not_a_link = "not a web link: {url}"
 # allowed.
 notify_denied = "this system blocks Kiln's notifications: allow them in System Settings → Notifications"
 notify_unsupported = "this system can't show Kiln's notifications: check System Settings → Notifications"
+# The question quitting asks while characters are connected (the
+# window's close button quits too). Quit and Cancel are its buttons; on
+# Windows the system draws Yes and No instead, so the title stays a
+# yes-or-no question.
+quit_title = "Quit Kiln?"
+quit_message = { one = "1 character is still connected. Quitting disconnects it.", other = "{n} characters are still connected. Quitting disconnects them." }
+quit = "Quit"
+cancel = "Cancel"

@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/str"
@@ -48,17 +49,36 @@ func run() error {
 	}
 	k := &Kiln{cfgDir: cfgDir, dataDir: dataDir}
 	a := application.New(application.Options{
-		Name:     str.WebAppName(),
-		Services: []application.Service{application.NewService(k)},
-		Assets:   application.AssetOptions{Handler: application.AssetFileServerFS(page)},
-		Mac:      application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		Name:       str.WebAppName(),
+		Services:   []application.Service{application.NewService(k)},
+		Assets:     application.AssetOptions{Handler: application.AssetFileServerFS(page)},
+		Mac:        application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		ShouldQuit: k.quitGate,
 	})
+	if runtime.GOOS == "darwin" { //str:ok
+		a.Menu.Set(macMenu())
+	}
 	w := wailsWindow{a: a, win: a.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: str.WebAppName(),
 		URL:   "/",
 	})}
+	w.win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if !k.quitGate() {
+			e.Cancel()
+		}
+	})
 	k.win, k.dialogs = w, w
 	return a.Run()
+}
+
+// macMenu is the system's App, Edit and Window menus, and no Kiln ones.
+// Without an Edit menu, Cmd+C, V, X and A do nothing in the webview.
+func macMenu() *application.Menu {
+	m := application.NewMenu()
+	m.AddRole(application.AppMenu)
+	m.AddRole(application.EditMenu)
+	m.AddRole(application.WindowMenu)
+	return m
 }
 
 // wailsWindow is the window and dialogs Kiln uses, through the Wails app.
@@ -81,6 +101,32 @@ func (w wailsWindow) SaveFile(name, dir string) (string, error) {
 		return "", nil
 	}
 	return path, err
+}
+
+// ConfirmQuit asks on a sheet (macOS) or message box over the window,
+// waiting for the answer, so it's never called on the main thread: the
+// dialog is shown there, and on macOS and Linux answers later. Quit is
+// the default (Return), Cancel the cancel (Esc).
+func (w wailsWindow) ConfirmQuit(n int) bool {
+	quit, cancel := str.DesktopQuit(), str.DesktopCancel()
+	if runtime.GOOS == "windows" { //str:ok
+		// Wails' Windows question is a Yes/No message box, whatever the
+		// labels, and it finds a button's OnClick by matching its label
+		// to the one pressed (dialogs_windows.go). Windows draws its own
+		// Yes and No.
+		quit, cancel = "Yes", "No" //str:ok: Wails' Windows button names
+	}
+	answer := make(chan bool, 1)
+	d := w.a.Dialog.Question().
+		SetTitle(str.DesktopQuitTitle()).
+		SetMessage(str.DesktopQuitMessage(n)).
+		AttachToWindow(w.win)
+	// Cancel first: Wails adds macOS's buttons last first, which puts
+	// the last, Quit, on the right.
+	d.AddButton(cancel).SetAsCancel().OnClick(func() { answer <- false })
+	d.AddButton(quit).SetAsDefault().OnClick(func() { answer <- true })
+	d.Show()
+	return <-answer
 }
 
 // windowsCancel is whether err is Wails' Windows Save dialog saying it
