@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as esbuild from "esbuild";
 import * as str from "./str.gen.ts";
 import { terminalDark, terminalLight } from "./terminal.gen.ts";
 
@@ -39,6 +40,16 @@ test("the golden build has the WebSocket bridge; the page's build doesn't", (t) 
   execFileSync(process.execPath, ["build.mjs", golden, "golden"], { cwd: ui });
   assert.ok(!readFileSync(join(page, "app.js"), "utf8").includes("WebSocket"), "the page talks to Go only through the wasm");
   assert.ok(readFileSync(join(golden, "app.js"), "utf8").includes("WebSocket"));
+});
+
+test("the page's bundle carries no host", async () => {
+  const r = await esbuild.build({
+    absWorkingDir: ui, entryPoints: ["src/page.tsx"], bundle: true, write: false, metafile: true, format: "esm",
+    jsx: "automatic", jsxImportSource: "preact", loader: { ".woff2": "file", ".css": "empty" }, outdir: "out", logLevel: "silent",
+  });
+  const hosts = ["boot.ts", "memfs.mjs", "persist.mjs", "tablock.mjs", "push.ts", "sw.ts", "webhost.ts"];
+  const carried = Object.keys(r.metafile!.inputs).filter((f) => hosts.some((h) => f.endsWith("/" + h)));
+  assert.deepEqual(carried, []);
 });
 
 // built is the page built once into a temporary directory.

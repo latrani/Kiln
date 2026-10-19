@@ -1,4 +1,4 @@
-import { loadingText } from "../boot.ts";
+import { loadingText } from "../progress.ts";
 import { cursorOf, findStatus, selectChip } from "../log.ts";
 import type { LogState } from "../log.ts";
 import { ask, dismiss } from "../notify.ts";

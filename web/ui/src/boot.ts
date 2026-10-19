@@ -11,7 +11,6 @@ import { launched } from "./offline.ts";
 import * as push from "./push.ts";
 import { resetter } from "./reset.ts";
 import type { Event, Store } from "./store.ts";
-import * as str from "./str.gen.ts";
 import { forgetTheme } from "./theme.ts";
 
 const HOME = "/home/kiln";
@@ -42,13 +41,6 @@ export async function readWithProgress(res: Response, onProgress: (got: number, 
     at += c.byteLength;
   }
   return out.buffer;
-}
-
-const mb = (n: number) => (n / 1e6).toFixed(1);
-
-// loadingText is the status line's words while the wasm downloads.
-export function loadingText(got: number, total?: number): string {
-  return total ? str.webLoadingSize(mb(got), mb(total)) : str.webLoading(mb(got));
 }
 
 function loadScript(src: string): Promise<void> {
@@ -102,39 +94,6 @@ async function seedPreset(fs: any): Promise<void> {
   for (const a of adopt) served[a.world] = await get(a.file);
   (globalThis as any).kilnServedWorlds = served;
   (globalThis as any).kilnRelayWorlds = worlds;
-}
-
-// toBase64 is bytes as base64, a chunk at a time: one call with every
-// byte as an argument would overflow the stack for a large file.
-export function toBase64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(s);
-}
-
-// pickFile asks for a file (a backup to restore) and gives its bytes to
-// done, no more than max and one past it, so Go can say a file is too
-// big without the page reading all of one; nothing if none is chosen.
-export function pickFile(accept: string, max: number, done: (bytes: Uint8Array) => void): void {
-  const f = Object.assign(document.createElement("input"), { type: "file", accept, hidden: true });
-  document.body.append(f);
-  f.addEventListener("cancel", () => f.remove());
-  f.addEventListener("change", async () => {
-    const file = f.files?.[0];
-    f.remove();
-    if (file) done(new Uint8Array(await file.slice(0, max + 1).arrayBuffer()));
-  });
-  f.click();
-}
-
-// download saves bytes as a file named name.
-export function download(name: string, bytes: Uint8Array): void {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart]));
-  const a = Object.assign(document.createElement("a"), { href: url, download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // boot starts Kiln, telling the store how far it's got.

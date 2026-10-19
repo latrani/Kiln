@@ -99,6 +99,16 @@ function FilterForm({ state, store }: { state: State; store: Store }) {
 // and connects it; Esc goes back to the filter. As you type, Go's check
 // says what won't do; Enter still tries (Go's save has the last word,
 // and says why in the same place).
+// nameTyped takes name as typed in the add form, then asks Go's check
+// of it; the answer shows if the form is still open on that name.
+export function nameTyped(store: Store, name: string): void {
+  store.setPicker({ name });
+  store.host.check("name", name).then((msg) => {
+    const p = store.state.picker;
+    if (p?.adding && p.name === name) store.setPicker({ error: msg || undefined });
+  }, (err) => console.error("check", err));
+}
+
 export function NameField({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
   const ref = useRef<HTMLInputElement>(null);
@@ -131,8 +141,7 @@ export function NameField({ state, store }: { state: State; store: Store }) {
   useKeys(ref, onKeyDown);
   const onInput = (e: Event) => {
     const name = (e.currentTarget as HTMLInputElement).value;
-    const check = (globalThis as any).kiln?.check;
-    store.setPicker({ name, error: (check && check("name", name)) || undefined });
+    nameTyped(store, name);
   };
   return (
     <>

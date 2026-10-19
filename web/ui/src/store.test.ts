@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { focusPanel, glyphClick, panelAct, panelClick } from "./filter.ts";
 import { cursorOf, logAct, logClick, selectChip, syncCursor, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
+import { noHost } from "./host.ts";
+import type { Host } from "./host.ts";
 import { listing, logShows, Store } from "./store.ts";
+import { nameTyped } from "./ui/PickerForm.tsx";
 import * as str from "./str.gen.ts";
 import type { LineData } from "./store.ts";
 
@@ -768,4 +771,89 @@ test("a Sent event is counted, so the scrollback hears each one, across a fresh 
   s.apply([{ type: "Start" }]);
   s.apply([{ type: "Sent", Key: "fm/kit", Seen: 41 }]);
   assert.deepEqual(s.state.sent, { key: "fm/kit", seen: 41, n: 2 });
+});
+
+// asking is a running store whose host's check answers only when told:
+// calls[i].answer(msg).
+const asking = () => {
+  const calls: { field: string; value: string; answer: (msg: string) => void }[] = [];
+  const host: Host = { ...noHost, check: (field, value) => new Promise<string>((answer) => calls.push({ field, value, answer })) };
+  const s = new Store(undefined, host);
+  s.set({ phase: "running", act: () => {} });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] },
+    { type: "Char", Key: "fm/kit", World: "fm", ID: "kit", Name: "Kit", State: 2 }, { type: "Order", Keys: ["fm/kit"] }, { type: "Active", Key: "fm/kit" }]);
+  return { s, calls };
+};
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
+test("a late check for a field that moved on is dropped", async () => {
+  for (const order of [[0, 1], [1, 0]]) {
+    const { s, calls } = asking();
+    s.openEditor({ kind: "world", world: "fm" }, false);
+    s.apply([fmSettings]);
+    s.editField("port", "88a");
+    s.editField("port", "88");
+    const msgs = [str.editorPortNumber(), ""];
+    for (const i of order) calls[i].answer(msgs[i]);
+    await settle();
+    assert.equal(editor(s)?.live.port, undefined, `answered in order ${order}`);
+  }
+});
+
+test("a check's answer marks the field it was for", async () => {
+  const { s, calls } = asking();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.editField("port", "88a");
+  calls[0].answer(str.editorPortNumber());
+  await settle();
+  assert.equal(editor(s)?.live.port, str.editorPortNumber());
+});
+
+test("a check that answers after the editor closed changes nothing", async () => {
+  const { s, calls } = asking();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.editField("port", "88a");
+  s.closeEditor();
+  calls[0].answer(str.editorPortNumber());
+  await settle();
+  assert.equal(editor(s), undefined);
+});
+
+test("a check that answers after another editor opened leaves that one be", async () => {
+  const { s, calls } = asking();
+  s.openEditor({ kind: "world", world: "fm" }, false);
+  s.apply([fmSettings]);
+  s.editField("aliases", "a b");
+  s.closeEditor();
+  s.openEditor({ kind: "char", world: "fm", char: "kit" }, false);
+  s.apply([kitSettings]);
+  s.editField("aliases", "a b"); // the same value, in Kit's editor
+  calls[0].answer("nope");
+  await settle();
+  assert.equal(editor(s)?.live.aliases, undefined);
+});
+
+test("a name check after Esc doesn't bring back the error", async () => {
+  const { s, calls } = asking();
+  s.openPicker();
+  s.setPicker({ adding: "fm" });
+  nameTyped(s, "K!t");
+  s.setPicker({ adding: undefined, name: undefined, error: undefined });
+  calls[0].answer("bad name");
+  await settle();
+  assert.equal(s.state.picker?.error, undefined);
+});
+
+test("a name check answers for the name still typed", async () => {
+  const { s, calls } = asking();
+  s.openPicker();
+  s.setPicker({ adding: "fm" });
+  nameTyped(s, "K!t");
+  nameTyped(s, "Kit");
+  calls[1].answer("");
+  calls[0].answer("bad name");
+  await settle();
+  assert.equal(s.state.picker?.error, undefined);
 });
