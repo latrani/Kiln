@@ -7,6 +7,7 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -69,5 +70,19 @@ func (w wailsWindow) SaveFile(name, dir string) (string, error) {
 	if dir != "" {
 		d.SetDirectory(dir)
 	}
-	return d.PromptForSingleSelection()
+	path, err := d.PromptForSingleSelection()
+	if runtime.GOOS == "windows" && windowsCancel(err) { //str:ok
+		return "", nil
+	}
+	return path, err
+}
+
+// windowsCancel is whether err is Wails' Windows Save dialog saying it
+// was cancelled. There a cancel is an error, not "" as on macOS and
+// Linux: dialogs_windows.go returns ShowAndGetResult's error, and its
+// internal cfd package (go-common-file-dialog, cfd/errors.go) gives
+// ErrorCancelled for one. Being internal, it can only be matched by its
+// message.
+func windowsCancel(err error) bool {
+	return err != nil && err.Error() == "cancelled by user" //str:ok: Wails' cfd.ErrorCancelled
 }
