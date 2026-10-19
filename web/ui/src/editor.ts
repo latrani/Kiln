@@ -5,14 +5,16 @@
 import * as str from "./str.gen.ts";
 
 // Target is what an editor adds or edits.
-export type Target = { kind: "world"; world: string } | { kind: "char"; world: string; char: string };
+export type Target = { kind: "world"; world: string } | { kind: "char"; world: string; char: string } | { kind: "new-world" };
 
 // targetKey names a target as the picker's rows do: "=world",
-// "world/char". One editor (or draft) per key.
-export const targetKey = (t: Target): string => (t.kind === "world" ? "=" + t.world : `${t.world}/${t.char}`);
+// "world/char". One editor (or draft) per key. A new world's is "=", for
+// that's how Go's answer to adding one names it (no world).
+export const targetKey = (t: Target): string => (t.kind === "new-world" ? "=" : t.kind === "world" ? "=" + t.world : `${t.world}/${t.char}`);
 
 // targetOf is the target Go's Settings (or a settings action) is for.
 export function targetOf(e: { World: string; Char: string }): Target {
+  if (!e.World && !e.Char) return { kind: "new-world" };
   return e.Char ? { kind: "char", world: e.World, char: e.Char } : { kind: "world", world: e.World };
 }
 
@@ -63,15 +65,18 @@ function inheritChoice(key: string, label: string, inherits: string, options: st
   return { kind: "choice", key, label, extra, options: [{ value: "", shown: str.editorDefault(shown(inherits)) }, ...options.map((o) => ({ value: o, shown: shown(o) }))] };
 }
 
-// worldFields is a world's form. Its host, port, TLS and cert trust are
-// fixed: on the web they're the relay's allowlist's, which the page
-// can't change.
-function worldFields(inh: Inherited): Field[] {
+// worldFields is a world's form; a new world's starts with its ID. Its
+// host, port, TLS and cert trust are fixed unless the host can change
+// them (worlds): on the web they're the relay's allowlist's, which the
+// page can't change.
+function worldFields(inh: Inherited, worlds: boolean, add: boolean): Field[] {
+  const fixed = !worlds;
   return [
-    { kind: "text", key: "host", label: str.editorHost(), fixed: true },
-    { kind: "text", key: "port", label: str.editorPort(), fixed: true },
-    { kind: "toggle", key: "tls", label: str.editorTls(), fixed: true },
-    { ...inheritChoice("tls_trust", str.editorCertTrust(), "pin", ["pin", "ca"], true), fixed: true },
+    ...(add ? [{ kind: "text", key: "id", label: str.editorWorld() } as Field] : []),
+    { kind: "text", key: "host", label: str.editorHost(), fixed },
+    { kind: "text", key: "port", label: str.editorPort(), fixed },
+    { kind: "toggle", key: "tls", label: str.editorTls(), fixed },
+    { ...inheritChoice("tls_trust", str.editorCertTrust(), "pin", ["pin", "ca"], true), fixed },
     { kind: "text", key: "use", label: str.editorPacks(), hint: str.editorNone(), extra: true },
     { kind: "text", key: "login", label: str.editorLogin(), hint: str.editorDefaultHint(inh.Login || str.editorNone()), extra: true },
     { kind: "text", key: "max_line_bytes", label: str.editorMaxBytes(), hint: str.editorDefaultHint(inh.MaxLineBytes), extra: true },
@@ -106,19 +111,20 @@ function valuesOf(e: SettingsEvent): Values {
       notify: s.Notify ?? "", local_echo: optBool(s.LocalEcho) };
   }
   const s = e.WorldSettings;
-  const v: Values = { host: s.Host ?? "", port: s.Port > 0 ? String(s.Port) : "", tls: !!s.TLS, tls_trust: s.TLSTrust ?? "",
+  const v: Values = { ...(e.World ? {} : { id: "" }), host: s.Host ?? "", port: s.Port > 0 ? String(s.Port) : "", tls: !!s.TLS, tls_trust: s.TLSTrust ?? "",
     use: (s.Use ?? []).join(", "), login: s.Login ?? "", max_line_bytes: s.MaxLineBytes == null ? "" : String(s.MaxLineBytes),
     newline_mode: s.NewlineMode ?? "", autoconnect: optBool(s.Autoconnect), reconnect: optBool(s.Reconnect),
     notify: s.Notify ?? "", local_echo: optBool(s.LocalEcho) };
   return v;
 }
 
-// newEditor is the editor for what Go's Settings e is for, filled in.
-export function newEditor(e: SettingsEvent, closeAll: boolean): Editor {
+// newEditor is the editor for what Go's Settings e is for, filled in;
+// worlds is whether the host can change a world's connection.
+export function newEditor(e: SettingsEvent, closeAll: boolean, worlds: boolean): Editor {
   const target = targetOf(e);
   const fields = target.kind === "char" ? [{ kind: "text", key: "aliases", label: str.editorAliases(), hint: str.editorNone() } as Field, ...charChoices(e.Inherited, false)]
-    : worldFields(e.Inherited);
-  const title = str.editorEditing(target.kind === "char" ? `${e.World}/${e.Name}` : e.World);
+    : worldFields(e.Inherited, worlds, target.kind === "new-world");
+  const title = target.kind === "new-world" ? str.editorNewWorld() : str.editorEditing(target.kind === "char" ? `${e.World}/${e.Name}` : e.World);
   const values = valuesOf(e);
   return { target, title, fields, values, saved: JSON.stringify(values), more: false, armed: false, problems: [], live: {}, refused: 0, closeAll };
 }
@@ -156,6 +162,7 @@ export function saveAction(ed: Editor): { Do: string; [k: string]: unknown } {
     Login: orNull(text(v, "login")), MaxLineBytes: text(v, "max_line_bytes") === "" ? null : num(text(v, "max_line_bytes")),
     NewlineMode: orNull(text(v, "newline_mode")), Autoconnect: boolOf(v.autoconnect), Reconnect: boolOf(v.reconnect),
     Notify: orNull(text(v, "notify")), LocalEcho: boolOf(v.local_echo) };
+  if (t.kind === "new-world") return { Do: "add_world", ID: text(v, "id"), WorldSettings: s };
   return { Do: "save_world", World: t.world, WorldSettings: s };
 }
 

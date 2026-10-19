@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
+import { noHost } from "../host.ts";
 import { Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
@@ -84,4 +85,56 @@ test("for screen readers: the summary's glyph is hidden; a choice's id and error
   assert.match(html, /<details[^>]*\sopen[^>]*>\s*<summary[^>]*><span aria-hidden="true" class="dglyph">▼<\/span>/, "opened for the refused choice inside it");
   assert.match(html, /<input type="radio" id="ed-reconnect"[^>]*value="off"[^>]*checked/, "focusing the field lands on what's chosen");
   assert.match(html, /<input type="radio"[^>]*value="on"[^>]*aria-invalid="true"[^>]*aria-describedby="ed-reconnect-err"/, "each radio carries the error");
+});
+
+const settings0 = { type: "Settings", World: "", Char: "", Name: "", Inherited: inh,
+  WorldSettings: { Host: "", Port: 0, TLS: false, TLSTrust: "", Use: [], Login: null, MaxLineBytes: null, NewlineMode: null, Autoconnect: null, Reconnect: null, Notify: null, LocalEcho: null } };
+
+test("a host that adds worlds: a world's host, port, TLS and cert trust are edited, not read-only", () => {
+  const s = new Store(undefined, { ...noHost, worlds: true });
+  s.set({ phase: "running", act: () => {} });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }] }]);
+  s.openEditor({ kind: "world", world: "fm" }, true);
+  s.apply([fm]);
+  const html = render(<App store={s} />);
+  assert.doesNotMatch(html, /<input(?=[^>]*id="ed-host")(?=[^>]*readonly)/);
+  assert.doesNotMatch(html, /<input(?=[^>]*id="ed-tls")(?=[^>]*disabled)/);
+  assert.doesNotMatch(html, /<input(?=[^>]*name="ed-tls_trust")(?=[^>]*disabled)/);
+});
+
+test("the new-world form: titled New world, an ID field first, no Delete", () => {
+  const s = new Store(undefined, { ...noHost, worlds: true });
+  s.set({ phase: "running", act: () => {} });
+  s.openPicker();
+  s.openEditor({ kind: "new-world" }, false);
+  s.apply([settings0]);
+  const html = render(<App store={s} />);
+  assert.ok(html.includes(str.editorNewWorld()));
+  assert.match(html, new RegExp(`<label[^>]*for="ed-id"[^>]*>${str.editorWorld()}: </label>`));
+  assert.ok(html.indexOf('id="ed-id"') < html.indexOf('id="ed-host"'));
+  assert.ok(!html.includes(str.editorDeleteWorld()));
+});
+
+test("a refusal marks the ID field", () => {
+  const s = new Store(undefined, { ...noHost, worlds: true });
+  s.set({ phase: "running", act: () => {} });
+  s.openPicker();
+  s.openEditor({ kind: "new-world" }, false);
+  s.apply([settings0]);
+  s.sendEditor({ Do: "add_world" });
+  s.apply([{ type: "Problems", Op: "add_world", World: "", Char: "", Problems: [{ Field: "id", Msg: "taken" }] }]);
+  assert.match(render(<App store={s} />), /<input[^>]*id="ed-id"[^>]*aria-invalid="true"/);
+});
+
+test("the picker lists + World last, in picker.add, only for a host that can", () => {
+  for (const worlds of [true, false]) {
+    const s = new Store(undefined, worlds ? { ...noHost, worlds: true } : noHost);
+    s.set({ phase: "running" });
+    s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }] }]);
+    s.openPicker();
+    const html = render(<App store={s} />);
+    const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+    assert.equal(nav.includes(str.pickerAddWorld()), worlds);
+    if (worlds) assert.ok(nav.includes(`<span class="${roleClass("picker.add")}"> ${str.pickerAddWorld()} </span>`) && nav.indexOf("pick-+\"") > nav.indexOf("pick-+fm"), "last");
+  }
 });

@@ -6,8 +6,8 @@ import * as str from "./str.gen.ts";
 const inh = { Login: "", MaxLineBytes: 4096, NewlineMode: "batch", Autoconnect: false, Reconnect: true, Notify: "first", LocalEcho: true };
 const fmSettings = { Host: "muck.test", Port: 8888, TLS: true, TLSTrust: "", Use: ["fuzzball"], Login: null, MaxLineBytes: 2048,
   NewlineMode: null, Autoconnect: true, Reconnect: null, Notify: null, LocalEcho: null };
-const fm = () => newEditor({ World: "fm", Char: "", Name: "", WorldSettings: fmSettings, Inherited: inh }, false);
-const kit = () => newEditor({ World: "fm", Char: "kit", Name: "Kit", CharSettings: { Aliases: ["kitty"], Autoconnect: null, Reconnect: false, Notify: "all", LocalEcho: null }, Inherited: inh }, true);
+const fm = () => newEditor({ World: "fm", Char: "", Name: "", WorldSettings: fmSettings, Inherited: inh }, false, false);
+const kit = () => newEditor({ World: "fm", Char: "kit", Name: "Kit", CharSettings: { Aliases: ["kitty"], Autoconnect: null, Reconnect: false, Notify: "all", LocalEcho: null }, Inherited: inh }, true, false);
 
 test("a world's form: the TUI's fields, in order, the rest behind More settings", () => {
   const ed = fm();
@@ -98,4 +98,40 @@ test("delete: a world or a character", () => {
 test("targets key as the picker's rows do", () => {
   assert.equal(targetKey(fm().target), "=fm");
   assert.equal(targetKey(kit().target), "fm/kit");
+});
+
+const newWorld = (worlds = true) => newEditor({ World: "", Char: "", Name: "", WorldSettings: { Host: "", Port: 0, TLS: false, TLSTrust: "", Use: ["fuzzball"], Login: null, MaxLineBytes: null,
+  NewlineMode: null, Autoconnect: null, Reconnect: null, Notify: null, LocalEcho: null }, Inherited: inh }, false, worlds);
+
+test("a host that can add worlds: host, port, TLS and cert trust are edited, not fixed", () => {
+  assert.deepEqual(newEditor({ World: "fm", Char: "", Name: "", WorldSettings: fmSettings, Inherited: inh }, false, true).fields.filter((f) => f.fixed), []);
+});
+
+test("a new world's form: an ID first, then the world's fields; titled New world", () => {
+  const ed = newWorld();
+  assert.deepEqual(ed.target, { kind: "new-world" });
+  assert.equal(ed.title, str.editorNewWorld());
+  assert.deepEqual(ed.fields.filter((f) => !f.extra).map((f) => f.key), ["id", "host", "port", "tls"]);
+  assert.equal(ed.fields[0].kind === "text" && ed.fields[0].label, str.editorWorld());
+  assert.ok(ed.fields.every((f) => !f.fixed));
+  assert.equal(ed.values.use, "fuzzball", "what Go starts a new world from");
+  assert.equal(targetKey(ed.target), "=", "Go answers a new world's save as for no world");
+});
+
+test("a new world saves as add_world, with the typed ID and settings; there's no Delete", () => {
+  let ed = newWorld();
+  for (const [k, v] of [["id", "fm"], ["host", "muck.test"], ["port", "8888"]] as const) ed = edit(ed, k, v);
+  ed = edit(ed, "tls", true);
+  const a = saveAction(ed) as any;
+  assert.equal(a.Do, "add_world");
+  assert.equal(a.ID, "fm");
+  assert.deepEqual([a.WorldSettings.Host, a.WorldSettings.Port, a.WorldSettings.TLS, a.WorldSettings.Use], ["muck.test", 8888, true, ["fuzzball"]]);
+  assert.equal(deleteAction(ed), undefined);
+});
+
+test("Go's problems mark the ID field", () => {
+  const ed = refuse(edit(newWorld(), "id", "x y"), [{ Field: "id", Msg: "bad id" }]);
+  assert.equal(errorOf(ed, "id"), "bad id");
+  assert.equal(firstError(ed), "id");
+  assert.equal(formError(ed), undefined);
 });

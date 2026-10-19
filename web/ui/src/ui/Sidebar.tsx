@@ -92,7 +92,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
       <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} collapse={{ role: "picker.collapse", state, store }} />
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
-        {groups(pickerRows(state.worlds, state.chars, p.filter)).map(({ world, rows }) => (
+        {groups(pickerRows(state.worlds, state.chars, p.filter, store.host.worlds === true)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen
           // reader says which world a character is in; the first is the
           // world's own row, its editor.
@@ -126,8 +126,13 @@ function PickerList({ state, store }: { state: State; store: Store }) {
             </ul>
           </li>
         ))}
-        {/* No + World, unlike the TUI's: the worlds are the relay's
-            allowlist (picker.ts). */}
+        {/* + World ends the list, a chip with no indent, as the TUI's;
+            only for a host that can add worlds (picker.ts). */}
+        {store.host.worlds === true && (
+          <li id="pick-+" role="option" aria-selected={p.sel === "+"} class="pick" onClick={() => choose(store, "+")}>
+            <span class={roleClass(p.sel === "+" ? "picker.selected" : "picker.add")}> {str.pickerAddWorld()} </span>
+          </li>
+        )}
       </ul>
     </nav>
   );
@@ -139,6 +144,7 @@ function groups(rows: PickRow[]): { world: string; rows: PickRow[] }[] {
   const out: { world: string; rows: PickRow[] }[] = [];
   for (const r of rows) {
     if (r.kind === "world") out.push({ world: r.world, rows: [r] });
+    else if (r.kind === "add_world") continue; // the list's own last row
     else out.at(-1)?.rows.push(r);
   }
   return out;

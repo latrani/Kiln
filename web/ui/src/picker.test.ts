@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { answered, choose, editorKey, fixPick, logToggleKey, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
 import { Store } from "./store.ts";
+import { noHost } from "./host.ts";
+import * as str from "./str.gen.ts";
 
 const worlds = [
   { ID: "Bay", Characters: [{ ID: "ash", Name: "Ash", Aliases: ["cinder"] }] },
@@ -10,37 +12,37 @@ const worlds = [
 const kinds = (rows: { kind: string }[]) => rows.map((r) => r.kind).join(" ");
 
 test("characters not open, under their worlds, each world ending with + Character; no + World on the web", () => {
-  const rows = pickerRows(worlds, { "fm/kit": {} }, "");
+  const rows = pickerRows(worlds, { "fm/kit": {} }, "", false);
   assert.equal(kinds(rows), "world char add_char world char add_char", "the worlds are the relay's");
   assert.deepEqual(pickable(rows), ["=Bay", "Bay/ash", "+Bay", "=fm", "fm/rook", "+fm"]);
 });
 
 test("the filter matches a name, an alias or the world, ignoring case and spaces around it", () => {
-  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ")), ["=Bay", "Bay/ash", "+Bay"]);
-  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm")), ["=fm", "fm/kit", "fm/rook", "+fm"]);
+  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ", false)), ["=Bay", "Bay/ash", "+Bay"]);
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm", false)), ["=fm", "fm/kit", "fm/rook", "+fm"]);
 });
 
 test("a world whose name matches is listed with nothing to offer; one that doesn't, isn't", () => {
-  const rows = pickerRows(worlds, { "fm/kit": {}, "fm/rook": {} }, "f");
+  const rows = pickerRows(worlds, { "fm/kit": {}, "fm/rook": {} }, "f", false);
   assert.equal(kinds(rows), "world add_char");
 });
 
 test("the highlight stays on its row, else goes to the first character, else the first row", () => {
-  const rows = pickerRows(worlds, {}, "");
+  const rows = pickerRows(worlds, {}, "", false);
   assert.equal(fixPick(rows, "fm/kit"), "fm/kit");
   assert.equal(fixPick(rows, "=fm"), "=fm", "a world's row can be highlighted");
   assert.equal(fixPick(rows, "gone/x"), "Bay/ash");
-  assert.equal(fixPick(pickerRows(worlds, { "Bay/ash": {}, "fm/kit": {}, "fm/rook": {} }, ""), ""), "=Bay");
+  assert.equal(fixPick(pickerRows(worlds, { "Bay/ash": {}, "fm/kit": {}, "fm/rook": {} }, "", false), ""), "=Bay");
 });
 
 test("nothing matches: no rows, nothing highlighted", () => {
-  const rows = pickerRows(worlds, {}, "zzz");
+  const rows = pickerRows(worlds, {}, "zzz", false);
   assert.equal(kinds(rows), "");
   assert.equal(fixPick(rows, "fm/kit"), "");
 });
 
 test("↑/↓ move a row, stopping at the ends; PgUp/PgDn a page of rows", () => {
-  const rows = pickerRows(worlds, {}, "");
+  const rows = pickerRows(worlds, {}, "", false);
   assert.equal(movePick(rows, "Bay/ash", -1), "=Bay");
   assert.equal(movePick(rows, "=Bay", -1), "=Bay");
   assert.equal(movePick(rows, "+fm", 1), "+fm", "the last row");
@@ -160,4 +162,60 @@ test("Ctrl+L, and only Ctrl+L, toggles log mode", () => {
   assert.equal(logToggleKey(key("l", { ctrlKey: true })), true);
   assert.equal(logToggleKey(key("l", { metaKey: true })), false, "Cmd+L is the address bar");
   assert.equal(logToggleKey(key("l", { ctrlKey: true, shiftKey: true })), false);
+});
+
+const withWorlds = () => {
+  const sent: any[] = [];
+  const s = new Store(undefined, { ...noHost, worlds: true });
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }] }]);
+  return { s, sent };
+};
+
+test("a host that adds worlds: a last + World row, whatever the filter; never otherwise", () => {
+  assert.equal(kinds(pickerRows(worlds, {}, "", true)), "world char add_char world char char add_char add_world");
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm", true)).at(-1), "+");
+  assert.equal(kinds(pickerRows(worlds, {}, "zzz", true)), "add_world", "listed even with nothing matching");
+  assert.equal(fixPick(pickerRows(worlds, {}, "zzz", true), "fm/kit"), "+");
+  assert.ok(!pickable(pickerRows(worlds, {}, "", false)).includes("+"));
+});
+
+test("choosing + World asks Go for a new world's settings; the editor opens when they come", () => {
+  const { s, sent } = withWorlds();
+  s.openPicker();
+  choose(s, "+");
+  assert.deepEqual(sent.at(-1), { Do: "settings", World: "", Char: "" });
+  s.apply([{ type: "Settings", World: "", Char: "", Name: "", WorldSettings: { Host: "", Port: 0, TLS: false, TLSTrust: "", Use: [], Login: null, MaxLineBytes: null,
+    NewlineMode: null, Autoconnect: null, Reconnect: null, Notify: null, LocalEcho: null },
+    Inherited: { Login: "", MaxLineBytes: 4096, NewlineMode: "batch", Autoconnect: false, Reconnect: true, Notify: "first", LocalEcho: true } }]);
+  const ed = s.state.picker!.edit!;
+  assert.deepEqual(ed.target, { kind: "new-world" });
+  assert.equal(ed.title, str.editorNewWorld());
+  assert.ok(ed.fields.every((f) => !f.fixed));
+});
+
+test("a new world saved: the editor closes, the filter clears, and + Character of the new world is highlighted", () => {
+  const { s, sent } = withWorlds();
+  s.openPicker();
+  s.setPicker({ filter: "kit" });
+  choose(s, "+");
+  s.apply([{ type: "Settings", World: "", Char: "", Name: "", WorldSettings: { Host: "", Port: 0, TLS: false, Use: [] },
+    Inherited: { Login: "", MaxLineBytes: 4096, NewlineMode: "batch", Autoconnect: false, Reconnect: true, Notify: "first", LocalEcho: true } }]);
+  s.editField("id", "pf");
+  s.sendEditor({ Do: "add_world", ID: "pf" });
+  s.apply([{ type: "Problems", Op: "add_world", World: "", Char: "", Problems: [{ Field: "id", Msg: "taken" }] }]);
+  assert.equal(s.state.picker!.edit!.problems[0].Msg, "taken", "refused: the editor stays, its ID marked");
+  s.sendEditor({ Do: "add_world", ID: "pf" });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [] }, { ID: "pf", Characters: [] }] }, { type: "Saved", Op: "add_world", World: "", Char: "" }]);
+  assert.equal(s.state.picker!.edit, undefined);
+  assert.equal(s.state.picker!.filter, "");
+  assert.equal(s.state.picker!.sel, "+pf");
+  assert.ok(sent.length > 0);
+});
+
+test("without the capability, + World does nothing the web has", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.openPicker();
+  assert.ok(!pickable(pickerRows(s.state.worlds, s.state.chars, "", !!s.host.worlds)).includes("+"));
 });

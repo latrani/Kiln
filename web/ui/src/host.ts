@@ -28,6 +28,11 @@ export interface Host {
   // useHere takes Kiln over from another tab. The splash offers it only
   // with this.
   useHere?(): Promise<void>;
+  // worlds says the host can add worlds and change a world's host,
+  // port, TLS and cert trust (the desktop app dials them itself). The
+  // page offers + World and edits them only with this; on the web
+  // they're the relay's.
+  worlds?: true;
   // storageFailed tells Go the page has stopped saving.
   storageFailed?(): void;
 }
