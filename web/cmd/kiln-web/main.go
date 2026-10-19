@@ -167,8 +167,9 @@ func run(k js.Value, p page) error {
 	}
 	l.Run(context.Background(), webapi.Options{
 		Autoconnect: true, Resume: held.Keys(), Drafts: filepath.Join(dataDir, "drafts.json"), ConfigDir: cfgDir, //str:ok
-		Backup:  func() ([]byte, error) { return backup.Zip(cfgDir) },
-		Restore: func(data []byte) (int, error) { return backup.Unzip(data, cfgDir) },
+		Backup:       func() ([]byte, error) { return backup.Zip(cfgDir) },
+		Restore:      func(data []byte) (int, error) { return backup.Unzip(data, cfgDir) },
+		PageCommands: true,
 	})
 	return nil
 }

@@ -46,23 +46,35 @@ type Loop struct {
 	lk            looks             // the theme as last sent
 	landed        []any             // LogAt events waiting for the turn's batch; see land
 	logStatus     int               // the status Gen log mode's message became; see takeLogStatus
+	retheme       bool              // a change on disk: restyle loads the theme again, config changed or not
 }
 
 // Options are how Run starts.
 type Options struct {
-	Autoconnect bool   // open and connect autoconnect characters first
+	Autoconnect bool // open and connect autoconnect characters first
 	// Resume are characters (keys) with a held connection saved: they're
 	// opened and connected first too, whatever their autoconnect.
-	Resume []string
-	Drafts      string // the file drafts are saved to and restored from; "" for none
-	ConfigDir   string // where themes are read from; "" for the built-in only
+	Resume    []string
+	Drafts    string // the file drafts are saved to and restored from; "" for none
+	ConfigDir string // where themes are read from; "" for the built-in only
 
 	// Backup makes a backup of Kiln's files for /backup, which the page
 	// downloads; Restore puts one back from the bytes of the file the
 	// page picked for /restore, saying how many files it wrote. nil for
-	// none (the commands then go to the page as they are).
+	// none (the commands then go to the page as they are, if
+	// PageCommands).
 	Backup  func() ([]byte, error)
 	Restore func(data []byte) (int, error)
+
+	// PageCommands says /backup, /restore and /reset are the page's, and
+	// go to it. Without, a host with real files answers each with
+	// "unknown command", as the TUI does.
+	PageCommands bool
+
+	// Changes says the config or theme files changed on disk: each value
+	// reloads them, as the TUI's reloadNow. nil for none; a closed channel
+	// stops watching.
+	Changes <-chan struct{}
 }
 
 // call is a function for the loop to run; see Call.
@@ -158,6 +170,7 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 	}
 	l.perform(effs)
 	l.send(l.events(nil, true))
+	l.watch(ctx, opts.Changes)
 	t := time.NewTicker(tickEvery)
 	defer t.Stop()
 	for {
@@ -210,9 +223,10 @@ func (l *Loop) events(effs []app.Effect, all bool) []any {
 // looks didn't load, as the TUI does. It reports whether the theme the
 // page has changed.
 func (l *Loop) restyle() bool {
-	if l.lk.loaded && l.a.Config() == l.lk.cfg {
+	if l.lk.loaded && l.a.Config() == l.lk.cfg && !l.retheme {
 		return false
 	}
+	l.retheme = false
 	changed, restyle, err := l.lk.load(l.opts.ConfigDir, l.a.Config(), l.a.AllChars())
 	for _, k := range restyle {
 		l.f.Restyle(k)
@@ -226,6 +240,38 @@ func (l *Loop) restyle() bool {
 		l.a.SetStatus(true, str.StatusThemeNotLoaded(err))
 	}
 	return changed
+}
+
+// watch has each value on changes reload the config and theme on the
+// loop, until changes closes or ctx is done.
+func (l *Loop) watch(ctx context.Context, changes <-chan struct{}) {
+	if changes == nil {
+		return
+	}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-changes:
+				if !ok {
+					return
+				}
+				l.Call(func(a *app.App) { l.reload() })
+			}
+		}
+	}()
+}
+
+// reload loads the config and theme again, as the TUI's reloadNow does:
+// the turn's restyle loads the theme (and says why a theme or a look
+// didn't load, over "config reloaded").
+func (l *Loop) reload() {
+	if _, ok := l.a.Reload(); !ok {
+		return // Reload said why
+	}
+	l.retheme = true // a theme file may have changed with the config the same
+	l.a.SetStatus(false, str.StatusConfigReloaded())
 }
 
 func anys(evs []feed.Event) []any {

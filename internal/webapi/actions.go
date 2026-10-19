@@ -96,7 +96,7 @@ func (l *Loop) do(act Action) (extra []any, effs []app.Effect, all bool) {
 		case "submit": //str:ok
 			var res app.SubmitResult
 			res, effs = a.Submit()
-			effs = l.reset(l.backup(effs), armed)
+			effs = l.reset(l.backup(l.noPageCommands(effs)), armed)
 			if c := a.Char(k); res.Sent && c != nil {
 				extra = append(extra, Sent{Key: k, Seen: seenAfterSend(c.Lines, res.Echoed)})
 			}
@@ -204,6 +204,26 @@ func seenAfterSend(ls []*app.Line, echoed bool) int {
 		return -1
 	}
 	return ls[n-1].Seq
+}
+
+// noPageCommands answers /backup, /restore and /reset with "unknown
+// command", as the TUI does, when Run wasn't told they're the page's.
+func (l *Loop) noPageCommands(effs []app.Effect) []app.Effect {
+	if l.opts.PageCommands {
+		return effs
+	}
+	out := effs[:0:0]
+	for _, e := range effs {
+		if d, ok := e.(app.Do); ok {
+			switch d.Cmd {
+			case "/backup", "/restore", "/reset": //str:ok
+				l.a.SetStatus(true, str.StatusUnknownCommand(d.Cmd))
+				continue
+			}
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 // backup does /backup when Run was given a way to: the page gets the
