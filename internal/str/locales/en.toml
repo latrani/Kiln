@@ -555,3 +555,9 @@ too_big = "backup unpacks to more than {mb} MB"
 file_too_big = "the file is over {mb} MB, too big to be a Kiln backup"
 empty = "no Kiln files in this backup"
 file_name = "kiln-backup-{date}.zip"
+
+# The desktop app.
+[desktop]
+# Why a link the page asked to open wasn't: only http and https links go
+# to the browser.
+not_a_link = "not a web link: {url}"

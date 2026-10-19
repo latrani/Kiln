@@ -438,6 +438,9 @@ func DateDayTime() string { return get("date.day_time", nil) }
 // DateDayYear is date.day_year: "Mon Jan 2 2006"
 func DateDayYear() string { return get("date.day_year", nil) }
 
+// DesktopNotALink is desktop.not_a_link: "not a web link: {url}"
+func DesktopNotALink(url any) string { return get("desktop.not_a_link", map[string]any{"url": url}) }
+
 // EditorAliases is editor.aliases: "Aliases"
 func EditorAliases() string { return get("editor.aliases", nil) }
 

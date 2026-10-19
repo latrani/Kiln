@@ -380,6 +380,9 @@ export function dateDayTime(): string { return `Mon Jan 2 15:04`; }
 /** date.day_year: Mon Jan 2 2006 */
 export function dateDayYear(): string { return `Mon Jan 2 2006`; }
 
+/** desktop.not_a_link: not a web link: {url} */
+export function desktopNotALink(url: unknown): string { return `not a web link: ${url}`; }
+
 /** editor.aliases: Aliases */
 export function editorAliases(): string { return `Aliases`; }
 
