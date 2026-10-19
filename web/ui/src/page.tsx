@@ -3,10 +3,9 @@
 // watches. main.tsx boots the wasm under it; golden.tsx, for web/smoke's
 // screenshots, a WebSocket to Go in the test (bridge.ts).
 import { render } from "preact";
-import { download, pickFile, toBase64 } from "./boot.ts";
+import { toBase64 } from "./boot.ts";
 import { paneSize } from "./layout.ts";
 import { toggleLog } from "./log.ts";
-import { show } from "./notify.ts";
 import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
 import { sidebarKey, swipeDir, swiped, toggleSidebar } from "./sidebar.ts";
@@ -23,7 +22,7 @@ import { watchViewport } from "./viewport.ts";
 // effort (spec).
 export const effect = (store: Store) => (e: Event): void => {
   if (e.effect === "SaveFile") {
-    download(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
+    store.host.saveFile(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
   } else if (e.effect === "Do" && e.Cmd === "/open") {
     store.openPicker();
   } else if (e.effect === "Do" && e.Cmd === "/edit" && e.Key) {
@@ -32,7 +31,7 @@ export const effect = (store: Store) => (e: Event): void => {
     const [world, char] = splitKey(String(e.Key));
     store.openEditor(e.Args?.[0] === "world" ? { kind: "world", world } : { kind: "char", world, char }, true);
   } else if (e.effect === "Do" && e.Cmd === "/restore") {
-    pickFile(".zip,application/zip", (globalThis as any).kiln.maxBackup, (bytes) => store.state.act?.({ Do: "restore", Data: toBase64(bytes) }));
+    store.host.restore?.((bytes) => store.state.act?.({ Do: "restore", Data: toBase64(bytes) }));
   } else if (e.effect === "Do" && e.Cmd === "/reset") {
     // Go asked first (Enter again). A browser that won't clear what it
     // saved has still stopped saving: show that, as when saving fails,
@@ -40,7 +39,7 @@ export const effect = (store: Store) => (e: Event): void => {
     store.state.reset?.().catch((err) => {
       console.error("reset", err);
       store.set({ saving: false });
-      (globalThis as any).kiln?.storageFailed?.();
+      store.host.storageFailed?.();
       store.state.act?.({ Do: "say", Text: str.webResetFailed(), Err: true });
     });
   } else if (e.effect === "Do" && e.Cmd === "/log") {
@@ -58,7 +57,7 @@ export const effect = (store: Store) => (e: Event): void => {
       });
     }
   } else if (e.effect === "Notify") {
-    show(store, e);
+    store.host.notify(store, e);
   }
 };
 

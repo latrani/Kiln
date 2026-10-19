@@ -2,6 +2,8 @@
 // page's own state (how far it's got starting Kiln, whether it's saving).
 import { edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
 import type { Editor, SettingsEvent, Target } from "./editor.ts";
+import { noHost } from "./host.ts";
+import type { Host } from "./host.ts";
 import type { Place } from "./log.ts";
 import { fixPick, pickerRows } from "./picker.ts";
 import * as str from "./str.gen.ts";
@@ -260,7 +262,8 @@ export class Store {
   logSeen = new Map<string, number>();
   private subs = new Set<() => void>();
 
-  constructor(private onEffect?: (e: Event) => void) {}
+  // host is what runs Go, for what the page asks of it (host.ts).
+  constructor(private onEffect?: (e: Event) => void, public host: Host = noHost) {}
 
   // apply takes one batch from Go: every event, then one notification.
   // It never throws: Go calls it from inside the wasm.
