@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
+import { Splash } from "./Splash.tsx";
+import { noHost } from "../host.ts";
+import type { Host } from "../host.ts";
 import { Store } from "../store.ts";
 import type { Event, State } from "../store.ts";
 import { loadingText } from "../progress.ts";
@@ -10,8 +13,8 @@ import { latte, roleClass } from "../theme.ts";
 import type { ThemeEvent } from "../types.ts";
 import * as str from "../str.gen.ts";
 
-const page = (patch: Partial<State> = {}, batch: Event[] = []) => {
-  const s = new Store();
+const page = (patch: Partial<State> = {}, batch: Event[] = [], host: Host = noHost) => {
+  const s = new Store(undefined, host);
   s.set(patch);
   s.apply(batch);
   return render(<App store={s} />);
@@ -25,8 +28,8 @@ test("five areas, with landmarks", () => {
 });
 
 test("buttons look like the TUI's", () => {
-  for (const patch of [{ phase: "locked", onUseHere: () => {} }, { phase: "stopped" }] as Partial<State>[]) {
-    assert.match(page(patch), /<button[^>]*class="[^"]*r-form-button/, JSON.stringify(patch.phase));
+  for (const patch of [{ phase: "locked" }, { phase: "stopped" }] as Partial<State>[]) {
+    assert.match(page(patch, [], { ...noHost, useHere: async () => {} }), /<button[^>]*class="[^"]*r-form-button/, JSON.stringify(patch.phase));
   }
 });
 
@@ -35,11 +38,26 @@ test("loading shows progress in the status line", () => {
 });
 
 test("another tab: the splash, not the five areas, and Use here", () => {
-  const html = page({ phase: "locked", onUseHere: () => {} });
+  const html = page({ phase: "locked" }, [], { ...noHost, useHere: async () => {} });
   assert.match(html, /<main class="splash">/);
   assert.ok(html.includes(`>${str.webTitle()}</h1>`) && html.includes(str.webOtherTab()));
   assert.match(html, new RegExp(`<button[^>]*>${str.webUseHere()}</button>`));
   for (const area of ["<nav", "<header", 'class="bottom', 'class="status ']) assert.ok(!html.includes(area), area);
+});
+
+test("Use here shows only for a host that can, and a click disables it", async () => {
+  assert.ok(!page({ phase: "locked" }).includes(str.webUseHere()), "noHost has no button");
+  let taken = 0;
+  const s = new Store(undefined, { ...noHost, useHere: async () => { taken++; } });
+  s.set({ phase: "locked" });
+  const html = () => render(<App store={s} />);
+  assert.doesNotMatch(html(), /<button[^>]*disabled/);
+  const splash = Splash({ state: s.state, store: s }) as any;
+  const button = splash.props.children.find((c: any) => c?.type === "button");
+  button.props.onClick();
+  assert.equal(taken, 1);
+  assert.equal(s.state.handingOff, true);
+  assert.match(html(), /<button[^>]*disabled/);
 });
 
 test("before Go's theme, the page draws with the last one it sent", () => {

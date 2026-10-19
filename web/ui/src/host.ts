@@ -22,6 +22,12 @@ export interface Host {
   notify(store: Store, e: Event): void;
   // restore asks for a backup to restore and gives done its bytes.
   restore?(done: (bytes: Uint8Array) => void): void;
+  // reset wipes what the host saved and starts over (/reset). Without
+  // it /reset does nothing.
+  reset?(): Promise<void>;
+  // useHere takes Kiln over from another tab. The splash offers it only
+  // with this.
+  useHere?(): Promise<void>;
   // storageFailed tells Go the page has stopped saving.
   storageFailed?(): void;
 }

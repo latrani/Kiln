@@ -29,17 +29,26 @@ export function download(name: string, bytes: Uint8Array): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// WebHost is the browser's host, which gets the capabilities that need
+// what boot.ts makes (the resetter, the tab lock) once they exist, so
+// this file never imports boot.ts.
+export interface WebHost extends Host {
+  provide(parts: Pick<Host, "reset" | "useHere">): void;
+}
+
 // webHost is the browser's host. The wasm's kiln is looked up on each
 // call: it's there only once the wasm has loaded, and until then there's
 // nothing to check against.
-export function webHost(): Host {
+export function webHost(): WebHost {
   const kiln = () => (globalThis as any).kiln;
-  return {
+  const host: WebHost = {
     check: async (field, value) => kiln()?.check?.(field, value) ?? "",
     over: async (text, maxLineBytes, newlineMode) => kiln()?.over?.(text, maxLineBytes, newlineMode) ?? [],
     saveFile: download,
     notify: (store, e) => show(store, e),
     restore: (done) => pickFile(".zip,application/zip", kiln().maxBackup, done),
     storageFailed: () => kiln()?.storageFailed?.(),
+    provide: (parts) => Object.assign(host, parts),
   };
+  return host;
 }

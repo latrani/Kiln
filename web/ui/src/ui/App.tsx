@@ -40,7 +40,7 @@ export function App({ store }: { store: Store }) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: themeCSS(s.theme ?? recalled) }} />
-      {s.phase === "locked" ? <Splash state={s} /> : (
+      {s.phase === "locked" ? <Splash state={s} store={store} /> : (
         <div ref={kiln} onClickCapture={(e) => {
           if (swallowsClick(store.state, Date.now(), !!(e.target as Element).closest?.(".side"))) {
             e.preventDefault();

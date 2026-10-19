@@ -18,3 +18,14 @@ test("the web host asks the wasm's kiln once it's there", async (t) => {
 test("the web host can back up", () => {
   assert.equal(typeof webHost().restore, "function");
 });
+
+test("the web host has no reset or take-over until the page gives them", async () => {
+  const h = webHost();
+  assert.equal(h.reset, undefined);
+  assert.equal(h.useHere, undefined);
+  let n = 0;
+  h.provide({ reset: async () => { n++; } });
+  await h.reset!();
+  assert.equal(n, 1);
+  assert.equal(h.useHere, undefined);
+});

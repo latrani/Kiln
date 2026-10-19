@@ -6,10 +6,11 @@ import { effect, mount } from "./page.tsx";
 import { Store } from "./store.ts";
 import { webHost } from "./webhost.ts";
 
-const store: Store = new Store((e) => effect(store)(e), webHost());
+const host = webHost();
+const store: Store = new Store((e) => effect(store)(e), host);
 store.set({ notifyOffer: offer() });
 mount(store);
-boot(store).catch((e) => {
+boot(store, host).catch((e) => {
   console.error(e);
   store.set({ phase: "stopped" });
 });

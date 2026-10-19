@@ -109,7 +109,7 @@ export interface State {
   phase: Phase;
   progress?: { got: number; total?: number };
   saving: boolean;
-  onUseHere?: () => void; // takes Kiln over from another tab
+  handingOff?: boolean; // Use here was clicked: Kiln is coming over from another tab
   act?: (o: object) => void; // asks Kiln for something (webapi's actions), after what's typed
   typing?: Typing; // what's typed, sent ahead of every other action
   theme?: ThemeEvent;
@@ -138,15 +138,14 @@ export interface State {
   parked: Record<string, Editor>; // editors opened from the main view, by the item they were left on
   opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
   notifyOffer?: boolean; // the status line offers to allow notifications (notify.ts)
-  reset?: () => Promise<void>; // /reset: wipe what the browser saved and reload (boot.ts)
   subscribe?: () => void; // subscribe to the relay's pushes, once notifications are allowed (push.ts, boot.ts)
   sent?: { key: string; seen: number; n: number }; // the last line sent, and how many so far (the scrollback goes to the end)
 }
 
 // fresh is a state holding nothing of Go's: only the page's own (and the
 // count of sends, which the scrollback goes by).
-const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer, reset, subscribe, sent }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer" | "reset" | "subscribe" | "sent">): State => ({
-  phase, progress, saving, onUseHere, act, typing, notifyOffer, reset, subscribe, sent,
+const fresh = ({ phase, progress, saving, act, typing, notifyOffer, subscribe, sent }: Pick<State, "phase" | "progress" | "saving" | "act" | "typing" | "notifyOffer" | "subscribe" | "sent">): State => ({
+  phase, progress, saving, act, typing, notifyOffer, subscribe, sent,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, logView: {}, drafts: {}, parked: {},
 });
 
