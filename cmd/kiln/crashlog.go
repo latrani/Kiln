@@ -32,12 +32,16 @@ func openCrashLog() *os.File {
 	if err != nil || os.MkdirAll(dir, 0o700) != nil {
 		return nil
 	}
-	f, err := os.OpenFile(filepath.Join(dir, crashLogName), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	path := filepath.Join(dir, crashLogName)
+	flag := os.O_CREATE | os.O_APPEND | os.O_WRONLY
+	// Started over by opening with O_TRUNC, not by Truncate: on Windows an
+	// O_APPEND file can't be truncated after it's open.
+	if fi, err := os.Stat(path); err == nil && fi.Size() > crashLogMax {
+		flag |= os.O_TRUNC
+	}
+	f, err := os.OpenFile(path, flag, 0o600)
 	if err != nil {
 		return nil
-	}
-	if fi, err := f.Stat(); err == nil && fi.Size() > crashLogMax {
-		f.Truncate(0)
 	}
 	debug.SetCrashOutput(f, debug.CrashOptions{})
 	return f
