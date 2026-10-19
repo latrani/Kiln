@@ -8,8 +8,8 @@ import { webHost } from "./webhost.ts";
 
 const host = webHost();
 const store: Store = new Store((e) => effect(store)(e), host);
-store.set({ notifyOffer: offer() });
 mount(store);
+offer(store).then((notifyOffer) => store.set({ notifyOffer }));
 boot(store, host).catch((e) => {
   console.error(e);
   store.set({ phase: "stopped" });

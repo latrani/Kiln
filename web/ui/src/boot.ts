@@ -7,7 +7,7 @@ import type { WebHost } from "./webhost.ts";
 import { createFS } from "../../static/memfs.mjs";
 import { createPersist, idbStore } from "../../static/persist.mjs";
 import { createTabLock } from "../../static/tablock.mjs";
-import { forgetAsked, permission } from "./notify.ts";
+import { forgetAsked } from "./notify.ts";
 import { launched } from "./offline.ts";
 import * as push from "./push.ts";
 import { resetter } from "./reset.ts";
@@ -236,11 +236,11 @@ export async function boot(store: Store, host: WebHost): Promise<void> {
   // Pushes while away, once notifications are allowed: now, or when the
   // player allows them (notify.ask).
   const subscribe = () => push.subscribe({ keyURL: new URL("relay?push_key=1", location.href), sw: navigator.serviceWorker, send: (e) => g.kiln?.push?.(e) });
-  store.set({ subscribe });
+  host.provide({ subscribe });
   g.kilnReady = () => {
     g.kiln.start(relay.href, onBatch, store.state.saving); // storage may have failed since it loaded
     store.set({ phase: "running", progress: undefined });
-    if (permission() === "granted") subscribe();
+    host.permission().then((p) => { if (p === "granted") subscribe(); });
   };
 
   const go = new g.Go();

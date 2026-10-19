@@ -1,6 +1,7 @@
 // What the page needs from whatever runs Go: the wasm in a browser
 // (webhost.ts), the golden test's server (golden.tsx), the desktop app.
 // The page asks its store's host, never the host's globals.
+import type { Permission } from "./notify.ts";
 import type { Event, Store } from "./store.ts";
 
 // Ranges are [start, end) in the browser's string offsets (UTF-16).
@@ -20,6 +21,15 @@ export interface Host {
   saveFile(name: string, bytes: Uint8Array): void;
   // notify shows a Notify effect, best effort.
   notify(store: Store, e: Event): void;
+  // permission is whether notifications can show: "default" if they
+  // haven't been asked for, "unsupported" if the host can't show any.
+  permission(): Promise<Permission>;
+  // askPermission asks for them, in answer to a click, and gives the
+  // answer; a host that pushes subscribes to pushes once it's granted.
+  askPermission(): Promise<Permission>;
+  // whyNoNotify is what the status line says when notifications can't
+  // show for p, "" when they can.
+  whyNoNotify(p: Permission): string;
   // restore asks for a backup to restore and gives done its bytes.
   restore?(done: (bytes: Uint8Array) => void): void;
   // reset wipes what the host saved and starts over (/reset). Without
@@ -52,4 +62,7 @@ export const noHost: Host = {
   over: async () => [],
   saveFile: () => {},
   notify: () => {},
+  permission: async () => "unsupported",
+  askPermission: async () => "unsupported",
+  whyNoNotify: () => "",
 };

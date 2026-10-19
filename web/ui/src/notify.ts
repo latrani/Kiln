@@ -1,9 +1,9 @@
-// Desktop notifications (the Notify effect) through the browser's
-// Notification API. A page may only ask for them in answer to a click,
-// so the status line offers a button while the browser won't show them;
+// Desktop notifications (the Notify effect). The browser's Notification
+// API is here; the host (host.ts) says what it allows and asks for it. A
+// page may only ask in answer to a click, so the status line offers a
+// button while notifications won't show;
 // after one click, allowed or not, it doesn't offer again.
 import type { Event, Store } from "./store.ts";
-import * as str from "./str.gen.ts";
 
 // Permission is the browser's answer so far, or "unsupported" without
 // the API (Safari on iOS outside a Home Screen app).
@@ -25,6 +25,13 @@ const browser = (): API | undefined => (globalThis as any).Notification;
 
 export function permission(n: API | undefined = browser()): Permission {
   return n ? n.permission : "unsupported";
+}
+
+// request asks the browser for permission if it hasn't answered, and
+// gives its answer.
+export async function request(n: API | undefined = browser()): Promise<Permission> {
+  const p = permission(n);
+  return p === "default" ? await n!.requestPermission() : p;
 }
 
 // asked is in localStorage: the button was clicked or dismissed. Best
@@ -50,10 +57,10 @@ export function forgetAsked(): void {
 }
 
 // offer is whether the status line offers to allow notifications: the
-// browser won't show them yet and the offer hasn't been taken or turned
+// host won't show them yet and the offer hasn't been taken or turned
 // down.
-export function offer(p: Permission = permission(), asked: boolean = wasAsked()): boolean {
-  return p !== "granted" && !asked;
+export async function offer(store: Store, asked: boolean = wasAsked()): Promise<boolean> {
+  return !asked && (await store.host.permission()) !== "granted";
 }
 
 // dismiss turns the offer down for good in this browser.
@@ -62,15 +69,11 @@ export function dismiss(store: Store): void {
   store.set({ notifyOffer: false });
 }
 
-// ask is the offer's click: the browser's prompt if it hasn't answered,
-// then pushes if it allowed them, or a status line saying why it won't
-// show them.
-export async function ask(store: Store, n: API | undefined = browser()): Promise<void> {
+// ask is the offer's click: the host's prompt if it hasn't answered,
+// then a status line saying why it won't show them if it won't.
+export async function ask(store: Store): Promise<void> {
   dismiss(store);
-  let p = permission(n);
-  if (p === "default") p = await n!.requestPermission();
-  if (p === "granted") store.state.subscribe?.();
-  const why = p === "denied" ? str.webNotifyDenied() : p === "unsupported" ? str.webNotifyUnsupported() : "";
+  const why = store.host.whyNoNotify(await store.host.askPermission());
   if (why) store.state.act?.({ Do: "say", Text: why, Err: false });
 }
 
