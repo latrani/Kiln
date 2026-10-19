@@ -1,0 +1,31 @@
+# Tests the Go code on macOS and Windows, where Kiln also ships but
+# keychain, paths and renames were never tested; Linux is web.yml's. On
+# PRs and pushes to main that touch Go.
+name: go
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["**.go", "go.mod", "go.sum", "web/go.mod", "web/go.sum", ".github/workflows/go.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false # one OS's failure shouldn't hide the other's
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Root tests
+        run: go test ./...
+      - name: Web, native
+        working-directory: web
+        run: go test ./...
