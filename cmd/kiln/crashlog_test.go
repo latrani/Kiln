@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -27,6 +28,9 @@ func TestLogFailureKeepsMessageAndDetail(t *testing.T) {
 
 func TestCrashLogStartsOverWhenBig(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	// The runtime keeps its own handle on kiln.log; Windows can't remove an
+	// open file, so let go of it before the directory goes.
+	t.Cleanup(func() { debug.SetCrashOutput(nil, debug.CrashOptions{}) })
 	f := openCrashLog()
 	if f == nil {
 		t.Fatal("no kiln.log")
@@ -51,6 +55,7 @@ func TestHoldWindowWaitsForEnter(t *testing.T) {
 
 func TestTeeStderrPassesThroughAndCaptures(t *testing.T) {
 	real, _ := os.Create(filepath.Join(t.TempDir(), "stderr"))
+	defer real.Close()
 	saved := os.Stderr
 	os.Stderr = real
 	defer func() { os.Stderr = saved }()
