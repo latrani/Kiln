@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -29,23 +30,27 @@ func rel(root string, paths []string) []string {
 
 func TestLayoutPath(t *testing.T) {
 	at := time.Date(2026, 9, 16, 20, 28, 58, 0, pdt)
+	x := "/x" // an absolute log_dir; Windows needs a drive for one
+	if runtime.GOOS == "windows" {
+		x = "C:/x"
+	}
 	for _, c := range []struct{ dir, name, wantDir, wantName string }{
 		{"", "", "/data/logs/fm/kit", "2026-09-16 202858 kit"},
-		{"/x/Mucks/{world}/{name}/%Y/%m", "%Y-%m-%d.%H.%M.%S", "/x/Mucks/fm/Kit/2026/09", "2026-09-16.20.28.58"},
+		{x + "/Mucks/{world}/{name}/%Y/%m", "%Y-%m-%d.%H.%M.%S", x + "/Mucks/fm/Kit/2026/09", "2026-09-16.20.28.58"},
 		{"mine/{world}", "{name} %Y%m%d", "/data/logs/mine/fm", "Kit 20260916"},
 	} {
-		dir, name := kit("/data/logs", c.dir, c.name).Path(at)
-		if dir != c.wantDir || name != c.wantName {
+		dir, name := kit(filepath.FromSlash("/data/logs"), c.dir, c.name).Path(at)
+		if dir != filepath.FromSlash(c.wantDir) || name != c.wantName {
 			t.Errorf("Path(%q, %q) = %q, %q; want %q, %q", c.dir, c.name, dir, name, c.wantDir, c.wantName)
 		}
 	}
 	for dir, want := range map[string]string{
-		"":                        "/data/logs/fm/kit",
-		"/x/{world}/{name}/%Y/%m": "/x/fm/Kit",
-		"/x/%Y/{world}":           "/x",
-		"/x/{world}/log-%Y":       "/x/fm",
+		"":                          "/data/logs/fm/kit",
+		x + "/{world}/{name}/%Y/%m": x + "/fm/Kit",
+		x + "/%Y/{world}":           x,
+		x + "/{world}/log-%Y":       x + "/fm",
 	} {
-		if got := kit("/data/logs", dir, "").ScanRoot(); got != want {
+		if got := kit(filepath.FromSlash("/data/logs"), dir, "").ScanRoot(); got != filepath.FromSlash(want) {
 			t.Errorf("ScanRoot(%q) = %q, want %q", dir, got, want)
 		}
 	}

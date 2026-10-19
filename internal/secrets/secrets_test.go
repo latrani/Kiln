@@ -3,6 +3,7 @@ package secrets
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/zalando/go-keyring"
@@ -50,6 +51,9 @@ func TestFileRoundTrip(t *testing.T) {
 	fi, err := os.Stat(filepath.Join(dir, "passwords.json"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		return // modes are only a read-only flag there; the profile's ACL guards the file
 	}
 	if fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode = %v, want 0600", fi.Mode().Perm())

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -103,6 +104,9 @@ func TestStateFileWrittenWhole(t *testing.T) {
 	es, _ := os.ReadDir(dir)
 	if len(es) != 1 || es[0].Name() != "state.json" {
 		t.Errorf("dir holds %v; want state.json alone", es)
+	}
+	if runtime.GOOS == "windows" {
+		return // modes are only a read-only flag there; the profile's ACL guards the file
 	}
 	if fi, err := os.Stat(file); err != nil || fi.Mode().Perm() != 0o600 {
 		t.Errorf("state.json %v, %v; want it readable only by you", fi, err)

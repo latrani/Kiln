@@ -769,6 +769,7 @@ func TestPasteInBrowse(t *testing.T) {
 func TestSaveExpandsHomeAndRelativePaths(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir on Windows
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	h.m.a.Config().ExportDir = filepath.Join(home, "scenes")
@@ -812,7 +813,7 @@ func TestReloadUpdatesOpenBrowseExportDir(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.key("ctrl+l")
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\n"), 0o600)
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = '"+dir+"'\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	if h.br().cfg().ExportDir != dir {
 		t.Errorf("open browse exportDir = %q, want %q", h.br().cfg().ExportDir, dir)
@@ -823,7 +824,7 @@ func TestExportNameAndFormatSettings(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = \""+dir+"\"\nexport_name = \"{world}/{name} {date}\"\nexport_format = \"html\"\n"), 0o600)
+	os.WriteFile(filepath.Join(h.dir, "config.toml"), []byte("export_dir = '"+dir+"'\nexport_name = \"{world}/{name} {date}\"\nexport_format = \"html\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	h.key("ctrl+l")
 	h.keys("s", "up", "s", "e")
@@ -840,7 +841,7 @@ func TestLogDirAndNameSettings(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	logs := filepath.Join(t.TempDir(), "Mucks")
 	os.WriteFile(filepath.Join(h.dir, "config.toml"),
-		[]byte("log_dir = \""+logs+"/{world}/{name}/%Y/%m\"\nlog_name = \"%Y-%m-%d.%H.%M.%S\"\n"), 0o600)
+		[]byte("log_dir = '"+logs+"/{world}/{name}/%Y/%m'\nlog_name = \"%Y-%m-%d.%H.%M.%S\"\n"), 0o600)
 	h.m.Update(reloadMsg{})
 	l, ok := h.m.a.LogLayout(h.m.chars["fm/kit"].Ch)
 	if !ok {
