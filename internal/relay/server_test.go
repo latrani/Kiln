@@ -390,19 +390,27 @@ func TestPerIPCapAndRelease(t *testing.T) {
 		t.Errorf("third: code %d, want %d", code, wire.CodeTooMany)
 	}
 	bye(t, a)
+	// The slot comes back once the relay has finished with a; until then
+	// it refuses, and we ask again.
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/?host=127.0.0.1&port=%d", base, port), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		nc := piped(t, c)
-		nc.SetReadDeadline(time.Now().Add(10 * time.Second))
-		line, _ := bufio.NewReader(nc).ReadString('\n')
-		bye(t, c)
-		if line == "hello\r\n" {
+		c := open(t, base, "127.0.0.1", port)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, b, err := c.Read(ctx)
+		cancel()
+		m, _ := wire.Decode(b)
+		if err == nil && m.T == wire.Open {
+			nc := &stream{Conn: websocket.NetConn(context.Background(), c, websocket.MessageBinary), c: c}
+			nc.SetReadDeadline(time.Now().Add(10 * time.Second))
+			if line, _ := bufio.NewReader(nc).ReadString('\n'); line != "hello\r\n" {
+				t.Fatalf("greeting %q", line)
+			}
 			return // a slot came back
 		}
+		if err != nil || m.T != wire.Refused || websocket.StatusCode(m.Code) != wire.CodeTooMany {
+			t.Fatalf("first frame %q, %v; want open or too many", b, err)
+		}
+		c.CloseNow()
 		if time.Now().After(deadline) {
 			t.Fatal("slot never released")
 		}
