@@ -35,7 +35,7 @@ func pushRelay(t *testing.T, m *muck, status int, wait time.Duration) (*Server, 
 	t.Cleanup(srv.Close)
 	u, _ := url.Parse(srv.URL)
 	ps.url, ps.host = srv.URL, u.Hostname()
-	s, base, logs := holdRelay(t, m, "vapid_key = \""+filepath.Join(dir, "vapid.pem")+"\"\npush_contact = \"https://fm.example\"\n")
+	s, base, logs := holdRelay(t, m, "vapid_key = '"+filepath.Join(dir, "vapid.pem")+"'\npush_contact = \"https://fm.example\"\n")
 	s.pushClient, s.pushHosts = srv.Client(), []string{ps.host}
 	return s, base, logs, ps
 }
