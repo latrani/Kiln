@@ -28,7 +28,7 @@ const ask = (path: string, q: Record<string, string>): string => {
 const host: Host = {
   ...noHost,
   check: async (field, value) => ask("check", { field, value }),
-  over: (text, max, mode) => JSON.parse(ask("over", { text, max: String(max), mode })),
+  over: async (text, max, mode) => JSON.parse(ask("over", { text, max: String(max), mode })),
 };
 const store: Store = new Store((e) => effect(store)(e), host);
 mount(store);

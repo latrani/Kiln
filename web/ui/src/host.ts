@@ -13,8 +13,9 @@ export interface Host {
   // it's fine (app.CheckField). It may answer late: callers drop an
   // answer for a value that has moved on.
   check(field: string, value: string): Promise<string>;
-  // over is where text runs past the line limit (webapi.OverRanges).
-  over(text: string, maxLineBytes: number, newlineMode: string): Ranges;
+  // over is where text runs past the line limit (webapi.OverRanges). It
+  // may answer late: callers keep only the latest answer.
+  over(text: string, maxLineBytes: number, newlineMode: string): Promise<Ranges>;
   // saveFile saves an export or a backup, named name.
   saveFile(name: string, bytes: Uint8Array): void;
   // notify shows a Notify effect, best effort.
@@ -37,7 +38,7 @@ export function toBase64(bytes: Uint8Array): string {
 // to save or show anything, and no capabilities.
 export const noHost: Host = {
   check: async () => "",
-  over: () => [],
+  over: async () => [],
   saveFile: () => {},
   notify: () => {},
 };

@@ -9,10 +9,10 @@ test("the web host asks the wasm's kiln once it's there", async (t) => {
   delete g.kiln;
   const h = webHost();
   assert.equal(await h.check("port", "x"), "");
-  assert.deepEqual(h.over("abc", 1, "batch"), []);
+  assert.deepEqual(await h.over("abc", 1, "batch"), []);
   g.kiln = { check: (f: string, v: string) => `${f}=${v}`, over: () => [[1, 2]] };
   assert.equal(await h.check("port", "x"), "port=x");
-  assert.deepEqual(h.over("abc", 1, "batch"), [[1, 2]]);
+  assert.deepEqual(await h.over("abc", 1, "batch"), [[1, 2]]);
 });
 
 test("the web host can back up", () => {

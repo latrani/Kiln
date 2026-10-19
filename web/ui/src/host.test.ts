@@ -30,7 +30,7 @@ function acting(host: Host) {
 test("a Store without a host asks the no-op one", async () => {
   assert.equal(new Store().host, noHost);
   assert.equal(await noHost.check("port", "x"), "");
-  assert.deepEqual(noHost.over("abc", 1, "batch"), []);
+  assert.deepEqual(await noHost.over("abc", 1, "batch"), []);
 });
 
 test("SaveFile goes to the host", () => {
