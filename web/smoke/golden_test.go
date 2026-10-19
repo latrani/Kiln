@@ -337,6 +337,24 @@ func (s *scene) writeLog() {
 	kilntest.WriteLog(s.t, logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}, kilntest.LogDay, kilntest.LogScene...)
 }
 
+// TestOverLimitSameFrame: the over-limit mark follows what's typed in the
+// frame that shows it, as when the page asked Go synchronously: in the
+// first animation frame after a keystroke, it covers the new character.
+func TestOverLimitSameFrame(t *testing.T) {
+	s := goldenScene(t, nil, nil)
+	waitFor(t, s.ev, `document.activeElement === `+input, "the input")
+	s.typeIn(kilntest.InputText)
+	waitFor(t, s.ev, `document.querySelector(".bottom .r-input-over-limit")`, "the overflow marked")
+	s.ev(input + `.addEventListener("input", () => requestAnimationFrame(() => {
+		window.kilnSameFrame = document.querySelector(".bottom .r-input-over-limit").textContent.endsWith("§");
+	}), { once: true })`)
+	s.typeIn("§")
+	waitFor(t, s.ev, `window.kilnSameFrame !== undefined`, "a frame")
+	if s.ev(`window.kilnSameFrame === true`) != "true" {
+		t.Errorf("the first frame after typing marked the old text")
+	}
+}
+
 const input = `document.querySelector(".bottom textarea")`
 
 func TestGoldenMain(t *testing.T) {

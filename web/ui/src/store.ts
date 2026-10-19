@@ -1,6 +1,6 @@
 // The page's one store: Go's batches applied a batch at a time, plus the
 // page's own state (how far it's got starting Kiln, whether it's saving).
-import { edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
+import { checked, edit, newEditor, refuse, targetKey, targetOf } from "./editor.ts";
 import type { Editor, SettingsEvent, Target } from "./editor.ts";
 import { noHost } from "./host.ts";
 import type { Host } from "./host.ts";
@@ -483,12 +483,20 @@ export class Store {
     if (p?.edit) this.set({ picker: { ...p, edit: { ...p.edit, ...patch } } });
   }
 
-  // editField sets one of the editor's fields, with Go's check of what's
-  // typed.
+  // editField sets one of the editor's fields, then asks Go's check of
+  // what's typed; the answer marks it if the same editor is still open.
   editField(key: string, value: string | boolean): void {
     const p = this.state.picker;
     if (!p?.edit) return;
-    this.set({ picker: { ...p, edit: edit(p.edit, key, value, (f, v) => this.host.check(f, v)) } });
+    const target = JSON.stringify(p.edit.target);
+    this.set({ picker: { ...p, edit: edit(p.edit, key, value) } });
+    if (typeof value !== "string") return;
+    this.host.check(key, value).then((msg) => {
+      const ed = this.state.picker?.edit;
+      if (!ed || JSON.stringify(ed.target) !== target) return;
+      const next = checked(ed, key, value, msg);
+      if (next !== ed) this.setEditor(next);
+    }, (err) => console.error("check", err));
   }
 
   // sendEditor sends the editor's save or delete; its answer settles it

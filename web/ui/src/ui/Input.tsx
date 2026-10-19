@@ -23,10 +23,21 @@ function hint(c: any, running: boolean): string | undefined {
 }
 
 // over is where the text runs past the line limit (Go's, from the
-// host), in the browser's string offsets; none with nothing open.
-function over(host: Host, text: string, c: any): Ranges {
+// host), in the browser's string offsets; none with nothing open, and
+// then the host isn't asked.
+export async function over(host: Host, text: string, c: any): Promise<Ranges> {
   if (!c || !text) return [];
   return host.over(text, c.MaxLineBytes ?? 0, c.NewlineMode ?? "");
+}
+
+// latest is a way to ask that keeps only the newest question: apply gets
+// an answer only if nothing was asked since. A failed answer is logged.
+export function latest<T>(): (p: Promise<T>, apply: (v: T) => void) => void {
+  let n = 0;
+  return (p, apply) => {
+    const mine = ++n;
+    p.then((v) => { if (mine === n) apply(v); }, (err) => console.error("over", err));
+  };
 }
 
 // Overflow draws text with what's over the limit in input.over_limit,
@@ -79,7 +90,13 @@ export function Input({ state, store }: { state: State; store: Store }) {
     if (typing.takes(key, go?.Ack ?? 0)) typing.adopt(key, value);
     else value = typing.text(key) ?? value;
   }
-  const ranges = over(store.host, value, c);
+  // Go's over-limit ranges come after the text they're for; until then
+  // the last answer stands (Overflow's slices clamp to the text). Asked
+  // before the browser paints, so an answer at once (the wasm's) draws in
+  // the same frame as the text.
+  const [ranges, setRanges] = useState<Ranges>([]);
+  const ask = useRef(latest<Ranges>()).current;
+  useLayoutEffect(() => ask(over(store.host, value, c), setRanges), [store.host, value, key, c?.MaxLineBytes, c?.NewlineMode]);
   const panel = historyShows(state);
   const said = value || panel ? undefined : hint(c, state.phase === "running"); // shown instead of the ›, as the TUI does; the panel's query is a query
   const flat = c?.NewlineMode === "flatten"; // sent as one line: one ›

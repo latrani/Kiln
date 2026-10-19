@@ -27,8 +27,8 @@ const ask = (path: string, q: Record<string, string>): string => {
 // The host: Go's checks from the test's server; nothing to save or show.
 const host: Host = {
   ...noHost,
-  check: (field, value) => ask("check", { field, value }),
-  over: (text, max, mode) => JSON.parse(ask("over", { text, max: String(max), mode })),
+  check: async (field, value) => ask("check", { field, value }),
+  over: async (text, max, mode) => JSON.parse(ask("over", { text, max: String(max), mode })),
 };
 const store: Store = new Store((e) => effect(store)(e), host);
 mount(store);

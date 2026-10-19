@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deleteAction, edit, errorOf, firstError, formError, newEditor, refuse, saveAction, targetKey, unsaved } from "./editor.ts";
+import { checked, deleteAction, edit, errorOf, firstError, formError, newEditor, refuse, saveAction, targetKey, unsaved } from "./editor.ts";
 import * as str from "./str.gen.ts";
 
 const inh = { Login: "", MaxLineBytes: 4096, NewlineMode: "batch", Autoconnect: false, Reconnect: true, Notify: "first", LocalEcho: true };
@@ -66,10 +66,13 @@ test("unsaved: the title says so once a value differs from what was read", () =>
 });
 
 test("a live check shows beside its field until fixed; an edit clears that field's save problem and disarms Delete", () => {
-  const check = (f: string, v: string) => (f === "port" && /\D/.test(v) ? str.editorPortNumber() : "");
-  let ed = edit(fm(), "port", "88a", check);
-  assert.equal(errorOf(ed, "port"), str.editorPortNumber());
-  ed = edit(ed, "port", "88", check);
+  const msg = str.editorPortNumber();
+  let ed = checked(edit(fm(), "port", "88a"), "port", "88a", msg);
+  assert.equal(errorOf(ed, "port"), msg);
+  ed = edit(ed, "port", "88");
+  assert.equal(errorOf(ed, "port"), msg, "the last answer stands until the next");
+  assert.equal(errorOf(checked(ed, "port", "88a", msg), "port"), msg, "a stale answer changes nothing");
+  ed = checked(ed, "port", "88", "");
   assert.equal(errorOf(ed, "port"), undefined);
   ed = { ...refuse(ed, [{ Field: "host", Msg: "bad host" }, { Field: "", Msg: "disk full" }]), armed: true };
   assert.equal(errorOf(ed, "host"), "bad host");
