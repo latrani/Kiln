@@ -441,6 +441,12 @@ func DateDayYear() string { return get("date.day_year", nil) }
 // DesktopNotALink is desktop.not_a_link: "not a web link: {url}"
 func DesktopNotALink(url any) string { return get("desktop.not_a_link", map[string]any{"url": url}) }
 
+// DesktopNotifyDenied is desktop.notify_denied: "this system blocks Kiln's notifications: allow them in System Settings → Notifications"
+func DesktopNotifyDenied() string { return get("desktop.notify_denied", nil) }
+
+// DesktopNotifyUnsupported is desktop.notify_unsupported: "this system can't show Kiln's notifications: check System Settings → Notifications"
+func DesktopNotifyUnsupported() string { return get("desktop.notify_unsupported", nil) }
+
 // EditorAliases is editor.aliases: "Aliases"
 func EditorAliases() string { return get("editor.aliases", nil) }
 

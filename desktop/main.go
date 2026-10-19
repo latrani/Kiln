@@ -15,6 +15,12 @@ import (
 	"github.com/latrani/Kiln/internal/str"
 )
 
+// The page's bindings to Kiln's methods, committed under web/ui. After
+// changing a method, regenerate them with the pinned wails3
+// (bindings_test.go fails until then).
+//
+//go:generate wails3 generate bindings -ts -silent -d ../web/ui/src/bindings
+
 // The page, built into frontend/dist. all: keeps the embed compiling
 // while only .gitkeep is there.
 //

@@ -383,6 +383,12 @@ export function dateDayYear(): string { return `Mon Jan 2 2006`; }
 /** desktop.not_a_link: not a web link: {url} */
 export function desktopNotALink(url: unknown): string { return `not a web link: ${url}`; }
 
+/** desktop.notify_denied: this system blocks Kiln's notifications: allow them in System Settings → Notifications */
+export function desktopNotifyDenied(): string { return `this system blocks Kiln's notifications: allow them in System Settings → Notifications`; }
+
+/** desktop.notify_unsupported: this system can't show Kiln's notifications: check System Settings → Notifications */
+export function desktopNotifyUnsupported(): string { return `this system can't show Kiln's notifications: check System Settings → Notifications`; }
+
 /** editor.aliases: Aliases */
 export function editorAliases(): string { return `Aliases`; }
 

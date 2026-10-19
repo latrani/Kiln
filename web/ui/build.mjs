@@ -3,7 +3,9 @@
 // manifest.json, the fonts and their license, and
 // index.html from its template with the catalog's strings filled in.
 // With golden after the directory, the golden page (src/golden.tsx)
-// instead, for web/smoke's screenshots: never shipped.
+// instead, for web/smoke's screenshots: never shipped. With desktop, the
+// desktop app's page (src/desktop.tsx), for desktop/frontend/dist: no
+// service worker, icons or manifest, which a Wails window doesn't use.
 import * as esbuild from "esbuild";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -14,11 +16,12 @@ import { fill } from "./src/template.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const out = resolve(here, process.argv[2] ?? "../static");
-const golden = process.argv[3] === "golden";
+const mode = process.argv[3]; // golden, desktop or the page
+const desktop = mode === "desktop";
 await mkdir(join(out, "fonts"), { recursive: true });
 await esbuild.build({
   absWorkingDir: here,
-  entryPoints: [golden ? "src/golden.tsx" : "src/main.tsx"],
+  entryPoints: [mode === "golden" ? "src/golden.tsx" : desktop ? "src/desktop.tsx" : "src/main.tsx"],
   bundle: true,
   format: "esm",
   outfile: join(out, "app.js"),
@@ -31,42 +34,47 @@ await esbuild.build({
   target: ["es2022"],
   logLevel: "warning",
 });
-// The service worker (offline launches and pushes), at the page's
-// level so its scope is the page's.
-await esbuild.build({
-  absWorkingDir: here,
-  entryPoints: ["src/sw.ts"],
-  bundle: true,
-  format: "iife",
-  outfile: join(out, "sw.js"),
-  minify: true,
-  target: ["es2022"],
-  logLevel: "warning",
-});
 await copyFile(join(here, "fonts", "OFL.txt"), join(out, "fonts", "OFL.txt"));
-// The icons (rendered from icons/kiln.svg by icons/render.sh) and the
-// manifest that makes Kiln installable as a Home Screen app.
-for (const f of ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png", "apple-touch-icon.png"]) await copyFile(join(here, "icons", f), join(out, f));
-await copyFile(join(here, "icons", "kiln.svg"), join(out, "icon.svg"));
-const manifest = {
-  name: str.webAppName(),
-  short_name: str.webAppName(),
-  start_url: "./",
-  scope: "./",
-  display: "standalone",
-  background_color: terminalDark.bg,
-  theme_color: terminalDark.bg,
-  icons: [
-    { src: "icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
-    { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
-    { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
-    // Android crops to its own shape: the art fitted inside the safe zone.
-    { src: "icon-maskable-192.png", type: "image/png", sizes: "192x192", purpose: "maskable" },
-    { src: "icon-maskable-512.png", type: "image/png", sizes: "512x512", purpose: "maskable" },
-  ],
-};
-await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-await writeFile(join(out, "index.html"), fill(await readFile(join(here, "index.html"), "utf8"), {
+if (!desktop) {
+  // The service worker (offline launches and pushes), at the page's
+  // level so its scope is the page's.
+  await esbuild.build({
+    absWorkingDir: here,
+    entryPoints: ["src/sw.ts"],
+    bundle: true,
+    format: "iife",
+    outfile: join(out, "sw.js"),
+    minify: true,
+    target: ["es2022"],
+    logLevel: "warning",
+  });
+  // The icons (rendered from icons/kiln.svg by icons/render.sh) and the
+  // manifest that makes Kiln installable as a Home Screen app.
+  for (const f of ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png", "apple-touch-icon.png"]) await copyFile(join(here, "icons", f), join(out, f));
+  await copyFile(join(here, "icons", "kiln.svg"), join(out, "icon.svg"));
+  const manifest = {
+    name: str.webAppName(),
+    short_name: str.webAppName(),
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    background_color: terminalDark.bg,
+    theme_color: terminalDark.bg,
+    icons: [
+      { src: "icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
+      { src: "icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
+      { src: "icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
+      // Android crops to its own shape: the art fitted inside the safe zone.
+      { src: "icon-maskable-192.png", type: "image/png", sizes: "192x192", purpose: "maskable" },
+      { src: "icon-maskable-512.png", type: "image/png", sizes: "512x512", purpose: "maskable" },
+    ],
+  };
+  await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+}
+let html = await readFile(join(here, "index.html"), "utf8");
+// The desktop page alone, without links to the manifest and icons it hasn't.
+if (desktop) html = html.replace(/^<link rel="(manifest|icon|apple-touch-icon)".*\n/gm, "");
+await writeFile(join(out, "index.html"), fill(html, {
   title: str.webTitle(),
   needsJs: str.webNeedsJs(),
   themeDark: terminalDark.bg,

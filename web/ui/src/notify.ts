@@ -56,11 +56,19 @@ export function forgetAsked(): void {
   } catch {}
 }
 
+// answer is the host's answer, or "unsupported" if it can't give one:
+// a host that can't say whether it may show notifications can't show
+// them.
+const answer = (p: Promise<Permission>): Promise<Permission> => p.catch((e) => {
+  console.error("notify", e);
+  return "unsupported";
+});
+
 // offer is whether the status line offers to allow notifications: the
 // host won't show them yet and the offer hasn't been taken or turned
 // down.
 export async function offer(store: Store, asked: boolean = wasAsked()): Promise<boolean> {
-  return !asked && (await store.host.permission()) !== "granted";
+  return !asked && (await answer(store.host.permission())) !== "granted";
 }
 
 // dismiss turns the offer down for good in this browser.
@@ -73,7 +81,7 @@ export function dismiss(store: Store): void {
 // then a status line saying why it won't show them if it won't.
 export async function ask(store: Store): Promise<void> {
   dismiss(store);
-  const why = store.host.whyNoNotify(await store.host.askPermission());
+  const why = store.host.whyNoNotify(await answer(store.host.askPermission()));
   if (why) store.state.act?.({ Do: "say", Text: why, Err: false });
 }
 

@@ -561,3 +561,8 @@ file_name = "kiln-backup-{date}.zip"
 # Why a link the page asked to open wasn't: only http and https links go
 # to the browser.
 not_a_link = "not a web link: {url}"
+# Said after the status line's offer to allow notifications is clicked,
+# when the app can't show them: the system's settings are where they're
+# allowed.
+notify_denied = "this system blocks Kiln's notifications: allow them in System Settings → Notifications"
+notify_unsupported = "this system can't show Kiln's notifications: check System Settings → Notifications"

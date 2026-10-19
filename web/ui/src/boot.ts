@@ -240,7 +240,7 @@ export async function boot(store: Store, host: WebHost): Promise<void> {
   g.kilnReady = () => {
     g.kiln.start(relay.href, onBatch, store.state.saving); // storage may have failed since it loaded
     store.set({ phase: "running", progress: undefined });
-    host.permission().then((p) => { if (p === "granted") subscribe(); });
+    host.permission().then((p) => { if (p === "granted") subscribe(); }, console.error);
   };
 
   const go = new g.Go();

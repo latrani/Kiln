@@ -72,6 +72,22 @@ test("asking: the host is asked once; allowed says nothing; otherwise the host s
   }
 });
 
+test("a host that can't say whether it may show them can't: no rejection reaches the page", async () => {
+  const fail = async (): Promise<Permission> => { throw new Error("no notifications service"); };
+  const { host } = hostAnswering("default");
+  const { s, sent } = storeOn({ ...host, permission: fail, askPermission: fail });
+  const was = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await offer(s, false), true);
+    await ask(s);
+  } finally {
+    console.error = was;
+  }
+  assert.equal(s.state.notifyOffer, false);
+  assert.deepEqual(sent, [{ Do: "say", Text: "why unsupported", Err: false }]);
+});
+
 test("a notification shows the line, and clicking it focuses and switches", () => {
   const { s, sent } = running();
   const { api, shown } = fake("granted");
