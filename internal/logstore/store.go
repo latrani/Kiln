@@ -56,9 +56,9 @@ func (l Layout) dirTemplate() string {
 
 func (l Layout) abs(d string) string {
 	if !filepath.IsAbs(d) {
-		d = filepath.Join(l.Root, d)
+		return filepath.Join(l.Root, d)
 	}
-	return d
+	return filepath.Clean(d) // native separators, as Join gives
 }
 
 // Path is where a session starting at t is logged: its folder, and its
