@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { noHost } from "./host.ts";
 import { effect } from "./page.tsx";
 import { Store } from "./store.ts";
 import * as str from "./str.gen.ts";
@@ -29,16 +30,24 @@ for (const [what, clipboard] of [["refused", { writeText: () => Promise.reject(n
 
 test("/reset runs the page's reset", async () => {
   let resets = 0;
-  const s = new Store();
-  s.set({ reset: async () => { resets++; } });
+  const s = new Store(undefined, { ...noHost, reset: async () => { resets++; } });
   effect(s)({ type: "Effect", effect: "Do", Cmd: "/reset" });
   assert.equal(resets, 1);
 });
 
+test("/reset on a host that can't does nothing", () => {
+  const sent: any[] = [];
+  const s = new Store(undefined, noHost);
+  s.set({ act: (o: object) => sent.push(o) });
+  effect(s)({ type: "Effect", effect: "Do", Cmd: "/reset" });
+  assert.deepEqual(sent, []);
+  assert.equal(s.state.saving, true);
+});
+
 test("a reset the browser refuses says so on the status line", async () => {
   const sent: any[] = [];
-  const s = new Store();
-  s.set({ act: (o: object) => sent.push(o), reset: () => Promise.reject(new Error("no")) });
+  const s = new Store(undefined, { ...noHost, reset: () => Promise.reject(new Error("no")) });
+  s.set({ act: (o: object) => sent.push(o) });
   const was = console.error;
   console.error = () => {};
   try {

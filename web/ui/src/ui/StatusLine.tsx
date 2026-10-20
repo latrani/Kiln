@@ -26,7 +26,8 @@ function logStatus(state: State, g: LogState): string {
 
 // StatusLine is the bottom row. Two live regions are always there, so
 // screen readers are watching them before anything's said: a polite one
-// for news and an urgent one for errors (Kiln stopping, a status error).
+// for news and an urgent one for errors (Kiln stopping, with why when the
+// host knows; a status error).
 // A new status replaces the region's text node (keyed by Gen), so the
 // same words said again are read again. Download progress isn't live:
 // read chunk by chunk it would be a flood. While the browser won't show
@@ -38,7 +39,7 @@ function logStatus(state: State, g: LogState): string {
 export function StatusLine({ state, store }: { state: State; store: Store }) {
   const err = roleClass("status.error");
   let polite = "", urgent = "", gen = 0;
-  if (state.phase === "stopped") urgent = str.webStopped();
+  if (state.phase === "stopped") urgent = state.stoppedWhy ? str.webStopped() + str.separator() + state.stoppedWhy : str.webStopped();
   else if (state.status?.Text) {
     gen = state.status.Gen;
     if (state.status.Err) urgent = state.status.Text;

@@ -43,6 +43,12 @@ var day = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
 // config dir.
 func newApp(t *testing.T) (*app.App, string) {
 	t.Helper()
+	return newAppLoading(t, config.Load)
+}
+
+// newAppLoading is newApp with its config loaded by load.
+func newAppLoading(t *testing.T, load func(string) (*config.Config, error)) (*app.App, string) {
+	t.Helper()
 	dir := t.TempDir()
 	if err := config.EnsureDefaults(dir); err != nil {
 		t.Fatal(err)
@@ -52,7 +58,7 @@ func newApp(t *testing.T) (*app.App, string) {
 	}
 	a := app.New(app.Deps{
 		ConfigDir: dir,
-		Load:      config.Load,
+		Load:      load,
 		LogRoot:   filepath.Join(dir, "logs"),
 		Dial: func(context.Context, config.Character) (session.LineConn, error) {
 			return kilntest.NewConn(), nil
@@ -614,6 +620,67 @@ func TestDraftsSurviveARestart(t *testing.T) {
 	}
 }
 
+// A page that never sends save_drafts (the desktop's) has Run save them
+// as it ends, however it ends: the app shutting down or a /quit.
+func TestSaveOnEndSavesDraftsAsRunEnds(t *testing.T) {
+	for _, end := range []string{"cancel", "quit"} {
+		t.Run(end, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "drafts.json")
+			a, _ := newApp(t)
+			got := make(chan []map[string]any, 100)
+			l := New(a, func(b []byte) { got <- decode(t, b) })
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan struct{})
+			go func() { l.Run(ctx, Options{Drafts: path, SaveOnEnd: true}); close(done) }()
+			<-got
+			l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+			<-got
+			l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"half a thought","N":1}`))
+			<-got
+			l.Act([]byte(`{"Do":"open","Key":"fm/rook"}`))
+			<-got
+			l.Act([]byte(`{"Do":"switch","Key":"fm/rook"}`))
+			<-got
+			if end == "cancel" {
+				cancel()
+			} else {
+				l.Act([]byte(`{"Do":"submit","Key":"fm/rook","Text":"/quit","N":1}`))
+			}
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("Run didn't end")
+			}
+			b, _ := os.ReadFile(path)
+			if !strings.Contains(string(b), "half a thought") {
+				t.Errorf("drafts file %q", b)
+			}
+		})
+	}
+}
+
+// Without SaveOnEnd (the web page, which saves as it's left) Run ending
+// writes nothing.
+func TestRunEndingSavesNoDraftsUnasked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), Options{Drafts: path}); close(done) }()
+	<-got
+	l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+	<-got
+	l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"half a thought","N":1}`))
+	<-got
+	l.Act([]byte(`{"Do":"quit"}`))
+	<-done
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("drafts file written: %v", err)
+	}
+}
+
 func TestBadDraftsFileIsIgnored(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "drafts.json")
 	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
@@ -927,7 +994,7 @@ func TestOverRanges(t *testing.T) {
 
 func TestBackupIsADownload(t *testing.T) {
 	a, dir := newApp(t)
-	h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return []byte("zip!"), nil }})
+	h := startWith(t, a, dir, Options{PageCommands: true, Backup: func() ([]byte, error) { return []byte("zip!"), nil }})
 	b := h.act(`{"Do":"submit","Key":"","Text":"/backup","N":1}`)
 	e := event(b, "Effect")
 	if e == nil || e["effect"] != "SaveFile" || e["Name"] != str.BackupFileName(a.Now().Format("2006-01-02")) || e["Data"] != base64.StdEncoding.EncodeToString([]byte("zip!")) {
@@ -938,7 +1005,7 @@ func TestBackupIsADownload(t *testing.T) {
 func TestBackupFailingSaysSo(t *testing.T) {
 	a, dir := newApp(t)
 	boom := errors.New("boom")
-	h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return nil, boom }})
+	h := startWith(t, a, dir, Options{PageCommands: true, Backup: func() ([]byte, error) { return nil, boom }})
 	b := h.act(`{"Do":"submit","Key":"","Text":"/backup","N":1}`)
 	if st := event(b, "Status"); st == nil || st["Text"] != str.StatusBackupFailed(boom) || st["Err"] != true {
 		t.Errorf("status %v", st)
@@ -952,7 +1019,7 @@ func TestBackupFailingSaysSo(t *testing.T) {
 // the second goes to the page. Esc in between asks again.
 func TestResetAsksFirst(t *testing.T) {
 	a, dir := newApp(t)
-	h := startWith(t, a, dir, Options{})
+	h := startWith(t, a, dir, Options{PageCommands: true})
 	b := h.act(`{"Do":"submit","Key":"","Text":"/reset","N":1}`)
 	if event(b, "Effect") != nil {
 		t.Fatal("the first Enter reset")
@@ -989,7 +1056,7 @@ func TestResetArmIsOneShot(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			a, dir := newApp(t)
-			h := startWith(t, a, dir, Options{})
+			h := startWith(t, a, dir, Options{PageCommands: true})
 			h.act(`{"Do":"submit","Key":"","Text":"/reset","N":1}`)
 			for _, b := range c.between {
 				h.act(b)
@@ -1287,5 +1354,100 @@ func TestResumeConnectsHeldCharacters(t *testing.T) {
 	}
 	if c := h.a.Char("fm/kit"); c != nil && c.Sess != nil {
 		t.Error("Kit, not held and not autoconnect, was connected")
+	}
+}
+
+func TestBrowserCommandsUnknownWithoutPage(t *testing.T) {
+	for i, cmd := range []string{"/backup", "/restore", "/reset"} {
+		a, dir := newApp(t)
+		h := startWith(t, a, dir, Options{Backup: func() ([]byte, error) { return []byte("zip!"), nil }})
+		b := h.act(`{"Do":"submit","Key":"","Text":"` + cmd + `","N":` + fmt.Sprint(i+1) + `}`)
+		if st := event(b, "Status"); st == nil || st["Text"] != str.StatusUnknownCommand(cmd) || st["Err"] != true {
+			t.Errorf("%s: status %v", cmd, st)
+		}
+		for _, e := range b {
+			if e["type"] == "Effect" {
+				t.Errorf("%s: effect %v", cmd, e)
+			}
+		}
+	}
+}
+
+// batchWith reads batches until one has an event of type typ for which
+// ok holds, or fails after 10 seconds.
+func (h *harness) batchWith(typ string, ok func(map[string]any) bool) map[string]any {
+	h.t.Helper()
+	deadline := time.After(10 * time.Second)
+	for {
+		select {
+		case b := <-h.batches:
+			if e := event(b, typ); e != nil && ok(e) {
+				return e
+			}
+		case <-deadline:
+			h.t.Fatalf("no %s event", typ)
+		}
+	}
+}
+
+func TestChangesReload(t *testing.T) {
+	a, dir := newApp(t)
+	writeFile(t, filepath.Join(dir, "themes", "mine.toml"), "extends = \"kiln\"\n[tags]\npage = { fg = \"#111111\" }\n")
+	setTheme(t, dir, "mine")
+	if _, ok := a.Reload(); !ok {
+		t.Fatal(a.Status().Text)
+	}
+	changes := make(chan struct{})
+	h := startWith(t, a, dir, Options{ConfigDir: dir, Changes: changes})
+
+	// A world file appears.
+	writeFile(t, filepath.Join(dir, "worlds", "ash.toml"), "host = \"ash.test\"\nport = 7777\n")
+	changes <- struct{}{}
+	h.batchWith("Worlds", func(e map[string]any) bool {
+		for _, w := range e["Worlds"].([]any) {
+			if w.(map[string]any)["ID"] == "ash" {
+				return true
+			}
+		}
+		return false
+	})
+
+	// A theme file changes under the same config.
+	writeFile(t, filepath.Join(dir, "themes", "mine.toml"), "extends = \"kiln\"\n[tags]\npage = { fg = \"#222222\" }\n")
+	changes <- struct{}{}
+	h.batchWith("Theme", func(e map[string]any) bool {
+		tags := evLooks(t, e, "Dark")["Tags"].(map[string]any)
+		return tags["page"].(map[string]any)["FG"] == "#222222"
+	})
+
+	// A closed channel stops watching without harm.
+	close(changes)
+	if b := h.act(`{"Do":"here"}`); event(b, "Start") != nil {
+		t.Error("closing Changes restarted the page")
+	}
+}
+
+// A rule that won't compile, the config changing on disk, is said as
+// the TUI says it, over "config reloaded".
+func TestChangesReloadSaysARuleThatWontCompile(t *testing.T) {
+	var broken bool
+	a, dir := newAppLoading(t, func(dir string) (*config.Config, error) {
+		cfg, err := config.Load(dir)
+		if err == nil && broken { // past what config.Load checks
+			ch := &cfg.Worlds[0].Characters[0]
+			ch.Rules.Classify = append(ch.Rules.Classify, config.ClassifyRule{Tag: "x", Pattern: "("})
+		}
+		return cfg, err
+	})
+	if _, err := a.Open("fm/kit"); err != nil {
+		t.Fatal(err)
+	}
+	changes := make(chan struct{})
+	h := startWith(t, a, dir, Options{ConfigDir: dir, Changes: changes})
+	broken = true
+	changes <- struct{}{}
+	st := h.batchWith("Status", func(map[string]any) bool { return true })
+	if st["Err"] != true || !strings.HasPrefix(st["Text"].(string), upTo(str.StatusCharError("fm/kit", errors.New(mark)))) {
+		t.Errorf("status %v; want Kit's rule error", st)
 	}
 }

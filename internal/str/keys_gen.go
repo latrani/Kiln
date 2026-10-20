@@ -438,6 +438,31 @@ func DateDayTime() string { return get("date.day_time", nil) }
 // DateDayYear is date.day_year: "Mon Jan 2 2006"
 func DateDayYear() string { return get("date.day_year", nil) }
 
+// DesktopCancel is desktop.cancel: "Cancel"
+func DesktopCancel() string { return get("desktop.cancel", nil) }
+
+// DesktopNotALink is desktop.not_a_link: "not a web link: {url}"
+func DesktopNotALink(url any) string { return get("desktop.not_a_link", map[string]any{"url": url}) }
+
+// DesktopNotifyDenied is desktop.notify_denied: "this system blocks Kiln's notifications: allow them in the system's notification settings"
+func DesktopNotifyDenied() string { return get("desktop.notify_denied", nil) }
+
+// DesktopNotifyUnsupported is desktop.notify_unsupported: "this system can't show Kiln's notifications: check the system's notification settings"
+func DesktopNotifyUnsupported() string { return get("desktop.notify_unsupported", nil) }
+
+// DesktopQuit is desktop.quit: "Quit"
+func DesktopQuit() string { return get("desktop.quit", nil) }
+
+// DesktopQuitMessage is desktop.quit_message, by count:
+//   - one: "1 character is still connected. Quitting disconnects it."
+//   - other: "{n} characters are still connected. Quitting disconnects them."
+func DesktopQuitMessage(n int) string {
+	return count("desktop.quit_message", n, map[string]any{"n": n})
+}
+
+// DesktopQuitTitle is desktop.quit_title: "Quit Kiln?"
+func DesktopQuitTitle() string { return get("desktop.quit_title", nil) }
+
 // EditorAliases is editor.aliases: "Aliases"
 func EditorAliases() string { return get("editor.aliases", nil) }
 

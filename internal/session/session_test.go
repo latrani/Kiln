@@ -1035,7 +1035,13 @@ func TestKeepAfterTheLog(t *testing.T) {
 	waitFor(t, s, isState(Connected))
 	kc.lines <- conn.Line{Text: "Rook waves.", Off: 42}
 	waitFor(t, s, lineEvent("Rook waves."))
-	ks := kc.keeps()
+	// The line's event goes out as it's logged, before Keep runs: wait
+	// for the keep itself.
+	var ks [][2]int64
+	for deadline := time.Now().Add(10 * time.Second); len(ks) == 0 && time.Now().Before(deadline); {
+		time.Sleep(5 * time.Millisecond)
+		ks = kc.keeps()
+	}
 	if len(ks) != 1 || ks[0][0] != 42 {
 		t.Fatalf("keeps %v, want one at 42", ks)
 	}

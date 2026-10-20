@@ -3,10 +3,11 @@
 // saved, downloads and starts Go's wasm, and feeds its batches to the
 // store. memfs must be in place before wasm_exec.js loads: wasm_exec only
 // stubs globalThis.fs if it's missing.
+import type { WebHost } from "./webhost.ts";
 import { createFS } from "../../static/memfs.mjs";
 import { createPersist, idbStore } from "../../static/persist.mjs";
 import { createTabLock } from "../../static/tablock.mjs";
-import { forgetAsked, permission } from "./notify.ts";
+import { forgetAsked } from "./notify.ts";
 import { launched } from "./offline.ts";
 import * as push from "./push.ts";
 import { resetter } from "./reset.ts";
@@ -97,7 +98,7 @@ async function seedPreset(fs: any): Promise<void> {
 }
 
 // boot starts Kiln, telling the store how far it's got.
-export async function boot(store: Store): Promise<void> {
+export async function boot(store: Store, host: WebHost): Promise<void> {
   const g = globalThis as any;
   let persist: any = null;
   // handingOff: Kiln is going to another tab, which picks the characters
@@ -111,14 +112,8 @@ export async function boot(store: Store): Promise<void> {
   });
   if (lock && !(await lock.tryTake())) {
     await new Promise<void>((ok) => {
-      store.set({
-        phase: "locked",
-        onUseHere: async () => {
-          store.set({ onUseHere: undefined }); // one click is enough
-          await lock.takeOver();
-          ok();
-        },
-      });
+      host.provide({ useHere: async () => { await lock.takeOver(); ok(); } });
+      store.set({ phase: "locked" });
     });
   }
   store.set({ phase: "loading", progress: { got: 0 } });
@@ -181,7 +176,7 @@ export async function boot(store: Store): Promise<void> {
   // them back up.
   // It ends the push subscription and the kept page too, and the worker.
   const resets = resetter({ wipe: async () => { g.kiln?.closeLinks?.(); await push.forget(navigator.serviceWorker); await persist?.wipe(); }, forget: () => { forgetAsked(); forgetTheme(); }, reload: () => location.reload() });
-  store.set({ reset: resets.reset });
+  host.provide({ reset: resets.reset });
   // dropLinks kills the WebSockets to the relay without a word, as a dying
   // network does; Kiln resumes them.
   g.kilnPage = record ? { act, events, sent, dropLinks: () => g.kiln?.dropLinks?.() } : { act };
@@ -241,11 +236,11 @@ export async function boot(store: Store): Promise<void> {
   // Pushes while away, once notifications are allowed: now, or when the
   // player allows them (notify.ask).
   const subscribe = () => push.subscribe({ keyURL: new URL("relay?push_key=1", location.href), sw: navigator.serviceWorker, send: (e) => g.kiln?.push?.(e) });
-  store.set({ subscribe });
+  host.provide({ subscribe });
   g.kilnReady = () => {
     g.kiln.start(relay.href, onBatch, store.state.saving); // storage may have failed since it loaded
     store.set({ phase: "running", progress: undefined });
-    if (permission() === "granted") subscribe();
+    host.permission().then((p) => { if (p === "granted") subscribe(); }, console.error);
   };
 
   const go = new g.Go();

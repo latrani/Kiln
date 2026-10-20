@@ -57,7 +57,7 @@ function FilterForm({ state, store }: { state: State; store: Store }) {
   useEffect(() => ref.current?.focus(), []);
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.defaultPrevented) return;
-    const rows = pickerRows(state.worlds, state.chars, p.filter);
+    const rows = pickerRows(state.worlds, state.chars, p.filter, store.host.worlds === true);
     const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
     let sel: string | undefined;
     switch (plain ? e.key : "") {

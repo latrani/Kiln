@@ -107,9 +107,10 @@ export function historyShows(s: State): boolean {
 
 export interface State {
   phase: Phase;
+  stoppedWhy?: string; // why Kiln stopped, when the host knows (the desktop's Go not starting)
   progress?: { got: number; total?: number };
   saving: boolean;
-  onUseHere?: () => void; // takes Kiln over from another tab
+  handingOff?: boolean; // Use here was clicked: Kiln is coming over from another tab
   act?: (o: object) => void; // asks Kiln for something (webapi's actions), after what's typed
   typing?: Typing; // what's typed, sent ahead of every other action
   theme?: ThemeEvent;
@@ -138,15 +139,13 @@ export interface State {
   parked: Record<string, Editor>; // editors opened from the main view, by the item they were left on
   opening?: { key: string; closeAll: boolean }; // an editor waiting for Go's settings
   notifyOffer?: boolean; // the status line offers to allow notifications (notify.ts)
-  reset?: () => Promise<void>; // /reset: wipe what the browser saved and reload (boot.ts)
-  subscribe?: () => void; // subscribe to the relay's pushes, once notifications are allowed (push.ts, boot.ts)
   sent?: { key: string; seen: number; n: number }; // the last line sent, and how many so far (the scrollback goes to the end)
 }
 
 // fresh is a state holding nothing of Go's: only the page's own (and the
 // count of sends, which the scrollback goes by).
-const fresh = ({ phase, progress, saving, onUseHere, act, typing, notifyOffer, reset, subscribe, sent }: Pick<State, "phase" | "progress" | "saving" | "onUseHere" | "act" | "typing" | "notifyOffer" | "reset" | "subscribe" | "sent">): State => ({
-  phase, progress, saving, onUseHere, act, typing, notifyOffer, reset, subscribe, sent,
+const fresh = ({ phase, progress, saving, act, typing, notifyOffer, sent }: Pick<State, "phase" | "progress" | "saving" | "act" | "typing" | "notifyOffer" | "sent">): State => ({
+  phase, progress, saving, act, typing, notifyOffer, sent,
   worlds: [], order: [], active: "", chars: {}, inputs: {}, lines: {}, logs: {}, logLines: {}, filters: {}, logView: {}, drafts: {}, parked: {},
 });
 
@@ -175,17 +174,17 @@ const without = <T>(m: Record<string, T>, k: string): Record<string, T> => {
   return out;
 };
 
-const pickerOf = (s: State): Picker => s.picker ?? { filter: "", sel: fixPick(pickerRows(s.worlds, s.chars, ""), "") };
+const pickerOf = (s: State, addWorld: boolean): Picker => s.picker ?? { filter: "", sel: fixPick(pickerRows(s.worlds, s.chars, "", addWorld), "") };
 
 // stash keeps ed's edits for the next time its target's editor opens.
 const stash = (s: State, ed: Editor): State => ({ ...s, drafts: { ...s.drafts, [targetKey(ed.target)]: ed } });
 
 // show opens ed over the picker (opening it), the editor open there
 // before kept as a draft, as the TUI's setEditor.
-function show(s: State, ed: Editor): State {
+function show(s: State, ed: Editor, addWorld: boolean): State {
   const old = s.picker?.edit;
   if (old && targetKey(old.target) !== targetKey(ed.target)) s = stash(s, old);
-  return { ...s, picker: { ...pickerOf(s), adding: undefined, edit: ed } };
+  return { ...s, picker: { ...pickerOf(s, addWorld), adding: undefined, edit: ed } };
 }
 
 // shut closes the open editor: back to the picker, or with closeAll out
@@ -207,13 +206,17 @@ function settle(s: State, a: Answer): State {
   const ed = s.picker!.edit!;
   if (a.Problems) return { ...s, picker: { ...s.picker!, edit: refuse(ed, a.Problems) } };
   if (a.Op === "delete_world" && ed.target.kind === "world") s = dropWorld(s, ed.target.world);
-  return shut(s);
+  s = shut(s);
+  // A world added: its row is listed whatever the filter was, and its
+  // + Character highlighted, as the TUI's saveNewWorld.
+  if (a.Op === "add_world" && ed.target.kind === "new-world") s = { ...s, picker: { ...s.picker!, filter: "", sel: "+" + String(ed.values.id) } };
+  return s;
 }
 
 // dropWorld is s without the drafts and parked editors of world w, which
 // is gone.
 function dropWorld(s: State, w: string): State {
-  const keep = (m: Record<string, Editor>) => Object.fromEntries(Object.entries(m).filter(([, d]) => d.target.world !== w));
+  const keep = (m: Record<string, Editor>) => Object.fromEntries(Object.entries(m).filter(([, d]) => d.target.kind === "new-world" || d.target.world !== w));
   return { ...s, drafts: keep(s.drafts), parked: keep(s.parked) };
 }
 
@@ -234,7 +237,7 @@ function settleAway(s: State, a: Answer): State {
 // was opened on (parked) when you go elsewhere, or becomes a draft if
 // that item went; a parked one on an item that went becomes a draft;
 // and the one parked on the item now active comes back.
-function follow(s: State, prev: string): State {
+function follow(s: State, prev: string, addWorld: boolean): State {
   const ed = s.picker?.edit;
   if (s.active !== prev && ed?.closeAll) {
     s = exists(s, prev) ? { ...s, parked: { ...s.parked, [prev]: ed } } : stash(s, ed);
@@ -246,7 +249,7 @@ function follow(s: State, prev: string): State {
   const back = s.parked[s.active];
   if (back && s.active !== prev) {
     if (s.picker?.edit) s = stash(s, s.picker.edit);
-    s = show({ ...s, picker: undefined, parked: without(s.parked, s.active) }, back);
+    s = show({ ...s, picker: undefined, parked: without(s.parked, s.active) }, back, addWorld);
   }
   return s;
 }
@@ -289,7 +292,7 @@ export class Store {
       } else if (ed?.pending === a.Op && targetKey(ed.target) === a.target) s = settle(s, a);
       else s = settleAway(s, a);
     }
-    s = follow(s, prev);
+    s = follow(s, prev, this.host.worlds === true);
     if (s.picker) {
       // What's offered may have changed (worlds, a character opening or
       // closing): the highlight stays on a row there is, as the TUI's
@@ -298,7 +301,7 @@ export class Store {
       // character once there are some (unless this batch moved it, as a
       // first world saved does to its + Character).
       const was = this.state.worlds.length || s.picker.sel !== "+" ? s.picker.sel : "";
-      const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter), was);
+      const sel = fixPick(pickerRows(s.worlds, s.chars, s.picker.filter, this.host.worlds === true), was);
       if (sel !== s.picker.sel) s = { ...s, picker: { ...s.picker, sel } };
     }
     this.state = s;
@@ -375,7 +378,7 @@ export class Store {
       case "Settings": {
         const o = s.opening;
         if (!o || o.key !== targetKey(targetOf(e as unknown as SettingsEvent))) return s;
-        return show({ ...s, opening: undefined }, newEditor(e as unknown as SettingsEvent, o.closeAll));
+        return show({ ...s, opening: undefined }, newEditor(e as unknown as SettingsEvent, o.closeAll, this.host.worlds === true), this.host.worlds === true);
       }
       case "Effect": effects.push(e); return s;
     }
@@ -420,7 +423,7 @@ export class Store {
   setPicker(patch: Partial<Picker>): void {
     if (!this.state.picker) return;
     const p = { ...this.state.picker, ...patch };
-    p.sel = fixPick(pickerRows(this.state.worlds, this.state.chars, p.filter), p.sel);
+    p.sel = fixPick(pickerRows(this.state.worlds, this.state.chars, p.filter, this.host.worlds === true), p.sel);
     this.set({ picker: p });
   }
 
@@ -445,12 +448,12 @@ export class Store {
     }
     ed ??= s.drafts[k];
     if (ed) {
-      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, closeAll });
+      this.state = show({ ...s, drafts: without(s.drafts, k) }, { ...ed, armed: false, closeAll }, this.host.worlds === true);
       this.notify();
       return;
     }
     this.set({ opening: { key: k, closeAll } });
-    this.state.act?.({ Do: "settings", World: t.world, Char: t.kind === "char" ? t.char : "" });
+    this.state.act?.({ Do: "settings", World: t.kind === "new-world" ? "" : t.world, Char: t.kind === "char" ? t.char : "" });
   }
 
   // closeEditor drops the editor's edits (Esc).

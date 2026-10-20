@@ -36,7 +36,7 @@ export const effect = (store: Store) => (e: Event): void => {
     // Go asked first (Enter again). A browser that won't clear what it
     // saved has still stopped saving: show that, as when saving fails,
     // and say to reload (after, so it's what the status line shows).
-    store.state.reset?.().catch((err) => {
+    store.host.reset?.().catch((err) => {
       console.error("reset", err);
       store.set({ saving: false });
       store.host.storageFailed?.();

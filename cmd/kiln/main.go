@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"sync"
 
 	"golang.org/x/term"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/conn"
 	"github.com/latrani/Kiln/internal/logstore"
+	"github.com/latrani/Kiln/internal/native"
 	"github.com/latrani/Kiln/internal/rules"
 	"github.com/latrani/Kiln/internal/secrets"
 	"github.com/latrani/Kiln/internal/session"
@@ -132,7 +132,7 @@ func run(args []string) error {
 		}
 		ch := w.Characters[0]
 		hp := ch.Host + ":" + strconv.Itoa(ch.Port)
-		return knownHosts(dataDir).Trust(hp, args[2])
+		return native.KnownHosts(dataDir).Trust(hp, args[2])
 	case "theme":
 		if args[1] != "show" { //str:ok: a subcommand
 			break
@@ -172,10 +172,6 @@ func findWorld(cfg *config.Config, id string) *config.World {
 	return nil
 }
 
-func knownHosts(dataDir string) conn.KnownHosts {
-	return conn.KnownHosts{Path: filepath.Join(dataDir, "known_hosts")}
-}
-
 func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error {
 	ap := theme.Dark // tail never asks the terminal
 	if cfg.Appearance == "light" {
@@ -206,7 +202,7 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 		Dial: func(ctx context.Context) (session.LineConn, error) {
 			return conn.Dial(ctx, conn.Options{
 				Host: ch.Host, Port: ch.Port, TLS: ch.TLS, TLSTrust: ch.TLSTrust,
-				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
+				KnownHosts: native.KnownHosts(dataDir), Width: w, Height: h,
 			})
 		},
 		Password: func() (string, error) { return secrets.Open(cfg.PasswordStore, dataDir).Get(ch.World, ch.ID) },
@@ -259,60 +255,35 @@ func tail(ch config.Character, cfgDir, dataDir string, cfg *config.Config) error
 }
 
 func tui(cfgDir, dataDir string, cfg *config.Config, noAutoconnect bool) error {
-	watcher, err := config.Watch(cfgDir)
+	core, err := native.New(native.Options{ConfigDir: cfgDir, DataDir: dataDir, Size: func() (int, int) {
+		w, h, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			w, h = 80, 24
+		}
+		// Roughly the right pane's size, where text is shown; the UI
+		// reports the exact size (and later resizes) via Session.Resize.
+		return w - ui.SidebarWidth(w) - 1, h
+	}})
 	if err != nil {
 		return err
 	}
-	defer watcher.Close()
-	logRoot := filepath.Join(dataDir, "logs")
-	var mu sync.Mutex
-	writers := map[string]*logstore.Writer{}
-	defer func() {
-		for _, w := range writers {
-			w.Close()
-		}
-	}()
+	defer core.Close()
+	d := core.Deps
 	m := ui.New(ui.Deps{
-		Tmux:          os.Getenv("TMUX") != "",
-		NoAutoconnect: noAutoconnect,
-		ConfigDir:     cfgDir,
-		LogRoot:       logRoot,
-		StateFile:     filepath.Join(dataDir, "state.json"), //str:ok
-		KnownHosts:    knownHosts(dataDir),
-		Load:          config.Load,
-		Dial: func(ctx context.Context, ch config.Character) (session.LineConn, error) {
-			w, h, err := term.GetSize(int(os.Stdout.Fd()))
-			if err != nil {
-				w, h = 80, 24
-			}
-			// Roughly the right pane's size, where text is shown; the UI
-			// reports the exact size (and later resizes) via Session.Resize.
-			w -= ui.SidebarWidth(w) + 1
-			return conn.Dial(ctx, conn.Options{
-				Host: ch.Host, Port: ch.Port, TLS: ch.TLS, TLSTrust: ch.TLSTrust,
-				KnownHosts: knownHosts(dataDir), Width: w, Height: h,
-			})
-		},
-		NewLog: func(l logstore.Layout) session.Appender {
-			mu.Lock()
-			defer mu.Unlock()
-			k := fmt.Sprintf("%+v", l) // a changed log_dir or log_name gets a new writer
-			if writers[k] == nil {
-				writers[k] = logstore.NewWriter(l)
-			}
-			return writers[k]
-		},
-		Password: func(store, world, char string) (string, error) {
-			return secrets.Open(store, dataDir).Get(world, char)
-		},
-		SavePassword: func(store, world, char, password string) error {
-			return secrets.Open(store, dataDir).Set(world, char, password)
-		},
-		DeletePassword: func(store, world, char string) error {
-			return secrets.Open(store, dataDir).Delete(world, char)
-		},
-		Changes: watcher.Changes(),
-		OpenURL: openURL,
+		Tmux:           os.Getenv("TMUX") != "",
+		NoAutoconnect:  noAutoconnect,
+		ConfigDir:      d.ConfigDir,
+		LogRoot:        d.LogRoot,
+		StateFile:      d.StateFile,
+		KnownHosts:     d.KnownHosts,
+		Load:           d.Load,
+		Dial:           d.Dial,
+		NewLog:         d.NewLog,
+		Password:       d.Password,
+		SavePassword:   d.SavePassword,
+		DeletePassword: d.DeletePassword,
+		Changes:        core.Changes,
+		OpenURL:        openURL,
 	}, cfg)
 	stop := teeStderr()
 	_, err = tea.NewProgram(m).Run()

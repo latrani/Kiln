@@ -52,6 +52,27 @@ test("the page's bundle carries no host", async () => {
   assert.deepEqual(carried, []);
 });
 
+test("the desktop bundle carries no browser host", async () => {
+  const r = await esbuild.build({
+    absWorkingDir: ui, entryPoints: ["src/desktop.tsx"], bundle: true, write: false, metafile: true, format: "esm",
+    jsx: "automatic", jsxImportSource: "preact", loader: { ".woff2": "file", ".css": "empty" }, outdir: "out", logLevel: "silent",
+  });
+  const hosts = ["boot.ts", "memfs.mjs", "persist.mjs", "tablock.mjs", "push.ts", "sw.ts", "webhost.ts"];
+  const carried = Object.keys(r.metafile!.inputs).filter((f) => hosts.some((h) => f.endsWith("/" + h)));
+  assert.deepEqual(carried, []);
+});
+
+test("the desktop build has no service worker", (t) => {
+  const out = mkdtempSync(join(tmpdir(), "kiln-ui-"));
+  t.after(() => rmSync(out, { recursive: true, force: true }));
+  execFileSync(process.execPath, ["build.mjs", out, "desktop"], { cwd: ui });
+  for (const f of ["app.js", "app.css", "index.html", "fonts/JetBrainsMono-Regular.woff2", "fonts/OFL.txt"]) assert.ok(existsSync(join(out, f)), f);
+  for (const f of ["sw.js", "manifest.json", "icon.svg", "icon-192.png", "apple-touch-icon.png"]) assert.ok(!existsSync(join(out, f)), f);
+  const html = readFileSync(join(out, "index.html"), "utf8");
+  assert.ok(html.includes(`<title>${str.webTitle()}</title>`));
+  for (const f of ["manifest.json", "icon.svg", "apple-touch-icon.png"]) assert.ok(!html.includes(f), `index.html links ${f}, which isn't there`);
+});
+
 // built is the page built once into a temporary directory.
 function built(t: { after(f: () => void): void }): string {
   const out = mkdtempSync(join(tmpdir(), "kiln-ui-"));

@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { noHost } from "./host.ts";
+import type { Host } from "./host.ts";
 import { ask, offer, show } from "./notify.ts";
-import type { API, Shown } from "./notify.ts";
+import type { API, Permission, Shown } from "./notify.ts";
 import { Store } from "./store.ts";
 import * as str from "./str.gen.ts";
 
@@ -33,21 +35,57 @@ const running = () => {
   return { s, sent };
 };
 
-test("the offer shows until notifications are allowed or it's been answered", () => {
-  assert.equal(offer("default", false), true);
-  assert.equal(offer("denied", false), true);
-  assert.equal(offer("unsupported", false), true);
-  assert.equal(offer("granted", false), false);
-  assert.equal(offer("default", true), false);
+// hostAnswering is a host whose permission is p, and whose ask answers
+// answer and counts; why is its whyNoNotify.
+function hostAnswering(p: Permission, answer: Permission = p) {
+  const asked = { n: 0 };
+  const host: Host = {
+    ...noHost,
+    permission: async () => p,
+    askPermission: async () => { asked.n++; return answer; },
+    whyNoNotify: (q) => (q === "granted" || q === "default" ? "" : `why ${q}`),
+  };
+  return { host, asked };
+}
+
+const storeOn = (host: Host) => {
+  const sent: any[] = [];
+  const s = new Store(undefined, host);
+  s.set({ phase: "running", act: (o) => sent.push(o), notifyOffer: true });
+  return { s, sent };
+};
+
+test("the offer shows until notifications are allowed or it's been answered", async () => {
+  for (const [p, asked, want] of [["default", false, true], ["denied", false, true], ["unsupported", false, true], ["granted", false, false], ["default", true, false]] as const) {
+    assert.equal(await offer(storeOn(hostAnswering(p).host).s, asked), want, `${p} ${asked}`);
+  }
 });
 
-test("asking: allowed says nothing; denied or no API says why, once", async () => {
-  for (const [api, want] of [[fake("default", "granted").api, undefined], [fake("default", "denied").api, str.webNotifyDenied()], [fake("denied").api, str.webNotifyDenied()], [undefined, str.webNotifyUnsupported()]] as const) {
-    const { s, sent } = running();
-    await ask(s, api);
+test("asking: the host is asked once; allowed says nothing; otherwise the host says why", async () => {
+  for (const [answer, want] of [["granted", undefined], ["default", undefined], ["denied", "why denied"], ["unsupported", "why unsupported"]] as const) {
+    const { host, asked } = hostAnswering("default", answer);
+    const { s, sent } = storeOn(host);
+    await ask(s);
+    assert.equal(asked.n, 1, answer);
     assert.equal(s.state.notifyOffer, false);
-    assert.deepEqual(sent, want ? [{ Do: "say", Text: want, Err: false }] : []);
+    assert.deepEqual(sent, want ? [{ Do: "say", Text: want, Err: false }] : [], answer);
   }
+});
+
+test("a host that can't say whether it may show them can't: no rejection reaches the page", async () => {
+  const fail = async (): Promise<Permission> => { throw new Error("no notifications service"); };
+  const { host } = hostAnswering("default");
+  const { s, sent } = storeOn({ ...host, permission: fail, askPermission: fail });
+  const was = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await offer(s, false), true);
+    await ask(s);
+  } finally {
+    console.error = was;
+  }
+  assert.equal(s.state.notifyOffer, false);
+  assert.deepEqual(sent, [{ Do: "say", Text: "why unsupported", Err: false }]);
 });
 
 test("a notification shows the line, and clicking it focuses and switches", () => {
@@ -72,14 +110,4 @@ test("without permission nothing shows", () => {
     assert.equal(shown.length, 0);
   }
   show(s, { type: "Effect", effect: "Notify", Title: "Kit", Body: "hi" }, undefined);
-});
-
-test("allowing subscribes to pushes; denying doesn't", async () => {
-  for (const [answer, want] of [["granted", 1], ["denied", 0]] as const) {
-    const { s } = running();
-    let subscribed = 0;
-    s.set({ subscribe: () => subscribed++ });
-    await ask(s, fake("default", answer).api);
-    assert.equal(subscribed, want, answer);
-  }
 });

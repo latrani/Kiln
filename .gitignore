@@ -16,3 +16,7 @@
 /web/static/fonts/
 /web/static/index.html
 /web/smoke/testdata/golden/failed/
+desktop/frontend/dist/*
+!desktop/frontend/dist/.gitkeep
+desktop/bin/
+/desktop/desktop

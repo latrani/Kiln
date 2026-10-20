@@ -7,9 +7,11 @@
   "scripts": {
     "check": "tsc",
     "test": "node test.mjs",
-    "build": "node build.mjs ../static"
+    "build": "node build.mjs ../static",
+    "build:desktop": "node build.mjs ../../desktop/frontend/dist desktop"
   },
   "dependencies": {
+    "@wailsio/runtime": "3.0.0-beta.32",
     "preact": "10.29.8"
   },
   "devDependencies": {
