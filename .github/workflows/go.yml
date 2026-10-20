@@ -31,7 +31,8 @@ jobs:
         working-directory: web
         run: go test ./...
 
-  # The same builds as release.yml's desktop job, at version 0.0.0.
+  # The same builds as release.yml's desktop job, at a prerelease
+  # version, so a cut that Windows' version fields reject fails here.
   desktop:
     name: desktop (${{ matrix.os }})
     strategy:
@@ -69,6 +70,6 @@ jobs:
           CGO_LDFLAGS: ${{ matrix.cgo-flags }}
         run: go test ./...
       - name: Package
-        run: wails3 package ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
+        run: wails3 package VERSION=0.0.0-ci ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
       - name: List the packages
         run: ls -la bin
