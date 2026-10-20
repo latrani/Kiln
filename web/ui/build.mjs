@@ -5,7 +5,8 @@
 // With golden after the directory, the golden page (src/golden.tsx)
 // instead, for web/smoke's screenshots: never shipped. With desktop, the
 // desktop app's page (src/desktop.tsx), for desktop/frontend/dist: no
-// service worker, icons or manifest, which a Wails window doesn't use.
+// service worker, icons, manifest or source map, which a Wails window
+// doesn't use.
 import * as esbuild from "esbuild";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -30,7 +31,7 @@ await esbuild.build({
   loader: { ".woff2": "file" },
   assetNames: "fonts/[name]",
   minify: true,
-  sourcemap: true,
+  sourcemap: !desktop, // a production webview has no devtools to read one
   target: ["es2022"],
   logLevel: "warning",
 });

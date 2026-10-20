@@ -62,12 +62,12 @@ test("the desktop bundle carries no browser host", async () => {
   assert.deepEqual(carried, []);
 });
 
-test("the desktop build has no service worker", (t) => {
+test("the desktop build has no service worker or source map", (t) => {
   const out = mkdtempSync(join(tmpdir(), "kiln-ui-"));
   t.after(() => rmSync(out, { recursive: true, force: true }));
   execFileSync(process.execPath, ["build.mjs", out, "desktop"], { cwd: ui });
   for (const f of ["app.js", "app.css", "index.html", "fonts/JetBrainsMono-Regular.woff2", "fonts/OFL.txt"]) assert.ok(existsSync(join(out, f)), f);
-  for (const f of ["sw.js", "manifest.json", "icon.svg", "icon-192.png", "apple-touch-icon.png"]) assert.ok(!existsSync(join(out, f)), f);
+  for (const f of ["sw.js", "manifest.json", "icon.svg", "icon-192.png", "apple-touch-icon.png", "app.js.map"]) assert.ok(!existsSync(join(out, f)), f);
   const html = readFileSync(join(out, "index.html"), "utf8");
   assert.ok(html.includes(`<title>${str.webTitle()}</title>`));
   for (const f of ["manifest.json", "icon.svg", "apple-touch-icon.png"]) assert.ok(!html.includes(f), `index.html links ${f}, which isn't there`);
