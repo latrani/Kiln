@@ -27,8 +27,16 @@ To try the build locally without publishing anything, run `goreleaser release --
 
 The same run builds [desktop Kiln](desktop.md) on macOS, Windows and Linux and uploads `Kiln-<version>-macos-universal.zip`, `Kiln-<version>-windows-amd64-installer.exe`, and `Kiln-<version>-linux-amd64` as `.AppImage`, `.deb` and `.rpm` to the draft, next to the TUI's files.
 
+## The cask
+
+A full release's publish also opens a cask bump PR in the tap (`bump-cask-kiln-<version>`, from the `bump-cask` job in the tap's `bump.yml`). The cask has no bottles, so `brew pr-pull` doesn't apply: merge that PR by hand once its checks pass.
+
+The job edits `Casks/kiln.rb` in place, so the cask must already be on the tap's `main` before the first full desktop release is published.
+
 ## Prereleases
 
-A tag like `v0.9.0-rc.1` is accepted too. The release is marked as a prerelease, and publishing it does **not** tell the Homebrew tap, so the formula and cask stay on the last full release. Testers download the files from the Releases page.
+A tag like `v0.9.0-rc.1` is accepted too. The release is marked as a prerelease, and publishing it does **not** tell the Homebrew tap, so the formula stays on the last full release and the cask gets nothing automatic. Testers download the files from the Releases page.
+
+An rc's cask is set by hand: a PR to the tap that sets the cask's `version` and `sha256` from the rc's macOS zip (`shasum -a 256 Kiln-0.9.0-rc.1-macos-universal.zip`). Until that PR is merged, macOS testers use the zip.
 
 The installed apps show `0.9.0` for an rc: Finder's Get Info and Windows' Installed apps list drop the suffix. The `.deb` and `.rpm` show `0.9.0~rc.1`, and the file names keep all of it.

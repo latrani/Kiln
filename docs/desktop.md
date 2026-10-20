@@ -18,15 +18,15 @@ Grab the file for your system from the [Releases page](https://github.com/latran
 
 ### macOS
 
-Needs macOS 13 or newer. With [Homebrew](https://brew.sh):
+Needs macOS 13 or newer. With [Homebrew](https://brew.sh), once a full release is out:
 
 ```sh
 brew install --cask latrani/tap/kiln
 ```
 
-That puts `Kiln.app` in `/Applications` and clears the quarantine flag, so it opens without a prompt.
+That puts `Kiln.app` in `/Applications` and clears the quarantine flag, so it opens without a prompt. During a prerelease (an `-rc` version) the tap may not have the cask yet, or may have an older one: it only follows full releases, and an rc's cask is set by hand. If `brew install` can't find it, or installs another version, use the zip.
 
-Or download the zip, unpack it, and drag `Kiln.app` into `/Applications`. The first time you open it, macOS says it can't check the app for malware. Press **Done**, then:
+To use the zip, download it from the Releases page, unpack it, and drag `Kiln.app` into `/Applications`. The first time you open it, macOS says it can't check the app for malware. Press **Done**, then:
 
 1. Open **System Settings → Privacy & Security** and scroll down to the message about Kiln.
 2. Press **Open Anyway** and confirm with your password.
