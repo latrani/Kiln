@@ -45,3 +45,5 @@ release:
   # Releases start as drafts: review the notes and files on GitHub, then
   # press "Publish release".
   draft: true
+  # A tag like v1.2.3-rc.1 is a prerelease, which homebrew.yml skips.
+  prerelease: auto
