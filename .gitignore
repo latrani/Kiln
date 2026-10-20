@@ -19,3 +19,4 @@
 desktop/frontend/dist/*
 !desktop/frontend/dist/.gitkeep
 desktop/bin/
+/desktop/desktop
