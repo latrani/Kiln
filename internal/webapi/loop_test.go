@@ -43,6 +43,12 @@ var day = time.Date(2026, 9, 24, 21, 0, 0, 0, time.Local)
 // config dir.
 func newApp(t *testing.T) (*app.App, string) {
 	t.Helper()
+	return newAppLoading(t, config.Load)
+}
+
+// newAppLoading is newApp with its config loaded by load.
+func newAppLoading(t *testing.T, load func(string) (*config.Config, error)) (*app.App, string) {
+	t.Helper()
 	dir := t.TempDir()
 	if err := config.EnsureDefaults(dir); err != nil {
 		t.Fatal(err)
@@ -52,7 +58,7 @@ func newApp(t *testing.T) (*app.App, string) {
 	}
 	a := app.New(app.Deps{
 		ConfigDir: dir,
-		Load:      config.Load,
+		Load:      load,
 		LogRoot:   filepath.Join(dir, "logs"),
 		Dial: func(context.Context, config.Character) (session.LineConn, error) {
 			return kilntest.NewConn(), nil
@@ -1418,5 +1424,30 @@ func TestChangesReload(t *testing.T) {
 	close(changes)
 	if b := h.act(`{"Do":"here"}`); event(b, "Start") != nil {
 		t.Error("closing Changes restarted the page")
+	}
+}
+
+// A rule that won't compile, the config changing on disk, is said as
+// the TUI says it, over "config reloaded".
+func TestChangesReloadSaysARuleThatWontCompile(t *testing.T) {
+	var broken bool
+	a, dir := newAppLoading(t, func(dir string) (*config.Config, error) {
+		cfg, err := config.Load(dir)
+		if err == nil && broken { // past what config.Load checks
+			ch := &cfg.Worlds[0].Characters[0]
+			ch.Rules.Classify = append(ch.Rules.Classify, config.ClassifyRule{Tag: "x", Pattern: "("})
+		}
+		return cfg, err
+	})
+	if _, err := a.Open("fm/kit"); err != nil {
+		t.Fatal(err)
+	}
+	changes := make(chan struct{})
+	h := startWith(t, a, dir, Options{ConfigDir: dir, Changes: changes})
+	broken = true
+	changes <- struct{}{}
+	st := h.batchWith("Status", func(map[string]any) bool { return true })
+	if st["Err"] != true || !strings.HasPrefix(st["Text"].(string), upTo(str.StatusCharError("fm/kit", errors.New(mark)))) {
+		t.Errorf("status %v; want Kit's rule error", st)
 	}
 }

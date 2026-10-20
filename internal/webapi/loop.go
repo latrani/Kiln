@@ -278,14 +278,25 @@ func (l *Loop) watch(ctx context.Context, changes <-chan struct{}) {
 }
 
 // reload loads the config and theme again, as the TUI's reloadNow does:
-// the turn's restyle loads the theme (and says why a theme or a look
-// didn't load, over "config reloaded").
+// it says a character's rules that won't compile instead of "config
+// reloaded", and the turn's restyle loads the theme (and says why a
+// theme or a look didn't load, over either).
 func (l *Loop) reload() {
-	if _, ok := l.a.Reload(); !ok {
+	res, ok := l.a.Reload()
+	if !ok {
 		return // Reload said why
 	}
 	l.retheme = true // a theme file may have changed with the config the same
-	l.a.SetStatus(false, str.StatusConfigReloaded())
+	said := false
+	for _, k := range l.a.Order() { // in order, so which error shows is settled
+		if c := l.a.Char(k); c != nil && !c.Orphan && res.Errs[k] != nil {
+			l.a.SetStatus(true, str.StatusCharError(k, res.Errs[k]))
+			said = true
+		}
+	}
+	if !said {
+		l.a.SetStatus(false, str.StatusConfigReloaded())
+	}
 }
 
 func anys(evs []feed.Event) []any {
