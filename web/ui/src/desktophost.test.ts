@@ -161,8 +161,8 @@ test("the page runs on the desktop as the wasm: batches into the store, actions 
   assert.deepEqual(calls.at(-1), { name: "Act", args: [JSON.stringify({ Do: "here" })] });
 });
 
-test("Go not starting stops the page", async () => {
-  const { kiln } = fake({ Start: async () => { throw new Error("no config"); } });
+test("Go not starting stops the page, saying why", async () => {
+  const { kiln } = fake({ Start: async () => { throw new Error("config.toml: bad"); } });
   const s = new Store(undefined, desktopHost(kiln));
   const was = console.error;
   console.error = () => {};
@@ -172,4 +172,5 @@ test("Go not starting stops the page", async () => {
     console.error = was;
   }
   assert.equal(s.state.phase, "stopped");
+  assert.equal(s.state.stoppedWhy, "config.toml: bad");
 });

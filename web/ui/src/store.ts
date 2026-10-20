@@ -107,6 +107,7 @@ export function historyShows(s: State): boolean {
 
 export interface State {
   phase: Phase;
+  stoppedWhy?: string; // why Kiln stopped, when the host knows (the desktop's Go not starting)
   progress?: { got: number; total?: number };
   saving: boolean;
   handingOff?: boolean; // Use here was clicked: Kiln is coming over from another tab

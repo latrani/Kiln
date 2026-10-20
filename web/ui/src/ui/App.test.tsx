@@ -97,6 +97,7 @@ test("errors go in the urgent region, the rest in the polite one", () => {
   assert.deepEqual(liveRegions(status(page({ phase: "running" }, [{ type: "Status", Text: "hi", Err: false, Gen: 1 }]))), [["status", "hi"], ["alert", ""]]);
   assert.deepEqual(liveRegions(status(page({ phase: "running", saving: false }))), [["status", str.webNotSaving()], ["alert", ""]]);
   assert.deepEqual(liveRegions(status(page({ phase: "stopped" }))), [["status", ""], ["alert", str.webStopped()]]);
+  assert.deepEqual(liveRegions(status(page({ phase: "stopped", stoppedWhy: "boom" }))), [["status", ""], ["alert", str.webStopped() + str.separator() + "boom"]]);
 });
 
 test("download progress isn't read aloud chunk by chunk", () => {

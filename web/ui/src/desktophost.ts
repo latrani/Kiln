@@ -92,6 +92,7 @@ export async function run(store: Store, kiln: Kiln, on: (name: string, f: (data:
     await kiln.Start();
   } catch (e) {
     console.error(e);
-    store.set({ phase: "stopped" });
+    // Go's error (a config that won't load, say), as the TUI prints it.
+    store.set({ phase: "stopped", stoppedWhy: e instanceof Error ? e.message : String(e) });
   }
 }
