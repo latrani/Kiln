@@ -315,6 +315,37 @@ func TestSaveAsWritesWhereChosen(t *testing.T) {
 	}
 }
 
+// statusSaid is whether a batch so far put text up on the status line,
+// as an error if isErr.
+func statusSaid(t *testing.T, w *fakeWindow, isErr bool, text string) bool {
+	t.Helper()
+	for _, b := range w.sent() {
+		var evs []map[string]any
+		if err := json.Unmarshal([]byte(b), &evs); err != nil {
+			t.Fatalf("batch %q: %v", b, err)
+		}
+		for _, e := range evs {
+			if e["type"] == "Status" && e["Text"] == text && e["Err"] == isErr {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func TestSaveAsThatCantWriteSaysSo(t *testing.T) {
+	k, w, d := newKiln(t)
+	if err := k.Start(); err != nil {
+		t.Fatal(err)
+	}
+	d.path = filepath.Join(t.TempDir(), "gone", "scene.txt") // no such folder
+	err := k.SaveAs("scene.txt", []byte("Kit waves."))
+	if err == nil {
+		t.Fatal("SaveAs into a missing folder didn't fail")
+	}
+	waitFor(t, "the status line to say why", func() bool { return statusSaid(t, w, true, err.Error()) })
+}
+
 func TestOpenURLOnlyOpensWebLinks(t *testing.T) {
 	k, w, _ := newKiln(t)
 	err := k.OpenURL("file:///etc/passwd")

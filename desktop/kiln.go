@@ -164,13 +164,17 @@ func (k *Kiln) Over(text string, maxLineBytes int, newlineMode string) [][2]int 
 
 // SaveAs asks where to save data with the OS's Save dialog, offering
 // name and starting in export_dir when the config sets one, and writes
-// it there. A cancelled dialog is not an error.
+// it there. A save that fails says why on the status line, as the TUI's
+// export does; a cancelled dialog is not an error.
 func (k *Kiln) SaveAs(name string, data []byte) error {
 	path, err := k.dialogs.SaveFile(name, k.exportDir())
-	if err != nil || path == "" {
-		return err
+	if err == nil && path != "" {
+		err = os.WriteFile(path, data, 0o644)
 	}
-	return os.WriteFile(path, data, 0o644)
+	if l := k.running(); err != nil && l != nil {
+		l.Say(true, err.Error())
+	}
+	return err
 }
 
 // OpenURL opens an http or https link in the default browser; any
