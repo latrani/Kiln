@@ -7,8 +7,9 @@
 # identity, so it never changes once shipped.
 #
 # The version here is a local build's. A release passes its tag's
-# instead: wails3 package VERSION=0.9.0 (numbers only: Windows' version
-# fields take nothing else).
+# instead: wails3 package VERSION=0.9.0, or VERSION=0.9.0-rc.1. These
+# files get only the numbers (0.9.0), since Windows' version fields take
+# nothing else; the deb and rpm get all of it.
 version: '3'
 
 info:

@@ -4,7 +4,8 @@ includes:
   common: ../Taskfile.yml
 
 vars:
-  # A release's VERSION, or build/config.yml's local 0.0.0.
+  # A release's VERSION, or build/config.yml's local 0.0.0. All of it:
+  # nfpm makes 0.9.0-rc.1 0.9.0~rc.1, which sorts before 0.9.0.
   PACKAGE_VERSION: '{{.VERSION | default "0.0.0"}}'
 
 tasks:

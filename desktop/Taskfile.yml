@@ -5,7 +5,8 @@
 #   wails3 package                macOS: a universal, ad-hoc signed bin/Kiln.app
 #                                 Windows: an NSIS installer in bin/
 #                                 Linux: an AppImage, a deb and an rpm in bin/
-#   wails3 package VERSION=0.9.0  the same, as a release (see build/config.yml)
+#   wails3 package VERSION=0.9.0  the same, as a release (see build/config.yml);
+#                                 a prerelease is VERSION=0.9.0-rc.1
 #   wails3 task run               builds bin/Kiln.dev.app and runs it (macOS)
 #
 # From `wails3 init` at v3.0.0-beta.32, trimmed to these platforms and

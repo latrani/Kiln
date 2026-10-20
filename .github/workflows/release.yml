@@ -21,7 +21,21 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
+      - name: Check the version
+        id: version
+        env:
+          # A manual run's, or the pushed tag's.
+          VERSION: ${{ inputs.version || github.ref_name }}
+        run: |
+          # v1.2.3, or a prerelease like v1.2.3-rc.1.
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "::error::The version must look like v1.2.3 or v1.2.3-rc.1 (got \"$VERSION\")."
+            exit 1
+          fi
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # GoReleaser builds the changelog from history
@@ -37,10 +51,6 @@ jobs:
         run: |
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "::error::Run this from the main branch."
-            exit 1
-          fi
-          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::The version must look like v1.2.3 (got \"$VERSION\")."
             exit 1
           fi
           if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
@@ -79,8 +89,8 @@ jobs:
         shell: bash # Git Bash on Windows
         working-directory: desktop
     env:
-      # A manual run's tag was pushed by the release job.
-      TAG: ${{ inputs.version || github.ref_name }}
+      # Checked by the release job, which pushed it on a manual run.
+      TAG: ${{ needs.release.outputs.tag }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -111,7 +121,9 @@ jobs:
           choco install nsis -y --no-progress
           echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
       - name: Package
-        # Numbers only: NSIS and Info.plist take no leading v.
+        # No leading v. Info.plist and NSIS get only 0.9.0 of
+        # 0.9.0-rc.1 (the Taskfile's doing); the deb, the rpm and the
+        # files' names get all of it.
         run: wails3 package VERSION="${TAG#v}" ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
       # The names CI's packages come out with (go.yml lists them), with
       # the version and arch added.

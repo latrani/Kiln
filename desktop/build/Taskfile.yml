@@ -34,8 +34,11 @@ tasks:
     # nothing uses (.gitignore).
     run: once
     dir: build
+    vars:
+      # 0.9.0 of 0.9.0-rc.1: Windows' version fields take only numbers.
+      PRODUCT_VERSION: '{{if .VERSION}}{{splitList "-" .VERSION | first}}{{end}}'
     cmds:
-      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir . -silent{{if .VERSION}} -productversion "{{.VERSION}}"{{end}}
+      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir . -silent{{if .VERSION}} -productversion "{{.PRODUCT_VERSION}}"{{end}}
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from appicon.png
