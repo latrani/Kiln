@@ -33,6 +33,11 @@ A full release's publish also opens a cask bump PR in the tap (`bump-cask-kiln-<
 
 The job edits `Casks/kiln.rb` in place, so the cask must already be on the tap's `main` before the first full desktop release is published.
 
+## If a run goes wrong
+
+- **A desktop job failed:** use **Re-run failed jobs** on the run. Uploads overwrite what's already attached (`--clobber`), so nothing doubles up.
+- **You published before the desktop jobs finished:** the tap's `bump-cask` job can't download the macOS zip and fails. Once the zip is attached, re-run just that job from the tap's Actions tab (**Re-run failed jobs**, not **Re-run all jobs**, so the formula job that already ran doesn't run again). The notes you published also lack the desktop files; edit the release to fix them.
+
 ## Prereleases
 
 A tag like `v0.9.0-rc.1` is accepted too. The release is marked as a prerelease, and publishing it does **not** tell the Homebrew tap, so the formula stays on the last full release and the cask gets nothing automatic. Testers download the files from the Releases page.
