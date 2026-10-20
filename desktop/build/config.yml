@@ -3,8 +3,10 @@
 # the package's metadata on Linux. Those files are regenerated from this
 # on every build (common:update:build-assets), so they aren't committed.
 #
-# The identifier names the keychain entries and the notification
-# identity, so it never changes once shipped.
+# The identifier is what macOS knows the app as, and the notification
+# identity: permission to send notifications is tied to it, so it never
+# changes once shipped. (Saved passwords are filed under the service
+# "kiln", shared with the terminal client, not under the identifier.)
 #
 # The version here is a local build's. A release passes its tag's
 # instead: wails3 package VERSION=0.9.0, or VERSION=0.9.0-rc.1. These
