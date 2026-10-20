@@ -44,6 +44,8 @@ jobs:
           # targets another macOS than Go's objects do.
           - os: macos-latest
             cgo-flags: -mmacosx-version-min=13.0
+            # Wails' cgo files each link -lobjc; ld says so on every build.
+            ld-flags: -mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries
           # The Taskfile's ARCH defaults to the runner's.
           - os: windows-latest
             arch: amd64
@@ -67,7 +69,7 @@ jobs:
       - name: Test
         env:
           CGO_CFLAGS: ${{ matrix.cgo-flags }}
-          CGO_LDFLAGS: ${{ matrix.cgo-flags }}
+          CGO_LDFLAGS: ${{ matrix.ld-flags }}
         run: go test ./...
       - name: Package
         run: wails3 package VERSION=0.0.0-ci ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}

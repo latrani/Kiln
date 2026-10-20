@@ -28,7 +28,8 @@ tasks:
       # Go 1.27), newer than Wails' 12. ld warns when the C it links
       # targets another macOS than Go's objects do.
       CGO_CFLAGS: "-mmacosx-version-min={{.MIN_MACOS}}"
-      CGO_LDFLAGS: "-mmacosx-version-min={{.MIN_MACOS}}"
+      # Wails' cgo files each link -lobjc; ld says so on every build.
+      CGO_LDFLAGS: "-mmacosx-version-min={{.MIN_MACOS}} -Wl,-no_warn_duplicate_libraries"
       MACOSX_DEPLOYMENT_TARGET: "{{.MIN_MACOS}}"
 
   build:universal:
