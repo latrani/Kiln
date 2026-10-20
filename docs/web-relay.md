@@ -31,7 +31,7 @@ The relay never writes traffic to disk. Turn off core dumps for it
 ## Installing
 
 ```sh
-brew install latrani/tap/kiln
+brew install --formula latrani/tap/kiln
 ```
 
 installs `kiln`, `kiln-relay` and the page, at
@@ -39,7 +39,7 @@ installs `kiln`, `kiln-relay` and the page, at
 the relay and the page. To deploy a new release:
 
 ```sh
-brew upgrade kiln
+brew upgrade --formula kiln
 sudo systemctl restart kiln-relay
 ```
 
