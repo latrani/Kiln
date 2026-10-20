@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as esbuild from "esbuild";
@@ -65,6 +65,7 @@ test("the desktop bundle carries no browser host", async () => {
 test("the desktop build has no service worker or source map", (t) => {
   const out = mkdtempSync(join(tmpdir(), "kiln-ui-"));
   t.after(() => rmSync(out, { recursive: true, force: true }));
+  writeFileSync(join(out, "app.js.map"), "{}"); // an earlier build's, in a reused directory
   execFileSync(process.execPath, ["build.mjs", out, "desktop"], { cwd: ui });
   for (const f of ["app.js", "app.css", "index.html", "fonts/JetBrainsMono-Regular.woff2", "fonts/OFL.txt"]) assert.ok(existsSync(join(out, f)), f);
   for (const f of ["sw.js", "manifest.json", "icon.svg", "icon-192.png", "apple-touch-icon.png", "app.js.map"]) assert.ok(!existsSync(join(out, f)), f);
