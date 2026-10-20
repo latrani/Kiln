@@ -102,6 +102,13 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.32
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # windows-latest has no NSIS (makensis isn't on it); Chocolatey,
+      # which it does have, installs it outside PATH.
+      - name: Install NSIS (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install nsis -y --no-progress
+          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
       - name: Package
         # Numbers only: NSIS and Info.plist take no leading v.
         run: wails3 package VERSION="${TAG#v}" ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}

@@ -70,9 +70,13 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.32
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      - name: Check for NSIS (Windows)
+      # windows-latest has no NSIS (makensis isn't on it); Chocolatey,
+      # which it does have, installs it outside PATH.
+      - name: Install NSIS (Windows)
         if: runner.os == 'Windows'
-        run: command -v makensis && makensis -VERSION
+        run: |
+          choco install nsis -y --no-progress
+          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
       - name: Test
         env:
           CGO_CFLAGS: ${{ matrix.cgo-flags }}
