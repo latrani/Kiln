@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -240,6 +241,31 @@ func TestShutdownStopsTheLoopWithoutQuitting(t *testing.T) {
 		t.Error("the app was asked to quit while it was already shutting down")
 	}
 	k.Act(`{"Do":"here"}`) // after: no harm
+}
+
+// The page never saves drafts as it's left, so quitting does, however
+// it quits: the window closing, Cmd+Q (both ServiceShutdown) or /quit.
+func TestQuittingSavesDrafts(t *testing.T) {
+	for _, end := range []string{"shutdown", "quit"} {
+		t.Run(end, func(t *testing.T) {
+			k, w, _ := newKiln(t)
+			if err := k.Start(); err != nil {
+				t.Fatal(err)
+			}
+			waitFor(t, "the first batch", func() bool { return len(w.sent()) > 0 })
+			k.Act(`{"Do":"input","Key":"","Text":"half a thought","N":1}`)
+			if end == "shutdown" {
+				k.ServiceShutdown()
+			} else {
+				k.Act(`{"Do":"quit"}`)
+				waitFor(t, "the app to quit", w.quitted)
+			}
+			b, _ := os.ReadFile(filepath.Join(k.dataDir, "drafts.json"))
+			if !strings.Contains(string(b), "half a thought") {
+				t.Errorf("drafts file %q", b)
+			}
+		})
+	}
 }
 
 func TestCheckAndOverAreTheWebAPIs(t *testing.T) {

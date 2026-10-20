@@ -614,6 +614,67 @@ func TestDraftsSurviveARestart(t *testing.T) {
 	}
 }
 
+// A page that never sends save_drafts (the desktop's) has Run save them
+// as it ends, however it ends: the app shutting down or a /quit.
+func TestSaveOnEndSavesDraftsAsRunEnds(t *testing.T) {
+	for _, end := range []string{"cancel", "quit"} {
+		t.Run(end, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "drafts.json")
+			a, _ := newApp(t)
+			got := make(chan []map[string]any, 100)
+			l := New(a, func(b []byte) { got <- decode(t, b) })
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan struct{})
+			go func() { l.Run(ctx, Options{Drafts: path, SaveOnEnd: true}); close(done) }()
+			<-got
+			l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+			<-got
+			l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"half a thought","N":1}`))
+			<-got
+			l.Act([]byte(`{"Do":"open","Key":"fm/rook"}`))
+			<-got
+			l.Act([]byte(`{"Do":"switch","Key":"fm/rook"}`))
+			<-got
+			if end == "cancel" {
+				cancel()
+			} else {
+				l.Act([]byte(`{"Do":"submit","Key":"fm/rook","Text":"/quit","N":1}`))
+			}
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("Run didn't end")
+			}
+			b, _ := os.ReadFile(path)
+			if !strings.Contains(string(b), "half a thought") {
+				t.Errorf("drafts file %q", b)
+			}
+		})
+	}
+}
+
+// Without SaveOnEnd (the web page, which saves as it's left) Run ending
+// writes nothing.
+func TestRunEndingSavesNoDraftsUnasked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drafts.json")
+	a, _ := newApp(t)
+	got := make(chan []map[string]any, 100)
+	l := New(a, func(b []byte) { got <- decode(t, b) })
+	done := make(chan struct{})
+	go func() { l.Run(context.Background(), Options{Drafts: path}); close(done) }()
+	<-got
+	l.Act([]byte(`{"Do":"open","Key":"fm/kit"}`))
+	<-got
+	l.Act([]byte(`{"Do":"input","Key":"fm/kit","Text":"half a thought","N":1}`))
+	<-got
+	l.Act([]byte(`{"Do":"quit"}`))
+	<-done
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("drafts file written: %v", err)
+	}
+}
+
 func TestBadDraftsFileIsIgnored(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "drafts.json")
 	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {

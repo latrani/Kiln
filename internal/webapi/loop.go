@@ -58,6 +58,11 @@ type Options struct {
 	Drafts    string // the file drafts are saved to and restored from; "" for none
 	ConfigDir string // where themes are read from; "" for the built-in only
 
+	// SaveOnEnd saves the drafts as Run ends, its context done or the
+	// core quit, for a page that never sends save_drafts as it's left
+	// (the desktop's: closing its window ends Run).
+	SaveOnEnd bool
+
 	// Backup makes a backup of Kiln's files for /backup, which the page
 	// downloads; Restore puts one back from the bytes of the file the
 	// page picked for /restore, saying how many files it wrote. nil for
@@ -178,6 +183,7 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 		for !ok {
 			select {
 			case <-ctx.Done():
+				l.end()
 				l.a.Quit() // hang up every session
 				return
 			case <-t.C:
@@ -191,8 +197,16 @@ func (l *Loop) Run(ctx context.Context, opts Options) {
 		l.takeLogStatus()
 		l.send(append(append(l.events(effs, all), extra...), l.takeLanded()...))
 		if quit {
+			l.end()
 			return
 		}
+	}
+}
+
+// end saves the drafts as Run ends, if SaveOnEnd asks.
+func (l *Loop) end() {
+	if l.opts.SaveOnEnd {
+		l.saveDrafts()
 	}
 }
 

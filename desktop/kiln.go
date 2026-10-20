@@ -115,7 +115,7 @@ func (k *Kiln) Start() error {
 	go func() {
 		l.Run(ctx, webapi.Options{
 			Autoconnect: true, ConfigDir: k.cfgDir, Changes: core.Changes,
-			Drafts: filepath.Join(k.dataDir, "drafts.json"), //str:ok
+			Drafts: filepath.Join(k.dataDir, "drafts.json"), SaveOnEnd: true, //str:ok
 		})
 		core.Close()
 		close(done)
