@@ -19,4 +19,20 @@
 desktop/frontend/dist/*
 !desktop/frontend/dist/.gitkeep
 desktop/bin/
+desktop/.task/
+# Written by every desktop build (desktop/Taskfile.yml): from
+# build/config.yml, build/appicon.png and the platform tools.
+desktop/build/darwin/Info*.plist
+desktop/build/darwin/icons.icns
+desktop/build/windows/icon.ico
+desktop/build/windows/info.json
+desktop/build/windows/wails.exe.manifest
+desktop/build/windows/nsis/wails_tools.nsh
+desktop/build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+desktop/build/linux/desktop
+desktop/build/linux/*.desktop
+desktop/build/linux/nfpm/nfpm.yaml
+desktop/build/linux/appimage/
+desktop/build/ios/
+desktop/wails_windows_*.syso
 /desktop/desktop

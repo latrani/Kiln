@@ -1,0 +1,96 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+vars:
+  MIN_MACOS: "13.0"
+
+tasks:
+  build:
+    summary: Builds the application natively on macOS
+    deps:
+      - task: common:build:frontend
+      - task: common:generate:icons
+      - task: common:update:build-assets
+    cmds:
+      - wails3 tool prepare-macos-output --dir "{{.BIN_DIR}}"
+      - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"
+    vars:
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
+    env:
+      GOOS: darwin
+      CGO_ENABLED: 1
+      GOARCH: '{{.ARCH | default ARCH}}'
+      # The oldest macOS Kiln runs on: Go's (13, cmd/link's macOS at
+      # Go 1.27), newer than Wails' 12. ld warns when the C it links
+      # targets another macOS than Go's objects do.
+      CGO_CFLAGS: "-mmacosx-version-min={{.MIN_MACOS}}"
+      CGO_LDFLAGS: "-mmacosx-version-min={{.MIN_MACOS}}"
+      MACOSX_DEPLOYMENT_TARGET: "{{.MIN_MACOS}}"
+
+  build:universal:
+    summary: Builds darwin universal binary (arm64 + amd64)
+    deps:
+      - task: build
+        vars:
+          ARCH: amd64
+          OUTPUT: "{{.BIN_DIR}}/{{.APP_NAME}}-amd64"
+      - task: build
+        vars:
+          ARCH: arm64
+          OUTPUT: "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
+    cmds:
+      - lipo -create -output "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
+      - rm "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
+
+  package:
+    summary: Packages the universal binary into an ad-hoc signed `.app` bundle
+    deps:
+      - task: build:universal
+    cmds:
+      - task: create:app:bundle
+
+  create:app:bundle:
+    summary: Creates an `.app` bundle
+    cmds:
+      # A reused bundle can acquire Finder metadata in synced folders. Build a
+      # fresh bundle so codesign never has to replace a contaminated signature.
+      - test -n "{{.BIN_DIR}}" && test -n "{{.APP_NAME}}" && rm -rf -- "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
+      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
+      - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents"
+      # Wails' Info.plist says 12, which Go no longer runs on: at 13,
+      # an older Mac says why it won't open Kiln.
+      - plutil -replace LSMinimumSystemVersion -string "{{.MIN_MACOS}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Info.plist"
+      - task: codesign:adhoc
+
+  codesign:adhoc:
+    summary: Ad-hoc signs the app bundle
+    internal: true
+    cmds:
+      - xattr -cr "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+      - codesign --verify --deep --strict "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+
+  run:
+    summary: Builds bin/Kiln.dev.app for this Mac and runs it
+    deps:
+      - task: build
+    cmds:
+      - wails3 tool prepare-macos-output --dir "{{.BIN_DIR}}"
+      - test -n "{{.BIN_DIR}}" && test -n "{{.APP_NAME}}" && rm -rf -- "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
+      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
+      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
+      - cp "build/darwin/Info.dev.plist" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
+      - plutil -replace LSMinimumSystemVersion -string "{{.MIN_MACOS}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
+      - xattr -cr "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
+      - codesign --verify --deep --strict "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
+      - '"{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}"'
