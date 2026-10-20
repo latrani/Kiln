@@ -17,8 +17,8 @@ version: '3'
 vars:
   # The target OS: this machine's, or GOOS=… for another.
   GOOS: '{{.GOOS | default OS}}'
-  # Linux packages and binaries are lowercase (dpkg takes no other).
-  APP_NAME: '{{if eq .GOOS "linux"}}kiln{{else}}Kiln{{end}}'
+  # On Linux, lowercase (dpkg takes no other) and not the TUI's kiln.
+  APP_NAME: '{{if eq .GOOS "linux"}}kiln-desktop{{else}}Kiln{{end}}'
   BIN_DIR: "bin"
 
 includes:

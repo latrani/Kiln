@@ -1,0 +1,38 @@
+# The deb's and rpm's metadata and contents (https://nfpm.goreleaser.com),
+# in place of Wails' nfpm.yaml: update build-assets rewrites that one on
+# every build, with Wails' homepage and paths. VERSION and GOARCH come
+# from the create:deb and create:rpm tasks.
+name: "kiln-desktop"
+arch: "${GOARCH}"
+platform: "linux"
+version: "${VERSION}"
+section: "net"
+priority: "optional"
+maintainer: "Morgan Nichols <514282+latrani@users.noreply.github.com>"
+description: "A MUCK client"
+vendor: "Morgan Nichols"
+homepage: "https://github.com/latrani/Kiln"
+license: "MIT"
+release: "1"
+
+contents:
+  - src: "./bin/kiln-desktop"
+    dst: "/usr/bin/kiln-desktop"
+  - src: "../web/ui/icons/kiln.svg"
+    dst: "/usr/share/icons/hicolor/scalable/apps/kiln-desktop.svg"
+  - src: "./build/linux/kiln-desktop.desktop"
+    dst: "/usr/share/applications/kiln-desktop.desktop"
+
+# GTK4 and WebKitGTK 6.0 (Ubuntu 24.04+, Debian 13+), as Wails builds.
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+
+overrides:
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+
+scripts:
+  postinstall: "./build/linux/nfpm/scripts/postinstall.sh"

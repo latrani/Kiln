@@ -3,9 +3,15 @@ version: '3'
 includes:
   common: ../Taskfile.yml
 
+vars:
+  # A release's VERSION, or build/config.yml's local 0.0.0.
+  PACKAGE_VERSION: '{{.VERSION | default "0.0.0"}}'
+
 tasks:
   build:
     summary: Builds the application natively on Linux
+    # Once, though package and each create: task depend on it.
+    run: when_changed
     deps:
       - task: common:build:frontend
       - task: common:generate:icons
@@ -45,37 +51,48 @@ tasks:
       APP_NAME: '{{.APP_NAME}}'
       APP_BINARY: '../../../bin/{{.APP_NAME}}'
       ICON: '{{.APP_NAME}}.png'
-      DESKTOP_FILE: '../{{.APP_NAME}}.desktop'
+      DESKTOP_FILE: '{{.APP_NAME}}.desktop'
       OUTPUT_DIR: '../../../bin'
 
+  # The deb and rpm take their metadata from nfpm/kiln-desktop.yaml.
   create:deb:
     summary: Creates a deb package
     deps:
       - task: build
-    cmds:
       - task: generate:dotdesktop
-      - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+    cmds:
+      - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/kiln-desktop.yaml -out {{.ROOT_DIR}}/bin
+    env:
+      VERSION: '{{.PACKAGE_VERSION}}'
+      GOARCH: '{{.ARCH | default ARCH}}'
 
   create:rpm:
     summary: Creates a rpm package
     deps:
       - task: build
-    cmds:
       - task: generate:dotdesktop
-      - wails3 tool package -name "{{.APP_NAME}}" -format rpm -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+    cmds:
+      - wails3 tool package -name "{{.APP_NAME}}" -format rpm -config ./build/linux/nfpm/kiln-desktop.yaml -out {{.ROOT_DIR}}/bin
+    env:
+      VERSION: '{{.PACKAGE_VERSION}}'
+      GOARCH: '{{.ARCH | default ARCH}}'
 
   generate:dotdesktop:
-    summary: Generates a `.desktop` file
+    summary: Generates the `.desktop` files, the packages' and the AppImage's
     run: once
     dir: build
     cmds:
+      # Installed, the launcher runs the installed path, never whatever
+      # is first on PATH. In the AppImage, linuxdeploy needs the bare
+      # name of the binary in its usr/bin.
+      - wails3 generate .desktop -name "{{.PRODUCT_NAME}}" -comment "{{.COMMENT}}" -exec "/usr/bin/{{.APP_NAME}}" -icon "{{.APP_NAME}}" -categories "{{.CATEGORIES}}" -keywords "{{.KEYWORDS}}" -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
       - mkdir -p {{.ROOT_DIR}}/build/linux/appimage
-      - wails3 generate .desktop -name "{{.PRODUCT_NAME}}" -exec "{{.EXEC}}" -icon "{{.ICON}}" -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop" -categories "{{.CATEGORIES}}"
+      - wails3 generate .desktop -name "{{.PRODUCT_NAME}}" -comment "{{.COMMENT}}" -exec "{{.APP_NAME}}" -icon "{{.APP_NAME}}" -categories "{{.CATEGORIES}}" -keywords "{{.KEYWORDS}}" -outputfile "{{.ROOT_DIR}}/build/linux/appimage/{{.APP_NAME}}.desktop"
     vars:
       PRODUCT_NAME: 'Kiln'
-      EXEC: '{{.APP_NAME}}'
-      ICON: '{{.APP_NAME}}'
+      COMMENT: 'A MUCK client'
       CATEGORIES: 'Network;Chat;'
+      KEYWORDS: 'MUCK;MUD;Chat;'
 
   run:
     summary: Builds the application and runs it
