@@ -62,6 +62,7 @@ jobs:
   # The desktop app, built natively on each OS as go.yml's desktop job
   # does, at the tag's version, uploaded to the draft the release job made.
   desktop:
+    name: desktop (${{ matrix.os }})
     needs: release
     strategy:
       fail-fast: false

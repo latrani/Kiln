@@ -33,6 +33,7 @@ jobs:
 
   # The same builds as release.yml's desktop job, at version 0.0.0.
   desktop:
+    name: desktop (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
