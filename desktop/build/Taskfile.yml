@@ -1,0 +1,53 @@
+version: '3'
+
+tasks:
+  install:frontend:deps:
+    summary: Installs the page's dependencies
+    run: once
+    dir: ../web/ui
+    sources:
+      - package.json
+      - package-lock.json
+    generates:
+      - node_modules/.package-lock.json
+    preconditions:
+      - sh: npm version
+        msg: "Looks like npm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"
+    cmds:
+      - npm ci
+
+  build:frontend:
+    summary: Builds the page into frontend/dist, which the Go build embeds
+    # A universal build runs its per-arch builds in parallel, each
+    # depending on this.
+    run: once
+    dir: ../web/ui
+    deps:
+      - task: install:frontend:deps
+    cmds:
+      - npm run build:desktop
+
+  update:build-assets:
+    summary: Writes the platform build files from config.yml, at VERSION when given
+    # Before every build, so the version is the one asked for; once, for
+    # the parallel per-arch builds. It writes iOS's files too, which
+    # nothing uses (.gitignore).
+    run: once
+    dir: build
+    vars:
+      # 0.9.0 of 0.9.0-rc.1: Windows' version fields take only numbers.
+      PRODUCT_VERSION: '{{if .VERSION}}{{splitList "-" .VERSION | first}}{{end}}'
+    cmds:
+      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir . -silent{{if .VERSION}} -productversion "{{.PRODUCT_VERSION}}"{{end}}
+
+  generate:icons:
+    summary: Generates Windows `.ico` and Mac `.icns` from appicon.png
+    run: once
+    dir: build
+    sources:
+      - "appicon.png"
+    generates:
+      - "darwin/icons.icns"
+      - "windows/icon.ico"
+    cmds:
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico

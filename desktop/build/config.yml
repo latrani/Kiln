@@ -1,0 +1,24 @@
+# What Wails writes into the app's build files: Info.plist on macOS,
+# info.json, the manifest and the installer's defines on Windows, and
+# the package's metadata on Linux. Those files are regenerated from this
+# on every build (common:update:build-assets), so they aren't committed.
+#
+# The identifier is what macOS knows the app as, and the notification
+# identity: permission to send notifications is tied to it, so it never
+# changes once shipped. (Saved passwords are filed under the service
+# "kiln", shared with the terminal client, not under the identifier.)
+#
+# The version here is a local build's. A release passes its tag's
+# instead: wails3 package VERSION=0.9.0, or VERSION=0.9.0-rc.1. These
+# files get only the numbers (0.9.0), since Windows' version fields take
+# nothing else; the deb and rpm get all of it.
+version: '3'
+
+info:
+  companyName: "Morgan Nichols"
+  productName: "Kiln"
+  productIdentifier: "io.github.latrani.kiln"
+  description: "A MUCK client"
+  copyright: "© 2026 Morgan Nichols"
+  comments: "A MUCK client" # empty would get Wails' placeholder
+  version: "0.0.0"

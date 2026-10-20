@@ -1,6 +1,10 @@
 # Builds release binaries and uploads them to a draft GitHub Release; see
-# README.md. It runs when a version tag (v1.2.3) is pushed, or from the
-# Actions tab: "release" → "Run workflow", which tags main itself.
+# README.md. It runs when a version tag (v1.2.3, or v1.2.3-rc.1 for a
+# prerelease) is pushed, or from the Actions tab: "release" → "Run
+# workflow", which tags main itself.
+# GoReleaser drafts the release with the TUI; the desktop job then adds
+# the desktop app's packages to that draft. Publish once both are done:
+# publishing is what starts homebrew.yml.
 name: release
 
 on:
@@ -9,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, like v0.1.0"
+        description: "Version to release, like v0.1.0 or v0.1.0-rc.1"
         required: true
 
 permissions:
@@ -18,7 +22,21 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
+      - name: Check the version
+        id: version
+        env:
+          # A manual run's, or the pushed tag's.
+          VERSION: ${{ inputs.version || github.ref_name }}
+        run: |
+          # v1.2.3, or a prerelease like v1.2.3-rc.1.
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "::error::The version must look like v1.2.3 or v1.2.3-rc.1 (got \"$VERSION\")."
+            exit 1
+          fi
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # GoReleaser builds the changelog from history
@@ -36,10 +54,6 @@ jobs:
             echo "::error::Run this from the main branch."
             exit 1
           fi
-          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::The version must look like v1.2.3 (got \"$VERSION\")."
-            exit 1
-          fi
           if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
             echo "::error::$VERSION already exists; pick the next version."
             exit 1
@@ -55,3 +69,64 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The desktop app, built natively on each OS as go.yml's desktop job
+  # does, at the tag's version, uploaded to the draft the release job made.
+  desktop:
+    name: desktop (${{ matrix.os }})
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: windows-latest
+            arch: amd64
+          - os: ubuntu-latest
+            arch: amd64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash # Git Bash on Windows
+        working-directory: desktop
+    env:
+      # Checked by the release job, which pushed it on a manual run.
+      TAG: ${{ needs.release.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - uses: ./.github/actions/desktop-setup
+      - name: Package
+        # No leading v. Info.plist and NSIS get only 0.9.0 of
+        # 0.9.0-rc.1 (the Taskfile's doing); the deb, the rpm and the
+        # files' names get all of it.
+        run: wails3 package VERSION="${TAG#v}" ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
+      # The names CI's packages come out with (go.yml lists them), with
+      # the version and arch added.
+      - name: Upload to the draft
+        run: |
+          v=${TAG#v}
+          mkdir out
+          case "$RUNNER_OS" in
+            macOS)
+              # ditto keeps the bundle's symlinks, modes and signature.
+              ditto -c -k --keepParent bin/Kiln.app "out/Kiln-$v-macos-universal.zip" ;;
+            Windows)
+              cp bin/Kiln-amd64-installer.exe "out/Kiln-$v-windows-amd64-installer.exe" ;;
+            Linux)
+              cp bin/kiln-desktop-x86_64.AppImage "out/Kiln-$v-linux-amd64.AppImage"
+              cp bin/kiln-desktop.deb "out/Kiln-$v-linux-amd64.deb"
+              cp bin/kiln-desktop.rpm "out/Kiln-$v-linux-amd64.rpm" ;;
+          esac
+          ls -la out
+          gh release upload "$TAG" out/* --clobber

@@ -1,0 +1,103 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+vars:
+  # A release's VERSION, or build/config.yml's local 0.0.0. All of it:
+  # nfpm makes 0.9.0-rc.1 0.9.0~rc.1, which sorts before 0.9.0.
+  PACKAGE_VERSION: '{{.VERSION | default "0.0.0"}}'
+
+tasks:
+  build:
+    summary: Builds the application natively on Linux
+    # Once, though package and each create: task depend on it.
+    run: when_changed
+    deps:
+      - task: common:build:frontend
+      - task: common:generate:icons
+      - task: common:update:build-assets
+      - task: generate:dotdesktop
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
+    vars:
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
+    env:
+      GOOS: linux
+      CGO_ENABLED: 1
+      GOARCH: '{{.ARCH | default ARCH}}'
+
+  package:
+    summary: Packages the application as an AppImage, a deb and an rpm
+    deps:
+      - task: build
+    cmds:
+      - task: create:appimage
+      - task: create:deb
+      - task: create:rpm
+
+  create:appimage:
+    summary: Creates an AppImage
+    dir: build/linux/appimage
+    deps:
+      - task: build
+      - task: generate:dotdesktop
+    cmds:
+      - cp "{{.APP_BINARY}}" "{{.APP_NAME}}"
+      - cp ../../appicon.png "{{.APP_NAME}}.png"
+      - wails3 generate appimage -binary "{{.APP_NAME}}" -icon {{.ICON}} -desktopfile {{.DESKTOP_FILE}} -outputdir {{.OUTPUT_DIR}} -builddir {{.ROOT_DIR}}/build/linux/appimage/build
+    vars:
+      APP_NAME: '{{.APP_NAME}}'
+      APP_BINARY: '../../../bin/{{.APP_NAME}}'
+      ICON: '{{.APP_NAME}}.png'
+      DESKTOP_FILE: '{{.APP_NAME}}.desktop'
+      OUTPUT_DIR: '../../../bin'
+
+  # The deb and rpm take their metadata from nfpm/kiln-desktop.yaml.
+  create:deb:
+    summary: Creates a deb package
+    deps:
+      - task: build
+      - task: generate:dotdesktop
+    cmds:
+      - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/kiln-desktop.yaml -out {{.ROOT_DIR}}/bin
+    env:
+      VERSION: '{{.PACKAGE_VERSION}}'
+      GOARCH: '{{.ARCH | default ARCH}}'
+
+  create:rpm:
+    summary: Creates a rpm package
+    deps:
+      - task: build
+      - task: generate:dotdesktop
+    cmds:
+      - wails3 tool package -name "{{.APP_NAME}}" -format rpm -config ./build/linux/nfpm/kiln-desktop.yaml -out {{.ROOT_DIR}}/bin
+    env:
+      VERSION: '{{.PACKAGE_VERSION}}'
+      GOARCH: '{{.ARCH | default ARCH}}'
+
+  generate:dotdesktop:
+    summary: Generates the `.desktop` files, the packages' and the AppImage's
+    run: once
+    dir: build
+    cmds:
+      # Installed, the launcher runs the installed path, never whatever
+      # is first on PATH. In the AppImage, linuxdeploy needs the bare
+      # name of the binary in its usr/bin.
+      - wails3 generate .desktop -name "{{.PRODUCT_NAME}}" -comment "{{.COMMENT}}" -exec "/usr/bin/{{.APP_NAME}}" -icon "{{.APP_NAME}}" -categories "{{.CATEGORIES}}" -keywords "{{.KEYWORDS}}" -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
+      - mkdir -p {{.ROOT_DIR}}/build/linux/appimage
+      - wails3 generate .desktop -name "{{.PRODUCT_NAME}}" -comment "{{.COMMENT}}" -exec "{{.APP_NAME}}" -icon "{{.APP_NAME}}" -categories "{{.CATEGORIES}}" -keywords "{{.KEYWORDS}}" -outputfile "{{.ROOT_DIR}}/build/linux/appimage/{{.APP_NAME}}.desktop"
+    vars:
+      PRODUCT_NAME: 'Kiln'
+      COMMENT: 'A MUCK client'
+      CATEGORIES: 'Network;Chat;'
+      KEYWORDS: 'MUCK;MUD;Chat;'
+
+  run:
+    summary: Builds the application and runs it
+    deps:
+      - task: build
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}'

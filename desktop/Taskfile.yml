@@ -1,0 +1,45 @@
+# Builds and packages the desktop app, with the go-task built into the
+# pinned wails3 (no separate task install):
+#
+#   wails3 build                  bin/Kiln for this machine
+#   wails3 package                macOS: a universal, ad-hoc signed bin/Kiln.app
+#                                 Windows: an NSIS installer in bin/
+#                                 Linux: an AppImage, a deb and an rpm in bin/
+#   wails3 package VERSION=0.9.0  the same, as a release (see build/config.yml);
+#                                 a prerelease is VERSION=0.9.0-rc.1
+#   wails3 task run               builds bin/Kiln.dev.app and runs it (macOS)
+#
+# From `wails3 init` at v3.0.0-beta.32, trimmed to these platforms and
+# to native builds: the page comes from web/ui (build/Taskfile.yml), the
+# bindings are committed there (go generate), and go.mod is tidied by
+# hand rather than on every build.
+version: '3'
+
+vars:
+  # The target OS: this machine's, or GOOS=… for another.
+  GOOS: '{{.GOOS | default OS}}'
+  # On Linux, lowercase (dpkg takes no other) and not the TUI's kiln.
+  APP_NAME: '{{if eq .GOOS "linux"}}kiln-desktop{{else}}Kiln{{end}}'
+  BIN_DIR: "bin"
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: Packages a production build of the application
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: Runs the application
+    cmds:
+      - task: "{{.GOOS}}:run"

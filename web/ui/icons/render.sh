@@ -1,6 +1,7 @@
 #!/bin/sh
 # Renders the PNG icons from kiln.svg. The PNGs are committed, so only
-# a change to the icon needs this (brew install librsvg).
+# a change to the icon needs this (brew install librsvg). It renders the
+# desktop app's too, which wails3 makes its .icns and .ico from.
 #
 # The maskable icons are for Android, which crops an icon to its own
 # shape: only a centered circle 80% across is sure to show. They put the
@@ -28,3 +29,4 @@ for n in 192 512; do
   rsvg-convert -w $n -h $n "$maskable" -o icon-maskable-$n.png
 done
 rsvg-convert -w 180 -h 180 kiln.svg -o apple-touch-icon.png
+rsvg-convert -w 1024 -h 1024 kiln.svg -o ../../../desktop/build/appicon.png
