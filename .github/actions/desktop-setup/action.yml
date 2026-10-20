@@ -1,0 +1,30 @@
+# What the desktop app's builds need beyond a checkout, Go and Node: on
+# each OS, its native libraries or installer tool, and the wails3 CLI at
+# desktop/go.mod's Wails, so a bump there moves CI and the release too.
+# Used by go.yml's and release.yml's desktop jobs.
+name: desktop setup
+description: Installs wails3 and what each OS needs to build Kiln's desktop app
+
+runs:
+  using: composite
+  steps:
+    # Before wails3: the CLI itself links GTK4 and WebKitGTK 6.0 on
+    # Linux. ubuntu-latest has neither; both install from apt.
+    - name: Install GTK4 and WebKitGTK 6.0 (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+    # windows-latest has no NSIS (makensis isn't on it); Chocolatey,
+    # which it does have, installs it outside PATH.
+    - name: Install NSIS (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        choco install nsis -y --no-progress
+        echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
+    - name: Install wails3
+      shell: bash
+      working-directory: desktop
+      run: |
+        go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
