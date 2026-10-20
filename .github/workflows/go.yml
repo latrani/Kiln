@@ -61,13 +61,15 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
+      # Before wails3: the CLI itself links GTK4 and WebKitGTK 6.0 on
+      # Linux. ubuntu-latest has neither; both install from apt.
+      - name: Install GTK4 and WebKitGTK 6.0 (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - name: Install wails3
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.32
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      - name: Install GTK4 and WebKitGTK 6.0 (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - name: Check for NSIS (Windows)
         if: runner.os == 'Windows'
         run: command -v makensis && makensis -VERSION
