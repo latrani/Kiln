@@ -113,6 +113,8 @@ jobs:
       - name: Package
         # Numbers only: NSIS and Info.plist take no leading v.
         run: wails3 package VERSION="${TAG#v}" ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
+      # The names CI's packages come out with (go.yml lists them), with
+      # the version and arch added.
       - name: Upload to the draft
         run: |
           v=${TAG#v}
@@ -124,9 +126,9 @@ jobs:
             Windows)
               cp bin/Kiln-amd64-installer.exe "out/Kiln-$v-windows-amd64-installer.exe" ;;
             Linux)
-              cp bin/kiln-desktop*.AppImage "out/Kiln-$v-linux-amd64.AppImage"
-              cp bin/kiln-desktop*.deb "out/Kiln-$v-linux-amd64.deb"
-              cp bin/kiln-desktop*.rpm "out/Kiln-$v-linux-amd64.rpm" ;;
+              cp bin/kiln-desktop-x86_64.AppImage "out/Kiln-$v-linux-amd64.AppImage"
+              cp bin/kiln-desktop.deb "out/Kiln-$v-linux-amd64.deb"
+              cp bin/kiln-desktop.rpm "out/Kiln-$v-linux-amd64.rpm" ;;
           esac
           ls -la out
           gh release upload "$TAG" out/* --clobber
