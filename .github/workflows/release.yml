@@ -1,6 +1,9 @@
 # Builds release binaries and uploads them to a draft GitHub Release; see
 # README.md. It runs when a version tag (v1.2.3) is pushed, or from the
 # Actions tab: "release" → "Run workflow", which tags main itself.
+# GoReleaser drafts the release with the TUI; the desktop job then adds
+# the desktop app's packages to that draft. Publish once both are done:
+# publishing is what starts homebrew.yml.
 name: release
 
 on:
@@ -55,3 +58,65 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The desktop app, built natively on each OS as go.yml's desktop job
+  # does, at the tag's version, uploaded to the draft the release job made.
+  desktop:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: windows-latest
+            arch: amd64
+          - os: ubuntu-latest
+            arch: amd64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash # Git Bash on Windows
+        working-directory: desktop
+    env:
+      # A manual run's tag was pushed by the release job.
+      TAG: ${{ inputs.version || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - name: Install wails3
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.32
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install GTK4 and WebKitGTK 6.0 (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: Package
+        # Numbers only: NSIS and Info.plist take no leading v.
+        run: wails3 package VERSION="${TAG#v}" ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
+      - name: Upload to the draft
+        run: |
+          v=${TAG#v}
+          mkdir out
+          case "$RUNNER_OS" in
+            macOS)
+              # ditto keeps the bundle's symlinks, modes and signature.
+              ditto -c -k --keepParent bin/Kiln.app "out/Kiln-$v-macos-universal.zip" ;;
+            Windows)
+              cp bin/Kiln-amd64-installer.exe "out/Kiln-$v-windows-amd64-installer.exe" ;;
+            Linux)
+              cp bin/kiln-desktop*.AppImage "out/Kiln-$v-linux-amd64.AppImage"
+              cp bin/kiln-desktop*.deb "out/Kiln-$v-linux-amd64.deb"
+              cp bin/kiln-desktop*.rpm "out/Kiln-$v-linux-amd64.rpm" ;;
+          esac
+          ls -la out
+          gh release upload "$TAG" out/* --clobber
