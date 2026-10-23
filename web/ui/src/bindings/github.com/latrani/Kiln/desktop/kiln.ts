@@ -77,8 +77,8 @@ export function Permission(): $CancellablePromise<string> {
 /**
  * SaveAs asks where to save data with the OS's Save dialog, offering
  * name and starting in export_dir when the config sets one, and writes
- * it there. A save that fails says why on the status line, as the TUI's
- * export does; a cancelled dialog is not an error.
+ * it there. The status line says where it saved, or why it couldn't,
+ * as the TUI's export does; a cancelled dialog is not an error.
  */
 export function SaveAs(name: string, data: string): $CancellablePromise<void> {
     return $Call.ByID(1930268547, name, data);
