@@ -333,6 +333,18 @@ func statusSaid(t *testing.T, w *fakeWindow, isErr bool, text string) bool {
 	return false
 }
 
+func TestSaveAsSaysWhere(t *testing.T) {
+	k, w, d := newKiln(t)
+	if err := k.Start(); err != nil {
+		t.Fatal(err)
+	}
+	d.path = filepath.Join(t.TempDir(), "scene.txt")
+	if err := k.SaveAs("scene.txt", []byte("Kit waves.")); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the status line to say where", func() bool { return statusSaid(t, w, false, str.BrowseSaved(d.path)) })
+}
+
 func TestSaveAsThatCantWriteSaysSo(t *testing.T) {
 	k, w, d := newKiln(t)
 	if err := k.Start(); err != nil {
