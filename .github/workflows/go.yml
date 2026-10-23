@@ -1,14 +1,15 @@
 # Tests the Go code on macOS and Windows, where Kiln also ships but
-# keychain, paths and renames were never tested; Linux is web.yml's. The
-# desktop app is tested and packaged on all three, natively. On PRs and
-# pushes to main that touch Go, the desktop app or the page it embeds.
+# keychain, paths and renames were never tested; Linux is web.yml's. On
+# PRs and pushes to main that touch Go, the files it embeds (themes,
+# strings, default config) or test data. The desktop app is desktop.yml's.
 name: go
 
 on:
   push:
     branches: [main]
+    paths: ["**.go", "go.mod", "go.sum", "web/go.mod", "web/go.sum", "internal/**", "cmd/**", "web/testdata/**", ".github/workflows/go.yml"]
   pull_request:
-    paths: ["**.go", "go.mod", "go.sum", "web/go.mod", "web/go.sum", "desktop/**", "web/ui/**", ".github/actions/desktop-setup/**", ".github/workflows/go.yml"]
+    paths: ["**.go", "go.mod", "go.sum", "web/go.mod", "web/go.sum", "internal/**", "cmd/**", "web/testdata/**", ".github/workflows/go.yml"]
 
 permissions:
   contents: read
@@ -30,48 +31,3 @@ jobs:
       - name: Web, native
         working-directory: web
         run: go test ./...
-
-  # The same builds as release.yml's desktop job, at a prerelease
-  # version, so a cut that Windows' version fields reject fails here.
-  desktop:
-    name: desktop (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Universal, so no ARCH. The Taskfile sets macOS 13 for its own
-          # builds; the tests get the same, or ld warns that Wails' C
-          # targets another macOS than Go's objects do.
-          - os: macos-latest
-            cgo-flags: -mmacosx-version-min=13.0
-            # Wails' cgo files each link -lobjc; ld says so on every build.
-            ld-flags: -mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries
-          # The Taskfile's ARCH defaults to the runner's.
-          - os: windows-latest
-            arch: amd64
-          - os: ubuntu-latest
-            arch: amd64
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash # Git Bash on Windows
-        working-directory: desktop
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: desktop/go.mod
-          cache-dependency-path: desktop/go.sum
-      - uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-      - uses: ./.github/actions/desktop-setup
-      - name: Test
-        env:
-          CGO_CFLAGS: ${{ matrix.cgo-flags }}
-          CGO_LDFLAGS: ${{ matrix.ld-flags }}
-        run: go test ./...
-      - name: Package
-        run: wails3 package VERSION=0.0.0-ci ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
-      - name: List the packages
-        run: ls -la bin
