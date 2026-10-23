@@ -3,7 +3,8 @@
 # prerelease) is pushed, or from the Actions tab: "release" → "Run
 # workflow", which tags main itself.
 # GoReleaser drafts the release with the TUI; the desktop job then adds
-# the desktop app's packages to that draft. Publish once both are done:
+# the desktop app's packages to that draft, and the checksums job adds
+# their sums to checksums.txt. Publish once all three are done:
 # publishing is what starts homebrew.yml.
 name: release
 
@@ -31,8 +32,12 @@ jobs:
           # A manual run's, or the pushed tag's.
           VERSION: ${{ inputs.version || github.ref_name }}
         run: |
-          # v1.2.3, or a prerelease like v1.2.3-rc.1.
-          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+          # v1.2.3, or a prerelease like v1.2.3-rc.1. Numbers have no
+          # leading zeros (semver's rule), or GoReleaser and nfpm reject
+          # the tag later, after the draft is half made.
+          num='(0|[1-9][0-9]*)'
+          ident="($num|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+          if ! [[ "$VERSION" =~ ^v$num\.$num\.$num(-$ident(\.$ident)*)?$ ]]; then
             echo "::error::The version must look like v1.2.3 or v1.2.3-rc.1 (got \"$VERSION\")."
             exit 1
           fi
@@ -130,3 +135,23 @@ jobs:
           esac
           ls -la out
           gh release upload "$TAG" out/* --clobber
+
+  # GoReleaser's checksums.txt covers only the TUI's files. Once the
+  # desktop's are on the draft too, sum every file and replace it.
+  checksums:
+    needs: [release, desktop]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Sum every file
+        run: |
+          mkdir files && cd files
+          gh release download "$TAG"
+          rm checksums.txt
+          sha256sum -- * | sort -k2 > ../checksums.txt
+          cat ../checksums.txt
+      - name: Replace checksums.txt
+        run: gh release upload "$TAG" checksums.txt --clobber
