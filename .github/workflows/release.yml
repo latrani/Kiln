@@ -75,7 +75,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # The desktop app, built natively on each OS as go.yml's desktop job
+  # The desktop app, built natively on each OS as desktop.yml's job
   # does, at the tag's version, uploaded to the draft the release job made.
   desktop:
     name: desktop (${{ matrix.os }})
@@ -107,16 +107,13 @@ jobs:
         with:
           go-version-file: desktop/go.mod
           cache-dependency-path: desktop/go.sum
-      - uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
       - uses: ./.github/actions/desktop-setup
       - name: Package
         # No leading v. Info.plist and NSIS get only 0.9.0 of
         # 0.9.0-rc.1 (the Taskfile's doing); the deb, the rpm and the
         # files' names get all of it.
         run: wails3 package VERSION="${TAG#v}" ${{ matrix.arch && format('ARCH={0}', matrix.arch) || '' }}
-      # The names CI's packages come out with (go.yml lists them), with
+      # The names CI's packages come out with (desktop.yml lists them), with
       # the version and arch added.
       - name: Upload to the draft
         run: |
