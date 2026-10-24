@@ -5,8 +5,6 @@ package main
 
 import (
 	"context"
-	"embed"
-	"io/fs"
 	"log"
 	"runtime"
 	"sync/atomic"
@@ -25,12 +23,6 @@ import (
 //
 //go:generate wails3 generate bindings -ts -silent -d ../web/ui/src/bindings
 
-// The page, built into frontend/dist. all: keeps the embed compiling
-// while only .gitkeep is there.
-//
-//go:embed all:frontend/dist
-var assets embed.FS
-
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(str.CliError(err))
@@ -46,7 +38,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	page, err := fs.Sub(assets, "frontend/dist") //str:ok
+	page, err := pageFS()
 	if err != nil {
 		return err
 	}
@@ -81,6 +73,9 @@ func run() error {
 		}
 	})
 	k.win, k.dialogs = w, w
+	if err := watchPage(a, w.win); err != nil {
+		return err
+	}
 	return a.Run()
 }
 

@@ -8,6 +8,9 @@
 #   wails3 package VERSION=0.9.0  the same, as a release (see build/config.yml);
 #                                 a prerelease is VERSION=0.9.0-rc.1
 #   wails3 task run               builds bin/Kiln.dev.app and runs it (macOS)
+#   wails3 task run DEV=true      the same as a dev build (dev.go): it
+#                                 reloads the page as web/ui/src changes,
+#                                 and has the webview's inspector
 #
 # From `wails3 init` at v3.0.0-beta.32, trimmed to these platforms and
 # to native builds: the page comes from web/ui (build/Taskfile.yml), the

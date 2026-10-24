@@ -38,7 +38,10 @@ go run ./cmd/kiln-relay -listen localhost:8080 -config web/dev-relay.toml \
 
 Open http://localhost:8080/kiln/. Rebuild with `web/build.sh` and reload
 after changing Go or page code; the relay reloads `dev-relay.toml` by
-itself. Add `?record` to the address to keep every event Go sends in
+itself. For the page alone, `(cd web/ui && node build.mjs ../static watch)`
+beside the relay rebuilds it as `src` changes, and the page reloads each
+time: the page that build writes hears of each rebuild from
+`localhost:8081`. Add `?record` to the address to keep every event Go sends in
 `kilnPage.events` (the smoke test does), and drive Kiln from the console
 with `kilnPage.act({Do: "open", Key: "world/char"})`.
 

@@ -84,11 +84,13 @@ type Kiln struct {
 }
 
 // Start builds the core and runs the loop, once the page's listeners
-// are set. A second call does nothing.
+// are set. A second call, from a page that reloaded, sends it everything
+// again on the same loop.
 func (k *Kiln) Start() error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	if k.loop != nil {
+		k.loop.Act([]byte(`{"Do":"all"}`)) //str:ok
 		return nil
 	}
 	if err := config.EnsureDefaults(k.cfgDir); err != nil {

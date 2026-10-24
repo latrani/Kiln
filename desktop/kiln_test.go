@@ -183,24 +183,21 @@ func starts(t *testing.T, batches []string) int {
 	return n
 }
 
-func TestStartTwiceStartsOneLoop(t *testing.T) {
+// A reloaded page calls Start again: the same loop sends it everything.
+func TestStartAgainStartsThePageOver(t *testing.T) {
 	k, w, _ := newKiln(t)
 	if err := k.Start(); err != nil {
 		t.Fatal(err)
 	}
 	first := k.loop
+	waitFor(t, "the first batch", func() bool { return starts(t, w.sent()) == 1 })
 	if err := k.Start(); err != nil {
 		t.Fatal(err)
 	}
 	if k.loop != first {
 		t.Error("a second Start made another loop")
 	}
-	waitFor(t, "the first batch", func() bool { return len(w.sent()) > 0 })
-	k.Act(`{"Do":"here"}`)
-	waitFor(t, "the here's turn", func() bool { return len(w.sent()) > 1 })
-	if n := starts(t, w.sent()); n != 1 {
-		t.Errorf("%d Start events; want one loop's", n)
-	}
+	waitFor(t, "everything again", func() bool { return starts(t, w.sent()) == 2 })
 }
 
 func TestActReachesTheLoop(t *testing.T) {

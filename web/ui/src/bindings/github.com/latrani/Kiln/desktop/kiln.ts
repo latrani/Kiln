@@ -86,7 +86,8 @@ export function SaveAs(name: string, data: string): $CancellablePromise<void> {
 
 /**
  * Start builds the core and runs the loop, once the page's listeners
- * are set. A second call does nothing.
+ * are set. A second call, from a page that reloaded, sends it everything
+ * again on the same loop.
  */
 export function Start(): $CancellablePromise<void> {
     return $Call.ByID(3771648178);
