@@ -11,17 +11,19 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 /* The TUI's five areas: the sidebar the full height on the left, a
    divider a character wide, then the top bar, scrollback, bottom pane and
    status line stacked on the right. The page runs edge to edge
-   (viewport-fit=cover) and the grid keeps out of the phone's corners,
-   notch, home indicator and toolbars; the terminal background fills
-   them. With the on-screen keyboard up, it's what the keyboard leaves
+   (viewport-fit=cover) and the grid keeps a gutter from the edge, and out
+   of the phone's corners, notch, home indicator and toolbars; the
+   terminal background fills them. With the on-screen keyboard up, it's what the keyboard leaves
    (viewport.ts sets --vvh and --vvtop), with no room kept for the home
    indicator, which the keyboard covers. */
 .kiln {
+  --gutter: 6px;
   display: grid;
   height: var(--vvh, 100dvh);
   transform: translateY(var(--vvtop, 0));
   box-sizing: border-box;
-  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) var(--vvbottom, env(safe-area-inset-bottom, 0)) env(safe-area-inset-left, 0);
+  /* A gutter from the window's edge, or the phone's insets. */
+  padding: max(var(--gutter), env(safe-area-inset-top, 0px)) max(var(--gutter), env(safe-area-inset-right, 0px)) max(var(--gutter), var(--vvbottom, env(safe-area-inset-bottom, 0px))) max(var(--gutter), env(safe-area-inset-left, 0px));
   grid-template-columns: var(--side) 1ch 1fr; /* layout.ts's sidebarCSS */
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas: "side div top" "side div body" "side div bottom" "side div status";
@@ -29,6 +31,8 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side { grid-area: side; overflow-y: auto; }
 /* Each sidebar list's title, as the TUI's: its first row, underlined
    across the column. */
+/* A touch screen's bezel sets the page off from its edge already. */
+@media (pointer: coarse) { .kiln { --gutter: 0px; } }
 .kiln.collapsed { grid-template-columns: 0 0 1fr; }
 /* Narrow (sidebar.ts): no column; open, the sidebar lies over the top bar
    and scrollback, which stay drawn underneath (keeping their place) but
