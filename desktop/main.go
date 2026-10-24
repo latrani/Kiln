@@ -66,6 +66,12 @@ func run() error {
 	w := wailsWindow{a: a, win: a.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: str.WebAppName(),
 		URL:   "/",
+		// 88 columns of scrollback, 80 of log mode's beside its 8-column
+		// gutter, at the page's 9.6px character: the gutters (12px), a
+		// 22-column sidebar and its divider, with overlay scrollbars.
+		// The height keeps Wails' 4:3 (800 by 600).
+		Width:  1080,
+		Height: 810,
 	})}
 	w.win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if !k.quitGate() {

@@ -33,7 +33,7 @@ func watchPage(a *application.App, w *application.WebviewWindow) error {
 		return err
 	}
 	build := exec.Command("node", "build.mjs", dir, "desktop", "watch") //str:ok
-	build.Dir = filepath.Join("..", "web", "ui")                       //str:ok
+	build.Dir = filepath.Join("..", "web", "ui")                        //str:ok
 	build.Stdout, build.Stderr = os.Stdout, os.Stderr
 	stdin, err := build.StdinPipe()
 	if err != nil {
