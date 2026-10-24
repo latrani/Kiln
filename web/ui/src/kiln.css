@@ -180,6 +180,8 @@ a.s { text-decoration: underline; }
    at the right. */
 .status .offer, .status .chip, .status .scope { float: right; }
 .status .scope .chip { float: none; }
+/* The offer's ×, part of its button: the same chip, one space on. */
+.status .offer .x { padding-left: 0; }
 /* The splash, while another tab has Kiln: centered, a line between
    each part. */
 .splash { min-height: 100dvh; box-sizing: border-box; padding: calc(1lh + env(safe-area-inset-top, 0)) calc(2ch + env(safe-area-inset-right, 0)) calc(1lh + env(safe-area-inset-bottom, 0)) calc(2ch + env(safe-area-inset-left, 0)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1lh; text-align: center; }

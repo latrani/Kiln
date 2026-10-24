@@ -31,7 +31,7 @@ function logStatus(state: State, g: LogState): string {
 // A new status replaces the region's text node (keyed by Gen), so the
 // same words said again are read again. Download progress isn't live:
 // read chunk by chunk it would be a flood. While the browser won't show
-// notifications, a button asks it to, with a × to stop offering. The
+// notifications, a button asks it to, with a × in it to stop offering. The
 // History chip, at the right while there's an input to recall into, as
 // the TUI's, opens and closes the history panel; lit while it's up, with
 // the Session/Character switch before it, the scope's half lit. In
@@ -82,7 +82,7 @@ export function StatusLine({ state, store }: { state: State; store: Store }) {
       {state.phase === "running" && state.notifyOffer && (
         <span class="offer">
           <button class={roleClass("form.button")} onClick={() => ask(store)}>{str.webNotifyAllow()}</button>
-          <button aria-label={str.webNotifyDismiss()} onClick={() => dismiss(store)}>{str.glyph.remove}</button>
+          <button class={`${roleClass("form.button")} x`} aria-label={str.webNotifyDismiss()} onClick={() => dismiss(store)}>{str.glyph.remove}</button>
         </span>
       )}
       {state.phase === "stopped" && <button class={roleClass("form.button")} onClick={() => location.reload()}>{str.webReload()}</button>}
