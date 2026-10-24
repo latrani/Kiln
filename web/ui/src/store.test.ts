@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { focusPanel, glyphClick, panelAct, panelClick } from "./filter.ts";
-import { cursorOf, logAct, logClick, selectChip, syncCursor, toggleLog } from "./log.ts";
+import { cursorOf, dragEnd, dragStart, dragTo, logAct, logClick, paintStart, paintTo, selectChip, syncCursor, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
 import { noHost } from "./host.ts";
 import type { Host } from "./host.ts";
@@ -478,6 +478,63 @@ test("a click while selecting is a shift-click: inside, it takes the line out an
   logClick(s, 1, { shift: true, gutter: true });
   assert.deepEqual(sent.slice(n + 1), [{ Do: "grow", Key: "fm/kit", Seq: 1 }, { Do: "mark_to", Key: "fm/kit", Seq: 1 }], "shift and the gutter change nothing");
   assert.equal(s.state.logView["fm/kit"].cursor, 1);
+});
+
+test("a drag picks the lines it crosses: a range from where it was pressed, locked where it's let go", () => {
+  const { s, sent } = logged();
+  const n = sent.length;
+  assert.equal(dragStart(s, 1), true);
+  dragTo(s, 2);
+  dragTo(s, 3);
+  dragEnd(s);
+  assert.deepEqual(sent.slice(n), [
+    { Do: "mark", Key: "fm/kit", Seq: 1 },
+    { Do: "mark_to", Key: "fm/kit", Seq: 2 },
+    { Do: "mark_to", Key: "fm/kit", Seq: 3 },
+    { Do: "mark", Key: "fm/kit", Seq: 3 },
+  ]);
+  assert.equal(s.state.logView["fm/kit"].cursor, 3, "the cursor where it was let go");
+});
+
+test("a drag while selecting starts its own range; under a prompt it picks nothing", () => {
+  const { s, sent } = logged({ Marking: true, Start: 2, End: 3, Selected: 2, Searching: true });
+  s.setLogView("fm/kit", { cursor: 3 });
+  let n = sent.length;
+  assert.equal(dragStart(s, 1), true);
+  assert.deepEqual(sent.slice(n), [{ Do: "stop_search", Key: "fm/kit" }, { Do: "end_mark", Key: "fm/kit" }, { Do: "mark", Key: "fm/kit", Seq: 1 }],
+    "the live range dropped, not grown to the press");
+  const { s: p, sent: psent } = logged();
+  p.setLogView("fm/kit", { prompt: { kind: "find", value: "x" } });
+  n = psent.length;
+  assert.equal(dragStart(p, 1), false);
+  assert.deepEqual(psent.slice(n), []);
+});
+
+test("a shift-click inside a locked range takes the line out; a plain one only moves the cursor", () => {
+  const { s, sent } = logged({ Start: 1, End: 3, Selected: 3 });
+  const n = sent.length;
+  logClick(s, 2, { inRange: true });
+  assert.deepEqual(sent.slice(n), [], "no shift: the cursor only");
+  logClick(s, 2, { inRange: true, shift: true });
+  assert.deepEqual(sent.slice(n), [{ Do: "exclude", Key: "fm/kit", Seq: 2 }]);
+});
+
+test("a shift-drag paints the range one way, from the line pressed, each line once", () => {
+  const { s, sent } = logged({ Start: 1, End: 3, Selected: 2, Excluded: [2] });
+  let n = sent.length;
+  assert.equal(paintStart(s, 1), "out", "pressed on a line in the range: out");
+  const done = new Set<number>();
+  for (const seq of [1, 2, 3, 2, 1]) paintTo(s, seq, "out", done);
+  assert.deepEqual(sent.slice(n), [{ Do: "exclude", Key: "fm/kit", Seq: 1 }, { Do: "exclude", Key: "fm/kit", Seq: 3 }],
+    "2 is out already; crossing back flips nothing");
+  assert.equal(paintStart(s, 2), "in", "pressed on a line left out: back in");
+  n = sent.length;
+  for (const seq of [2, 3]) paintTo(s, seq, "in", new Set([3]));
+  assert.deepEqual(sent.slice(n), [{ Do: "exclude", Key: "fm/kit", Seq: 2 }]);
+  const { s: none } = logged();
+  assert.equal(paintStart(none, 1), undefined, "no range: no paint");
+  s.setLogView("fm/kit", { prompt: { kind: "find", value: "x" } });
+  assert.equal(paintStart(s, 1), undefined, "under a prompt: no paint");
 });
 
 test("the Select chip is s, as the TUI's: it stops a search, and does nothing under a prompt", () => {

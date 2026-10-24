@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
 import { filterKey, panelAct } from "../filter.ts";
 import { panelOnlyKeys } from "./FilterPanel.tsx";
-import { cursorOf, keepsPlace, logAct, logClick, logKey, logRows, openAt, placeOf, scrolled, segments, syncCursor, topFor, wantsOlder } from "../log.ts";
-import type { LogState, Place } from "../log.ts";
+import { cursorOf, dragEnd, dragStart, dragTo, keepsPlace, logAct, logClick, logKey, logRows, openAt, paintStart, paintTo, placeOf, scrolled, segments, syncCursor, topFor, wantsOlder } from "../log.ts";
+import type { LogState, Paint, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
@@ -20,7 +20,9 @@ function seqOf(n: Node | null): number | undefined {
 // range's ▌, an excluded line's ░), find's matches marked. Nothing is
 // read aloud: it's history (spec). A click moves the cursor; while
 // selecting it grows the range or takes a line out, as the TUI's (see
-// logClick). A drag is the browser's own text selection. While selecting,
+// logClick). A mouse drag picks the lines it crosses, scrolling at the
+// edges (dragStart), and with shift takes them out of the range or puts
+// them back (paintStart); a finger's still scrolls. While selecting,
 // a cursor scrolled out of view leaves an arrow by the time of the line
 // nearest it. Its letters work while it has focus (spec). Near the top it asks for older history, keeping your
 // place; find and go-to-date bring their line into view.
@@ -134,8 +136,81 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     else if (sc.away?.seq !== v.away?.seq || sc.away?.dir !== v.away?.dir) store.setLogView(k, { away: sc.away });
     older(e);
   };
+  // A press becomes a drag once the pointer leaves its line or moves a
+  // few pixels; above or below the log it scrolls, faster the further
+  // out. Letting go ends it, and the click that follows does nothing.
+  const drag = useRef<{ id: number; from: number; x: number; y: number; at?: number; started: boolean; scroll: number; raf: number; ended: boolean;
+    shift: boolean; paint?: { way: Paint; done: Set<number> } }>();
+  const seqAt = (x: number, y: number): number | undefined => {
+    const r = el.current!.getBoundingClientRect();
+    return seqOf(document.elementFromPoint(Math.min(Math.max(x, r.left + 1), r.right - 1), Math.min(Math.max(y, r.top + 1), r.bottom - 1)));
+  };
+  const follow = (x: number, y: number) => {
+    const d = drag.current!;
+    const seq = seqAt(x, y);
+    if (seq !== undefined && seq !== d.at) {
+      d.at = seq;
+      if (d.paint) paintTo(store, seq, d.paint.way, d.paint.done);
+      else dragTo(store, seq);
+    }
+  };
+  const autoscroll = () => {
+    const d = drag.current, e = el.current;
+    if (!d || !e || !d.scroll) return;
+    e.scrollTop += d.scroll;
+    follow(d.x, d.y);
+    d.raf = requestAnimationFrame(autoscroll);
+  };
+  const onPointerDown = (e: PointerEvent) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const from = seqOf(e.target as Node);
+    if (from === undefined) return;
+    drag.current = { id: e.pointerId, from, x: e.clientX, y: e.clientY, started: false, scroll: 0, raf: 0, ended: false, shift: e.shiftKey };
+  };
+  const onPointerMove = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.ended || e.pointerId !== d.id) return;
+    if (!d.started) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4 && seqAt(e.clientX, e.clientY) === d.from) return;
+      const way = d.shift ? paintStart(store, d.from) : undefined;
+      if (d.shift ? !way : !dragStart(store, d.from)) {
+        drag.current = undefined;
+        return;
+      }
+      if (way) {
+        d.paint = { way, done: new Set() };
+        paintTo(store, d.from, way, d.paint.done);
+      }
+      d.started = true;
+      d.at = d.from;
+      el.current!.setPointerCapture(d.id);
+    }
+    d.x = e.clientX;
+    d.y = e.clientY;
+    follow(d.x, d.y);
+    const r = el.current!.getBoundingClientRect();
+    const out = d.y < r.top ? d.y - r.top : d.y > r.bottom ? d.y - r.bottom : 0;
+    const was = d.scroll;
+    d.scroll = Math.sign(out) * Math.min(40, Math.ceil(Math.abs(out) / 2));
+    if (d.scroll && !was) d.raf = requestAnimationFrame(autoscroll);
+  };
+  const onPointerUp = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || e.pointerId !== d.id) return;
+    cancelAnimationFrame(d.raf);
+    d.scroll = 0;
+    if (!d.started) {
+      drag.current = undefined;
+      return;
+    }
+    d.ended = true; // until the click that follows
+    if (!d.paint) dragEnd(store);
+  };
   const onClick = (e: MouseEvent) => {
-    if (window.getSelection()?.isCollapsed === false) return; // a drag: the browser's text selection
+    if (drag.current?.ended) {
+      drag.current = undefined;
+      return;
+    }
     const seq = seqOf(e.target as Node);
     if (seq === undefined) return;
     const inRange = (e.target as Element).closest(".lrow")?.querySelector(".gutter")?.textContent !== " ";
@@ -158,6 +233,7 @@ export function LogView({ state, store }: { state: State; store: Store }) {
   return (
     <main class="body">
       <div class="log" ref={el} tabindex={0} role="region" aria-label={str.webLog()} onScroll={onScroll} onClick={onClick} onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onFocusIn={() => { if (state.logView[k]?.focus) store.setLogView(k, { focus: undefined }); }}>
         {g.Loading && <div class={roleClass("log.loading")}>{str.browseLoading()}</div>}
         {!lines.length && g.HistDone && <div class={roleClass("log.loading")}>{str.browseNoLogs()}</div>}

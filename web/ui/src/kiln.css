@@ -117,7 +117,8 @@ a.s { text-decoration: underline; }
    rows hanging under the text. Every row stays in the DOM (no virtual
    scrolling), and older history arriving above keeps your place
    (LogView.tsx, as the scrollback's: Safari has no overflow-anchor). */
-.log { flex: 1; overflow-y: auto; position: relative; overflow-anchor: none; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* A drag picks lines, not text (LogView). */
+.log { flex: 1; overflow-y: auto; position: relative; overflow-anchor: none; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; -webkit-user-select: none; user-select: none; }
 .lrow { display: grid; grid-template-columns: 5ch 1ch 1ch 1ch 1fr; cursor: default; }
 .lrow > :nth-child(1) { grid-column: 1; }
 .lrow .gutter { grid-column: 3; cursor: pointer; }

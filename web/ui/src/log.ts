@@ -124,7 +124,8 @@ const letters: Record<string, LogKey> = {
 // the cursor; PgUp, PgDn, Home and End stay the browser's scrolling, the
 // cursor riding along (dragCursor) except while selecting; s selects and
 // Space leaves a line out, as the TUI's. Ctrl+A and Cmd+A stay the
-// browser's select-all.
+// browser's, though the log's own text can't be selected (a drag picks
+// lines: dragStart).
 export function logKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }): LogKey | undefined {
   if (e.ctrlKey || e.altKey || e.metaKey) return undefined;
   return letters[e.key];
@@ -273,19 +274,81 @@ export function selectChip(store: Store): void {
 // reading older days, and moves the cursor there. While selecting it's a
 // shift-click: inside the range it takes the line out (or back in),
 // leaving the cursor, the range's end, where it is; outside it grows the
-// range to the line. Shift and the gutter change nothing. With a prompt
-// open it changes nothing, as the TUI's.
+// range to the line. A shift-click inside a locked range (a drag's) takes
+// the line out or back in too; otherwise shift and the gutter change
+// nothing. With a prompt open it changes nothing, as the TUI's.
 export function logClick(store: Store, seq: number, how: { shift?: boolean; gutter?: boolean; inRange?: boolean }): void {
   const s = store.state, k = s.active, g = s.logs[k] as LogState;
   const act = s.act ?? (() => {});
   if (g.Searching) act({ Do: "stop_search", Key: k });
   if (s.logView[k]?.prompt) return; // the selection can't change under a prompt
-  if (g.Marking && how.inRange) {
+  if (how.inRange && (g.Marking || how.shift)) {
     act({ Do: "exclude", Key: k, Seq: seq });
     return;
   }
   if (g.Marking) act({ Do: "grow", Key: k, Seq: seq });
   store.setLogView(k, { cursor: seq, away: undefined });
+}
+
+// A mouse drag over the log picks the lines it crosses: log mode is for
+// picking lines, and a page has no terminal's mouse to work around.
+// dragStart is the drag leaving line seq, where it was pressed: a new
+// range from there, as s there would start (a live one is dropped
+// first, as Esc would). False under a prompt, which the range can't
+// change under, as a click. dragTo is each line the pointer reaches: the
+// cursor goes there and the range's end with it (setLogView). dragEnd
+// is letting go: the range locks there, as s again.
+export function dragStart(store: Store, seq: number): boolean {
+  const s = store.state, k = s.active, g = s.logs[k] as LogState;
+  const act = s.act ?? (() => {});
+  if (g.Searching) act({ Do: "stop_search", Key: k });
+  if (s.logView[k]?.prompt) return false;
+  if (g.Marking) {
+    act({ Do: "end_mark", Key: k });
+    selecting(store, false);
+  }
+  store.setLogView(k, { cursor: seq, away: undefined });
+  act({ Do: "mark", Key: k, Seq: seq });
+  selecting(store, true);
+  return true;
+}
+
+export function dragTo(store: Store, seq: number): void {
+  store.setLogView(store.state.active, { cursor: seq, away: undefined });
+}
+
+export function dragEnd(store: Store): void {
+  const g = store.state.logs[store.state.active] as LogState;
+  if (g.Marking) logAct(store, "mark");
+}
+
+// A shift-drag over the range paints it: the line pressed says which
+// way (in the range: out; already out: back in), and each line of the
+// range it crosses goes that way, once, however often it's crossed.
+// paintStart is the drag leaving line seq: the way, or undefined off the
+// range or under a prompt (no paint). paintTo is each line reached,
+// done the lines it has seen. Go has only a toggle, so a line already
+// the right way is left alone. The cursor stays put.
+export type Paint = "out" | "in";
+
+export function paintStart(store: Store, seq: number): Paint | undefined {
+  const s = store.state, k = s.active;
+  if (s.logView[k]?.prompt) return undefined;
+  const r = rowOf(store, seq);
+  return r?.selected ? (r.excluded ? "in" : "out") : undefined;
+}
+
+export function paintTo(store: Store, seq: number, way: Paint, done: Set<number>): void {
+  if (done.has(seq)) return;
+  done.add(seq);
+  const r = rowOf(store, seq);
+  if (r?.selected && r.excluded !== (way === "out")) store.state.act?.({ Do: "exclude", Key: store.state.active, Seq: seq });
+}
+
+function rowOf(store: Store, seq: number) {
+  const s = store.state, k = s.active;
+  const r = logRows(s.logLines[k]?.lines ?? [], s.logs[k] as LogState).find((r) => r.kind === "line" && r.line.Seq === seq);
+  return r?.kind === "line" ? r : undefined;
 }
 
 // Place is where the view is: the first row showing, and how far its top

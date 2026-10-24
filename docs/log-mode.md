@@ -14,6 +14,8 @@
 | `s`, or click ` Select ` | Select mode: start selecting from the current line. The range's other end follows the cursor as you move (keys, paging) until `s` or the chip again locks it; `c` and `e` lock it too, and `Esc` drops it. The ` Select ` chip at the right of the statusline is lit while you're selecting |
 | `Space` | Leave the current line out of the range |
 | Click | Move the cursor. While selecting, a click outside the range grows the range to that line, and one inside leaves the line out (or brings it back) |
+| Drag (desktop app and web page) | Select the lines you drag across, as `s` where you press and `s` again where you let go; dragging above or below the log scrolls it. The log's text can't be selected there, and on a touch screen a drag still scrolls |
+| `Shift`+click, `Shift`+drag (desktop app and web page) | Inside the range, even once it's locked: leave the line out, or bring it back. A shift-drag does that to each line of the range it crosses, the way the line you pressed on went: pressed on a line in the range, it leaves lines out; on one left out, it brings them back |
 | `e` | Export the range as plain text, ANSI or HTML |
 | `c` | Copy the range as plain text |
 
