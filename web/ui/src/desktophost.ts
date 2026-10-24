@@ -50,6 +50,7 @@ export function desktopHost(kiln: Kiln): Host {
     askPermission: () => permission(kiln.AskPermission()),
     whyNoNotify: (p) => (p === "denied" ? str.desktopNotifyDenied() : p === "unsupported" ? str.desktopNotifyUnsupported() : ""),
     worlds: true,
+    asksWhere: true,
   };
 }
 

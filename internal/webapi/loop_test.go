@@ -1268,6 +1268,30 @@ func TestTagsExportNameAndSay(t *testing.T) {
 	}
 }
 
+// export_now saves the selection under Go's name with no name asked
+// for: the desktop app's Save dialog asks instead.
+func TestExportNowSavesUnderTheExportName(t *testing.T) {
+	h, seqs := logWith(t, "one", "two")
+	b := h.act(`{"Do":"export_now","Key":"fm/kit","Format":"plain"}`)
+	if st := event(b, "Status"); st == nil || st["Text"] != str.BrowseMarkRange() || event(b, "Effect") != nil {
+		t.Errorf("nothing marked: %v", types(b))
+	}
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[0]))
+	h.act(fmt.Sprintf(`{"Do":"mark","Key":"fm/kit","Seq":%d}`, seqs[1]))
+	n := event(h.act(`{"Do":"export_name","Key":"fm/kit","Format":"plain"}`), "ExportName")
+	if n == nil {
+		t.Fatal("no export name")
+	}
+	b = h.act(`{"Do":"export_now","Key":"fm/kit","Format":"plain"}`)
+	e := event(b, "Effect")
+	if e == nil || e["effect"] != "SaveFile" || e["Name"] != n["Name"] || e["Data"] == "" {
+		t.Errorf("effect %v, want a SaveFile named %v", e, n["Name"])
+	}
+	if event(b, "ExportName") != nil {
+		t.Error("export_now asked for a name")
+	}
+}
+
 // Log mode's message goes to the status line, timed as any status, and
 // acting in log mode again drops it, as the TUI's takeLogStatus and
 // clearLogStatus: it never lingers over how many lines are selected.

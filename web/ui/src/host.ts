@@ -43,6 +43,10 @@ export interface Host {
   // page offers + World and edits them only with this; on the web
   // they're the relay's.
   worlds?: true;
+  // asksWhere says saveFile asks where to save, offering the name, as
+  // the desktop app's Save dialog does: an export then goes straight to
+  // it, with no name asked for on the log bar first.
+  asksWhere?: true;
   // storageFailed tells Go the page has stopped saving.
   storageFailed?(): void;
 }

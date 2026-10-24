@@ -329,7 +329,7 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 	at := func(seq int) *app.LogLine { return lineAt(g, seq) }
 	switch act.Do {
 	case "log_older", "mark", "mark_to", "grow", "end_mark", "exclude", "find", "find_older", "find_newer", "stop_search", "end_find", //str:ok
-		"goto", "tags", "export_name", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
+		"goto", "tags", "export_name", "export_now", "copy", "export", "hide", "only", "fold", "add_text", "remove_text": //str:ok
 		if g == nil {
 			return nil, nil, true
 		}
@@ -378,6 +378,14 @@ func (l *Loop) doLog(act Action) (extra []any, effs []app.Effect, ok bool) {
 		if g.ExportReady() {
 			if name, ok := g.ExportFileName(act.Format, ""); ok {
 				extra = append(extra, ExportName{Key: act.Key, Format: act.Format, Name: name})
+			}
+		}
+	case "export_now": //str:ok
+		// For a host whose Save dialog asks where (and offers the
+		// name): export_name and export at once, with Go's name.
+		if g.ExportReady() {
+			if name, ok := g.ExportFileName(act.Format, ""); ok {
+				effs = g.Export(act.Format, name)
 			}
 		}
 	case "copy": //str:ok

@@ -19,7 +19,8 @@ function hints(g: LogState, away: boolean): string {
 // prompt (find, a date, export's file name, a text to filter by) is a
 // label and a field: Enter sends, Esc closes it and goes back to the log
 // (the filter's, to the panel). Export's format prompt takes p, a or h
-// (Enter for a default).
+// (Enter for a default), then asks the file name, or with a host whose
+// Save dialog asks (asksWhere) goes straight to it.
 export function LogBar({ state, store }: { state: State; store: Store }) {
   const k = state.active;
   const g = state.logs[k] as LogState;
@@ -59,8 +60,8 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
         back();
       } else if (f) {
         e.preventDefault();
-        back(); // the log keeps the keys until Go's file name comes (or why not)
-        act({ Do: "export_name", Key: k, Format: f });
+        back(); // the log keeps the keys until Go's file name, or the Save dialog, comes (or why not)
+        act({ Do: store.host.asksWhere ? "export_now" : "export_name", Key: k, Format: f });
       }
     };
     return (
