@@ -91,6 +91,14 @@ tasks:
       - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
       - cp "build/darwin/Info.dev.plist" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
       - plutil -replace LSMinimumSystemVersion -string "{{.MIN_MACOS}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
+      # An app of its own to macOS, beside an installed Kiln: notification
+      # clicks come back to it, and its notification settings and page
+      # storage are its own. The keychain's entries are named by Kiln
+      # (internal/secrets), not this, so it still reads the passwords.
+      # Run from bin/, outside an Applications folder, it can't show
+      # notifications (macOS won't take them from it).
+      - plutil -replace CFBundleIdentifier -string "io.github.latrani.kiln.dev" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
+      - plutil -replace CFBundleName -string "Kiln Dev" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
       - xattr -cr "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
       - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
       - codesign --verify --deep --strict "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
