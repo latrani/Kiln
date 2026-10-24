@@ -8,6 +8,7 @@ import (
 	"log"
 	"runtime"
 	"sync/atomic"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -72,6 +73,8 @@ func run() error {
 		// The height keeps Wails' 4:3 (800 by 600).
 		Width:  1080,
 		Height: 810,
+		// Shown once it's put where it was left (placer).
+		Hidden: true,
 	})}
 	w.win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if !k.quitGate() {
@@ -79,6 +82,22 @@ func run() error {
 		}
 	})
 	k.win, k.dialogs = w, w
+	p := newPlacer(w.win, dataDir, func() []application.Rect {
+		var areas []application.Rect
+		for _, s := range a.Screen.GetAll() {
+			areas = append(areas, s.WorkArea)
+		}
+		return areas
+	})
+	// Once the page is up, the screens are known. Should it never come
+	// up, the window shows anyway, where it opens.
+	w.win.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) { p.place() })
+	a.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		time.AfterFunc(5*time.Second, p.place)
+	})
+	for _, e := range []events.WindowEventType{events.Common.WindowDidMove, events.Common.WindowDidResize, events.Common.WindowMaximise, events.Common.WindowUnMaximise} {
+		w.win.OnWindowEvent(e, func(*application.WindowEvent) { p.moved() })
+	}
 	if err := watchPage(a, w.win); err != nil {
 		return err
 	}

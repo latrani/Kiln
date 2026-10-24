@@ -46,6 +46,8 @@ It needs GTK 4 and WebKitGTK 6.0, which the packages ask for; the AppImage is bu
 
 ## Things to know
 
+**The window.** Kiln opens where you left it, at the size you left it, maximized if it was, in `desktop-window.json` in Kiln's data folder. If that spot's no longer on a screen (a display unplugged, say), it opens at its usual size instead.
+
 **Notifications.** On macOS the status line offers **Allow notifications** until they're on; pressing it brings up the system's question about letting Kiln send them. If you refuse, Kiln says to allow them in the system's notification settings. They only work for the app when it's in an Applications folder (`/Applications` or `~/Applications`), not when it's run from Downloads. On Windows and Linux there's nothing to allow; they just work. [Notifications](notifications.md) says when Kiln sends them.
 
 **Keychain on macOS.** Saved passwords live in your keychain. Because the app is signed only ad hoc, macOS sees every new version as a different app and asks for keychain access again after each update. Choose **Always Allow**; it goes away once Kiln has a Developer ID.
