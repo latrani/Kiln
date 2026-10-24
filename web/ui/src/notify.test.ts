@@ -72,6 +72,32 @@ test("asking: the host is asked once; allowed says nothing; otherwise the host s
   }
 });
 
+// withStorage runs f with a localStorage of its own.
+async function withStorage(f: () => Promise<void>): Promise<void> {
+  const m = new Map<string, string>();
+  const old = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) },
+  });
+  try {
+    await f();
+  } finally {
+    if (old) Object.defineProperty(globalThis, "localStorage", old);
+    else delete (globalThis as any).localStorage;
+  }
+}
+
+test("only an answer that isn't yes keeps the offer away: allowed, then blocked, it's offered again", async () => {
+  for (const [answer, again] of [["granted", true], ["default", false], ["denied", false], ["unsupported", false]] as const) {
+    await withStorage(async () => {
+      await ask(storeOn(hostAnswering("default", answer).host).s);
+      // The next launch, with notifications blocked since.
+      assert.equal(await offer(storeOn(hostAnswering("denied").host).s), again, answer);
+    });
+  }
+});
+
 test("a host that can't say whether it may show them can't: no rejection reaches the page", async () => {
   const fail = async (): Promise<Permission> => { throw new Error("no notifications service"); };
   const { host } = hostAnswering("default");

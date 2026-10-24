@@ -78,10 +78,14 @@ export function dismiss(store: Store): void {
 }
 
 // ask is the offer's click: the host's prompt if it hasn't answered,
-// then a status line saying why it won't show them if it won't.
+// then a status line saying why it won't show them if it won't. Only an
+// answer that isn't yes turns the offer down for good: allowed, and later
+// blocked in the system's settings, they're offered again.
 export async function ask(store: Store): Promise<void> {
-  dismiss(store);
-  const why = store.host.whyNoNotify(await answer(store.host.askPermission()));
+  store.set({ notifyOffer: false });
+  const p = await answer(store.host.askPermission());
+  if (p !== "granted") setAsked();
+  const why = store.host.whyNoNotify(p);
   if (why) store.state.act?.({ Do: "say", Text: why, Err: false });
 }
 
