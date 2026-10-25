@@ -469,7 +469,7 @@ const overviewLines = 5
 
 // overview draws world's overview, h rows of width w from row m.ovTop
 // on: each open character's name and when its last line came, then those
-// last lines, with a rule between characters. It notes which character
+// last lines, with a rule after each character. It notes which character
 // each row shows in m.ovKeys, for clicks.
 func (m *Model) overview(world string, w, h int) []string {
 	var rows, keys []string
@@ -477,9 +477,6 @@ func (m *Model) overview(world string, w, h int) []string {
 		cs := m.chars[k]
 		if cs.Ch.World != world {
 			continue
-		}
-		if len(rows) > 0 {
-			rows, keys = append(rows, theme.Paint(theme.ScrollbackRule, strings.Repeat(glyph.Rule, w))), append(keys, "")
 		}
 		when := str.ViewOverviewQuiet()
 		if t, ok := m.a.LastTime(k); ok {
@@ -489,6 +486,7 @@ func (m *Model) overview(world string, w, h int) []string {
 		for _, l := range cs.sb.Tail(overviewLines) {
 			rows, keys = append(rows, xansi.Truncate(l, w, "…")+style.Reset), append(keys, k)
 		}
+		rows, keys = append(rows, theme.Paint(theme.ScrollbackRule, strings.Repeat(glyph.Rule, w))), append(keys, "")
 	}
 	if m.modal() {
 		for i, r := range rows {

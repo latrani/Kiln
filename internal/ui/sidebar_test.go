@@ -271,6 +271,9 @@ func TestWorldOverview(t *testing.T) {
 	if !strings.Contains(s, "Rook"+str.Separator()+str.ViewOverviewQuiet()) {
 		t.Errorf("Rook should have no activity yet:\n%s", s)
 	}
+	if rules := strings.Count(strings.Join(h.m.overview("fm", 40, 100), "\n"), strings.Repeat(glyph.Rule, 40)); rules != 2 {
+		t.Errorf("want a rule after each character, the last too; got %d", rules)
+	}
 	addLine(h.m.chars["fm/kit"], "old", &app.Line{Entry: logstore.Entry{Time: h.now.AddDate(0, 0, -2)}})
 	if s := h.screen(); !strings.Contains(s, h.now.AddDate(0, 0, -2).Format(str.DateDayTime())) {
 		t.Errorf("an older last line should say the day:\n%s", s)

@@ -202,6 +202,7 @@ test("a world's overview: each character, when it last heard, its last lines", (
   for (const n of [3, 4, 5, 6, 7]) assert.ok(main.includes(`kit line ${n}<`), `line ${n}`);
   for (const n of [1, 2]) assert.ok(!main.includes(`kit line ${n}<`), `line ${n} is past the last five`);
   assert.ok(main.indexOf("<hr") > main.indexOf("kit line 7") && main.indexOf(">Rook<") > main.indexOf("<hr"));
+  assert.ok(main.lastIndexOf("<hr") > main.indexOf(">Rook<") && main.split("<hr").length === 3, "a rule after each character, the last too");
   assert.ok(main.includes(str.separator() + str.viewOverviewQuiet()));
   assert.ok(main.includes(roleClass("scrollback.overview")) && main.includes(roleClass("scrollback.rule")));
 });
