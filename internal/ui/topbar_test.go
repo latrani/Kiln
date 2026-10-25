@@ -93,7 +93,7 @@ func TestClicksLandBelowTheTopBar(t *testing.T) {
 	l := h.m.layout()
 	for row, bl := range b.rowLines {
 		if bl != nil && bl.Entry.Text == scene1[1] {
-			h.m.Update(tea.MouseClickMsg{X: l.sw + 11, Y: l.top + row, Button: tea.MouseLeft})
+			h.click(l.sw+11, l.top+row)
 		}
 	}
 	if b.Cursor.Entry.Text != scene1[1] {

@@ -11,9 +11,13 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// click is a left click at screen (x, y).
-func (h *harness) click(x, y int) {
-	h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+// click is a left click at screen (x, y): a press and its release.
+func (h *harness) click(x, y int) { h.clickMod(x, y, 0) }
+
+// clickMod is a click with mod held.
+func (h *harness) clickMod(x, y int, mod tea.KeyMod) {
+	h.m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft, Mod: mod})
+	h.m.Update(tea.MouseReleaseMsg{X: x, Y: y, Button: tea.MouseLeft})
 }
 
 // collapseHarness has Kit and Rook open, Kit active.
