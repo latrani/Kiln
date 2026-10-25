@@ -168,9 +168,9 @@ func TestBrowseMarkExcludeExport(t *testing.T) {
 	for _, e := range b.Selection() {
 		got = append(got, e.Text)
 	}
-	want := "Sable waves a paw.|Kit grins.|Rook says, \"The lighthouse is dark.\""
+	want := "Sable waves a paw.|:grins.|Kit grins.|Rook says, \"The lighthouse is dark.\""
 	if strings.Join(got, "|") != want {
-		t.Errorf("selection = %q, want %q (page excluded, sent line dropped)", strings.Join(got, "|"), want)
+		t.Errorf("selection = %q, want %q (page excluded, the sent line kept, without its ›)", strings.Join(got, "|"), want)
 	}
 	s := h.screen()
 	if !strings.Contains(s, glyphExcluded+" Mira pages") || !strings.Contains(s, glyphSelected+" Sable") {

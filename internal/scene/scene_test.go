@@ -10,12 +10,6 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-func TestExportable(t *testing.T) {
-	if !Exportable(logstore.Entry{Dir: logstore.In}) || Exportable(logstore.Entry{Dir: logstore.Out}) || Exportable(logstore.Entry{Dir: logstore.Sys}) {
-		t.Error("only received lines are exportable")
-	}
-}
-
 var sample = []logstore.Entry{
 	{Dir: logstore.In, Text: "\x1b[1mSable\x1b[0m waves a paw."},
 	{Dir: logstore.In, Text: "Kit says, \"<3 & hi\"\x1b]0;evil\x07"},

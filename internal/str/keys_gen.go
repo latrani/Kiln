@@ -91,7 +91,7 @@ func BrowseLinesInRange(n int) string {
 // BrowseLoading is browse.loading: "loading older history…"
 func BrowseLoading() string { return get("browse.loading", nil) }
 
-// BrowseMarkRange is browse.mark_range: "select a range with s (only received lines export)"
+// BrowseMarkRange is browse.mark_range: "select a range with s"
 func BrowseMarkRange() string { return get("browse.mark_range", nil) }
 
 // BrowseNoExportDir is browse.no_export_dir: "no export_dir configured · give a full path"

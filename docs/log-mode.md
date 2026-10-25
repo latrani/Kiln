@@ -21,7 +21,7 @@
 
 The statusline at the bottom says, left to right: find's count while find is on, the current line's tags (and whose style each one takes; nothing for a line with none), and how many lines are selected, while any are. The action bar above it lists the keys for where you are: nothing selected, selecting, or a range selected. A message covers them until it times out or you act again, and a narrow window cuts them from the right.
 
-Exports contain only received lines: no timestamps, your own commands (the server already echoes your poses) or lines hidden by filters. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
+Exports contain the lines log mode shows of the range: what you've sent and Kiln's own lines too, unless a filter hides them, but no timestamps, and a sent line without its `›`. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
 
 ## Filter
 

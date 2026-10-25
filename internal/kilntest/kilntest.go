@@ -72,7 +72,7 @@ type NopLog struct{}
 func (NopLog) Append(logstore.Entry) error { return nil }
 
 // WriteLog logs lines one a minute from start where l says: a line
-// starting "> " as sent, the rest as received.
+// starting "> " as sent, "* " as Kiln's own, the rest as received.
 func WriteLog(t testing.TB, l logstore.Layout, start time.Time, lines ...string) {
 	t.Helper()
 	w := logstore.NewWriter(l)
@@ -81,6 +81,8 @@ func WriteLog(t testing.TB, l logstore.Layout, start time.Time, lines ...string)
 		dir := logstore.In
 		if strings.HasPrefix(s, "> ") {
 			dir, s = logstore.Out, strings.TrimPrefix(s, "> ")
+		} else if strings.HasPrefix(s, "* ") {
+			dir, s = logstore.Sys, strings.TrimPrefix(s, "* ")
 		}
 		if err := w.Append(logstore.Entry{Time: start.Add(time.Duration(i) * time.Minute), Dir: dir, Text: s}); err != nil {
 			t.Fatal(err)

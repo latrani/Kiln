@@ -90,8 +90,8 @@ export function browseLinesInRange(n: number): string {
 /** browse.loading: loading older history… */
 export function browseLoading(): string { return `loading older history…`; }
 
-/** browse.mark_range: select a range with s (only received lines export) */
-export function browseMarkRange(): string { return `select a range with s (only received lines export)`; }
+/** browse.mark_range: select a range with s */
+export function browseMarkRange(): string { return `select a range with s`; }
 
 /** browse.no_export_dir: no export_dir configured · give a full path */
 export function browseNoExportDir(): string { return `no export_dir configured · give a full path`; }

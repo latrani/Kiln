@@ -208,21 +208,30 @@ func TestGotoTimeShowsTheLineAtOrBefore(t *testing.T) {
 	}
 }
 
-func TestSelectionIsReceivedShownUnexcludedLines(t *testing.T) {
+// The selection is what log mode shows of the range: sent lines and
+// Kiln's own too, once the filter lets them through, as logged (no ›).
+func TestSelectionIsShownUnexcludedLines(t *testing.T) {
 	a := sessionApp(t, map[string]string{"fm": fmWorld})
 	openAll(t, a, "fm/kit")
 	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
-	kilntest.WriteLog(t, l, logDay, "a", "> b", "c", "d")
+	kilntest.WriteLog(t, l, logDay, "a", "> b", "* c", "d", "e")
 	g := a.OpenLog("fm/kit")
 	g.Mark(g.Lines[0])
-	g.Mark(g.Lines[3])
-	g.ToggleExclude(g.Lines[2])
-	var got []string
-	for _, e := range g.Selection() {
-		got = append(got, e.Text)
+	g.Mark(g.Lines[4])
+	g.ToggleExclude(g.Lines[3])
+	sel := func() string {
+		var got []string
+		for _, e := range g.Selection() {
+			got = append(got, e.Text)
+		}
+		return strings.Join(got, ",")
 	}
-	if strings.Join(got, ",") != "a,d" || g.Status != str.BrowseLinesInRange(4) {
-		t.Errorf("selection %q, status %q", got, g.Status)
+	if got := sel(); got != "a,c,e" || g.Status != str.BrowseLinesInRange(5) {
+		t.Errorf("selection %q, status %q; want a,c,e with sent lines hidden", got, g.Status)
+	}
+	g.ToggleHide(sentItem)
+	if got := sel(); got != "a,b,c,e" {
+		t.Errorf("selection %q with sent lines shown; want a,b,c,e", got)
 	}
 	g.ToggleExclude(nil)
 	if !g.StatusErr {

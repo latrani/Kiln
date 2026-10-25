@@ -414,15 +414,16 @@ func (g *Log) ToggleExclude(l *LogLine) {
 	g.Excluded[l] = !g.Excluded[l]
 }
 
-// Selection is what an export contains: received lines inside the range,
-// not excluded and not hidden by the filter.
+// Selection is what an export contains: the lines inside the range, not
+// excluded and not hidden by the filter, so an export is what log mode
+// shows of it.
 func (g *Log) Selection() []logstore.Entry {
 	if g.Start == nil {
 		return nil
 	}
 	var out []logstore.Entry
 	for _, l := range g.Lines[g.Index(g.Start) : g.Index(g.End)+1] {
-		if !g.Excluded[l] && g.Shows(l) && scene.Exportable(l.Entry) {
+		if !g.Excluded[l] && g.Shows(l) {
 			out = append(out, l.Entry)
 		}
 	}

@@ -298,7 +298,7 @@ no_export_dir = "no export_dir configured · give a full path"
 nothing_to_export = "nothing to export"
 file_exists = "{file} exists; pick another name"
 saved = "saved {path}"
-mark_range = "select a range with s (only received lines export)"
+mark_range = "select a range with s"
 copied = { one = "copied 1 line", other = "copied {n} lines" }
 nothing_left = "nothing left to export"
 find_prompt = "find: "

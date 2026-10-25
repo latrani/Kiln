@@ -16,11 +16,6 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// Exportable reports whether an entry belongs in an exported scene at
-// all: only text received from the server (sent commands are echoed by
-// the server anyway, and client lines are noise).
-func Exportable(e logstore.Entry) bool { return e.Dir == logstore.In }
-
 // Plain renders entries as plain text, one line each.
 func Plain(entries []logstore.Entry) string {
 	var b strings.Builder
