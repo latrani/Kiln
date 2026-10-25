@@ -162,9 +162,12 @@ test("Esc stops a search reading older days, then turns find off, then closes lo
   assert.deepEqual(s.state.logView["fm/kit"].prompt, { kind: "find", value: "x" }, "/ starts with the last term");
 });
 
-test("with the panel focused: only the log keys that reach it; the filter prompt's label and field", () => {
+test("with the panel focused: only the log keys that reach it; adding a text, the field's keys", () => {
   assert.ok(bottom(pageWith({}, { panel: { sel: "+" }, focus: "panel" })).includes(str.browseHintsNoneAway()));
-  assert.match(bottom(pageWith({}, { panel: { sel: "+" }, prompt: { kind: "filter", value: "y" } })), new RegExp(`<label[^>]*>${str.filterPrompt()}</label><input[^>]*value="y"`));
+  const html = pageWith({}, { panel: { sel: "+" }, prompt: { kind: "filter", value: "y" } });
+  assert.ok(bottom(html).includes(str.filterFieldHint()) && !bottom(html).includes("<input"), "the bar has the keys, not a field");
+  assert.match(html, new RegExp(`<span class="name-field ${roleClass("filter.add")}"><input id="kiln-filtertext"[^>]*value="y"`), "the field's in + Text's place");
+  assert.ok(!html.includes(`>${str.filterAddText()}</button>`));
 });
 
 test("in log mode the top bar has presence then Log, lit", () => {

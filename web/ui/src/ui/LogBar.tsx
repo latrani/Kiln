@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
 import { composing } from "../input.ts";
-import { cursorOf, filterPromptEnter, formatKey } from "../log.ts";
+import { cursorOf, formatKey } from "../log.ts";
 import type { LogState } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -16,8 +16,7 @@ function hints(g: LogState, away: boolean): string {
 
 // LogBar is log mode's bar in the bottom pane, as the TUI's action bar:
 // its keys (see hints), or a prompt. A text
-// prompt (find, a date, export's file name, a text to filter by) is a
-// label and a field: Enter sends, Esc closes it and goes back to the log
+// prompt (find, a date, export's file name) is a label and a field: Enter sends, Esc closes it and goes back to the log
 // (the filter's, to the panel). Export's format prompt takes p, a or h
 // (Enter for a default), then asks the file name, or with a host whose
 // Save dialog asks (asksWhere) goes straight to it.
@@ -38,10 +37,6 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
   const here = cursorOf(g, v, lines) ?? -1;
   const act = state.act ?? (() => {});
   const back = () => {
-    if (p?.kind === "filter") {
-      store.setLogView(k, { prompt: undefined, panel: { sel: v.panel?.sel ?? "+", follow: true } });
-      return;
-    }
     if (v.focus === "panel") { // opened from the panel: back to it
       store.setLogView(k, { prompt: undefined, panel: { sel: v.panel?.sel ?? "", follow: true } });
       return;
@@ -51,6 +46,9 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
   };
   if (!p) {
     return <div class={`logbar ${roleClass("log.bar")}`}><span class={roleClass(v.focus === "panel" ? "log.bar.hints.away" : "log.bar.hints")}>{hints(g, v.focus === "panel")}</span></div>;
+  }
+  if (p.kind === "filter") { // typed in the panel, in + Text's place; its keys here
+    return <div class={`logbar ${roleClass("log.bar")}`}><span id="kiln-filtertext-hint" class={roleClass("log.bar.hints")}>{str.filterFieldHint()}</span></div>;
   }
   if (p.kind === "format") {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -70,17 +68,13 @@ export function LogBar({ state, store }: { state: State; store: Store }) {
       </div>
     );
   }
-  const label = p.kind === "filter" ? str.filterPrompt() : p.kind === "find" ? str.browseFindPrompt() : p.kind === "date" ? str.browseDatePrompt() : str.browseSavePrompt();
+  const label = p.kind === "find" ? str.browseFindPrompt() : p.kind === "date" ? str.browseDatePrompt() : str.browseSavePrompt();
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
       back();
     } else if (e.key === "Enter" && !composing(e)) {
       e.preventDefault();
-      if (p.kind === "filter") {
-        filterPromptEnter(store);
-        return;
-      }
       const value = p.value.trim();
       if (p.kind === "find") act({ Do: "find", Key: k, Term: value, Seq: here });
       else if (p.kind === "date") act({ Do: "goto", Key: k, When: value });
