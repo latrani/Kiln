@@ -159,10 +159,18 @@ func TestPageConnectsAndEchoes(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Input" && e.Key === "fake/tester" && e.NeedPW)`, "the password prompt")
 	waitFor(t, ev, `document.activeElement === document.querySelector('.bottom input[type="password"]')`, "the password field focused")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "secret"})
-	ev(`(() => { const i = document.querySelector('.bottom input[type="password"]'); i.form.addEventListener("submit", () => setTimeout(() => { window.pwKept = i.value !== ""; })); })()`)
+	ev(`(() => { const i = document.querySelector('.bottom input[type="password"]'); i.form.addEventListener("submit", (e) => setTimeout(() => { window.pwKept = i.value !== ""; window.pwPosted = !e.defaultPrevented && i.form.target === "kiln-signin" && i.form.method === "post" && i.form.action.endsWith("relay?signed_in=1"); })); })()`)
+	page := ev(`location.href`)
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Lines.some(l => l.Plain.includes('You say, "connect Tester secret"')))`, "the login")
 	waitFor(t, ev, `window.pwKept === true`, "the password left in its field as the form went, for password managers")
+	// Enter pressed the form's button and it really submitted, into its
+	// hidden frame, for password managers that save only what they see
+	// submitted; the page stayed.
+	waitFor(t, ev, `window.pwPosted === true`, "the form submitted into the sign-in frame")
+	if got := ev(`location.href`); got != page {
+		t.Errorf("the page went from %s to %s", page, got)
+	}
 	if got := ev(`JSON.stringify(kilnPage.sent).includes("secret")`); got != "false" {
 		t.Error("the password is in the page's record of what it sent")
 	}

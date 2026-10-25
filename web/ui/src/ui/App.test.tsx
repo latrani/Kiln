@@ -310,18 +310,27 @@ test("Kiln stopped: the input is disabled", () => {
   assert.match(bottom(page({ phase: "stopped" })), /<textarea[^>]*disabled/);
 });
 
-test("the password form: a hidden username for password managers, the TUI's label and keys", () => {
+test("the password form: a username out of sight for password managers (not hidden, which they skip), the TUI's label and keys, a submit button out of sight", () => {
   const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "", Ack: 0, NeedPW: true }]));
-  assert.match(html, /<form/);
-  assert.match(html, /<input[^>]*type="text"[^>]*name="username"[^>]*autocomplete="username"[^>]*value="Kit@fm"[^>]*hidden/);
+  assert.match(html, /<form class="password">/, "no host signIn: it goes nowhere but Go");
+  assert.match(html, /<input[^>]*type="text"[^>]*name="username"[^>]*autocomplete="username"[^>]*value="Kit@fm"[^>]*class="sr-only"/);
+  assert.doesNotMatch(html, /<input[^>]*name="username"[^>]* hidden/);
+  assert.match(html, new RegExp(`<button type="submit" class="sr-only" tabindex="-1">${str.webLogIn()}</button>`));
+  assert.ok(!html.includes("<iframe"));
   assert.match(html, /<input[^>]*type="password"[^>]*autocomplete="current-password"/);
   assert.match(html, new RegExp(`<label[^>]*>${str.viewPasswordLabel("Kit")}</label>`));
   assert.ok(html.includes(str.viewPasswordKeys()) && html.includes(roleClass("input.hint")));
   const keys = html.match(/<span[^>]*id="([^"]+)"[^>]*>([^<]*)<\/span>/);
   assert.equal(keys?.[2], str.viewPasswordKeys(), "the keys have an id");
   assert.match(html, new RegExp(`<input[^>]*type="password"[^>]*aria-describedby="${keys?.[1]}"`), "the field is described by its keys");
-  assert.doesNotMatch(html, /aria-hidden/, "the keys are read");
+  assert.doesNotMatch(html, /<span[^>]*aria-hidden[^>]*>[^<]*<\/span>/, "the keys are read");
   assert.ok(!html.includes("<textarea"), "the form takes the input's place");
+});
+
+test("with the host's signIn, the password form really submits, into a hidden frame", () => {
+  const html = bottom(page({ phase: "running" }, [...three, { type: "Input", Key: "fm/kit", Text: "", Ack: 0, NeedPW: true }], { ...noHost, signIn: "https://fm.test/relay?signed_in=1" }));
+  assert.match(html, /<form class="password" action="https:\/\/fm.test\/relay\?signed_in=1" method="post" target="kiln-signin">/);
+  assert.match(html, /<iframe name="kiln-signin" class="sr-only" tabindex="-1" aria-hidden="true"><\/iframe><\/form>/);
 });
 
 test("while Kiln loads, the input takes typing", () => {

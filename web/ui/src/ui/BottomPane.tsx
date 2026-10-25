@@ -38,7 +38,7 @@ export function BottomPane({ state, store }: { state: State; store: Store }) {
   return (
     <div class={`bottom ${roleClass("input")}` + (history ? " histories" : "")}>
       {history && <HistoryPanel state={state} />}
-      {!overview && (password ? <PasswordForm key={state.active} state={state} /> : <Input state={state} store={store} />)}
+      {!overview && (password ? <PasswordForm key={state.active} state={state} store={store} /> : <Input state={state} store={store} />)}
     </div>
   );
 }

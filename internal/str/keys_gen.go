@@ -1476,6 +1476,9 @@ func WebLoadingSize(got, total any) string {
 // WebLog is web.log: "Log"
 func WebLog() string { return get("web.log", nil) }
 
+// WebLogIn is web.log_in: "Log in"
+func WebLogIn() string { return get("web.log_in", nil) }
+
 // WebNeedsJs is web.needs_js: "Kiln needs JavaScript."
 func WebNeedsJs() string { return get("web.needs_js", nil) }
 

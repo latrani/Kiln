@@ -75,8 +75,9 @@ func (s *Server) Config() *Config { return s.cfg.Load() }
 // client's world file asks for TLS, which a plaintext world refuses.
 // ?resume=1 picks up a held connection instead (refused with 429 or 503
 // past the caps on resumes waiting to name one), a POST with ?short=1 is
-// a closing page's beacon (beacon), and ?push_key=1 asks for the key a
-// page subscribes to pushes with (pushKey).
+// a closing page's beacon (beacon), ?push_key=1 asks for the key a
+// page subscribes to pushes with (pushKey), and a POST with
+// ?signed_in=1 is a password form's submission (signedIn).
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a := s.cfg.Load()
 	if a == nil {
@@ -85,6 +86,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Query().Get("push_key") == "1" {
 		s.pushKey(w, r, a)
+		return
+	}
+	if r.URL.Query().Get("signed_in") == "1" {
+		signedIn(w, r)
 		return
 	}
 	if r.URL.Query().Get("short") == "1" {
@@ -415,4 +420,19 @@ func (s *Server) pushKey(w http.ResponseWriter, r *http.Request, a *Config) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8") //str:ok MIME type
 	w.Header().Set("Cache-Control", "no-cache")                 //str:ok protocol
 	io.WriteString(w, push.PublicKey(k))
+}
+
+// signedIn answers the page's password form, submitted into a hidden
+// frame after the password has gone over the socket: password managers
+// offer to save what they see submitted to a page that loads. It reads
+// nothing and keeps nothing: the body (the password) is thrown away
+// unread, and nothing about the request is logged.
+func signedIn(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8") //str:ok
+	w.Header().Set("Cache-Control", "no-store")                //str:ok
+	w.WriteHeader(http.StatusOK)
 }

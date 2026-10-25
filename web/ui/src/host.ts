@@ -49,6 +49,11 @@ export interface Host {
   asksWhere?: true;
   // storageFailed tells Go the page has stopped saving.
   storageFailed?(): void;
+  // signIn is where the password form really submits, into a hidden
+  // frame, once the password has gone to Go: password managers offer to
+  // save a login they see submitted. Without it the form only goes to
+  // Go.
+  signIn?: string;
 }
 
 // toBase64 is bytes as base64, a chunk at a time: one call with every

@@ -622,3 +622,25 @@ func TestNoCertificateIsACertError(t *testing.T) {
 		t.Error("no certificate isn't a certificate error")
 	}
 }
+
+// A password form's submission gets a page to load and nothing else:
+// a POST only, its body unread.
+func TestSignedIn(t *testing.T) {
+	a, err := ParseConfig("relay.toml", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var logged []string
+	s := &Server{Log: func(l string) { logged = append(logged, l) }}
+	s.SetConfig(a)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest("POST", "/relay?signed_in=1", strings.NewReader("username=Kit%40fm&password=hunter2")))
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "text/html; charset=utf-8" || w.Body.Len() != 0 || len(logged) != 0 {
+		t.Errorf("POST: %d %q, body %q, logged %q", w.Code, w.Header().Get("Content-Type"), w.Body, logged)
+	}
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest("GET", "/relay?signed_in=1", nil))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("GET: %d, want 400", w.Code)
+	}
+}

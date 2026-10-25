@@ -57,6 +57,7 @@ export function webHost(): WebHost {
     whyNoNotify: (p) => (p === "denied" ? str.webNotifyDenied() : p === "unsupported" ? str.webNotifyUnsupported() : ""),
     restore: (done) => pickFile(".zip,application/zip", kiln().maxBackup, done),
     storageFailed: () => kiln()?.storageFailed?.(),
+    signIn: new URL("relay?signed_in=1", globalThis.location?.href ?? "http://localhost/").href,
     provide: ({ subscribe: sub, ...parts }) => {
       if (sub) subscribe = sub;
       Object.assign(host, parts);
