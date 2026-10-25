@@ -84,8 +84,8 @@ func TestPanelLightsTheItemsOwnState(t *testing.T) {
 		t.Errorf("want Hide lit on just sent, by default (self is a flag: its Only lights no category), Only on self:\n%q", s)
 	}
 	h.kitFilter().PressOnly(scene.Item{Name: "page/in"}, h.br().Items())
-	if s := h.drawn(); strings.Count(s, on(str.FilterHide())) != 1 || strings.Count(s, on(str.FilterOnly())) != 1 {
-		t.Errorf("want Hide lit on sent, Only on page/in (Categories and page are its ancestors, so stay unlit):\n%q", s)
+	if s := h.drawn(); strings.Count(s, on(str.FilterHide())) != 1 || strings.Count(s, on(str.FilterOnly())) != 2 {
+		t.Errorf("want Hide lit on sent, Only on self and page/in (Categories and page are its ancestors, so stay unlit):\n%q", s)
 	}
 }
 
@@ -110,11 +110,11 @@ func TestPanelKeys(t *testing.T) {
 		t.Errorf("unhiding page/in: page %v, page/in %v", f.Hidden(page), f.Hidden(in))
 	}
 	h.keys("down", "down", "down", "o") // past sent and Flags to self: Only, a flag's, lighting no category
-	if o, _ := f.Only(); o != self || f.Hidden(page) {
-		t.Errorf("o on self: Only %v, page hidden %v", o, f.Hidden(page))
+	if !f.Only(self) || f.Hidden(page) {
+		t.Errorf("o on self: Only %v, page hidden %v", f.Only(self), f.Hidden(page))
 	}
 	h.key("h") // Hide on the Only item: just self hidden
-	if _, ok := f.Only(); ok || !f.Hidden(self) || f.Hidden(page) {
+	if f.Only(self) || !f.Hidden(self) || f.Hidden(page) {
 		t.Errorf("h on the Only item should hide just it")
 	}
 	h.keys("up", "up", "up", "up") // back to page
@@ -181,7 +181,7 @@ func TestPanelClicks(t *testing.T) {
 		t.Error("clicking self's Hide")
 	}
 	click(onlyX, 4)
-	if o, _ := f.Only(); o != (scene.Item{Name: "page"}) {
+	if !f.Only(scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
 	click(2, 3) // the ▼
@@ -203,7 +203,7 @@ func TestPanelClicksIgnoredDuringPrompt(t *testing.T) {
 	h.screen()
 	h.m.Update(tea.MouseClickMsg{X: 2, Y: sideTitleH + 3, Button: tea.MouseLeft}) // page's Hide
 	h.key("p")                                                                    // must not panic
-	if h.kitFilter().Active() {
+	if h.kitFilter().Hidden(scene.Item{Name: "page"}) {
 		t.Error("clicks should be ignored while a prompt is open")
 	}
 }
@@ -315,13 +315,24 @@ func TestPanelWheelScrollsAndStays(t *testing.T) {
 	}
 }
 
+// filterState is each panel item's Hide and Only, to tell whether a
+// press changed any.
+func filterState(h *harness) string {
+	var b strings.Builder
+	f := h.kitFilter()
+	for _, it := range h.br().Items() {
+		fmt.Fprintf(&b, "%v:%v/%v ", it, f.Hidden(it), f.Only(it))
+	}
+	return b.String()
+}
+
 func TestPanelClickOnBottomHintScrolls(t *testing.T) {
 	h := manyTagsHarness(t)
-	sel := h.br().Panel.Sel
+	sel, before := h.br().Panel.Sel, filterState(h)
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH + h.br().Panel.listH - 1, Button: tea.MouseLeft})
 	h.screen()
-	if h.br().Panel.top == 0 || h.br().Panel.Sel != sel || h.kitFilter().Active() {
-		t.Errorf("clicking ▼ more: top %d, sel %v, filter active %v", h.br().Panel.top, h.br().Panel.Sel, h.kitFilter().Active())
+	if h.br().Panel.top == 0 || h.br().Panel.Sel != sel || filterState(h) != before {
+		t.Errorf("clicking ▼ more: top %d, sel %v, filter %s, was %s", h.br().Panel.top, h.br().Panel.Sel, filterState(h), before)
 	}
 }
 

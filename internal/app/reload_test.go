@@ -44,25 +44,24 @@ func TestReloadKeepsTheConfigOnAnError(t *testing.T) {
 	}
 }
 
-// Log mode's sent tag starts hidden unless local_echo is on, and follows
-// local_echo when it changes, but not when anything else does.
-func TestSentFilterFollowsLocalEcho(t *testing.T) {
+// Log mode's sent tag starts hidden unless local_echo is on; after that
+// it's yours, local_echo changing or not.
+func TestSentStartsHiddenThenIsYours(t *testing.T) {
 	a, dir := reloadApp(t)
 	openAll(t, a, "fm/kit")
 	f := &a.Char("fm/kit").Filter
 	if !f.Hidden(sentItem) {
 		t.Fatal("sent shown with local_echo off")
 	}
-	f.ToggleHide(sentItem, nil)
-	writeWorlds(t, dir, map[string]string{"fm": strings.Replace(fmWorld, "tls = true\n", "tls = true\nautoconnect = true\n", 1)})
-	a.Reload()
-	if f.Hidden(sentItem) {
-		t.Error("another setting's change put sent's default back")
-	}
-	f.ToggleHide(sentItem, nil)
 	writeWorlds(t, dir, map[string]string{"fm": strings.Replace(fmWorld, "tls = true\n", "tls = true\nlocal_echo = true\n", 1)})
 	a.Reload()
+	if !f.Hidden(sentItem) {
+		t.Error("turning local_echo on showed sent")
+	}
+	f.ToggleHide(sentItem, nil)
+	writeWorlds(t, dir, map[string]string{"fm": fmWorld})
+	a.Reload()
 	if f.Hidden(sentItem) {
-		t.Error("sent hidden after local_echo turned on")
+		t.Error("turning local_echo off hid sent")
 	}
 }

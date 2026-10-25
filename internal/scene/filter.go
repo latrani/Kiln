@@ -63,18 +63,16 @@ func TagItems(tags []string) []Item {
 	return out
 }
 
-// Filter is log mode's filter: a Hide flag per item, at most one item
-// with Only, and the text terms. Its zero value filters nothing. Hiding
-// a tag hides its descendants; flags are always the item's own, so the
-// panel shows exactly what is hidden.
+// Filter is log mode's filter: a Hide flag per item, the items with
+// Only, and the text terms. Its zero value filters nothing. Hiding a tag
+// hides its descendants; flags are always the item's own, so the panel
+// shows exactly what is hidden.
 type Filter struct {
-	hidden  map[Item]bool // only true entries
-	only    Item
-	hasOnly bool
-	texts   []string
-	known   map[Item]bool // items Sync has seen
-	dflt    map[Item]bool // items hidden by default; see SetDefault
-	isFlag  func(tag string) bool
+	hidden map[Item]bool // only true entries
+	only   map[Item]bool // only true entries
+	texts  []string
+	known  map[Item]bool // items Sync has seen
+	isFlag func(tag string) bool
 }
 
 // SetFlags sets which tags are flags; until it's called, only
@@ -145,31 +143,42 @@ func (f *Filter) init() {
 	if f.known == nil {
 		f.known = map[Item]bool{}
 	}
-	if f.dflt == nil {
-		f.dflt = map[Item]bool{}
+	if f.only == nil {
+		f.only = map[Item]bool{}
 	}
 }
 
-// SetDefault sets whether it is hidden by default, and hides or shows it
-// to match, unless an Only of its kind it isn't related to keeps it
-// hidden. Clearing its kind's filter puts it back to its default.
-func (f *Filter) SetDefault(it Item, hide bool) {
+// Hide sets it's Hide flag, as the Hide button does on an item with
+// nothing under it loaded. A character's filter starts with sent hidden
+// this way; from then on it's an ordinary Hide.
+func (f *Filter) Hide(it Item) {
 	f.init()
-	if hide {
-		f.dflt[it], f.hidden[it] = true, true
-		return
-	}
-	delete(f.dflt, it)
-	if !f.hasOnly || f.kind(f.only) != f.kind(it) || f.related(f.only, it) {
-		delete(f.hidden, it)
-	}
+	f.hidden[it] = true
 }
 
 // Hidden reports it's Hide flag.
 func (f *Filter) Hidden(it Item) bool { return f.hidden[it] }
 
-// Only is the item with Only, if any.
-func (f *Filter) Only() (Item, bool) { return f.only, f.hasOnly }
+// Only reports whether it has Only.
+func (f *Filter) Only(it Item) bool { return f.only[it] }
+
+// onlyOf is the items of kind k with Only.
+func (f *Filter) onlyOf(k kind) []Item {
+	var out []Item
+	for it := range f.only {
+		if f.kind(it) == k {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// soloed reports whether kind k has any Only, and it is unrelated to all
+// of them, so Only keeps it hidden.
+func (f *Filter) soloed(it Item) bool {
+	os := f.onlyOf(f.kind(it))
+	return len(os) > 0 && !slices.ContainsFunc(os, func(o Item) bool { return f.related(o, it) })
+}
 
 // Texts is the text rows, in the order added.
 func (f *Filter) Texts() []Item {
@@ -189,30 +198,13 @@ func (f *Filter) Tags() []string {
 			out = append(out, it.Name)
 		}
 	}
-	if f.hasOnly && !f.only.Text && f.only.Group == "" && !f.hidden[f.only] {
-		out = append(out, f.only.Name)
+	for it := range f.only {
+		if !it.Text && it.Group == "" && !f.hidden[it] {
+			out = append(out, it.Name)
+		}
 	}
 	slices.Sort(out)
 	return out
-}
-
-// Active reports whether anything has Only, or is hidden or shown other
-// than by default.
-func (f *Filter) Active() bool {
-	if f.hasOnly {
-		return true
-	}
-	for it := range f.hidden {
-		if !f.dflt[it] {
-			return true
-		}
-	}
-	for it := range f.dflt {
-		if !f.hidden[it] {
-			return true
-		}
-	}
-	return false
 }
 
 // ResetSeen forgets which items Sync has seen, so a new log-mode
@@ -221,8 +213,8 @@ func (f *Filter) Active() bool {
 func (f *Filter) ResetSeen() { f.known = nil }
 
 // Sync takes the current items. One it hasn't seen before is hidden when
-// an ancestor is, or when an Only of its kind is set that it isn't
-// related to, so a tag arriving late obeys the filter already set.
+// an ancestor is, or when its kind has Only on items it isn't related
+// to, so a tag arriving late obeys the filter already set.
 func (f *Filter) Sync(items []Item) {
 	f.init()
 	for _, it := range items {
@@ -232,7 +224,7 @@ func (f *Filter) Sync(items []Item) {
 		f.known[it] = true
 		if p, ok := f.ParentOf(it); ok && f.hidden[p] {
 			f.hidden[it] = true
-		} else if f.hasOnly && f.kind(f.only) == f.kind(it) && !f.related(f.only, it) {
+		} else if f.soloed(it) {
 			f.hidden[it] = true
 		}
 	}
@@ -248,68 +240,95 @@ func (f *Filter) hide(it Item, items []Item) {
 	f.hidden[it] = true
 }
 
-// clearKind drops the Only and every Hide of kind k, then hides that
-// kind's items hidden by default.
+// clearKind drops every Only and Hide of kind k.
 func (f *Filter) clearKind(k kind) {
-	f.hasOnly = false
+	for it := range f.only {
+		if f.kind(it) == k {
+			delete(f.only, it)
+		}
+	}
 	for it := range f.hidden {
 		if f.kind(it) == k {
 			delete(f.hidden, it)
 		}
 	}
-	for it := range f.dflt {
-		if f.kind(it) == k {
-			f.hidden[it] = true
+}
+
+// unsolo takes it's Only away. With no Only left in its kind, that
+// kind's filter clears; otherwise every item of the kind no Only left is
+// related to is hidden, it among them.
+func (f *Filter) unsolo(it Item, items []Item) {
+	delete(f.only, it)
+	if len(f.onlyOf(f.kind(it))) == 0 {
+		f.clearKind(f.kind(it))
+		return
+	}
+	for _, o := range items {
+		if f.soloed(o) {
+			f.hidden[o] = true
+		}
+	}
+	if f.soloed(it) {
+		f.hidden[it] = true
+	}
+}
+
+// solo gives it Only and shows it, its descendants and its ancestors.
+// The first Only in a kind clears the kind's filter, then hides every
+// other item of it.
+func (f *Filter) solo(it Item, items []Item) {
+	if len(f.onlyOf(f.kind(it))) == 0 {
+		f.clearKind(f.kind(it))
+		for _, o := range items {
+			if f.kind(o) == f.kind(it) && !f.related(it, o) {
+				f.hidden[o] = true
+			}
+		}
+	}
+	f.only[it] = true
+	for o := range f.hidden { // loaded or not
+		if f.related(it, o) {
+			delete(f.hidden, o)
 		}
 	}
 }
 
-// ToggleHide is the Hide button. On the item with Only it clears that
-// kind's filter and hides just it. Unhiding clears the Only, the item's
-// descendants and its ancestors.
+// ToggleHide is the Hide button. On an item with Only it takes the Only
+// away and hides just it. Unhiding shows the item, its descendants and
+// its ancestors, and while its kind has Only, gives it Only too.
 func (f *Filter) ToggleHide(it Item, items []Item) {
 	f.init()
 	switch {
-	case f.hasOnly && f.only == it:
-		f.clearKind(f.kind(it))
+	case f.only[it]:
+		f.unsolo(it, items)
 		f.hide(it, items)
 	case f.hidden[it]:
-		f.hasOnly = false
+		if len(f.onlyOf(f.kind(it))) > 0 {
+			f.solo(it, items)
+			return
+		}
 		for o := range f.hidden { // loaded or not
-			if f.Under(it, o) {
+			if f.related(it, o) {
 				delete(f.hidden, o)
 			}
-		}
-		delete(f.hidden, it)
-		for p, ok := f.ParentOf(it); ok; p, ok = f.ParentOf(p) {
-			delete(f.hidden, p)
 		}
 	default:
 		f.hide(it, items)
 	}
 }
 
-// PressOnly is the Only button: it gives it Only and hides every other
-// item of its kind except its ancestors and descendants. Pressed on the
-// item that has Only, it clears that kind's filter.
+// PressOnly is the Only button: it gives it Only, alongside any others
+// of its kind, and shows it. The first Only in a kind hides every other
+// item of the kind except its ancestors and descendants. Pressed on an
+// item with Only, it takes the Only away, hiding the item while others
+// of its kind have Only and clearing the kind's filter when none do.
 func (f *Filter) PressOnly(it Item, items []Item) {
 	f.init()
-	if f.hasOnly && f.only == it {
-		f.clearKind(f.kind(it))
+	if f.only[it] {
+		f.unsolo(it, items)
 		return
 	}
-	f.clearKind(f.kind(it))
-	f.only, f.hasOnly = it, true
-	for o := range f.hidden { // hidden by default, but Only shows it
-		if f.related(it, o) {
-			delete(f.hidden, o)
-		}
-	}
-	for _, o := range items {
-		if f.kind(o) == f.kind(it) && !f.related(it, o) {
-			f.hidden[o] = true
-		}
-	}
+	f.solo(it, items)
 }
 
 // AddText adds a text row with Only. A blank term or one already listed
@@ -335,16 +354,14 @@ func (f *Filter) RemoveText(term string) {
 	f.texts = slices.DeleteFunc(f.texts, func(t string) bool { return t == term })
 	delete(f.hidden, it)
 	delete(f.known, it)
-	if f.hasOnly && f.only == it {
-		f.hasOnly = false
-	}
+	delete(f.only, it)
 }
 
 // Visible reports whether a line shows: none of its tags or their
 // ancestors, their group included, is hidden, it matches no hidden text
-// row, and, with an Only set, it carries that tag (or one under it, so
-// for a group any tag of its kind) or matches that text. lower is the
-// line's plain text, lowercased.
+// row, and for each kind with Only, it carries a tag with Only (or one
+// under it, so for a group any tag of its kind) or matches a text with
+// Only. lower is the line's plain text, lowercased.
 func (f *Filter) Visible(tags []string, lower string) bool {
 	for _, t := range tags {
 		if f.hiddenUp(Item{Name: t}) {
@@ -356,13 +373,22 @@ func (f *Filter) Visible(tags []string, lower string) bool {
 			return false
 		}
 	}
-	if !f.hasOnly {
-		return true
+	for _, k := range []kind{categoryKind, flagKind, textKind} {
+		os := f.onlyOf(k)
+		if len(os) > 0 && !slices.ContainsFunc(os, func(o Item) bool { return f.matches(o, tags, lower) }) {
+			return false
+		}
 	}
-	if f.only.Text {
-		return strings.Contains(lower, strings.ToLower(f.only.Name))
+	return true
+}
+
+// matches reports whether a line with tags and lower carries o (or a tag
+// under it), or for a text, contains it.
+func (f *Filter) matches(o Item, tags []string, lower string) bool {
+	if o.Text {
+		return strings.Contains(lower, strings.ToLower(o.Name))
 	}
 	return slices.ContainsFunc(tags, func(t string) bool {
-		return f.only == Item{Name: t} || f.Under(f.only, Item{Name: t})
+		return o == Item{Name: t} || f.Under(o, Item{Name: t})
 	})
 }

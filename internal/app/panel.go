@@ -94,9 +94,8 @@ func (g *Log) foldedAway(it scene.Item) bool {
 // Only, for the mark on a folded parent.
 func (g *Log) FilteredUnder(parent scene.Item, items []scene.Item) bool {
 	f := &g.c.Filter
-	only, hasOnly := f.Only()
 	for _, it := range items {
-		if f.Under(parent, it) && (f.Hidden(it) || hasOnly && only == it) {
+		if f.Under(parent, it) && (f.Hidden(it) || f.Only(it)) {
 			return true
 		}
 	}

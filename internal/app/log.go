@@ -227,8 +227,8 @@ func (g *Log) ClearStatus() { g.Status = "" }
 // Shows reports whether l is drawn: whatever the filter lets through.
 func (g *Log) Shows(l *LogLine) bool { return g.c.Filter.Visible(l.Tags, l.Lower) }
 
-// sentItem is the filter's row for sent lines. It's hidden by default
-// unless local_echo is on.
+// sentItem is the filter's row for sent lines. A character's filter
+// starts with it hidden unless local_echo is on.
 var sentItem = scene.Item{Name: classify.SentTag}
 
 // Visible is the shown lines, oldest first.
@@ -284,7 +284,6 @@ func (g *Log) Items() []scene.Item {
 		g.tagNamesN, g.tagNamesGen = len(g.Lines), g.c.rulesGen
 	}
 	f := &g.c.Filter
-	only, hasOnly := f.Only()
 	tags := append(slices.Clone(g.tagNames), f.Tags()...)
 	cats, flags := slices.Clone(tags), slices.Clone(tags)
 	cats = slices.DeleteFunc(cats, flag)
@@ -295,7 +294,7 @@ func (g *Log) Items() []scene.Item {
 		tags []string
 	}{{scene.CategoryGroup, cats}, {scene.FlagGroup, flags}} {
 		it := scene.Item{Group: grp.name}
-		if len(grp.tags) > 0 || f.Hidden(it) || hasOnly && only == it {
+		if len(grp.tags) > 0 || f.Hidden(it) || f.Only(it) {
 			items = append(items, it)
 			items = append(items, scene.TagItems(grp.tags)...)
 		}

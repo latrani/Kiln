@@ -187,9 +187,6 @@ func (a *App) ApplyConfig(cfg *config.Config) ConfigResult {
 			continue
 		}
 		retag := !reflect.DeepEqual(tagInputs(c.Ch), tagInputs(ch))
-		if ch.LocalEcho != c.Ch.LocalEcho {
-			c.Filter.SetDefault(sentItem, !ch.LocalEcho)
-		}
 		c.Ch, c.Orphan = ch, false
 		if err := c.compile(); err != nil {
 			res.Errs[k] = err
@@ -276,7 +273,9 @@ func (a *App) Open(k string) (*Char, error) {
 		return nil, nil
 	}
 	c := &Char{Key: k, Ch: ch, sentGen: -1}
-	c.Filter.SetDefault(sentItem, !ch.LocalEcho)
+	if !ch.LocalEcho {
+		c.Filter.Hide(sentItem)
+	}
 	c.History.all = &a.sent
 	err := c.compile()
 	a.chars[k] = c

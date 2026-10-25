@@ -321,11 +321,10 @@ func (f *Feed) logMode(c *app.Char, put func(string, Event)) []Event {
 	if op, ls, ok := f.diff(f.logs, c.Key, g, 0, len(g.Lines), func(i int) *app.Line { return &g.Lines[i].Line }); ok {
 		evs = append(evs, LogLines{Key: c.Key, Epoch: f.logs[c.Key].epoch, Op: op, Lines: ls})
 	}
-	only, hasOnly := c.Filter.Only()
 	fl := Filter{Key: c.Key}
 	for _, e := range g.EntriesOf(items) {
 		fl.Entries = append(fl.Entries, FilterEntry{
-			PanelEntry: e, Hidden: c.Filter.Hidden(e.Item), Only: hasOnly && only == e.Item,
+			PanelEntry: e, Hidden: c.Filter.Hidden(e.Item), Only: c.Filter.Only(e.Item),
 			Folded:        e.Parent && c.Collapsed[e.Item],
 			FilteredUnder: e.Parent && c.Collapsed[e.Item] && g.FilteredUnder(e.Item, items),
 		})

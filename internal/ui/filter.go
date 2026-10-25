@@ -129,7 +129,6 @@ func panelIndent(depth int) int { return 1 + depth }
 func (b *browse) panelRows(w int) []panelRow {
 	var rows []panelRow
 	f := &b.cs.Filter
-	only, hasOnly := f.Only()
 	items := b.Items()
 	es := b.entriesOf(items)
 	for i, e := range es {
@@ -165,7 +164,7 @@ func (b *browse) panelRows(w int) []panelRow {
 		if f.Hidden(e.Item) {
 			hide = theme.FilterButtonOn
 		}
-		if hasOnly && only == e.Item {
+		if f.Only(e.Item) {
 			onlyRole = theme.FilterButtonOn
 		}
 		rows = append(rows,

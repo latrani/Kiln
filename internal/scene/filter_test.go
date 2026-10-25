@@ -67,8 +67,8 @@ func TestOnlyHidesOthersOfItsKind(t *testing.T) {
 	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"page/out", "rp", "lighthouse"}) {
 		t.Errorf("hidden = %v (page is page/in's parent; lighthouse is the other kind)", got)
 	}
-	if o, ok := f.Only(); !ok || o != tag("page/in") {
-		t.Errorf("Only = %v, %v", o, ok)
+	if !f.Only(tag("page/in")) {
+		t.Error("page/in has no Only")
 	}
 }
 
@@ -78,7 +78,7 @@ func TestOnlyAgainClearsItsKind(t *testing.T) {
 	f.ToggleHide(text("lighthouse"), its)
 	f.PressOnly(tag("rp"), its)
 	f.PressOnly(tag("rp"), its)
-	if _, ok := f.Only(); ok {
+	if f.Only(tag("rp")) {
 		t.Error("Only still set")
 	}
 	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"lighthouse"}) {
@@ -86,16 +86,47 @@ func TestOnlyAgainClearsItsKind(t *testing.T) {
 	}
 }
 
-func TestOnlyMovesToASecondItem(t *testing.T) {
+func TestOnlyAddsASecondItem(t *testing.T) {
 	var f Filter
 	its := items()
 	f.PressOnly(tag("rp"), its)
 	f.PressOnly(tag("page"), its)
-	if o, _ := f.Only(); o != tag("page") {
-		t.Errorf("Only = %v", o)
+	if !f.Only(tag("rp")) || !f.Only(tag("page")) {
+		t.Errorf("Only: rp %v, page %v; want both", f.Only(tag("rp")), f.Only(tag("page")))
 	}
-	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"rp"}) {
+	if got := hiddenSet(&f, its); got != nil {
 		t.Errorf("hidden = %v", got)
+	}
+	if f.Visible(nil, "") || !f.Visible([]string{"page/in"}, "") || !f.Visible([]string{"rp"}, "") {
+		t.Error("want lines with either, and none with neither")
+	}
+}
+
+// Only pressed again on one of several takes it out, hiding it; on the
+// last, the kind's filter clears.
+func TestOnlyAgainLeavesTheSet(t *testing.T) {
+	var f Filter
+	its := items()
+	f.PressOnly(tag("rp"), its)
+	f.PressOnly(tag("page"), its)
+	f.PressOnly(tag("page"), its)
+	if f.Only(tag("page")) || !f.Only(tag("rp")) {
+		t.Errorf("Only: page %v, rp %v", f.Only(tag("page")), f.Only(tag("rp")))
+	}
+	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"page", "page/in", "page/out"}) {
+		t.Errorf("hidden = %v", got)
+	}
+	f.PressOnly(tag("rp"), its)
+	if f.Only(tag("rp")) || hiddenSet(&f, its) != nil || !f.Visible(nil, "") {
+		t.Errorf("the last Only out should clear: hidden %v", hiddenSet(&f, its))
+	}
+
+	var g Filter // an ancestor out, its soloed child stays
+	g.PressOnly(tag("page/in"), its)
+	g.PressOnly(tag("page"), its)
+	g.PressOnly(tag("page"), its)
+	if got := hiddenSet(&g, its); !slices.Equal(got, []string{"page/out", "rp"}) {
+		t.Errorf("page out, page/in left: hidden = %v", got)
 	}
 }
 
@@ -104,24 +135,37 @@ func TestHideOnTheOnlyItemFlipsIt(t *testing.T) {
 	its := items()
 	f.PressOnly(tag("page"), its)
 	f.ToggleHide(tag("page"), its)
-	if _, ok := f.Only(); ok {
+	if f.Only(tag("page")) {
 		t.Error("Only still set")
 	}
 	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"page", "page/in", "page/out"}) {
 		t.Errorf("hidden = %v", got)
 	}
+
+	var g Filter // one of two: the other keeps its Only
+	g.PressOnly(tag("page"), its)
+	g.PressOnly(tag("rp"), its)
+	g.ToggleHide(tag("page"), its)
+	if g.Only(tag("page")) || !g.Only(tag("rp")) || !g.Hidden(tag("page")) {
+		t.Errorf("Only: page %v, rp %v; page hidden %v", g.Only(tag("page")), g.Only(tag("rp")), g.Hidden(tag("page")))
+	}
 }
 
-func TestUnhidingClearsOnly(t *testing.T) {
+// Unhiding while its kind has Only gives it Only too, so a line with
+// none of them stays hidden.
+func TestUnhidingJoinsOnly(t *testing.T) {
 	var f Filter
 	its := items()
 	f.PressOnly(tag("rp"), its)
 	f.ToggleHide(tag("page/in"), its)
-	if _, ok := f.Only(); ok {
-		t.Error("Only still set after unhiding page/in")
+	if !f.Only(tag("rp")) || !f.Only(tag("page/in")) {
+		t.Errorf("Only: rp %v, page/in %v; want both", f.Only(tag("rp")), f.Only(tag("page/in")))
 	}
 	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"page/out"}) {
 		t.Errorf("hidden = %v", got)
+	}
+	if f.Visible(nil, "") || !f.Visible([]string{"page", "page/in"}, "") {
+		t.Error("an untagged line should stay hidden, and page/in show")
 	}
 }
 
@@ -155,12 +199,24 @@ func TestTexts(t *testing.T) {
 	if got := f.Texts(); !slices.Equal(got, []Item{text("lighthouse"), text("Rook")}) {
 		t.Errorf("Texts = %v", got)
 	}
-	if o, _ := f.Only(); o != text("Rook") || !f.Hidden(text("lighthouse")) {
-		t.Errorf("a new text row takes Only: Only %v, lighthouse hidden %v", o, f.Hidden(text("lighthouse")))
+	if !f.Only(text("Rook")) || !f.Only(text("lighthouse")) {
+		t.Errorf("a new text row joins Only: Rook %v, lighthouse %v", f.Only(text("Rook")), f.Only(text("lighthouse")))
 	}
 	f.RemoveText("Rook")
-	if _, ok := f.Only(); ok || len(f.Texts()) != 1 || !f.Hidden(text("lighthouse")) {
-		t.Errorf("RemoveText: Only cleared, the Hide it set kept")
+	if f.Only(text("Rook")) || !f.Only(text("lighthouse")) || len(f.Texts()) != 1 {
+		t.Error("RemoveText: Rook's Only gone, lighthouse's kept")
+	}
+
+	var g Filter
+	g.AddText("lighthouse", its)
+	g.ToggleHide(text("lighthouse"), its)
+	g.AddText("Rook", its)
+	if !g.Only(text("Rook")) || !g.Hidden(text("lighthouse")) {
+		t.Errorf("the first text Only: Rook %v, lighthouse hidden %v", g.Only(text("Rook")), g.Hidden(text("lighthouse")))
+	}
+	g.RemoveText("Rook")
+	if !g.Hidden(text("lighthouse")) {
+		t.Error("RemoveText: the Hide its Only set stays")
 	}
 }
 
@@ -195,6 +251,22 @@ func TestVisible(t *testing.T) {
 			f.PressOnly(text("lighthouse"), its)
 		}, []string{"rp"}, "the lighthouse", false},
 		{"only text: no match", func(f *Filter) { f.PressOnly(text("lighthouse"), its) }, nil, "evening", false},
+		{"two onlys: the other", func(f *Filter) {
+			f.PressOnly(tag("rp"), its)
+			f.PressOnly(tag("page"), its)
+		}, []string{"rp"}, "", true},
+		{"two onlys: uncategorized hidden", func(f *Filter) {
+			f.PressOnly(tag("rp"), its)
+			f.PressOnly(tag("page"), its)
+		}, nil, "", false},
+		{"only tag and only text: both", func(f *Filter) {
+			f.PressOnly(tag("rp"), its)
+			f.PressOnly(text("lighthouse"), its)
+		}, []string{"rp"}, "the lighthouse", true},
+		{"only tag and only text: just the tag", func(f *Filter) {
+			f.PressOnly(tag("rp"), its)
+			f.PressOnly(text("lighthouse"), its)
+		}, []string{"rp"}, "evening", false},
 	}
 	for _, c := range cases {
 		var f Filter
@@ -202,17 +274,6 @@ func TestVisible(t *testing.T) {
 		if got := f.Visible(c.tags, c.lower); got != c.want {
 			t.Errorf("%s: Visible = %v, want %v", c.name, got, c.want)
 		}
-	}
-}
-
-func TestActive(t *testing.T) {
-	var f Filter
-	if f.Active() {
-		t.Error("zero filter active")
-	}
-	f.ToggleHide(tag("rp"), items())
-	if !f.Active() {
-		t.Error("a hide should make it active")
 	}
 }
 
@@ -312,37 +373,18 @@ func TestTagsListsFilteredTags(t *testing.T) {
 	}
 }
 
-// An item hidden by default starts hidden, and clearing its kind's filter
-// puts it back hidden even after it was shown; Only on it shows it.
-func TestFilterDefaults(t *testing.T) {
+// Hide is an ordinary Hide: clearing its kind's filter clears it.
+func TestHideIsOrdinary(t *testing.T) {
 	var f Filter
 	sent, its := tag("sent"), append(items(), tag("sent"))
-	f.SetDefault(sent, true)
-	if !f.Hidden(sent) || f.Active() {
-		t.Fatalf("hidden %v, active %v; want hidden by default, nothing set", f.Hidden(sent), f.Active())
-	}
-	f.ToggleHide(sent, its)
-	if f.Hidden(sent) || !f.Active() {
-		t.Errorf("shown: hidden %v, active %v", f.Hidden(sent), f.Active())
-	}
-	f.PressOnly(tag("rp"), its)
-	f.PressOnly(tag("rp"), its) // clears the tag filters
-	if got := hiddenSet(&f, its); !slices.Equal(got, []string{"sent"}) {
-		t.Errorf("after clearing: hidden %q, want just sent, as by default", got)
-	}
-	f.PressOnly(sent, its)
-	if f.Hidden(sent) || !f.Visible([]string{"sent"}, "") || f.Visible([]string{"rp"}, "") {
-		t.Error("Only on an item hidden by default should show just it")
-	}
-	f.PressOnly(sent, its)
-	f.SetDefault(sent, false)
-	if f.Hidden(sent) || f.Active() {
-		t.Errorf("default off: hidden %v, active %v", f.Hidden(sent), f.Active())
-	}
-	f.PressOnly(tag("rp"), its)
-	f.SetDefault(sent, false)
+	f.Hide(sent)
 	if !f.Hidden(sent) {
-		t.Error("an Only on another tag should keep it hidden")
+		t.Fatal("Hide didn't hide sent")
+	}
+	f.PressOnly(sent, its)
+	f.PressOnly(sent, its)
+	if got := hiddenSet(&f, its); got != nil {
+		t.Errorf("Only on sent and off again: hidden %q, want nothing", got)
 	}
 }
 
