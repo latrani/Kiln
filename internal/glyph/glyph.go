@@ -24,6 +24,9 @@ const (
 	Menu        = "≡" // the collapsed sidebar, at the top bar's left: opens it
 	Collapse    = "‹" // collapses the sidebar, at its title's right
 	Connecting  = "…" // a character still connecting
+	TreeLine    = "│" // a tree's line down from under a ▼, past rows not its children
+	TreeBranch  = "├" // and to a child with more after it
+	TreeLast    = "└" // and to its last child
 )
 
 // All is every glyph by its constant's name, in order, for front ends
@@ -35,5 +38,5 @@ var All = [][2]string{
 	{"Filtered", Filtered}, {"Remove", Remove}, {"Selected", Selected}, {"Excluded", Excluded},
 	{"CursorAbove", CursorAbove}, {"CursorBelow", CursorBelow},
 	{"Priority", Priority}, {"ChoicePrev", ChoicePrev}, {"ChoiceNext", ChoiceNext}, {"Add", Add}, {"Menu", Menu}, {"Collapse", Collapse},
-	{"Connecting", Connecting},
+	{"Connecting", Connecting}, {"TreeLine", TreeLine}, {"TreeBranch", TreeBranch}, {"TreeLast", TreeLast},
 }

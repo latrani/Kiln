@@ -529,11 +529,17 @@ export function filterAddText(): string { return `+ Text`; }
 /** filter.categories: Categories */
 export function filterCategories(): string { return `Categories`; }
 
+/** filter.field: Text */
+export function filterField(): string { return `Text`; }
+
+/** filter.field_hint: Enter to add · Esc to cancel */
+export function filterFieldHint(): string { return `Enter to add · Esc to cancel`; }
+
 /** filter.flags: Flags */
 export function filterFlags(): string { return `Flags`; }
 
-/** filter.hide: Hide */
-export function filterHide(): string { return `Hide`; }
+/** filter.hide: hide */
+export function filterHide(): string { return `hide`; }
 
 /** filter.key_add: enter add */
 export function filterKeyAdd(): string { return `enter add`; }
@@ -556,8 +562,8 @@ export function filterKeyOnly(): string { return `o only`; }
 /** filter.key_remove: x remove */
 export function filterKeyRemove(): string { return `x remove`; }
 
-/** filter.only: Only */
-export function filterOnly(): string { return `Only`; }
+/** filter.only: only */
+export function filterOnly(): string { return `only`; }
 
 /** filter.prompt: filter text:  */
 export function filterPrompt(): string { return `filter text: `; }
@@ -1292,4 +1298,7 @@ export const glyph = {
   menu: "≡",
   collapse: "‹",
   connecting: "…",
+  treeLine: "│",
+  treeBranch: "├",
+  treeLast: "└",
 } as const;

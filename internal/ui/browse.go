@@ -451,6 +451,8 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	switch {
 	case b.prompt == promptFormat:
 		rows = append(rows, theme.Fill(theme.LogBar, b.promptLabel(), w))
+	case b.prompt == promptFilterText: // typed in the panel; its keys here
+		rows = append(rows, theme.Fill(theme.LogBar, theme.Paint(theme.LogHints, str.FilterFieldHint()), w))
 	case b.prompt != promptNone:
 		label := b.promptLabel()
 		text, x := promptWindow([]rune(b.pin.Value()), b.pin.col, w-xansi.StringWidth(label)-1)

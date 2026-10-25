@@ -596,10 +596,16 @@ func FilterAddText() string { return get("filter.add_text", nil) }
 // FilterCategories is filter.categories: "Categories"
 func FilterCategories() string { return get("filter.categories", nil) }
 
+// FilterField is filter.field: "Text"
+func FilterField() string { return get("filter.field", nil) }
+
+// FilterFieldHint is filter.field_hint: "Enter to add · Esc to cancel"
+func FilterFieldHint() string { return get("filter.field_hint", nil) }
+
 // FilterFlags is filter.flags: "Flags"
 func FilterFlags() string { return get("filter.flags", nil) }
 
-// FilterHide is filter.hide: "Hide"
+// FilterHide is filter.hide: "hide"
 func FilterHide() string { return get("filter.hide", nil) }
 
 // FilterKeyAdd is filter.key_add: "enter add"
@@ -623,7 +629,7 @@ func FilterKeyOnly() string { return get("filter.key_only", nil) }
 // FilterKeyRemove is filter.key_remove: "x remove"
 func FilterKeyRemove() string { return get("filter.key_remove", nil) }
 
-// FilterOnly is filter.only: "Only"
+// FilterOnly is filter.only: "only"
 func FilterOnly() string { return get("filter.only", nil) }
 
 // FilterPrompt is filter.prompt: "filter text: "

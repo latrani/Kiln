@@ -113,6 +113,7 @@ const (
 	FilterButtonOn  Role = "filter.button.on"
 	FilterAdd       Role = "filter.add"
 	FilterMore      Role = "filter.more"
+	FilterTree      Role = "filter.tree"       // the lines from a parent to its children
 	FilterTitle     Role = "filter.title"      // its first row
 	FilterCollapse  Role = "filter.collapse"   // the ‹ at its title\'s right
 	FilterHints     Role = "filter.hints"      // its footer's keys
@@ -135,7 +136,7 @@ var Roles = []Role{
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogHintsAway,
-	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTitle, FilterCollapse, FilterHints, FilterHintsAway,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTree, FilterTitle, FilterCollapse, FilterHints, FilterHintsAway,
 	Export,
 }
 
