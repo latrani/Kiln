@@ -45,6 +45,7 @@ type browse struct {
 	pin        *Input
 	Panel      *filterPanel // the filter panel, always there in log mode
 	panelFocus bool         // keys go to the panel, not the log
+	drag       *logDrag     // a press in the log, and the drag it may become; see logdrag.go
 	format     string
 	run        func([]app.Effect) tea.Cmd // the model's run
 	cfg        func() *config.Config      // the config as it is now, for the export settings
@@ -496,25 +497,25 @@ func (b *browse) selectChip() {
 	b.Mark()
 }
 
-// click handles a left click on row y of the right pane. Clicks are
-// ignored while a prompt is open so the selection can't change under it.
-func (b *browse) click(y int) {
+// click is a left click on l, the line pressed (nil: none), as it's
+// let go. Clicks are ignored while a prompt is open so the selection
+// can't change under it.
+func (b *browse) click(l *app.LogLine, shift bool) {
 	b.StopSearch()
 	if b.prompt != promptNone {
 		return
 	}
 	b.focusPanel(false)
-	row := y
-	if row < 0 || row >= len(b.rowLines) || b.rowLines[row] == nil {
+	if l == nil {
 		return
 	}
 	// Outside select mode a click only moves the cursor. While selecting
 	// it's a shift-click: inside the range it toggles its line, leaving
 	// the cursor (the range's end) where it is; outside it grows the
-	// range to the line.
-	l := b.rowLines[row]
+	// range to the line. A shift-click inside a locked range (a drag's)
+	// toggles its line too.
 	switch {
-	case b.Marking && b.InRange(l):
+	case b.InRange(l) && (b.Marking || shift):
 		b.ToggleExclude(l)
 	case b.Marking:
 		b.GrowTo(l)

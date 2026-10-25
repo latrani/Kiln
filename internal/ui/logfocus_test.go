@@ -78,7 +78,7 @@ func TestLogModeClickFocuses(t *testing.T) {
 	if !h.br().panelFocus {
 		t.Fatal("a click in the panel should focus it")
 	}
-	h.m.Update(tea.MouseClickMsg{X: l.sw + 10, Y: l.top + 2, Button: tea.MouseLeft})
+	h.click(l.sw+10, l.top+2)
 	if h.br().panelFocus {
 		t.Error("a click in the log should focus it")
 	}

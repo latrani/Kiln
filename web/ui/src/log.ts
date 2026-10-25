@@ -296,8 +296,8 @@ export function logClick(store: Store, seq: number, how: { shift?: boolean; gutt
 // range from there, as s there would start (a live one is dropped
 // first, as Esc would). False under a prompt, which the range can't
 // change under, as a click. dragTo is each line the pointer reaches: the
-// cursor goes there and the range's end with it (setLogView). dragEnd
-// is letting go: the range locks there, as s again.
+// cursor goes there and the range's end with it (setLogView). Letting
+// go leaves the range live, for keys and clicks to finish, as the TUI's.
 export function dragStart(store: Store, seq: number): boolean {
   const s = store.state, k = s.active, g = s.logs[k] as LogState;
   const act = s.act ?? (() => {});
@@ -315,11 +315,6 @@ export function dragStart(store: Store, seq: number): boolean {
 
 export function dragTo(store: Store, seq: number): void {
   store.setLogView(store.state.active, { cursor: seq, away: undefined });
-}
-
-export function dragEnd(store: Store): void {
-  const g = store.state.logs[store.state.active] as LogState;
-  if (g.Marking) logAct(store, "mark");
 }
 
 // A shift-drag over the range paints it: the line pressed says which

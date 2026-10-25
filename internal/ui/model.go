@@ -550,7 +550,9 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.a.Here()
 		return m, m.handleClick(msg, was)
 	case tea.MouseMotionMsg:
-		m.handleDrag(msg.Mouse())
+		return m, m.handleDrag(msg.Mouse())
+	case logEdgeMsg:
+		return m, m.edgeScroll(msg.d)
 	case tea.MouseReleaseMsg:
 		return m, m.handleRelease()
 	}
@@ -968,7 +970,7 @@ func (m *Model) do(d app.Do) tea.Cmd {
 
 // openBrowse opens browse mode for cs.
 func (m *Model) openBrowse(cs *charState) {
-	m.narrowOpen = false // log mode has its own: the panel
+	m.narrowOpen = false     // log mode has its own: the panel
 	if cs.hidBrowse != nil { // back as Ctrl+L left it
 		cs.browse, cs.hidBrowse = cs.hidBrowse, nil
 		m.a.ClearStatus()
@@ -1123,7 +1125,7 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	}
 	if cs := m.cur(); cs != nil && cs.browse != nil {
 		m.clearLogStatus()
-		cs.browse.click(msg.Y)
+		cs.browse.press(msg.Y, msg.Mod.Contains(tea.ModShift))
 		return nil
 	}
 	cs := m.cur()
@@ -1156,10 +1158,10 @@ func (m *Model) handleClick(msg tea.MouseClickMsg, was app.Presence) tea.Cmd {
 	return nil
 }
 
-// handleDrag follows a drag that started in the scrollback or the input,
-// clamping the pointer to where it started. With no button down, it
-// tracks what the pointer is over, so links light up.
-func (m *Model) handleDrag(msg tea.Mouse) {
+// handleDrag follows a drag that started in the log, the scrollback or
+// the input, clamping the pointer to where it started. With no button
+// down, it tracks what the pointer is over, so links light up.
+func (m *Model) handleDrag(msg tea.Mouse) tea.Cmd {
 	l := m.layout()
 	msg.Y -= l.top // body rows
 	x := max(0, msg.X-l.rx)
@@ -1170,21 +1172,44 @@ func (m *Model) handleDrag(msg tea.Mouse) {
 				cs.sb.Hover(&p)
 			}
 		}
-		return
+		return nil
+	}
+	if cs := m.cur(); cs != nil && cs.browse != nil {
+		if b := cs.browse; b.drag != nil && b.dragMove(msg.Y, m.browseBodyH()) {
+			return edgeTick(b.drag)
+		}
+		return nil
 	}
 	if cs := m.cur(); cs != nil && cs.sb.Dragging() {
 		for y := min(max(0, msg.Y), l.sbH-1); y >= 0; y-- { // the nearest text row at or above
 			if p, ok := cs.sb.At(y, x); ok {
 				cs.sb.DragTo(p)
-				return
+				return nil
 			}
 		}
-		return
+		return nil
 	}
 	if in := m.input(); in.Dragging() && len(l.inRows) > 0 {
 		y := min(max(0, msg.Y-l.sbH-1), len(l.inRows)-1)
 		in.DragTo(max(0, x-gutterWidth), l.inTop+y)
 	}
+	return nil
+}
+
+// edgeScroll is a tick of drag d held above or below the log. It stops
+// once d has ended, gone back into the log, or isn't on screen.
+func (m *Model) edgeScroll(d *logDrag) tea.Cmd {
+	cs := m.cur()
+	if cs == nil || cs.browse == nil || cs.browse.drag != d {
+		d.ticking = false
+		return nil
+	}
+	eff, again := cs.browse.edgeStep()
+	cmd := cs.browse.run(eff)
+	if again {
+		cmd = tea.Batch(cmd, edgeTick(d))
+	}
+	return cmd
 }
 
 // openLink opens u, if it's a link and links can be opened. Over ssh an
@@ -1214,10 +1239,15 @@ func (m *Model) copyCmd(text string) tea.Cmd {
 	return tea.Batch(tea.SetClipboard(text), m.d.Raw(notify.Clipboard(text, true)))
 }
 
-// handleRelease ends a drag: a selection is copied to the clipboard, and
-// a click on a link in the scrollback opens it.
+// handleRelease ends a drag: log mode's ends or clicks, a
+// selection is copied to the clipboard, and a click on a link in the
+// scrollback opens it.
 func (m *Model) handleRelease() tea.Cmd {
 	text := ""
+	if cs := m.cur(); cs != nil && cs.browse != nil {
+		cs.browse.release()
+		return nil
+	}
 	if cs := m.cur(); cs != nil && cs.sb.Dragging() {
 		var click sbPos
 		var clicked bool

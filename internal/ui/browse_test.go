@@ -610,7 +610,7 @@ func TestBrowseClicksOnlyMoveTheCursor(t *testing.T) {
 		return 0
 	}
 	click := func(i, x int, mod tea.KeyMod) {
-		h.m.Update(tea.MouseClickMsg{X: x, Y: rowOf(i), Button: tea.MouseLeft, Mod: mod})
+		h.clickMod(x, rowOf(i), mod)
 		h.screen()
 	}
 	text, gutter := l.sw+1+10, l.sw+1+browsePrefixW-2
@@ -1333,7 +1333,7 @@ func TestBrowseLiveRangeClicks(t *testing.T) {
 		}
 		for row, bl := range b.rowLines {
 			if bl == b.Lines[i] {
-				h.m.Update(tea.MouseClickMsg{X: x, Y: row + 2, Button: tea.MouseLeft, Mod: mod})
+				h.clickMod(x, row+2, mod)
 				h.screen()
 				return
 			}

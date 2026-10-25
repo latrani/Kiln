@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tagsFor } from "../look.ts";
 import { filterKey, panelAct } from "../filter.ts";
 import { panelOnlyKeys } from "./FilterPanel.tsx";
-import { cursorOf, dragEnd, dragStart, dragTo, keepsPlace, logAct, logClick, logKey, logRows, openAt, paintStart, paintTo, placeOf, scrolled, segments, syncCursor, topFor, wantsOlder } from "../log.ts";
+import { cursorOf, dragStart, dragTo, keepsPlace, logAct, logClick, logKey, logRows, openAt, paintStart, paintTo, placeOf, scrolled, segments, syncCursor, topFor, wantsOlder } from "../log.ts";
 import type { LogState, Paint, Place } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -204,7 +204,6 @@ export function LogView({ state, store }: { state: State; store: Store }) {
       return;
     }
     d.ended = true; // until the click that follows
-    if (!d.paint) dragEnd(store);
   };
   const onClick = (e: MouseEvent) => {
     if (drag.current?.ended) {

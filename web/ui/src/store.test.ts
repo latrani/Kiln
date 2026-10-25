@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { focusPanel, glyphClick, panelAct, panelClick } from "./filter.ts";
-import { cursorOf, dragEnd, dragStart, dragTo, logAct, logClick, paintStart, paintTo, selectChip, syncCursor, toggleLog } from "./log.ts";
+import { cursorOf, dragStart, dragTo, logAct, logClick, paintStart, paintTo, selectChip, syncCursor, toggleLog } from "./log.ts";
 import type { LogState } from "./log.ts";
 import { noHost } from "./host.ts";
 import type { Host } from "./host.ts";
@@ -480,18 +480,16 @@ test("a click while selecting is a shift-click: inside, it takes the line out an
   assert.equal(s.state.logView["fm/kit"].cursor, 1);
 });
 
-test("a drag picks the lines it crosses: a range from where it was pressed, locked where it's let go", () => {
+test("a drag picks the lines it crosses: a range from where it was pressed, still live where it's let go", () => {
   const { s, sent } = logged();
   const n = sent.length;
   assert.equal(dragStart(s, 1), true);
   dragTo(s, 2);
   dragTo(s, 3);
-  dragEnd(s);
   assert.deepEqual(sent.slice(n), [
     { Do: "mark", Key: "fm/kit", Seq: 1 },
     { Do: "mark_to", Key: "fm/kit", Seq: 2 },
     { Do: "mark_to", Key: "fm/kit", Seq: 3 },
-    { Do: "mark", Key: "fm/kit", Seq: 3 },
   ]);
   assert.equal(s.state.logView["fm/kit"].cursor, 3, "the cursor where it was let go");
 });
