@@ -23,13 +23,13 @@ test("the panel takes the sidebar's place, named Filter, in the filter role", ()
   assert.match(nav, new RegExp(`<nav class="side filter-panel ${roleClass("filter")}" aria-label="${str.webFilter()}"`));
 });
 
-test("each entry: a list item holding a group named by its name, Hide and Only as toggle buttons; indented by depth", () => {
+test("each entry: a list item holding a group named by its name, Hide and Only as toggle buttons; in a tree", () => {
   const nav = page(entries, "g:page");
   assert.match(nav, /<li class="fentry"><div role="group" aria-labelledby="flt-1">/);
   assert.match(nav, new RegExp(`<button id="flt-1" class="fname fsel ${roleClass("filter.selected")}" tabindex="0">page</button>`), "the name doesn't fold, so it says nothing of folding");
   assert.match(nav, new RegExp(`<button class="${roleClass("filter.button.on")}" tabindex="0" aria-pressed="true">${str.filterHide()}</button>`), "page is hidden: Hide lit, pressed");
   assert.match(nav, new RegExp(`<button id="flt-2" class="fname ${roleClass("filter.item")}" tabindex="-1">ooc</button>`), "not highlighted: out of the tab order");
-  assert.ok(nav.includes(`<div class="frow">   <button id="flt-2"`), "page/ooc, depth 2: 1 + 2 spaces in");
+  assert.ok(nav.includes(`<div class="frow"><span aria-hidden="true" class="${roleClass("filter.tree")}">  ${str.glyph.treeLast}${str.glyph.rule}</span><button id="flt-2"`), "page/ooc, depth 2: in the tree, past page's line, page being Categories' last");
   assert.match(nav, new RegExp(`tabindex="-1" aria-pressed="true">${str.filterOnly()}</button>`), "ooc is Only");
 });
 

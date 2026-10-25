@@ -152,22 +152,22 @@ func TestFilter(t *testing.T) {
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterCategories()), "the panel, Categories focused")
 	waitFor(t, ev, `document.querySelector(".bottom").textContent === `+jsString(str.BrowseHintsNoneAway())+` && document.querySelector(".ffoot").textContent === `+jsString(strings.Join([]string{str.FilterKeyHide(), str.FilterKeyOnly(), str.FilterKeyFold(), str.FilterKeyLog()}, str.Separator())), "the footers, the panel focused on Categories")
 
-	// ↓ past kiln and sent to + Text, Enter: the prompt. "fake muck",
-	// typed key by key there, has an f and no panel key reaches the panel;
-	// Enter adds it, the new row focused.
+	// ↓ past kiln and sent to + Text, Enter: the field, in its place, its
+	// keys in the bar. "fake muck", typed key by key there, has an f and
+	// no panel key reaches the panel; Enter adds it, the new row focused.
 	pressKey(t, ws, "ArrowDown", 40)
 	pressKey(t, ws, "ArrowDown", 40)
 	pressKey(t, ws, "ArrowDown", 40)
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterAddText()), "+ Text")
 	pressKey(t, ws, "Enter", 13)
-	prompt := `document.querySelector("#kiln-logprompt")`
-	waitFor(t, ev, `document.activeElement === `+prompt, "the filter prompt")
+	field := `document.querySelector(".filter-panel #kiln-filtertext")`
+	waitFor(t, ev, `document.activeElement === `+field+` && document.querySelector(".bottom").textContent === `+jsString(str.FilterFieldHint()), "the field, its keys in the bar")
 	for _, r := range "fake muck" {
 		letter(string(r))
 	}
-	waitFor(t, ev, prompt+`.value === "fake muck"`, "the text typed")
+	waitFor(t, ev, field+`.value === "fake muck"`, "the text typed")
 	if got := ev(`!!document.querySelector(".filter-panel") && !kilnPage.sent.some(a => a.Do === "only" || a.Do === "hide")`); got != "true" {
-		t.Error("typing in the prompt reached the panel")
+		t.Error("typing in the field reached the panel")
 	}
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `document.activeElement === `+sel+` && `+sel+`.textContent === `+jsString(str.FilterTextItem("fake muck")), "the new text row, focused")
@@ -225,7 +225,7 @@ func TestFilter(t *testing.T) {
 
 	// A prompt opened from the panel gives it focus back when it closes.
 	letter("/")
-	waitFor(t, ev, `document.activeElement === `+prompt, "find's prompt, from the panel")
+	waitFor(t, ev, `document.activeElement === document.querySelector("#kiln-logprompt")`, "find's prompt, from the panel")
 	pressKey(t, ws, "Escape", 27)
 	waitFor(t, ev, `document.activeElement === `+sel, "the panel focused again")
 

@@ -362,7 +362,6 @@ key_fold_away = "←→ fold"
 key_add = "enter add"
 key_remove = "x remove"
 key_log = "f log"
-prompt = "filter text: "
 
 # The open-connection picker.
 [picker]

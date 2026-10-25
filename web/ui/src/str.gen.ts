@@ -565,9 +565,6 @@ export function filterKeyRemove(): string { return `x remove`; }
 /** filter.only: only */
 export function filterOnly(): string { return `only`; }
 
-/** filter.prompt: filter text:  */
-export function filterPrompt(): string { return `filter text: `; }
-
 /** filter.text_item: "{term}" */
 export function filterTextItem(term: unknown): string { return `"${term}"`; }
 

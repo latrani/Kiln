@@ -15,12 +15,13 @@ export interface FilterEntry {
   Hidden: boolean; Only: boolean; Folded: boolean; FilteredUnder: boolean;
 }
 
-// PanelRow is an entry the panel lists, as it reads (its glyph, name and
-// what follows it; a blank row after it when it's a parent or ends a group or a tree in one),
-// or + Text.
+// PanelRow is an entry the panel lists, as it reads (the tree's lines
+// before its name and before its Hide and Only, its glyph, name and what
+// follows it), or + Text. gap is a blank row before it, parting the tree
+// from the text rows and + Text.
 export type PanelRow =
-  | { kind: "entry"; key: string; e: FilterEntry; glyph: string; name: string; after: string; endsGroup: boolean }
-  | { kind: "add"; key: "+" };
+  | { kind: "entry"; key: string; e: FilterEntry; tree: string; btnTree: string; glyph: string; name: string; after: string; gap: boolean }
+  | { kind: "add"; key: "+"; gap: boolean };
 
 // entryKey names an item for the highlight: "G:" a group, "t:" a text,
 // "g:" a tag.
@@ -34,17 +35,41 @@ function itemName(it: FilterItem): string {
 }
 
 // panelRows is what the panel lists, as the TUI's panelRows: the entries
-// less those folded away, then + Text.
+// less those folded away, as a tree, then + Text. A line runs down from
+// under each open parent's ▼, two columns a level, branching to each
+// child; Hide and Only sit under the name, one column in.
 export function panelRows(entries: FilterEntry[]): PanelRow[] {
   const shown = entries.filter((e) => !e.FoldedAway);
+  const more: boolean[] = []; // per level from 1, whether the entry at it has a sibling still to come
   const rows: PanelRow[] = shown.map((e, i) => {
-    const it = e.Item;
+    const it = e.Item, d = e.Depth;
+    let tree = "", btnTree = "";
+    if (d > 0) {
+      more.length = d - 1;
+      more.push(hasSibling(shown, i));
+      const lead = more.slice(0, d - 1).map((m) => (m ? str.glyph.treeLine : " ") + " ").join("");
+      tree = lead + (more[d - 1] ? str.glyph.treeBranch : str.glyph.treeLast) + str.glyph.rule;
+      btnTree = lead + (more[d - 1] ? str.glyph.treeLine + " " : "  ");
+    }
+    const open = e.Parent && !e.Folded && (shown[i + 1]?.Depth ?? 0) > d;
+    if (open) btnTree += str.glyph.treeLine + " ";
+    const btnX = tree.length + 1 + (e.Parent || it.Text ? 2 : 0); // past the glyph
+    btnTree += " ".repeat(Math.max(0, btnX - btnTree.length));
     const glyph = it.Text ? str.glyph.remove : e.Parent ? (e.Folded ? str.glyph.collapsed : str.glyph.open) : "";
     const after = e.Parent && e.Folded && e.FilteredUnder ? str.glyph.filtered : "";
-    const next = shown[i + 1]?.Depth ?? 0; // a blank row follows a parent, and ends a group and a tree in one
-    return { kind: "entry", key: entryKey(it), e, glyph, name: itemName(it), after, endsGroup: e.Parent || next === 0 || (next === 1 && !it.Group) };
+    return { kind: "entry", key: entryKey(it), e, tree, btnTree, glyph, name: itemName(it), after, gap: it.Text && i > 0 && !shown[i - 1].Item.Text };
   });
-  return [...rows, { kind: "add", key: "+" }];
+  const last = shown.at(-1);
+  return [...rows, { kind: "add", key: "+", gap: !!last && !last.Item.Text }];
+}
+
+// hasSibling reports whether shown[i] has a sibling after it.
+function hasSibling(shown: FilterEntry[], i: number): boolean {
+  for (const e of shown.slice(i + 1)) {
+    if (e.Depth < shown[i].Depth) return false;
+    if (e.Depth === shown[i].Depth) return true;
+  }
+  return false;
 }
 
 // fixSel is sel if the panel still lists it, else the first entry.
