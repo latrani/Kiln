@@ -336,9 +336,13 @@ tag_unstyled = "{tag} (unstyled)"
 [filter]
 # Log mode's filter panel's title, its first row.
 title = "Filters"
-hide = "Hide"
-only = "Only"
+hide = "hide"
+only = "only"
 add_text = "+ Text"
+# The text being added, in place of + Text: its hint while it's empty,
+# and the keys, in the log's action bar, while it's typed.
+field = "Text"
+field_hint = "Enter to add · Esc to cancel"
 # The group every category sits under: Hide hides lines with any
 # category, Only keeps just those.
 categories = "Categories"

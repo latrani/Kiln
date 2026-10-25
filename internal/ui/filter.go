@@ -23,10 +23,11 @@ type filterSel struct {
 // filterPanel is the filter panel while it's open: its highlight and
 // scroll. The core holds the filter and the folds.
 type filterPanel struct {
-	Sel    filterSel // the highlighted entry
-	top    int       // first row drawn
-	follow bool      // scroll the highlight into view on the next draw
-	listH  int       // the list's rows, above the footer, at the last draw
+	Sel    filterSel   // the highlighted entry
+	top    int         // first row drawn
+	follow bool        // scroll the highlight into view on the next draw
+	listH  int         // the list's rows, above the footer, at the last draw
+	field  *tea.Cursor // where the text being added was drawn, in the list; nil with none
 }
 
 // panelEntry is a row the panel lists: one of the core's entries, or
@@ -49,6 +50,7 @@ const (
 
 type panelRow struct {
 	text  string    // drawn, not yet fitted
+	x     int       // where the name's glyph or Hide starts, past the tree
 	entry int       // index into entries()
 	sel   filterSel // the entry's, on its name or + Text row
 	kind  panelRowKind
@@ -118,25 +120,42 @@ func (b *browse) fold(sel filterSel, shut bool) {
 // toggleFold folds sel shut if it's open, or open if it's shut.
 func (b *browse) toggleFold(sel filterSel) { b.fold(sel, !b.cs.Collapsed[sel.Item]) }
 
-// panelIndent is where an entry's rows start at depth: one column a
-// level, so a sidebar 16 wide fits Hide and Only four levels deep.
-func panelIndent(depth int) int { return 1 + depth }
-
-// panelRows lays the panel out: per entry its name and its
-// Hide and Only buttons, a blank row after each parent (open or folded),
-// each group, each top-level tag in one (with its children) and each
-// text row; + Text last.
+// panelRows lays the panel out: per entry its name and its Hide and
+// Only buttons, as a tree; + Text last. A line runs down from under each
+// open parent's ▼, two columns a level, branching to each child. Hide
+// and Only sit under the name, one column in. A blank row parts the tree
+// from the text rows and + Text, which is the field while text is
+// added.
 func (b *browse) panelRows(w int) []panelRow {
 	var rows []panelRow
 	f := &b.cs.Filter
 	items := b.Items()
 	es := b.entriesOf(items)
+	var more []bool // per level from 1, whether the entry at it has a sibling still to come
 	for i, e := range es {
+		if (e.Add || e.Item.Text) && i > 0 && !es[i-1].Item.Text {
+			rows = append(rows, panelRow{entry: -1, kind: prBlank})
+		}
 		if e.Add {
-			rows = append(rows, panelRow{text: " " + theme.Paint(theme.FilterAdd, str.FilterAddText()), entry: i, sel: e.sel(), kind: prAdd})
+			text := theme.Paint(theme.FilterAdd, str.FilterAddText())
+			if b.prompt == promptFilterText {
+				text, _ = addField(b.pin, str.FilterField(), theme.FilterAdd, w)
+			}
+			rows = append(rows, panelRow{text: text, entry: i, sel: e.sel(), kind: prAdd})
 			continue
 		}
-		indent := strings.Repeat(" ", panelIndent(e.Depth))
+		d := e.Depth
+		var lead, nameTree, btnTree string
+		if d > 0 {
+			more = append(more[:min(len(more), d-1)], hasSibling(es, i))
+			for _, m := range more[:d-1] {
+				lead += treeLine(m) + " "
+			}
+			nameTree, btnTree = lead+glyphTreeLast+glyph.Rule, lead+"  "
+			if more[d-1] {
+				nameTree, btnTree = lead+glyphTreeBranch+glyph.Rule, lead+glyphTreeLine+" "
+			}
+		}
 		name := e.Item.Name
 		if e.Item.Group == scene.CategoryGroup {
 			name = str.FilterCategories()
@@ -147,6 +166,7 @@ func (b *browse) panelRows(w int) []panelRow {
 		} else if i := strings.LastIndex(name, "/"); i >= 0 {
 			name = name[i+1:]
 		}
+		open := e.Parent && !b.cs.Collapsed[e.Item] && i+1 < len(es) && es[i+1].Depth > d
 		switch {
 		case e.Parent && b.cs.Collapsed[e.Item]:
 			name = glyphCollapsed + " " + name
@@ -155,6 +175,9 @@ func (b *browse) panelRows(w int) []panelRow {
 			}
 		case e.Parent:
 			name = glyphOpen + " " + name
+		}
+		if open {
+			btnTree += glyphTreeLine + " "
 		}
 		role := theme.FilterItem
 		if b.Panel != nil && b.Panel.Sel == e.sel() {
@@ -167,14 +190,38 @@ func (b *browse) panelRows(w int) []panelRow {
 		if f.Only(e.Item) {
 			onlyRole = theme.FilterButtonOn
 		}
-		rows = append(rows,
-			panelRow{text: indent + theme.Paint(role, name), entry: i, sel: e.sel(), kind: prName},
-			panelRow{text: indent + theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly()), entry: i, kind: prButtons})
-		if next := es[i+1]; e.Parent || next.Depth == 0 || next.Depth == 1 && e.Item.Group == "" { // a blank row follows a parent, and ends a group and a tree in one
-			rows = append(rows, panelRow{entry: i, kind: prBlank})
+		btns := theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly())
+		btnX := xansi.StringWidth(nameTree) + 1
+		if e.Parent || e.Item.Text { // past the glyph
+			btnX += 2
 		}
+		rows = append(rows,
+			panelRow{text: theme.Paint(theme.FilterTree, nameTree) + theme.Paint(role, name), x: xansi.StringWidth(nameTree), entry: i, sel: e.sel(), kind: prName},
+			panelRow{text: theme.Paint(theme.FilterTree, btnTree) + strings.Repeat(" ", btnX-xansi.StringWidth(btnTree)) + btns, x: btnX, entry: i, kind: prButtons})
 	}
 	return rows
+}
+
+// hasSibling reports whether es[i] has a sibling after it.
+func hasSibling(es []panelEntry, i int) bool {
+	for _, e := range es[i+1:] {
+		switch {
+		case e.Add || e.Depth < es[i].Depth:
+			return false
+		case e.Depth == es[i].Depth:
+			return true
+		}
+	}
+	return false
+}
+
+// treeLine is an ancestor's column in the tree: its line while it has a
+// sibling still to come, blank after its last.
+func treeLine(more bool) string {
+	if more {
+		return glyphTreeLine
+	}
+	return " "
 }
 
 // panelView draws the panel into a column w wide and h tall: its list,
@@ -221,7 +268,12 @@ func (b *browse) panelList(w, h int) []string {
 	if above {
 		out = append(out, theme.Paint(theme.FilterMore, fit(str.ViewMoreAbove(top), w)))
 	}
+	p.field = nil
 	for i := top; i < top+avail && i < len(rows); i++ {
+		if rows[i].kind == prAdd && b.prompt == promptFilterText {
+			_, x := addField(b.pin, str.FilterField(), theme.FilterAdd, w)
+			p.field = &tea.Cursor{Position: tea.Position{X: x, Y: len(out)}}
+		}
 		out = append(out, fitName(rows[i].text, w))
 	}
 	if below {
@@ -344,15 +396,14 @@ func (b *browse) panelClick(x, y, h int) {
 		return
 	}
 	es := b.entries()
-	e := es[rows[i].entry]
-	indent := panelIndent(e.Depth)
+	e, at := es[rows[i].entry], rows[i].x
 	switch rows[i].kind {
 	case prAdd:
 		b.Panel.Sel = e.sel()
 		b.prompt = promptFilterText
 		b.pin.SetValue("")
 	case prName:
-		onGlyph := x >= indent && x < indent+1
+		onGlyph := x == at
 		switch {
 		case e.Item.Text && onGlyph:
 			b.Panel.Sel = e.sel()
@@ -366,7 +417,7 @@ func (b *browse) panelClick(x, y, h int) {
 		}
 		b.Panel.Sel = e.sel()
 	case prButtons:
-		hx := indent
+		hx := at
 		ox := hx + xansi.StringWidth(str.FilterHide()) + xansi.StringWidth(str.Separator())
 		switch {
 		case x >= hx && x < hx+xansi.StringWidth(str.FilterHide()):

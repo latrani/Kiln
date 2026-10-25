@@ -12,17 +12,31 @@ import (
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/classify"
+	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// panelSide is the sidebar column's rows, trimmed.
+// panelSide is the sidebar column's rows, trimmed of spaces and the
+// tree's lines.
 func panelSide(h *harness) []string {
+	rows := strings.Split(h.screen(), "\n")
+	w := slices.Index([]rune(rows[0]), '│') // the divider, past the title
 	var out []string
-	for _, row := range strings.Split(h.screen(), "\n")[sideTitleH:] {
-		out = append(out, strings.TrimSpace(strings.SplitN(row, "│", 2)[0]))
+	for _, row := range rows[sideTitleH:] {
+		r := []rune(row)
+		if w >= 0 {
+			r = r[:min(w, len(r))]
+		} else if i := slices.Index(r, '│'); i >= 0 {
+			r = r[:i]
+		}
+		side := strings.TrimLeft(string(r), " "+glyphTreeLine)
+		if t := strings.TrimLeft(side, glyphTreeBranch+glyphTreeLast); t != side {
+			side = strings.TrimPrefix(t, glyph.Rule)
+		}
+		out = append(out, strings.TrimSpace(side))
 	}
 	return out
 }
@@ -47,14 +61,14 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("f")
 	side := panelSide(h)
 	// Parents start folded; → opens one.
-	want := []string{catsRow(), buttons(), "", glyphCollapsed + " page", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "", "self", buttons(), "", str.FilterAddText()}
+	want := []string{catsRow(), buttons(), glyphCollapsed + " page", buttons(), classify.SentTag, buttons(), flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.keys("down", "right")
-	want = []string{catsRow(), buttons(), "", glyphOpen + " page", buttons(), "", "in", buttons(), "", classify.SentTag, buttons(), "", flagsRow(), buttons(), "", "self", buttons()} // + Text scrolled below
+	want = []string{catsRow(), buttons(), glyphOpen + " page", buttons(), "in", buttons(), classify.SentTag, buttons(), flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side := panelSide(h); side[i] != w {
 			t.Fatalf("opened: panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -135,7 +149,7 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
-	if got := panelSide(h)[3]; got != glyphCollapsed+" page "+glyphFiltered {
+	if got := panelSide(h)[2]; got != glyphCollapsed+" page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
 	}
 }
@@ -171,24 +185,28 @@ func TestPanelClicks(t *testing.T) {
 	unfold(h)
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH + y, Button: tea.MouseLeft}) }
-	// Rows: 0 ▼ Categories, 1 buttons, 2 blank, 3 ▼ page, 4 buttons,
-	// 5 blank, 6 in, 7 buttons, 8 blank, 9 sent, 10 buttons, 11 blank,
-	// 12 ▼ Flags, 13 buttons, 14 blank, 15 self, 16 buttons. Depth 1
-	// starts at column 2: "  Hide · Only".
-	hideX, onlyX := 2, 2+len(str.FilterHide())+xansi.StringWidth(str.Separator())
-	click(hideX, 16)
-	if !f.Hidden(scene.Item{Name: "self"}) {
-		t.Error("clicking self's Hide")
+	// Rows: 0 ▼ Categories, 1 buttons, 2 ├─▼ page, 3 buttons, 4 │ └─in,
+	// 5 buttons, 6 └─sent, 7 buttons, 8 ▼ Flags, 9 buttons, 10 └─self,
+	// 11 buttons. Hide and Only sit a column in from the name: self's at
+	// 3, page's (past its ▼) at 5.
+	only := xansi.StringWidth(str.FilterHide() + str.Separator())
+	click(2, 11) // left of Hide: nothing
+	if f.Hidden(scene.Item{Name: "self"}) {
+		t.Error("clicking left of self's Hide hid it")
 	}
-	click(onlyX, 4)
+	click(3, 11)
+	if !f.Hidden(scene.Item{Name: "self"}) {
+		t.Errorf("clicking self's Hide:\n%s", h.screen())
+	}
+	click(5+only, 3)
 	if !f.Only(scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
-	click(2, 3) // the ▼
+	click(2, 2) // the ▼
 	if !h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] {
 		t.Error("clicking ▼ should collapse page")
 	}
-	click(4, 15-3) // rows moved up three: self's name is now row 12
+	click(4, 10-2) // rows moved up two: self's name is now row 8
 	if h.br().Panel.Sel.Item != (scene.Item{Name: "self"}) {
 		t.Errorf("clicking a name selects it: %v", h.br().Panel.Sel)
 	}
@@ -218,9 +236,9 @@ func TestPanelScrolls(t *testing.T) {
 	h.key("ctrl+l")
 	h.key("f")
 	side, listH := panelSide(h), h.br().Panel.listH
-	// Categories, 12 tags and sent × 3 rows + "+ Text" = 43 rows; all
+	// Categories, 12 tags and sent × 2 rows, a blank, + Text: 30 rows; all
 	// but one of the list's rows show, above the hint, which is its last.
-	if want := str.ViewMoreBelow(43 - (listH - 1)); side[listH-1] != want {
+	if want := str.ViewMoreBelow(30 - (listH - 1)); side[listH-1] != want {
 		t.Fatalf("the list's last row = %q, want %q:\n%s", side[listH-1], want, h.screen())
 	}
 	for range 40 {
@@ -478,7 +496,7 @@ func TestPanelTextRowRemovesWithClickOnX(t *testing.T) {
 	if len(h.kitFilter().Texts()) != 1 {
 		t.Error("clicking a text row's name removed it")
 	}
-	b.panelClick(1, y, 100) // the × (one space in)
+	b.panelClick(0, y, 100) // the ×
 	if n := len(h.kitFilter().Texts()); n != 0 {
 		t.Errorf("clicking × left %d text rows", n)
 	}
@@ -532,5 +550,40 @@ func TestPanelHighlightStaysPut(t *testing.T) {
 	h.key("x")
 	if !h.br().Panel.Sel.Add {
 		t.Errorf("after removing the last text row: %v; want + Text", h.br().Panel.Sel)
+	}
+}
+
+// + Text becomes the field the text is typed in, as + Character does,
+// its keys in the action bar; Enter adds it, Esc puts + Text back.
+func TestPanelAddTextInline(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	h.key("ctrl+l")
+	h.key("f")
+	for range 10 {
+		h.key("down") // to + Text
+	}
+	h.key("enter")
+	side := panelSide(h)
+	if slices.Contains(side, str.FilterAddText()) || !slices.Contains(side, str.FilterField()) || logBar(h) != str.FilterFieldHint() {
+		t.Fatalf("Enter on + Text should open the field in its place, hint %q, keys in the bar:\n%s", str.FilterField(), h.screen())
+	}
+	h.typeText("Rook")
+	row := slices.Index(panelSide(h), "Rook")
+	if row < 0 {
+		t.Fatalf("typed text not in the panel:\n%s", h.screen())
+	}
+	if c := h.m.View().Cursor; c == nil || c.Y != sideTitleH+row || c.X != 1+len("Rook") {
+		t.Errorf("cursor %v; want after Rook in the field, row %d", c, sideTitleH+row)
+	}
+	h.key("esc")
+	if !slices.Contains(panelSide(h), str.FilterAddText()) || len(h.kitFilter().Texts()) != 0 {
+		t.Errorf("Esc should put + Text back, adding nothing:\n%s", h.screen())
+	}
+	h.key("enter")
+	h.typeText("Rook")
+	h.key("enter")
+	if !slices.Contains(panelSide(h), glyphRemove+" "+str.FilterTextItem("Rook")) || !slices.Contains(panelSide(h), str.FilterAddText()) {
+		t.Errorf("Enter should add the text row and put + Text back:\n%s", h.screen())
 	}
 }

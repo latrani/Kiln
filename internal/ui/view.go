@@ -559,6 +559,9 @@ func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
 	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
 		side, title, titleRole, titleRule, chev = theme.Filter, str.FilterTitle(), theme.FilterTitle, theme.RuleFilter, theme.FilterCollapse
 		panel = cs.browse.panelView(w, h-sideTitleH)
+		if f := cs.browse.Panel.field; f != nil {
+			cursor = tea.NewCursor(f.X, f.Y+sideTitleH)
+		}
 	}
 	sv := m.sidebarView()
 	for y := range h {

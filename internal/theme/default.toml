@@ -106,6 +106,7 @@
 "filter.button.on" = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "filter.add"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "filter.more"      = { fg = "glaze.celadon-mid" }
+"filter.tree"      = { fg = "glaze.celadon-line" }
 "filter.title"     = { bold = true }
 "filter.collapse"  = { fg = "glaze.celadon-mid" }
 "filter.hints"     = { fg = "glaze.celadon-mid" }

@@ -84,10 +84,13 @@ const (
 // Filter panel glyphs: a parent's disclosure, the mark on a collapsed
 // parent with a filter set under it, and the × that removes a text row.
 const (
-	glyphOpen      = glyph.Open
-	glyphCollapsed = glyph.Collapsed
-	glyphFiltered  = glyph.Filtered
-	glyphRemove    = glyph.Remove
+	glyphOpen       = glyph.Open
+	glyphCollapsed  = glyph.Collapsed
+	glyphFiltered   = glyph.Filtered
+	glyphRemove     = glyph.Remove
+	glyphTreeLine   = glyph.TreeLine
+	glyphTreeBranch = glyph.TreeBranch
+	glyphTreeLast   = glyph.TreeLast
 )
 
 // Export format keys, pressed after actExport.

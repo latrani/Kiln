@@ -295,19 +295,25 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 }
 
 // nameField draws the name being added, in place of "+ Character" and
-// in its colors: one space in, filling the row, scrolled to keep the
-// cursor in view; empty, its hint, dim. It returns the cursor's column
-// too.
+// in its colors, one space in; see addField. It returns the cursor's
+// column too.
 func nameField(f *form, w int) (line string, col int) {
-	in := f.fields[0].in
-	if in.Empty() && f.fields[0].hint != "" {
-		return fit(" "+theme.Fill(theme.PickerAdd, " "+theme.Paint(theme.FormHint, f.fields[0].hint), w-1), w), 2
+	line, col = addField(f.fields[0].in, f.fields[0].hint, theme.PickerAdd, w-1)
+	return " " + line, col + 1
+}
+
+// addField draws in as the add row it replaces, in role: filling w,
+// scrolled to keep the cursor in view; empty, its hint, dim. It returns
+// the cursor's column too.
+func addField(in *Input, hint string, role theme.Role, w int) (line string, col int) {
+	if in.Empty() && hint != "" {
+		return fit(theme.Fill(role, " "+theme.Paint(theme.FormHint, hint), w), w), 1
 	}
 	rows, _, c := in.Render(1<<20, 0, false, false)
 	text, c := strings.TrimPrefix(rows[0], gutterMark), c-gutterWidth
-	tw := max(1, w-2) // the text's columns, between the chip's leading space and the row's end
+	tw := max(1, w-1) // the text's columns, past the chip's leading space
 	off := max(0, c-tw+1)
-	return fit(" "+theme.Paint(theme.PickerAdd, fit(" "+xansi.Cut(text, off, off+tw), w-1)), w), 2 + c - off
+	return theme.Paint(role, fit(" "+xansi.Cut(text, off, off+tw), w)), 1 + c - off
 }
 
 // pickerLine draws one picker row: a world, a character or an add row
