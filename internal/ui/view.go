@@ -564,7 +564,7 @@ func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
 	for y := range h {
 		if y < sideTitleH {
 			if y == 0 && !m.sideForced() && m.canToggle() { // ‹ at the title's right
-				rows = append(rows, theme.Fill(side, theme.Paint(titleRole, fit(title, w-1))+theme.Paint(chev, glyph.Collapse), w))
+				rows = append(rows, theme.Fill(side, theme.Paint(titleRole, fit(title, w-collapseW))+theme.Paint(chev, collapseButton), w))
 			} else {
 				rows = append(rows, theme.Fill(side, sideTitle(y, titleRole, titleRule, title, w), w))
 			}

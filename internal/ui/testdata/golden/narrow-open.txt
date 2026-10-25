@@ -1,5 +1,5 @@
-Connections                                                ‹
-  @0-58 bold,fg=#a0e3e1; @59-59 fg=#8bb1b0
+Connections                                               ‹‹
+  @0-57 bold,fg=#a0e3e1; @58-59 fg=#8bb1b0
 ────────────────────────────────────────────────────────────
   @0-59 fg=#a2cdcc
 fm                                                          

@@ -70,7 +70,7 @@ func (m *Model) menuPrefix() (s string, menu [2]int) {
 	if shown || !m.canToggle() {
 		return "", menu
 	}
-	s = theme.Paint(theme.StatusMenu, glyph.Menu)
+	s = theme.Paint(theme.StatusMenu, menuButton)
 	if cs := m.cur(); cs == nil || cs.browse == nil {
 		if n, priority := m.a.Activity(); n > 0 {
 			s += " "

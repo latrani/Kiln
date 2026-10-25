@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "preact-render-to-string";
 import { App } from "./App.tsx";
-import { canToggle, toggleSidebar } from "../sidebar.ts";
+import { canToggle, collapseButton, menuButton, toggleSidebar } from "../sidebar.ts";
 import { Store } from "../store.ts";
 import { roleClass } from "../theme.ts";
 import * as str from "../str.gen.ts";
@@ -20,8 +20,8 @@ const top = (h: string) => h.slice(h.indexOf("<header"), h.indexOf("</header>"))
 
 test("expanded: ‹ at the title's right, no ≡", () => {
   const h = html(page({}).s);
-  assert.ok(h.includes(`aria-label="${str.webCollapseSidebar()}"`) && h.includes(`>${str.glyph.collapse}</button>`));
-  assert.ok(!top(h).includes(str.glyph.menu));
+  assert.ok(h.includes(`aria-label="${str.webCollapseSidebar()}"`) && h.includes(`>${collapseButton}</button>`));
+  assert.ok(!top(h).includes(menuButton));
 });
 
 test("collapsed: no sidebar, ≡ first in the top bar, named with the rows' activity summed", () => {
@@ -29,11 +29,11 @@ test("collapsed: no sidebar, ≡ first in the top bar, named with the rows' acti
   assert.ok(!h.includes(`<nav class="side`) && h.includes(`class="kiln collapsed"`));
   const t = top(h);
   assert.match(t, new RegExp(`^<header[^>]*><button class="menu ${roleClass("status.menu")}" aria-expanded="false" aria-label="${[str.webSidebarMenu(), str.webSidebarUnread(5), str.webSidebarPriority()].join(str.separator())}">`));
-  assert.ok(t.includes(`${str.glyph.menu} <span class="${roleClass("sidebar.priority")}">${str.glyph.priority}</span><span class="${roleClass("sidebar.unread")}">5</span>`));
+  assert.ok(t.includes(`${menuButton} <span class="${roleClass("sidebar.priority")}">${str.glyph.priority}</span><span class="${roleClass("sidebar.unread")}">5</span>`));
   const plain = top(html(page({ Collapsed: true, Unread: 5 }).s));
-  assert.ok(plain.includes(`${str.glyph.menu} <span class="${roleClass("sidebar.unread")}">5</span>`) && !plain.includes(str.glyph.priority));
+  assert.ok(plain.includes(`${menuButton} <span class="${roleClass("sidebar.unread")}">5</span>`) && !plain.includes(str.glyph.priority));
   const none = top(html(page({ Collapsed: true }).s));
-  assert.ok(none.includes(`aria-label="${str.webSidebarMenu()}">${str.glyph.menu}</button>`));
+  assert.ok(none.includes(`aria-label="${str.webSidebarMenu()}">${menuButton}</button>`));
 });
 
 test("collapsed, the picker shows the sidebar with no ‹; log mode's panel with focus shows, its ≡ without the badge", () => {
@@ -43,7 +43,7 @@ test("collapsed, the picker shows the sidebar with no ‹; log mode's panel with
   assert.ok(h.includes(`<nav class="side`) && !h.includes(`aria-label="${str.webCollapseSidebar()}"`));
   s.closePicker();
   s.apply([{ type: "Log", Key: "fm/kit", Open: true, Find: "", Selected: 0, HistDone: true }, { type: "Filter", Key: "fm/kit", Entries: [] }] as any);
-  assert.ok(top(html(s)).includes(`aria-label="${str.webSidebarMenu()}">${str.glyph.menu}</button>`), "the filters' ≡: no badge");
+  assert.ok(top(html(s)).includes(`aria-label="${str.webSidebarMenu()}">${menuButton}</button>`), "the filters' ≡: no badge");
   s.setLogView("fm/kit", { focus: "panel" });
   assert.ok(html(s).includes("filter-panel"));
 });

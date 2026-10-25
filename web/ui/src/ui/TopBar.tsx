@@ -1,5 +1,5 @@
 import { toggleLog } from "../log.ts";
-import { canToggle, sideShown, toggleSidebar } from "../sidebar.ts";
+import { canToggle, menuButton, sideShown, toggleSidebar } from "../sidebar.ts";
 import { logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
@@ -42,7 +42,7 @@ function Menu({ state, store }: { state: State; store: Store }) {
   return (
     <>
       <button class={`menu ${roleClass("status.menu")}`} aria-expanded="false" aria-label={name} onClick={() => toggleSidebar(store)}>
-        {str.glyph.menu}{badge && <>{" "}{sb.Priority && <span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>}<span class={roleClass("sidebar.unread")}>{sb.Unread}</span></>}
+        {menuButton}{badge && <>{" "}{sb.Priority && <span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>}<span class={roleClass("sidebar.unread")}>{sb.Unread}</span></>}
       </button>
       <span> </span>
     </>

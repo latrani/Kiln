@@ -7,7 +7,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/str"
 )
 
@@ -35,7 +34,7 @@ func rowOf(h *harness, s string) int {
 
 func TestNarrowStartsClosed(t *testing.T) {
 	h := narrowHarness(t)
-	if h.m.layout().sw != 0 || !strings.HasPrefix(topLine(h), glyph.Menu) {
+	if h.m.layout().sw != 0 || !strings.HasPrefix(topLine(h), menuButton) {
 		t.Errorf("sw %d, top %q; want no column and ≡", h.m.layout().sw, topLine(h))
 	}
 }
@@ -43,7 +42,7 @@ func TestNarrowStartsClosed(t *testing.T) {
 func TestNarrowOpenAndPick(t *testing.T) {
 	h := narrowHarness(t)
 	h.key("ctrl+b")
-	if r := screenRow(h, 0); !strings.HasPrefix(r, str.ViewConnectionsTitle()) || !strings.HasSuffix(r, glyph.Collapse) || len([]rune(strings.Split(h.screen(), "\n")[0])) != 60 {
+	if r := screenRow(h, 0); !strings.HasPrefix(r, str.ViewConnectionsTitle()) || !strings.HasSuffix(r, collapseButton) || len([]rune(strings.Split(h.screen(), "\n")[0])) != 60 {
 		t.Fatalf("row 0 %q; want the title across the screen, ‹ at its right", r)
 	}
 	if h.m.layout().rw != 60 {

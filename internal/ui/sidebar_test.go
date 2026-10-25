@@ -456,7 +456,7 @@ func TestSidebarTitle(t *testing.T) {
 	}
 	l := h.m.layout()
 	rows := strings.Split(h.m.View().Content, "\n")
-	if !strings.Contains(rows[0], theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw-1))) || !strings.Contains(rows[0], theme.Paint(theme.SidebarCollapse, glyph.Collapse)) {
+	if !strings.Contains(rows[0], theme.Paint(theme.SidebarTitle, fit(str.ViewConnectionsTitle(), l.sw-collapseW))) || !strings.Contains(rows[0], theme.Paint(theme.SidebarCollapse, collapseButton)) {
 		t.Errorf("row 0 %q; want the title", rows[0])
 	}
 	if !strings.Contains(rows[1], theme.Paint(theme.RuleSidebar, strings.Repeat(glyph.Rule, l.sw))) {
@@ -488,7 +488,7 @@ func TestPickerListTitle(t *testing.T) {
 	if got := sideTitleText(h); got != str.PickerTitle() {
 		t.Errorf("row 0 = %q; want the picker's title", got)
 	}
-	if raw := strings.Split(h.m.View().Content, "\n"); !strings.Contains(raw[0], theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) || strings.Contains(raw[0], glyph.Collapse) ||
+	if raw := strings.Split(h.m.View().Content, "\n"); !strings.Contains(raw[0], theme.Paint(theme.PickerTitle, fit(str.PickerTitle(), h.m.layout().sw))) || strings.Contains(raw[0], collapseButton) ||
 		!strings.Contains(raw[1], theme.Paint(theme.RulePicker, strings.Repeat(glyph.Rule, h.m.layout().sw))) {
 		t.Errorf("rows 0-1 %q; want the picker's title (no ‹: it can't collapse while the picker is up) and its rule", raw[:2])
 	}
@@ -502,5 +502,5 @@ func TestPickerListTitle(t *testing.T) {
 // sideTitleText is the sidebar's title row as text, less the ‹ at its
 // right.
 func sideTitleText(h *harness) string {
-	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(screenSide(h, 0)), glyph.Collapse))
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(screenSide(h, 0)), collapseButton))
 }

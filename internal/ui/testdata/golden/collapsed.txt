@@ -1,5 +1,5 @@
-≡ ●3 fm · Kit                                                   ? focus  ·  Log 
-  @0-0 bold,fg=#c0cfed,bg=#0b1b3d; @1-1 fg=#a0b7e3; @2-2 bold,fg=#eed49f; @3-3 fg=#a0e3e1; @4-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+≡≡ ●3 fm · Kit                                                  ? focus  ·  Log 
+  @0-1 bold,fg=#c0cfed,bg=#0b1b3d; @2-2 fg=#a0b7e3; @3-3 bold,fg=#eed49f; @4-4 fg=#a0e3e1; @5-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
 ────────────────────────────────────────────────────────────────────────────────
   @0-79 fg=#a2b0cd
                                                                                 

@@ -1269,7 +1269,7 @@ func (m *Model) handleRelease() tea.Cmd {
 // the title gives log mode's panel focus; a row does what it does.
 func (m *Model) sideClick(x, y int) tea.Cmd {
 	w, h := m.sideBox()
-	if y == 0 && x == w-1 && !m.sideForced() && m.canToggle() { // ‹
+	if y == 0 && x >= w-collapseW && !m.sideForced() && m.canToggle() { // ‹
 		m.toggleSidebar()
 		return nil
 	}

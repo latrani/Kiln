@@ -3,6 +3,11 @@
 import { focusLog, focusPanel } from "./filter.ts";
 import { listing, logShows } from "./store.ts";
 import type { State, Store } from "./store.ts";
+import * as str from "./str.gen.ts";
+
+// The sidebar's toggles, ≡ and ‹, are their glyph twice, as the TUI's
+// (internal/ui/keys.go): one glyph is a hard target on a phone.
+export const menuButton = str.glyph.menu.repeat(2), collapseButton = str.glyph.collapse.repeat(2);
 
 export type Row = { kind: "world"; world: string } | { kind: "char"; key: string; world: string } | { kind: "gap" } | { kind: "add" };
 

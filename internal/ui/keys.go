@@ -73,6 +73,14 @@ var (
 	panelOnlyKeys = map[string]bool{"h": true, "o": true, "left": true, "right": true, "x": true, "delete": true}
 )
 
+// The sidebar's toggles, ≡ and ‹, are their glyph twice: one cell is a
+// hard target on a phone. collapseW is ‹'s cells.
+const (
+	menuButton     = glyph.Menu + glyph.Menu
+	collapseButton = glyph.Collapse + glyph.Collapse
+	collapseW      = 2
+)
+
 // Filter panel glyphs: a parent's disclosure, the mark on a collapsed
 // parent with a filter set under it, and the × that removes a text row.
 const (

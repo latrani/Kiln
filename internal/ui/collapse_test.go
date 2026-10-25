@@ -34,14 +34,14 @@ func topLine(h *harness) string { return strings.Split(h.screen(), "\n")[0] }
 func TestCollapseByChevron(t *testing.T) {
 	h := collapseHarness(t)
 	sw := h.m.layout().sw
-	if !strings.HasSuffix(strings.TrimRight(screenSide(h, 0), " "), glyph.Collapse) {
+	if !strings.HasSuffix(strings.TrimRight(screenSide(h, 0), " "), collapseButton) {
 		t.Fatalf("no ‹ at the title's right: %q", screenSide(h, 0))
 	}
-	h.click(sw-1, 0)
-	if !h.m.a.SidebarCollapsed() || h.m.layout().sw != 0 || !strings.HasPrefix(topLine(h), glyph.Menu) {
+	h.click(sw-collapseW, 0) // the ‹'s left cell: either one does
+	if !h.m.a.SidebarCollapsed() || h.m.layout().sw != 0 || !strings.HasPrefix(topLine(h), menuButton) {
 		t.Fatalf("after ‹: collapsed %v, sw %d, top %q", h.m.a.SidebarCollapsed(), h.m.layout().sw, topLine(h))
 	}
-	h.click(0, 0) // the ≡
+	h.click(1, 0) // the ≡'s right cell
 	if h.m.a.SidebarCollapsed() || h.m.layout().sw == 0 {
 		t.Errorf("≡ didn't bring it back")
 	}
@@ -65,18 +65,18 @@ func TestBadge(t *testing.T) {
 	h.m.chars["fm/kit"].Unread = 3
 	rook := h.m.chars["fm/rook"]
 	rook.Unread, rook.Priority = 2, true
-	if want := glyph.Menu + " " + glyph.Priority + "5 fm"; !strings.HasPrefix(topLine(h), want) {
+	if want := menuButton + " " + glyph.Priority + "5 fm"; !strings.HasPrefix(topLine(h), want) {
 		t.Errorf("top %q; want it to start %q", topLine(h), want)
 	}
 	if drawn := h.m.View().Content; !strings.Contains(drawn, theme.Paint(theme.SidebarPriority, glyph.Priority)) || !strings.Contains(drawn, theme.Paint(theme.SidebarUnread, "5")) {
 		t.Error("the badge isn't in the rows' roles")
 	}
 	rook.Priority = false
-	if want := glyph.Menu + " 5 fm"; !strings.HasPrefix(topLine(h), want) {
+	if want := menuButton + " 5 fm"; !strings.HasPrefix(topLine(h), want) {
 		t.Errorf("no priority: top %q; want %q", topLine(h), want)
 	}
 	h.m.chars["fm/kit"].Unread, rook.Unread = 0, 0
-	if want := glyph.Menu + " fm"; !strings.HasPrefix(topLine(h), want) {
+	if want := menuButton + " fm"; !strings.HasPrefix(topLine(h), want) {
 		t.Errorf("nothing unread: top %q; want %q", topLine(h), want)
 	}
 }
@@ -108,7 +108,7 @@ func TestPickerShowsWhileCollapsed(t *testing.T) {
 	if sideTitleText(h) != str.PickerTitle() {
 		t.Fatalf("the picker's list isn't showing: %q", screenSide(h, 0))
 	}
-	if strings.Contains(screenSide(h, 0), glyph.Collapse) {
+	if strings.Contains(screenSide(h, 0), collapseButton) {
 		t.Error("‹ on a sidebar shown only for the picker")
 	}
 	h.key("esc")
@@ -122,7 +122,7 @@ func TestLogPanelShowsWhileFocused(t *testing.T) {
 	h.m.chars["fm/rook"].Unread = 2
 	h.key("ctrl+b")
 	h.key("ctrl+l")
-	if want := glyph.Menu + " fm"; !strings.HasPrefix(topLine(h), want) {
+	if want := menuButton + " fm"; !strings.HasPrefix(topLine(h), want) {
 		t.Errorf("log mode, collapsed: top %q; want the filter panel's ≡, no badge", topLine(h))
 	}
 	h.key("f")
@@ -182,7 +182,7 @@ func TestCollapseReportsWidth(t *testing.T) {
 func TestToggleHiddenWhileModal(t *testing.T) {
 	h := collapseHarness(t)
 	h.key("ctrl+o") // expanded, the picker up
-	if strings.Contains(screenSide(h, 0), glyph.Collapse) {
+	if strings.Contains(screenSide(h, 0), collapseButton) {
 		t.Errorf("‹ with the picker up: %q", screenSide(h, 0))
 	}
 	h.key("esc")
@@ -191,7 +191,7 @@ func TestToggleHiddenWhileModal(t *testing.T) {
 	if h.m.picker == nil {
 		t.Fatal("no editor")
 	}
-	if !strings.HasPrefix(topLine(h), glyph.Menu) {
+	if !strings.HasPrefix(topLine(h), menuButton) {
 		t.Errorf("no ≡ with an editor from the main view up: %q", topLine(h))
 	}
 }
@@ -216,7 +216,7 @@ func TestToggleOverEditor(t *testing.T) {
 	if h.m.picker == nil || h.m.picker.edit == nil {
 		t.Fatalf("no editor:\n%s", h.screen())
 	}
-	if !strings.HasSuffix(strings.TrimRight(screenSide(h, 0), " "), glyph.Collapse) {
+	if !strings.HasSuffix(strings.TrimRight(screenSide(h, 0), " "), collapseButton) {
 		t.Errorf("no ‹ over the editor: %q", screenSide(h, 0))
 	}
 	h.key("ctrl+b")
@@ -239,7 +239,7 @@ func TestToggleOverEditor(t *testing.T) {
 	if h.m.a.SidebarCollapsed() {
 		t.Error("ctrl+b collapsed the picker's list under its editor")
 	}
-	if strings.Contains(screenSide(h, 0), glyph.Collapse) {
+	if strings.Contains(screenSide(h, 0), collapseButton) {
 		t.Errorf("‹ over the picker's editor: %q", screenSide(h, 0))
 	}
 }
