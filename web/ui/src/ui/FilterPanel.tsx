@@ -1,19 +1,20 @@
 import { useLayoutEffect, useRef } from "preact/hooks";
+import { composing } from "../input.ts";
 import { filterKey, fixSel, focusPanel, glyphClick, panelAct, panelClick, panelRows } from "../filter.ts";
 import type { PanelRow } from "../filter.ts";
 import { SideTitle } from "./Sidebar.tsx";
 import type { PanelKey } from "../filter.ts";
-import { logAct, logKey } from "../log.ts";
+import { filterPromptEnter, logAct, logKey } from "../log.ts";
 import type { LogKey } from "../log.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 
 // FilterPanel is log mode's filter panel in the sidebar, as the TUI's:
-// each entry its name (indented a column a level; ▼ > on a parent, × on
-// a text row) and under it its Hide and Only, a blank row after each
-// parent, each group, each top-level tag in one and each text row, +
-// Text last. Hide and Only are toggle buttons; each entry holds a group
+// each entry its name (in a tree, its lines in filter.tree; ▼ > on a
+// parent, × on a text row) and under it its Hide and Only, a blank row
+// parting the tree from the text rows, + Text last, the field a text is
+// typed in while one's added (TextField). Hide and Only are toggle buttons; each entry holds a group
 // named by its entry, so they're read with it. A group's ▼ > is its fold
 // button, named by the entry too, as it's the TUI's fold control. The
 // highlight is the
@@ -44,6 +45,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
   });
 
   const onKeyDown = (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement).tagName === "INPUT") return; // the text being added: its own keys
     const does = filterKey(e);
     if (!does) {
       const l = logKey(e); // the log's own keys reach it from here too
@@ -78,26 +80,30 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
         {rows.flatMap((r, i) => {
           const on = r.key === sel;
           const tab = on ? 0 : -1;
+          const gap = r.gap ? [<li key={r.key + "\n"} aria-hidden="true"> </li>] : [];
           if (r.kind === "add") {
             return [
+              ...gap,
               <li key="+" class="fentry">
-                {" "}
-                <button class={`fname ${on ? "fsel " : ""}${roleClass(on ? "filter.selected" : "filter.add")}`} tabindex={tab}
-                  onClick={() => panelClick(store, "+", "add")}>{str.filterAddText()}</button>
+                {v?.prompt?.kind === "filter"
+                  ? <TextField state={state} store={store} />
+                  : <button class={`fname ${on ? "fsel " : ""}${roleClass(on ? "filter.selected" : "filter.add")}`} tabindex={tab}
+                      onClick={() => panelClick(store, "+", "add")}>{str.filterAddText()}</button>}
               </li>,
             ];
           }
           const { e } = r;
-          const pad = " ".repeat(1 + e.Depth); // as the TUI's panelIndent
           const id = `flt-${i}`;
+          const tree = (t: string) => t && <span aria-hidden="true" class={roleClass("filter.tree")}>{t}</span>;
           // The glyph and • light with the name, as the TUI's.
           const look = roleClass(on ? "filter.selected" : "filter.item");
           return [
+            ...gap,
             // The group sits inside the list item, so the list keeps its
             // items.
             <li key={r.key} class="fentry"><div role="group" aria-labelledby={id}>
               <div class="frow">
-                {pad}
+                {tree(r.tree)}
                 {/* A click focuses the button, as not every browser does. */}
                 {e.Parent
                   ? <button class={`fglyph ${look}`} tabindex={tab} aria-expanded={!e.Folded} aria-labelledby={id}
@@ -108,7 +114,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                 {r.after && <span aria-hidden="true" class={look}>{" " + r.after}</span>}
               </div>
               <div class="frow">
-                {pad}
+                {tree(r.btnTree)}
                 <button class={roleClass(e.Hidden ? "filter.button.on" : "filter.button")} tabindex={tab} aria-pressed={e.Hidden}
                   onClick={() => panelClick(store, r.key, "hide")}>{str.filterHide()}</button>
                 {str.separator()}
@@ -116,7 +122,6 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                   onClick={() => panelClick(store, r.key, "only")}>{str.filterOnly()}</button>
               </div>
             </div></li>,
-            ...(r.endsGroup ? [<li key={r.key + "\n"} aria-hidden="true"> </li>] : []),
           ];
         })}
       </ul>
@@ -125,6 +130,33 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
         {footKeys(rows.find((r) => r.key === sel), v?.focus === "panel").map((h, i) => <span key={i}>{i > 0 && str.separator()}{h}</span>)}
       </div>
     </nav>
+  );
+}
+
+// TextField is the text being added, in place of + Text, as the TUI's
+// and as a character's name is (NameField): Enter adds it, Esc puts +
+// Text back; its keys show in the log's bar.
+function TextField({ state, store }: { state: State; store: Store }) {
+  const k = state.active;
+  const v = state.logView[k];
+  const ref = useRef<HTMLInputElement>(null);
+  // Focus as it mounts, in the tap's own turn, as NameField's.
+  useLayoutEffect(() => ref.current?.focus(), []);
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      store.setLogView(k, { prompt: undefined, panel: { sel: "+", follow: true } });
+    } else if (e.key === "Enter" && !composing(e)) {
+      e.preventDefault();
+      filterPromptEnter(store);
+    }
+  };
+  return (
+    <span class={"name-field " + roleClass("filter.add")}>
+      <input id="kiln-filtertext" ref={ref} value={v?.prompt && "value" in v.prompt ? v.prompt.value : ""} aria-label={str.filterField()} placeholder={str.filterField()}
+        autocomplete="off" spellcheck={false} aria-describedby="kiln-filtertext-hint" onKeyDown={onKeyDown}
+        onInput={(e) => store.setLogView(k, { prompt: { kind: "filter", value: (e.currentTarget as HTMLInputElement).value } })} />
+    </span>
   );
 }
 

@@ -262,8 +262,6 @@ func (b *browse) promptLabel() string {
 		return str.BrowseFormatPrompt()
 	case promptFilename:
 		return str.BrowseSavePrompt()
-	case promptFilterText:
-		return str.FilterPrompt()
 	}
 	return ""
 }
