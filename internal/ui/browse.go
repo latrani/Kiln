@@ -37,7 +37,9 @@ type browse struct {
 	*app.Log
 	cs         *charState
 	Cursor     *app.LogLine            // the highlighted line; see logcursor.go
-	top        *app.LogLine            // first line drawn at the top of the body
+	top        *app.LogLine            // the line whose rows start the body
+	skip       int                     // rows of top's (its day's rule first, when it has one) scrolled above the body
+	width      int                     // the pane's width at the last draw, for the wheel's rows
 	scrolled   bool                    // top was set by scrollBy: the cursor follows the view, not the other way round
 	rowLines   []*app.LogLine          // body row → line (nil for dividers), from the last draw
 	painted    map[*app.LogLine]string // each line as painted, once it's been needed; see text
@@ -61,7 +63,7 @@ func (b *browse) text(l *app.LogLine) string {
 	return s
 }
 
-// scrollBy scrolls the view by delta lines, as the wheel does, leaving
+// scrollBy scrolls the view by delta rows, as the wheel does, leaving
 // the cursor where it is unless it would go out of sight; then it's
 // dragged along at the top or bottom edge. Scrolling up past the oldest
 // loaded line pages in older history, and the rest of the scroll happens
@@ -72,12 +74,11 @@ func (b *browse) scrollBy(delta int) []app.Effect {
 	if len(v) == 0 {
 		return nil
 	}
-	ti := slices.Index(v, b.top)
-	if ti < 0 {
-		ti = max(0, slices.Index(v, b.Cursor))
-	}
-	b.top, b.scrolled = v[min(max(0, ti+delta), len(v)-1)], true
-	if rest := ti + delta; rest < 0 {
+	g := b.grid(v, b.width)
+	at, rest := g.advance(g.start(b), delta)
+	b.setStart(v, at)
+	b.scrolled = true
+	if rest < 0 {
 		return b.Older(func() []app.Effect { return b.scrollBy(rest) })
 	}
 	return nil
@@ -266,20 +267,127 @@ func (b *browse) promptLabel() string {
 	return ""
 }
 
-// rowsFor is how many body rows a line takes, including a day divider.
-func (b *browse) rowsFor(l *app.LogLine, prev *app.LogLine, w int) int {
-	n := len(ansi.Wrap(b.text(l), max(1, w-browsePrefixW)))
-	if prev == nil || prev.Day != l.Day {
+// rowPos is a row of the body's rows laid end to end: row r of v[i]'s,
+// its day's rule first when it has one. {len(v), 0} is past the end.
+type rowPos struct{ i, r int }
+
+func (a rowPos) before(c rowPos) bool { return a.i < c.i || a.i == c.i && a.r < c.r }
+
+// logGrid is the shown lines laid out in rows w wide: each line's text
+// wrapped, after its day's rule when the day changes (and before the
+// first). It wraps a line only when it's asked about.
+type logGrid struct {
+	v    []*app.LogLine
+	b    *browse
+	w    int
+	rows map[int]int
+}
+
+func (b *browse) grid(v []*app.LogLine, w int) *logGrid {
+	return &logGrid{v: v, b: b, w: max(1, w-browsePrefixW), rows: map[int]int{}}
+}
+
+// rule reports whether v[i] starts with its day's rule.
+func (g *logGrid) rule(i int) bool { return i == 0 || g.v[i-1].Day != g.v[i].Day }
+
+// height is how many rows v[i] takes, its rule included.
+func (g *logGrid) height(i int) int {
+	if n, ok := g.rows[i]; ok {
+		return n
+	}
+	n := len(ansi.Wrap(g.b.text(g.v[i]), g.w))
+	if g.rule(i) {
 		n++
 	}
+	g.rows[i] = n
 	return n
 }
 
-// scrollToCursor adjusts top so the cursor is within h body rows and no
-// blank rows are left below the newest line.
+// text is where v[i]'s text starts, past its rule.
+func (g *logGrid) text(i int) rowPos {
+	if g.rule(i) {
+		return rowPos{i, 1}
+	}
+	return rowPos{i, 0}
+}
+
+// end is past v[i]'s last row.
+func (g *logGrid) end(i int) rowPos { return g.advanced(rowPos{i, 0}, g.height(i)) }
+
+// advance moves p by n rows, stopping at the first row or past the
+// last; rest is what's left of n when it stops.
+func (g *logGrid) advance(p rowPos, n int) (at rowPos, rest int) {
+	for n > 0 {
+		if p.i >= len(g.v) {
+			return p, n
+		}
+		left := g.height(p.i) - p.r
+		if n < left {
+			return rowPos{p.i, p.r + n}, 0
+		}
+		n -= left
+		p = rowPos{p.i + 1, 0}
+	}
+	for n < 0 {
+		if -n <= p.r {
+			return rowPos{p.i, p.r + n}, 0
+		}
+		n += p.r
+		if p.i == 0 {
+			return rowPos{0, 0}, n
+		}
+		p = rowPos{p.i - 1, g.height(p.i - 1)}
+	}
+	return p, 0
+}
+
+func (g *logGrid) advanced(p rowPos, n int) rowPos {
+	at, _ := g.advance(p, n)
+	return at
+}
+
+// dist is how many rows c is after a, up to past (a further one is past
+// as far).
+func (g *logGrid) dist(a, c rowPos, past int) int {
+	if c.before(a) {
+		return -g.dist(c, a, past)
+	}
+	n := -a.r
+	for i := a.i; i < c.i; i++ {
+		if n += g.height(i); n > past {
+			return past
+		}
+	}
+	return n + c.r
+}
+
+// start is the body's first row, as top and skip say.
+func (g *logGrid) start(b *browse) rowPos {
+	ti := slices.Index(g.v, b.top)
+	if ti < 0 {
+		return rowPos{0, 0}
+	}
+	return rowPos{ti, min(b.skip, g.height(ti)-1)}
+}
+
+// setStart makes p the body's first row.
+func (b *browse) setStart(v []*app.LogLine, p rowPos) {
+	p.i = min(p.i, len(v)-1)
+	b.top, b.skip = v[p.i], p.r
+}
+
+// bottom is the latest first row that still fills h rows: one later
+// would leave rows blank below the newest line.
+func (g *logGrid) bottom(h int) rowPos {
+	return g.advanced(g.end(len(g.v)-1), -h)
+}
+
+// scrollToCursor sets the body's first row so the cursor is in view,
+// under the day row (see view), and no blank rows are left below the
+// newest line. A line taller than the body shows its start.
 func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 	if len(v) == 0 {
-		b.top = nil
+		b.top, b.skip = nil, 0
 		return
 	}
 	ci := slices.Index(v, b.Cursor)
@@ -290,74 +398,60 @@ func (b *browse) scrollToCursor(v []*app.LogLine, h, w int) {
 		}
 		b.SetCursor(v[ci])
 	}
-	// rows is how many rows v[i] takes with v[top] at the top, where its
-	// day's divider always shows (see view).
-	rows := func(i, top int) int {
-		var prev *app.LogLine
-		if i > 0 && i != top {
-			prev = v[i-1]
+	g := b.grid(v, w)
+	lo := min(1, h-1) // the first row a line's text is in sight on: the day row covers the body's first
+	clamp := func(p rowPos) rowPos {
+		if bot := g.bottom(h); bot.before(p) {
+			return bot
 		}
-		return b.rowsFor(v[i], prev, w)
+		return p
 	}
-	ti := slices.Index(v, b.top)
-	if b.scrolled && ti >= 0 && b.Marking { // the wheel only scrolls: the cursor is the range's end
-		b.top = v[min(ti, b.bottomTop(v, rows, h))] // and scrolled stays set until the cursor moves
+	start := g.start(b)
+	if slices.Index(v, b.top) < 0 {
+		start = g.advanced(g.text(ci), -lo)
+	}
+	if b.scrolled && b.Marking { // the wheel only scrolls: the cursor is the range's end
+		b.setStart(v, clamp(start)) // and scrolled stays set until the cursor moves
 		return
 	}
-	if b.scrolled && ti >= 0 {
-		b.scrolled = false
-		ti = min(ti, b.bottomTop(v, rows, h)) // no scrolling past the newest line
-		if ci < ti {                          // dragged along at the top edge
-			ci = ti
+	if b.scrolled { // the wheel: the cursor's dragged along at the top or bottom edge
+		start = clamp(start)
+		b.setStart(v, start)
+		first, last := -1, -1 // the lines wholly in sight
+		for i := start.i; i < len(v) && g.dist(start, g.text(i), h) < h; i++ {
+			if g.dist(start, g.text(i), h) >= lo && g.dist(start, g.end(i), h) <= h {
+				if first < 0 {
+					first = i
+				}
+				last = i
+			}
 		}
-		last, n := ti, rows(ti, ti) // the last line wholly in view
-		for last+1 < len(v) && n+rows(last+1, ti) <= h {
-			last++
-			n += rows(last, ti)
-		}
-		if ci > last { // or at the bottom one
+		switch {
+		case first < 0: // one line fills the body
+			ci = g.advanced(start, lo).i
+		case ci < first:
+			ci = first
+		case ci > last:
 			ci = last
 		}
 		b.SetCursor(v[ci])
-		b.top = v[ti]
 		return
 	}
-	b.scrolled = false
-	if ti < 0 || ci < ti {
-		ti = ci
-	}
-	if ci-ti > h { // every line takes at least one row
-		ti = ci - h
-	}
-	for ti < ci {
-		n := 0
-		for i := ti; i <= ci; i++ {
-			n += rows(i, ti)
+	switch top, bot := g.dist(start, g.text(ci), h), g.dist(start, g.end(ci), h+1); {
+	case top < lo: // above: its text just under the day row
+		start = g.advanced(g.text(ci), -lo)
+	case bot > h: // below: its last row at the bottom, or its first under the day row if it's taller
+		start = g.advanced(g.end(ci), -h)
+		if g.dist(start, g.text(ci), h) < lo {
+			start = g.advanced(g.text(ci), -lo)
 		}
-		if n <= h {
-			break
-		}
-		ti++
 	}
-	b.top = v[min(ti, b.bottomTop(v, rows, h))]
+	b.setStart(v, clamp(start))
 }
 
 // awayArrow puts arrow in the space after the time that starts row.
 func awayArrow(row, arrow string) string {
 	return xansi.Cut(row, 0, browseTimeW) + theme.Paint(theme.LogAway, arrow) + xansi.Cut(row, browseTimeW+1, xansi.StringWidth(row))
-}
-
-// bottomTop is the earliest top line that still fits everything through
-// the newest line in h rows: a later one would leave rows blank below it.
-func (b *browse) bottomTop(v []*app.LogLine, rows func(i, top int) int, h int) int {
-	fill, n := len(v)-1, 0
-	for ; fill >= 0; fill-- {
-		if n+rows(fill, fill) > h {
-			break
-		}
-		n += rows(fill, -1)
-	}
-	return fill + 1
 }
 
 // view draws the right pane (w×h) in browse mode. When a prompt is being
@@ -366,6 +460,7 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 	b.Items() // new tags take the filter already set
 	v := b.Visible()
 	bodyH := max(1, h-3)
+	b.width = w
 	b.scrollToCursor(v, bodyH, w)
 
 	// Body.
@@ -375,20 +470,30 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 		b.rowLines = append(b.rowLines, nil)
 	}
 	ms := b.Matches()
-	start := slices.Index(v, b.top)
-	if b.Loading && start <= 0 { // the oldest loaded line is at the top
+	g := b.grid(v, w)
+	start := g.start(b)
+	if b.Loading && start == (rowPos{}) { // the oldest loaded line is at the top
 		rows = append(rows, theme.Paint(theme.LogLoading, str.BrowseLoading()))
 		b.rowLines = append(b.rowLines, nil)
 	}
+	dayRow := func(day string) string { return theme.Paint(theme.LogDay, dayRule+" "+app.DayLabel(day)+" "+dayRule) }
 	ci := slices.Index(v, b.Cursor)
-	firstRow, lastRow, lastI := -1, -1, -1 // the rows starting the first and last lines drawn, and the last's index
-	for i := max(0, start); i < len(v) && len(b.rowLines) < bodyH; i++ {
+	firstRow, firstI, lastRow, lastI := -1, -1, -1, -1 // the rows starting the first and last lines whose text starts in sight, and their indexes
+	for i := start.i; len(v) > 0 && i < len(v) && len(b.rowLines) < bodyH; i++ {
 		l := v[i]
-		if i == max(0, start) || v[i-1].Day != l.Day { // the top line's day always shows, so the date stays in sight
-			rows = append(rows, theme.Paint(theme.LogDay, dayRule+" "+app.DayLabel(l.Day)+" "+dayRule))
-			b.rowLines = append(b.rowLines, nil)
-			if len(b.rowLines) >= bodyH {
-				break
+		skip := 0
+		if i == start.i {
+			skip = start.r
+		}
+		if g.rule(i) {
+			if skip == 0 {
+				rows = append(rows, dayRow(l.Day))
+				b.rowLines = append(b.rowLines, nil)
+				if len(b.rowLines) >= bodyH {
+					break
+				}
+			} else {
+				skip--
 			}
 		}
 		ts := app.TimeOfDay(l.Entry.Time)
@@ -409,12 +514,15 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			text = highlightFind(ansi.Strip(b.text(l)), b.Find)
 		}
 		for j, row := range ansi.Wrap(text, max(1, w-browsePrefixW)) {
+			if j < skip {
+				continue
+			}
 			prefix := ts + " " + gutter + " "
 			if j > 0 {
 				prefix = "      " + gutter + " "
-			} else {
+			} else if len(rows) > 0 || bodyH < 2 { // not under the day row
 				if firstRow < 0 {
-					firstRow = len(rows)
+					firstRow, firstI = len(rows), i
 				}
 				lastRow, lastI = len(rows), i
 			}
@@ -425,10 +533,15 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 			}
 		}
 	}
+	// The body's first row is always a day's: the top line's, over its
+	// row, as the page's sticks at the top of the scroll.
+	if len(rows) > 1 && b.rowLines[0] != nil {
+		rows[0], b.rowLines[0] = dayRow(b.rowLines[0].Day), nil
+	}
 	// A cursor scrolled out of view (while marking: see scrollToCursor)
 	// gets an arrow by the time of the line nearest it.
 	switch {
-	case ci >= 0 && ci < start && firstRow >= 0:
+	case ci >= 0 && ci < firstI && firstRow >= 0:
 		rows[firstRow] = awayArrow(rows[firstRow], glyphAbove)
 	case ci > lastI && lastRow >= 0:
 		rows[lastRow] = awayArrow(rows[lastRow], glyphBelow)

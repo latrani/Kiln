@@ -94,5 +94,5 @@ func (b *browse) FindStatus() string { return b.Log.FindStatus(b.Cursor) }
 // GotoTime goes to when's line (see app.Log.GotoTime) and puts it at
 // the top of the body.
 func (b *browse) GotoTime(when string) []app.Effect {
-	return b.Log.GotoTime(when, func(l *app.LogLine) { b.SetCursor(l); b.top = l })
+	return b.Log.GotoTime(when, func(l *app.LogLine) { b.SetCursor(l); b.top, b.skip = l, 0 })
 }

@@ -1124,8 +1124,8 @@ func TestLogWheelScrolls(t *testing.T) {
 	}
 	h.key("home") // the cursor on the top edge
 	wheel(tea.MouseWheelDown)
-	if b.Cursor != b.top {
-		t.Errorf("scrolling down, the cursor is dragged along at the top edge: top %q cursor %q", b.top.Entry.Text, b.Cursor.Entry.Text)
+	if b.Cursor != b.rowLines[1] { // the first line in sight, under the day row
+		t.Errorf("scrolling down, the cursor is dragged along at the top edge: under the day row %q, cursor %q", b.rowLines[1].Entry.Text, b.Cursor.Entry.Text)
 	}
 	for range 100 {
 		wheel(tea.MouseWheelDown)
@@ -1135,8 +1135,8 @@ func TestLogWheelScrolls(t *testing.T) {
 	}
 }
 
-// One wheel notch scrolls scroll_lines: rows in the scrollback, lines in
-// log mode.
+// One wheel notch scrolls scroll_lines rows, in the scrollback and in
+// log mode (whose lines here are a row each).
 func TestWheelScrollsScrollLines(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	var lines []string
@@ -1632,5 +1632,35 @@ func TestBrowseHiddenCursorWhileSelectingGoesNearest(t *testing.T) {
 	h.screen()
 	if b.Cursor != want || b.End != want && b.Start != want {
 		t.Errorf("cursor %q, range %q–%q; want both on the nearest shown line %q", b.Cursor.Entry.Text, b.Start.Entry.Text, b.End.Entry.Text, want.Entry.Text)
+	}
+}
+
+// The body is filled to its first row, a line half in sight if that's
+// where it falls, and its first row is always the day of the line under
+// it, as the page's sticks at the top of the scroll.
+func TestLogDayRowSticks(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	long := "Rook says, \"" + strings.Repeat("word ", 60) + "\""
+	h.writeLog(day24, "Rook says, \"one\"", long, "Rook says, \"two\"", "Rook says, \"three\"")
+	h.key("ctrl+l")
+	b := h.br()
+	const w, ht = 40, 10 // a body of 7 rows; long wraps to more than that
+	rows, _, _, _ := b.view(w, ht)
+	day := ansi.Strip(rows[0])
+	if !strings.Contains(day, app.DayLabel(b.Cursor.Day)) || b.rowLines[0] != nil {
+		t.Fatalf("the first row should be the day's: %q", day)
+	}
+	for i, r := range rows[:ht-3] {
+		if strings.TrimSpace(ansi.Strip(r)) == "" {
+			t.Errorf("row %d blank: the body should fill, long half in sight:\n%s", i, strings.Join(rows, "\n"))
+		}
+	}
+	if b.rowLines[1] == nil || !strings.HasPrefix(b.rowLines[1].Entry.Text, "Rook says, \"word") {
+		t.Errorf("under the day row, long's last rows: %v", b.rowLines[1])
+	}
+	b.scrollBy(-1) // the wheel, a row at a time
+	rows, _, _, _ = b.view(w, ht)
+	if b.rowLines[ht-4] == b.Last() || !strings.Contains(ansi.Strip(rows[0]), app.DayLabel(b.Cursor.Day)) {
+		t.Errorf("a row up: the newest line's row should go below, the day row stay:\n%s", strings.Join(rows, "\n"))
 	}
 }

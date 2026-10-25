@@ -119,7 +119,11 @@ a.s { text-decoration: underline; }
    scrolling), and older history arriving above keeps your place
    (LogView.tsx, as the scrollback's: Safari has no overflow-anchor). */
 /* A drag picks lines, not text (LogView). */
-.log { flex: 1; overflow-y: auto; position: relative; overflow-anchor: none; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; -webkit-user-select: none; user-select: none; }
+.log { flex: 1; overflow-y: auto; position: relative; overflow-anchor: none; scrollbar-gutter: stable; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; -webkit-user-select: none; user-select: none; scroll-padding-top: 1lh; }
+/* A day's row sticks at the top while its lines go under it; the next
+   day's covers it. On the terminal's background, so nothing shows
+   through; scroll-padding keeps the cursor out from under it. */
+.log .lday { position: sticky; top: 0; z-index: 1; background: var(--term-bg); }
 .lrow { display: grid; grid-template-columns: 5ch 1ch 1ch 1ch 1fr; cursor: default; }
 .lrow > :nth-child(1) { grid-column: 1; }
 .lrow .gutter { grid-column: 3; cursor: pointer; }

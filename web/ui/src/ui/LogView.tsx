@@ -131,7 +131,8 @@ export function LogView({ state, store }: { state: State; store: Store }) {
     const e = el.current!;
     place.current.at = placeOf(rowsOf(e), e.scrollTop);
     if (place.current.at) store.logPlaces.set(k, place.current.at);
-    const sc = scrolled(!!g.Marking, rowsOf(e), e.scrollTop, e.clientHeight, cursor);
+    const day = e.querySelector<HTMLElement>(".lday")?.offsetHeight ?? 0; // the day row covers the top: lines under it are out of sight
+    const sc = scrolled(!!g.Marking, rowsOf(e), e.scrollTop + day, e.clientHeight - day, cursor);
     if (sc.to !== undefined) store.setLogView(k, { cursor: sc.to, away: undefined });
     else if (sc.away?.seq !== v.away?.seq || sc.away?.dir !== v.away?.dir) store.setLogView(k, { away: sc.away });
     older(e);
@@ -236,29 +237,52 @@ export function LogView({ state, store }: { state: State; store: Store }) {
         onFocusIn={() => { if (state.logView[k]?.focus) store.setLogView(k, { focus: undefined }); }}>
         {g.Loading && <div class={roleClass("log.loading")}>{str.browseLoading()}</div>}
         {!lines.length && g.HistDone && <div class={roleClass("log.loading")}>{str.browseNoLogs()}</div>}
-        {logRows(lines, g).map((r) => {
-          if (r.kind === "day") {
-            const rule = str.glyph.rule + str.glyph.rule;
-            return <div key={"d" + r.day} class={roleClass("log.day")}>{`${rule} ${r.label} ${rule}`}</div>;
-          }
-          const l = r.line;
-          const gutter = r.excluded ? <span class={"gutter " + roleClass("log.excluded")}>{str.glyph.excluded}</span>
-            : r.selected ? <span class={"gutter " + roleClass("log.selected")}>{str.glyph.selected}</span>
-            : <span class="gutter"> </span>;
-          const text = r.match
-            ? <span class="ltext">{segments(l.Plain, g.Find).map((sg, i) => (sg.match ? <mark key={i} class={roleClass("log.find")}>{sg.text}</mark> : sg.text))}</span>
-            : <span class="ltext"><Line line={l} tags={tags} /></span>;
-          return (
-            <div key={l.Seq} class="lrow" data-seq={l.Seq}>
-              <span class={roleClass(l.Seq === cursor ? "log.cursor" : "log.time")}>{l.Clock ?? ""}</span>
-              {g.Marking && v.away?.seq === l.Seq
-                ? <span class={roleClass("log.cursor.away")}>{v.away.dir === "above" ? str.glyph.cursorAbove : str.glyph.cursorBelow}</span>
-                : " "}
-              {gutter} {text}
-            </div>
-          );
-        })}
+        {/* Each day's rows in a section of their own, its rule first:
+            the rule sticks at the top of the scroll while its day's
+            lines go under it, as the TUI's first row is always the
+            day's, and the next day's pushes it up and away. */}
+        {byDay(logRows(lines, g)).map((d) => (
+          <section key={"d" + d.day} class="lday-group">
+            {d.label !== undefined && <div class="lday"><div class={roleClass("log.day")}>{`${dayRule} ${d.label} ${dayRule}`}</div></div>}
+            {d.rows.map((r) => {
+              const l = r.line;
+              const gutter = r.excluded ? <span class={"gutter " + roleClass("log.excluded")}>{str.glyph.excluded}</span>
+                : r.selected ? <span class={"gutter " + roleClass("log.selected")}>{str.glyph.selected}</span>
+                : <span class="gutter"> </span>;
+              const text = r.match
+                ? <span class="ltext">{segments(l.Plain, g.Find).map((sg, i) => (sg.match ? <mark key={i} class={roleClass("log.find")}>{sg.text}</mark> : sg.text))}</span>
+                : <span class="ltext"><Line line={l} tags={tags} /></span>;
+              return (
+                <div key={l.Seq} class="lrow" data-seq={l.Seq}>
+                  <span class={roleClass(l.Seq === cursor ? "log.cursor" : "log.time")}>{l.Clock ?? ""}</span>
+                  {g.Marking && v.away?.seq === l.Seq
+                    ? <span class={roleClass("log.cursor.away")}>{v.away.dir === "above" ? str.glyph.cursorAbove : str.glyph.cursorBelow}</span>
+                    : " "}
+                  {gutter} {text}
+                </div>
+              );
+            })}
+          </section>
+        ))}
       </div>
     </main>
   );
+}
+
+const dayRule = str.glyph.rule + str.glyph.rule;
+
+type LineRow = Exclude<ReturnType<typeof logRows>[number], { kind: "day" }>;
+
+// byDay groups log rows under their days: each day's label (none for
+// rows before the first) and its lines.
+function byDay(rows: ReturnType<typeof logRows>): { day: string; label?: string; rows: LineRow[] }[] {
+  const out: { day: string; label?: string; rows: LineRow[] }[] = [];
+  for (const r of rows) {
+    if (r.kind === "day") out.push({ day: r.day, label: r.label, rows: [] });
+    else {
+      if (!out.length) out.push({ day: "", rows: [] });
+      out.at(-1)!.rows.push(r);
+    }
+  }
+  return out;
 }

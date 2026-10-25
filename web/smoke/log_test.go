@@ -285,6 +285,34 @@ func TestLogPlace(t *testing.T) {
 // on the newest line; ↑, k, ↓ and j move it a line, scrolling it into
 // view; scrolling the view drags it along at the edge it would leave
 // by; a click puts it on a line; go-to starts from it.
+// TestLogDayPushes: a day's rule sticks at the top of the log while its
+// lines scroll under it, and the next day's pushes it up and away
+// rather than covering it.
+func TestLogDayPushes(t *testing.T) {
+	day := func(n int) []string {
+		ls := make([]string, 60)
+		for i := range ls {
+			ls[i] = fmt.Sprintf("day %d line %d", n, i)
+		}
+		return ls
+	}
+	s := goldenScene(t, nil, func(s *scene) {
+		l := logstore.Layout{Root: s.logs, World: "fm", Char: "kit", CharName: "Kit"}
+		kilntest.WriteLog(t, l, kilntest.LogDay, day(1)...)
+		kilntest.WriteLog(t, l, kilntest.LogDay.AddDate(0, 0, 1), day(2)...)
+	})
+	ctrlL(t, s.ws)
+	waitFor(t, s.ev, `document.querySelectorAll(".lday").length === 2`, "two days")
+	// The second day's section half a row below the top: its rule has
+	// pushed the first's half out of sight, not covered it.
+	s.ev(`(() => { const e = document.querySelector(".log"), d = document.querySelectorAll(".lday-group")[1]; e.scrollTop = d.offsetTop - document.querySelector(".lday").offsetHeight / 2; })()`)
+	pushed := `(() => { const [a, b] = [...document.querySelectorAll(".lday")].map((d) => d.getBoundingClientRect()), top = document.querySelector(".log").getBoundingClientRect().top; return a.bottom <= b.top + 0.5 && a.top < top - 1; })()`
+	waitFor(t, s.ev, pushed, "the first day's rule pushed up by the second's")
+	// Further down, the second's sticks at the top.
+	s.ev(`document.querySelector(".log").scrollTop = document.querySelectorAll(".lday-group")[1].offsetTop + 200`)
+	waitFor(t, s.ev, `Math.abs(document.querySelectorAll(".lday")[1].getBoundingClientRect().top - document.querySelector(".log").getBoundingClientRect().top) < 1`, "the second day's rule stuck at the top")
+}
+
 func TestLogCursor(t *testing.T) {
 	many := make([]string, 80)
 	for i := range many {
@@ -298,7 +326,7 @@ func TestLogCursor(t *testing.T) {
 	tagsLabel, _, _ := strings.Cut(str.BrowseLineTags("\x00"), "\x00")
 	status := `document.querySelector(".status").textContent`
 	cursor := `(() => { const r = document.querySelector(".lrow .r-log-cursor")?.closest(".lrow"); return r ? [...document.querySelectorAll(".lrow")].indexOf(r) : -1; })()`
-	inView := `(() => { const e = ` + logEl + `, r = document.querySelector(".lrow .r-log-cursor").closest(".lrow"); return r.offsetTop >= e.scrollTop && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; })()`
+	inView := `(() => { const e = ` + logEl + `, r = document.querySelector(".lrow .r-log-cursor").closest(".lrow"), day = document.querySelector(".lday").offsetHeight; return r.offsetTop >= e.scrollTop + day && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; })()`
 	ctrlL(t, s.ws)
 	waitFor(t, s.ev, `document.querySelectorAll(".lrow").length === 80 && `+cursor+` === 79`, "the cursor on the newest line")
 	s.ev(logEl + `.focus()`)
@@ -325,7 +353,8 @@ func TestLogCursor(t *testing.T) {
 	// Scrolled to the top, it leaves by the bottom, so it rides along on
 	// the last line wholly in view; scrolled back to the bottom, on the
 	// first.
-	whole := `[...document.querySelectorAll(".lrow")].map((r, i) => [r, i]).filter(([r]) => { const e = ` + logEl + `; return r.offsetTop >= e.scrollTop && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; }).map(([, i]) => i)`
+	// Wholly in view: below the day row, which sticks at the top.
+	whole := `[...document.querySelectorAll(".lrow")].map((r, i) => [r, i]).filter(([r]) => { const e = ` + logEl + `, day = document.querySelector(".lday").offsetHeight; return r.offsetTop >= e.scrollTop + day && r.offsetTop + r.offsetHeight <= e.scrollTop + e.clientHeight; }).map(([, i]) => i)`
 	s.ev(logEl + `.scrollTop = 0`)
 	waitFor(t, s.ev, cursor+` === `+whole+`.at(-1) && `+cursor+` < 39`, "dragged along at the bottom edge")
 	s.ev(logEl + `.scrollTop = ` + logEl + `.scrollHeight`)
