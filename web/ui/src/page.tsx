@@ -6,7 +6,7 @@ import { render } from "preact";
 import { toBase64 } from "./host.ts";
 import { paneSize } from "./layout.ts";
 import { toggleLog } from "./log.ts";
-import { editorKey, logToggleKey, pickerKey, splitKey } from "./picker.ts";
+import { choose, editorKey, firstMatch, logToggleKey, pickerKey, pickerRows, splitKey } from "./picker.ts";
 import { watch } from "./presence.ts";
 import { sidebarKey, swipeDir, swiped, toggleSidebar } from "./sidebar.ts";
 import { logShows } from "./store.ts";
@@ -24,7 +24,13 @@ export const effect = (store: Store) => (e: Event): void => {
   if (e.effect === "SaveFile") {
     store.host.saveFile(String(e.Name).split("/").pop()!, Uint8Array.from(atob(e.Data ?? ""), (c) => c.charCodeAt(0)));
   } else if (e.effect === "Do" && e.Cmd === "/open") {
-    store.openPicker();
+    // With letters, as the TUI's jump: their first match, chosen; none,
+    // the picker stays up, filtered.
+    const f = (e.Args ?? []).join("");
+    store.openPicker(f);
+    const p = store.state.picker;
+    const sel = f && p ? firstMatch(pickerRows(store.state.worlds, store.state.chars, f, store.host.worlds === true)) : undefined;
+    if (sel) choose(store, sel);
   } else if (e.effect === "Do" && e.Cmd === "/edit" && e.Key) {
     // As the TUI's editCommand: the active character's editor, or with
     // "world" its world's, closing with the picker.

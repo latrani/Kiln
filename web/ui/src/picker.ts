@@ -1,10 +1,10 @@
 // The picker's rows and highlight, as the TUI's (internal/ui/picker.go):
-// every configured character that isn't open, under its world, each
-// world ending with a row to add a character. Go sends the worlds in
-// this order (feed.worlds). A world's own row opens its editor. A final
-// row adds a world, as the TUI's, but only for a host that can (worlds):
-// on the web the worlds are the relay's allowlist, which it serves as
-// the preset.
+// every configured world and character, open or not, those the filter
+// matches, each world ending with a row to add a character. Go sends the
+// worlds in this order (feed.worlds). A world's own row shows its
+// overview. A final row adds a world, as the TUI's, but only for a host
+// that can (worlds): on the web the worlds are the relay's allowlist,
+// which it serves as the preset.
 
 import type { Target } from "./editor.ts";
 import { branch } from "./sidebar.ts";
@@ -16,39 +16,61 @@ export interface WorldInfo {
   Characters?: { ID: string; Name: string; Aliases?: string[] }[];
 }
 
-// PickRow is one row of the picker.
+// PickRow is one row of the picker. marks are the letters of its name
+// the filter matched; match, whether a world's own name did.
 export type PickRow =
-  | { kind: "world"; world: string }
-  | { kind: "char"; world: string; key: string; name: string; last?: boolean }
+  | { kind: "world"; world: string; match: boolean; marks: number[] }
+  | { kind: "char"; world: string; key: string; name: string; open: boolean; marks: number[]; last?: boolean }
   | { kind: "add_char"; world: string; last?: boolean }
   | { kind: "add_world" };
 
-// matches reports whether a character fits the lowercased filter f: its
-// name, an alias or its world contains it.
-function matches(world: string, c: { Name: string; Aliases?: string[] }, f: string): boolean {
-  return !f || [c.Name, world, ...(c.Aliases ?? [])].some((s) => s.toLowerCase().includes(f));
+// match reports which of s's letters f's are, in order, ignoring case,
+// each taken at its first chance, as the TUI's; undefined when they
+// aren't all there.
+export function match(s: string, f: string): number[] | undefined {
+  const want = [...f], at: number[] = [];
+  if (!want.length) return at;
+  [...s].some((r, i) => r.toLowerCase() === want[at.length].toLowerCase() && at.push(i) === want.length);
+  return at.length === want.length ? at : undefined;
 }
 
-// pickerRows lists the characters the picker offers, those not in open,
-// under their worlds, each world ending with "+ Character". A world is
-// listed when the filter matches it or one of its characters, even with
-// no characters to offer. With addWorld the list ends with "+ World",
-// whatever the filter, as the TUI's.
+// pickerRows lists every world and character, open or not (open says
+// which are), those the filter matches, as the TUI's: a world when its
+// name does or one of its characters' does, a character when
+// "world/name" does. Each world ends with "+ Character". A world listed
+// only for its characters marks the letters of its name the first of
+// them matched. With addWorld the list ends with "+ World", whatever the
+// filter, as the TUI's.
 export function pickerRows(worlds: WorldInfo[], open: Record<string, unknown>, filter: string, addWorld: boolean): PickRow[] {
-  const f = filter.trim().toLowerCase();
+  const f = filter.trim();
   const rows: PickRow[] = [];
   for (const w of worlds) {
-    const chars: PickRow[] = (w.Characters ?? [])
-      .filter((c) => !open[`${w.ID}/${c.ID}`] && matches(w.ID, c, f))
-      .map((c) => ({ kind: "char", world: w.ID, key: `${w.ID}/${c.ID}`, name: c.Name }));
-    if (chars.length || w.ID.toLowerCase().includes(f)) rows.push({ kind: "world", world: w.ID }, ...chars, { kind: "add_char", world: w.ID });
+    const wat = match(w.ID, f);
+    const head: PickRow & { kind: "world" } = { kind: "world", world: w.ID, match: !!wat, marks: wat ?? [] };
+    const wn = [...w.ID].length + 1; // past the "/"
+    const chars: PickRow[] = [];
+    for (const c of w.Characters ?? []) {
+      const at = match(`${w.ID}/${c.Name}`, f);
+      if (!at) continue;
+      if (!wat && !chars.length) head.marks = at.filter((i) => i < wn);
+      const key = `${w.ID}/${c.ID}`;
+      chars.push({ kind: "char", world: w.ID, key, name: c.Name, open: !!open[key], marks: at.filter((i) => i >= wn).map((i) => i - wn) });
+    }
+    if (chars.length || wat) rows.push(head, ...chars, { kind: "add_char", world: w.ID });
   }
   if (addWorld) rows.push({ kind: "add_world" });
   return branch(rows);
 }
 
+// firstMatch is the selection key of the first row the filter matched, a
+// world or a character, as the TUI's; undefined when none did.
+export function firstMatch(rows: PickRow[]): string | undefined {
+  const r = rows.find((r) => (r.kind === "world" && r.match) || r.kind === "char");
+  return r && selKey(r);
+}
+
 // selKey is what the highlight holds when r is highlighted: a
-// character's key, "=world" for a world's own row (its editor), "+world"
+// character's key, "=world" for a world's own row (its overview), "+world"
 // for adding a character to world, "+" for adding a world.
 export function selKey(r: PickRow): string {
   switch (r.kind) {
@@ -92,14 +114,19 @@ export function pagePick(rows: PickRow[], sel: string, dir: number, page: number
   return movePick(rows, sel, dir);
 }
 
-// choose acts on the picker's row sel, as Enter or a click does: a
-// character opens, connects and shows (pick), closing the picker; "+
-// Character" asks for the new character's name; a world's row opens its
-// editor, and "+ World" a new world's. An editor open over the picker is left first, its edits kept,
-// as the TUI's. Nothing for "".
+// choose acts on the picker's row sel, as Enter or a click does, as the
+// TUI's: a character shows (pick: one not open opens and connects), a
+// world its overview, closing the picker; a world with nothing open has
+// none, so its editor opens instead. "+ Character" asks for the new
+// character's name, and "+ World" opens a new world's editor. An editor
+// open over the picker is left first, its edits kept. Nothing for "".
 export function choose(store: Store, sel: string): void {
   store.leaveEditor();
-  if (sel.startsWith("=")) store.openEditor({ kind: "world", world: sel.slice(1) }, false);
+  const s = store.state;
+  if (sel.startsWith("=") && s.order.some((k) => s.chars[k]?.World === sel.slice(1))) {
+    s.act?.({ Do: "switch", Key: sel });
+    store.closePicker();
+  } else if (sel.startsWith("=")) store.openEditor({ kind: "world", world: sel.slice(1) }, false);
   else if (sel === "+") store.openEditor({ kind: "new-world" }, false);
   else if (sel.startsWith("+")) store.setPicker({ adding: sel.slice(1), name: "", error: undefined });
   else if (sel) {

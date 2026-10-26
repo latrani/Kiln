@@ -715,7 +715,7 @@ func PickerBlockedByQuestion() string { return get("picker.blocked_by_question",
 // PickerFilter is picker.filter: "Filter"
 func PickerFilter() string { return get("picker.filter", nil) }
 
-// PickerHint is picker.hint: "Enter to connect · Esc to close"
+// PickerHint is picker.hint: "Enter to jump · Esc to close"
 func PickerHint() string { return get("picker.hint", nil) }
 
 // PickerName is picker.name: "Name"

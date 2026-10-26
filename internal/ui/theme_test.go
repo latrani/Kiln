@@ -304,7 +304,8 @@ func TestBrokenThemeDoesNotBlockAddingACharacter(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	writeUserTheme(t, h, "[ui]\n\"status.eror\" = { fg = \"red\" }\n")
 	h.press('o', tea.ModCtrl)
-	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // from Kit, past Rook, to fm's add row
 	h.enter()
 	h.typeText("Ash")
 	h.enter()

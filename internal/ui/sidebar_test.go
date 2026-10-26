@@ -434,7 +434,10 @@ func TestSidebarTree(t *testing.T) {
 		t.Errorf("disconnected row = %q, want the line's end, then the ×, pushing the name over", got)
 	}
 	h.press('o', tea.ModCtrl)
-	if got := sideRow(h, 1); !strings.HasPrefix(got, glyphTreeLast+" "+addCharLabel+" ") {
+	if got := sideRow(h, 1); !strings.HasPrefix(got, glyphTreeBranch+"Kit ") {
+		t.Errorf("picker row = %q, want Kit on a branch", got)
+	}
+	if got := sideRow(h, 3); !strings.HasPrefix(got, glyphTreeLast+" "+addCharLabel+" ") {
 		t.Errorf("picker row = %q, want its chip at the line's end", got)
 	}
 }

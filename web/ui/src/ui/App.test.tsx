@@ -354,7 +354,7 @@ test("the sidebar ends with + Connection, after a gap, as the TUI's", () => {
   assert.match(html, new RegExp(`<li aria-hidden="true"> </li><li><button class="chip ${roleClass("sidebar.add")}"`), "a gap before it");
 });
 
-test("with the picker open, the sidebar is the picker: worlds, characters to open, + Character", () => {
+test("with the picker open, the sidebar is the picker: worlds, every character, the open ones bold, + Character", () => {
   const s = new Store();
   s.set({ phase: "running" });
   s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "mira", Name: "Mira" }] }] }]);
@@ -362,9 +362,10 @@ test("with the picker open, the sidebar is the picker: worlds, characters to ope
   const html = render(<App store={s} />);
   const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
   assert.match(nav, /role="listbox"/);
-  assert.ok(nav.includes("Mira") && !nav.includes(">Kit<"), "Kit's open: not offered");
+  assert.ok(nav.includes(`<span class="name ${roleClass("picker.open")}">Kit</span>`), "Kit's open: listed, bold");
+  assert.ok(nav.includes(`<span class="name">Mira</span>`), "Mira isn't");
   assert.ok(nav.includes(str.pickerAddCharacter()));
-  assert.match(nav, /aria-selected="true"[^>]*>.*?>Mira</);
+  assert.match(nav, /aria-selected="true"[^>]*>.*?>Kit</, "what's showing is highlighted");
   assert.ok(nav.includes(roleClass("picker")), "the picker's area role");
 });
 

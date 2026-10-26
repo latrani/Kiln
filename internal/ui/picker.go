@@ -1,15 +1,20 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 
 	tea "charm.land/bubbletea/v2"
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/glyph"
+	"github.com/latrani/Kiln/internal/session"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/style"
 	"github.com/latrani/Kiln/internal/theme"
 )
 
@@ -44,9 +49,9 @@ var browseBlocksPicker = str.PickerBlockedByLog()
 // the save-password question owns the input area.
 var questionBlocksPicker = str.PickerBlockedByQuestion()
 
-// picker is the open-connection list shown in the sidebar: every
-// configured character that isn't open, narrowed by a one-field form,
-// with rows for adding characters and worlds.
+// picker is the jump list shown in the sidebar: every configured world
+// and character, open or not, narrowed by a one-field form, with rows
+// for adding characters and worlds.
 type picker struct {
 	form *form
 	sel  string  // selection key of the highlighted row (see selKey)
@@ -81,9 +86,25 @@ func (m *Model) openPicker() {
 		m.setStatus(true, browseBlocksPicker)
 		return
 	}
-	m.picker = &picker{form: newForm(pickerHint, textField(str.PickerFilter()))}
+	m.picker = &picker{form: newForm(pickerHint, textField(str.PickerFilter())), sel: m.a.Active()}
 	m.sideTop, m.sideShown = 0, ""
 	m.fixPick()
+}
+
+// jump is /open with a filter: the picker, filtered, and if anything
+// matches, Enter on the first match. With nothing matching it stays
+// open, showing so.
+func (m *Model) jump(filter string) tea.Cmd {
+	if m.openPicker(); m.picker == nil {
+		return nil
+	}
+	m.picker.form.fields[0].in.SetValue(filter)
+	sel, ok := m.firstMatch()
+	if !ok {
+		return nil
+	}
+	m.picker.sel = sel
+	return m.choose(sel)
 }
 
 // closePicker goes back to the open characters.
@@ -93,37 +114,61 @@ func (m *Model) closePicker() {
 	m.narrowOpen = false // picked or escaped: the narrow sidebar closes
 }
 
-// matches reports whether ch fits the lowercased filter f: its name, an
-// alias or its world contains it.
-func matches(ch config.Character, f string) bool {
-	if f == "" {
-		return true
+// match reports whether f's letters are in s in order, ignoring case,
+// and which of s's runes they are, each taken at its first chance.
+func match(s, f string) (at []int, ok bool) {
+	want := []rune(f)
+	if len(want) == 0 {
+		return nil, true
 	}
-	for _, s := range append([]string{ch.Name, ch.World}, ch.Aliases...) {
-		if strings.Contains(strings.ToLower(s), f) {
-			return true
+	for i, r := range []rune(s) {
+		if unicode.ToLower(r) == unicode.ToLower(want[len(at)]) {
+			if at = append(at, i); len(at) == len(want) {
+				return at, true
+			}
 		}
 	}
-	return false
+	return nil, false
 }
 
-// pickerRows lists the characters the picker offers under their worlds,
-// each world ending with a row to add a character to it, then a row to
-// add a world. A world is listed when the filter matches it or one of
-// its characters, even with no characters to offer.
+// filter is the picker's filter, trimmed.
+func (m *Model) filter() string { return strings.TrimSpace(m.picker.form.value(0)) }
+
+// pickerRows lists every world and character, open or not, those the
+// filter matches: a world when its name does or one of its characters'
+// does, a character when "world/name" does. Each world ends with a row
+// to add a character to it, and the list with a row to add a world. A
+// row that matched carries which of its letters did; a world listed
+// only for its characters carries the letters of its name the first of
+// them matched.
 func (m *Model) pickerRows() []sidebarRow {
-	f := strings.ToLower(strings.TrimSpace(m.picker.form.value(0)))
+	f := m.filter()
 	chars := m.a.AllChars()
 	var rows []sidebarRow
 	for _, w := range m.worldIDs() {
-		wr := []sidebarRow{{kind: rowWorld, world: w}}
+		wat, wok := match(w, f)
+		head := sidebarRow{kind: rowWorld, world: w, match: wok, marks: wat}
+		wr := []sidebarRow{head}
+		wn := len([]rune(w)) + 1 // past the "/"
 		for _, ch := range chars {
-			k := key(ch.World, ch.ID)
-			if ch.World == w && m.chars[k] == nil && matches(ch, f) {
-				wr = append(wr, sidebarRow{kind: rowChar, world: w, char: k})
+			if ch.World != w {
+				continue
 			}
+			at, ok := match(w+"/"+ch.Name, f)
+			if !ok {
+				continue
+			}
+			r := sidebarRow{kind: rowChar, world: w, char: key(ch.World, ch.ID), match: true}
+			for _, i := range at {
+				if i >= wn {
+					r.marks = append(r.marks, i-wn)
+				} else if !wok && len(wr) == 1 {
+					wr[0].marks = append(wr[0].marks, i)
+				}
+			}
+			wr = append(wr, r)
 		}
-		if len(wr) > 1 || strings.Contains(strings.ToLower(w), f) {
+		if len(wr) > 1 || wok {
 			rows = append(append(rows, wr...), sidebarRow{kind: rowAddChar, world: w})
 			if e := m.addingChar(); e != nil && e.world == w && e.form.reject != "" {
 				// One space in, as the field; wrapped, since the sidebar
@@ -140,6 +185,17 @@ func (m *Model) pickerRows() []sidebarRow {
 		}
 	}
 	return branch(append(rows, sidebarRow{kind: rowAddWorld}))
+}
+
+// firstMatch is the selection key of the first row the filter matched,
+// a world or a character; false when none did.
+func (m *Model) firstMatch() (string, bool) {
+	for _, r := range m.pickerRows() {
+		if r.match && (r.kind == rowWorld || r.kind == rowChar) {
+			return selKey(r), true
+		}
+	}
+	return "", false
 }
 
 // addingChar is the editor naming a new character, which the picker
@@ -173,6 +229,20 @@ func (m *Model) pickable() []string {
 		}
 	}
 	return keys
+}
+
+// filtered moves the highlight to the first row the filter matches as
+// it changes, so the same letters always land on the same row; with the
+// filter emptied, to what's showing. With nothing matching it's kept
+// where it can be (see fixPick).
+func (m *Model) filtered() {
+	switch sel, ok := m.firstMatch(); {
+	case ok && m.filter() != "":
+		m.picker.sel = sel
+	case m.filter() == "":
+		m.picker.sel = m.a.Active()
+	}
+	m.fixPick()
 }
 
 // fixPick keeps the highlight on its row if it's still offered, and
@@ -216,8 +286,14 @@ func (m *Model) pagePick(dir, page int) {
 	m.movePick(dir)
 }
 
-// pick opens, connects and switches to k, closing the picker.
+// pick opens, connects and switches to k, closing the picker; one
+// already open is only switched to.
 func (m *Model) pick(k string) tea.Cmd {
+	if m.chars[k] != nil {
+		m.closePicker()
+		m.switchTo(k)
+		return nil
+	}
 	cs := m.open(k)
 	if cs == nil {
 		return nil
@@ -227,10 +303,15 @@ func (m *Model) pick(k string) tea.Cmd {
 	return m.connect(cs)
 }
 
-// choose acts on the picker row with selection key sel: it connects a
-// character, or opens an editor for a world or an add row.
+// choose acts on the picker row with selection key sel: it shows a
+// world's overview or a character, opening and connecting one that
+// isn't open, or opens an editor for an add row. A world with nothing
+// open has no overview: its editor opens instead.
 func (m *Model) choose(sel string) tea.Cmd {
 	switch {
+	case strings.HasPrefix(sel, "=") && m.a.CanSwitch(sel):
+		m.closePicker()
+		m.switchTo(sel)
 	case strings.HasPrefix(sel, "="):
 		m.openWorldEditor(strings.TrimPrefix(sel, "="))
 	case sel == addWorldSel:
@@ -288,8 +369,13 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 	case "pgdown":
 		m.pagePick(1, page)
 	default:
+		was := m.filter()
 		if m.picker.form.key(k) {
-			m.fixPick()
+			if m.filter() != was {
+				m.filtered()
+			} else {
+				m.fixPick()
+			}
 		}
 	}
 	return nil
@@ -324,15 +410,18 @@ func addField(in *Input, hint string, role theme.Role, w int) (line string, col 
 }
 
 // pickerLine draws one picker row: a world, a character or an add row
-// indented under it, or the add-world row; highlighted when selected.
+// on its world's tree, or the add-world row; highlighted when selected,
+// the letters the filter matched underlined. An open character is bold,
+// with its badge and unread count as in the sidebar.
 func (m *Model) pickerLine(r sidebarRow, w int) string {
 	sel := selKey(r) == m.picker.sel
 	switch r.kind {
 	case rowWorld:
+		role := theme.PickerWorld
 		if sel {
-			return theme.Paint(theme.PickerWorldSelected, fitName(r.world, w))
+			role = theme.PickerWorldSelected
 		}
-		return theme.Paint(theme.PickerWorld, fitName(r.world, w))
+		return theme.Paint(role, style.Reassert(marked(r.world, r.marks, w), theme.SGR(role)))
 	case rowAddCharError:
 		return fit(" "+theme.Paint(theme.PickerError, r.text), w)
 	case rowAddChar, rowAddWorld:
@@ -349,10 +438,67 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 		}
 		return fit(indent+chip(role, label), w)
 	}
+	tree := theme.Paint(theme.PickerTree, r.tree())
+	w-- // past the tree
 	ch, _ := m.a.Find(r.char)
-	tree, line := theme.Paint(theme.PickerTree, r.tree()), fitName(ch.Name, w-1)
+	cs := m.chars[r.char]
+	if cs == nil {
+		line := marked(ch.Name, r.marks, w)
+		if sel {
+			return tree + theme.Paint(theme.PickerSelected, style.Reassert(line, theme.SGR(theme.PickerSelected)))
+		}
+		return tree + line
+	}
+	lead := ""
+	switch {
+	case cs.State == session.Connecting:
+		lead = glyph.Connecting + " "
+	case closable(cs):
+		lead = glyph.Remove + " "
+	}
+	activity := ""
+	if cs.Unread > 0 {
+		activity = fmt.Sprintf(" %d", cs.Unread)
+		if cs.Priority {
+			activity = " " + priorityMark() + activity
+		}
+	}
+	name := marked(lead+ch.Name, shift(r.marks, len([]rune(lead))), w-xansi.StringWidth(activity))
+	line := theme.Paint(theme.PickerOpen, style.Reassert(name, theme.SGR(theme.PickerOpen))) + activity
 	if sel {
-		return tree + theme.Paint(theme.PickerSelected, line)
+		return tree + theme.Paint(theme.PickerSelected, style.Reassert(line, theme.SGR(theme.PickerSelected)))
 	}
 	return tree + line
+}
+
+// marked is s fitted to w cells (cut with "…" when too long, as fitName),
+// the runes at at underlined as the filter's matches.
+func marked(s string, at []int, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	t := xansi.Truncate(s, w, "…")
+	rs := []rune(t)
+	kept := len(rs)
+	if t != s {
+		kept-- // the …
+	}
+	var b strings.Builder
+	for i, r := range rs {
+		if i < kept && slices.Contains(at, i) {
+			b.WriteString(theme.Paint(theme.PickerMatch, string(r)))
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return fit(b.String(), w)
+}
+
+// shift moves rune positions n to the right.
+func shift(at []int, n int) []int {
+	out := make([]int, len(at))
+	for i, a := range at {
+		out[i] = a + n
+	}
+	return out
 }

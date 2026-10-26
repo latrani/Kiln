@@ -82,9 +82,11 @@ export function Sidebar({ state, store }: { state: State; store: Store }) {
 }
 
 // PickerList is the picker in the sidebar, as the TUI's: its filter, then
-// worlds, the characters to open under them, and "+ Character" ending
-// each; the highlighted row lit. It's the list the filter controls, so a
-// screen reader hears the highlighted row as you move.
+// worlds, every character under them (an open one bold, with its badge
+// and unread count), and "+ Character" ending each; the highlighted row
+// lit, the letters the filter matched underlined. It's the list the
+// filter controls, so a screen reader hears the highlighted row as you
+// move.
 // A click does what Enter does.
 function PickerList({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
@@ -111,7 +113,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
                 const on = k === p.sel;
                 const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
                 if (r.kind === "world") {
-                  return <li {...opts} class={"pick " + roleClass(on ? "picker.world.selected" : "picker.world")}>{r.world}</li>;
+                  return <li {...opts} class={"pick " + (on ? "sel " : "") + roleClass(on ? "picker.world.selected" : "picker.world")}><Marked text={r.world} marks={r.marks} /></li>;
                 }
                 if (r.kind === "add_char" && p.adding === r.world) {
                   // The name being added, in the add row's place. No
@@ -125,9 +127,12 @@ function PickerList({ state, store }: { state: State; store: Store }) {
                 if (r.kind === "add_char") {
                   return <li {...opts} class="pick branch"><Tree role="picker.tree" last={r.last} /><span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
                 }
+                if (r.kind !== "char") return null;
                 return (
-                  <li {...opts} class="pick branch"><Tree role="picker.tree" last={r.kind === "char" && r.last} />
-                    <span class={"pname" + (on ? " " + roleClass("picker.selected") : "")}>{r.kind === "char" ? r.name : ""}</span></li>
+                  <li {...opts} class="pick branch"><Tree role="picker.tree" last={r.last} />
+                    <span class={"crow" + (on ? " sel " + roleClass("picker.selected") : "")}>
+                      {r.open ? <OpenChar c={state.chars[r.key]} name={r.name} marks={r.marks} /> : <span class="name"><Marked text={r.name} marks={r.marks} /></span>}
+                    </span></li>
                 );
               })}
             </ul>
@@ -143,6 +148,36 @@ function PickerList({ state, store }: { state: State; store: Store }) {
       </ul>
     </nav>
   );
+}
+
+// OpenChar is an open character's part of its picker row, as the TUI's:
+// bold, its badge (… connecting, × disconnected) before its name, its
+// unread count (after ● for a priority) at the right.
+function OpenChar({ c, name, marks }: { c: State["chars"][string] | undefined; name: string; marks: number[] }) {
+  const open = roleClass("picker.open");
+  const unread: number = c?.Unread ?? 0;
+  const badge = c?.State === connecting ? str.glyph.connecting : c?.State !== connected ? str.glyph.remove : "";
+  return (
+    <>
+      {badge && <span class={"lead " + open}>{badge + " "}</span>}
+      <span class={"name " + open}><Marked text={name} marks={marks} /></span>
+      {unread > 0 && (
+        <span class="activity">
+          {" "}
+          {c?.Priority && <><span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>{" "}</>}
+          {unread}
+        </span>
+      )}
+    </>
+  );
+}
+
+// Marked is text with the letters at marks underlined in picker.match:
+// the ones the picker's filter matched.
+function Marked({ text, marks }: { text: string; marks: number[] }) {
+  if (!marks.length) return <>{text}</>;
+  const match = roleClass("picker.match");
+  return <>{[...text].map((ch, i) => (marks.includes(i) ? <span key={i} class={match}>{ch}</span> : ch))}</>;
 }
 
 // Tree is the line from a world to a row under it, in role, as the

@@ -61,7 +61,9 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
    tree line when highlighted; a click picks. */
 .side .pick { display: block; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .side .pick.branch { display: flex; }
-.side .pick .pname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A highlighted row's parts (an open name, matched letters) take its
+   colors, as in the TUI, where they're drawn inside its reverse. */
+.side .sel * { color: inherit; background: none; }
 .side li[role="group"] { display: block; }
 /* The name being added, as the TUI's: at its tree line's end, the add
    chip's colors across the rest of the row, the text one in from its

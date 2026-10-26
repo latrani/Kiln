@@ -29,7 +29,9 @@ const (
 	PickerWorldSelected Role = "picker.world.selected"
 	PickerSelected      Role = "picker.selected"
 	PickerAdd           Role = "picker.add"
-	PickerFilter        Role = "picker.filter" // the filter, under its title
+	PickerFilter        Role = "picker.filter"   // the filter, under its title
+	PickerOpen          Role = "picker.open"     // an open character
+	PickerMatch         Role = "picker.match"    // a letter the filter matched
 	PickerError         Role = "picker.error"    // under a name being added: why it won't do
 	PickerTitle         Role = "picker.title"    // its list's first row
 	PickerCollapse      Role = "picker.collapse" // the ‹ at its title's right
@@ -129,7 +131,7 @@ const (
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTree, SidebarTitle, SidebarCollapse,
-	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerFilter, PickerError, PickerTitle, PickerCollapse, PickerTree,
+	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerFilter, PickerOpen, PickerMatch, PickerError, PickerTitle, PickerCollapse, PickerTree,
 	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleSidebar, RulePicker, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,

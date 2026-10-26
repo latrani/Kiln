@@ -91,6 +91,8 @@ type sidebarRow struct {
 	char  string // character key, for rowChar
 	text  string // the row's text, for rowAddCharError
 	last  bool   // a rowChar or rowAddChar with nothing after it under its world
+	match bool   // in the picker, a world or character the filter matched
+	marks []int  // in the picker, which of the row's name's runes the filter matched
 }
 
 // tree is the line from r's world to r, a character or "+ Character":

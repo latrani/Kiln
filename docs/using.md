@@ -16,8 +16,8 @@
 | `Ctrl+↑` / `Ctrl+↓` | Switch between open characters and their worlds' overviews (not in [log mode](log-mode.md)) |
 | `Tab` / `Shift+Tab` | Jump to the next (or previous) character with unread lines; with none, back to the one you were on before (not in [log mode](log-mode.md)) |
 | `Ctrl+B` | Collapse the sidebar, or bring it back |
-| `Ctrl+O` | Open a connection (same as `/open`): type to filter, `Enter` to connect, `Esc` to close |
-| `Ctrl+T` | Edit the active character (same as `/edit`), or on a world's overview the world; in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world does it too). Opened from the main view, the editor stays open on its character or world while you switch to others, like log mode. In the editor, `Ctrl+T` again hides it and keeps your edits for the next time you open it. Only `Esc` closes it and drops them |
+| `Ctrl+O` | Jump to a world or character, open or not (same as `/open`): type to filter, `Enter` to go there (connecting a character that isn't open), `Esc` or `Ctrl+O` to close. See [Jumping](#jumping) |
+| `Ctrl+T` | Edit the active character (same as `/edit`), or on a world's overview the world; in the `Ctrl+O` list, the highlighted world or character (`Enter` on a world with nothing open does it too). Opened from the main view, the editor stays open on its character or world while you switch to others, like log mode. In the editor, `Ctrl+T` again hides it and keeps your edits for the next time you open it. Only `Esc` closes it and drops them |
 | `PgUp` / `PgDn`, mouse wheel | Scroll back, or page through held output (see [Paging](#paging)) |
 | `Ctrl+L` | Open log mode; in log mode, hide it, kept as you left it for next time (`Esc` closes it fresh) |
 | `Esc` | Skip the login prompt; while scrolled back, jump to live (so does clicking the `▼ new` pill) |
@@ -36,6 +36,12 @@ Under 64 columns (a phone, a split terminal) there's no room for the sidebar bes
 
 Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: each of its open characters, when their last line came, and their last five lines, with a line between characters. Click a character's part to switch to it. The overview has the whole pane, with no input box; `PgUp`/`PgDn` and the mouse wheel scroll it when the characters don't all fit, and `Enter`, `Ctrl+O` and `Ctrl+T` work as usual.
 
+## Jumping
+
+`Ctrl+O` (or `/open`) turns the sidebar into a list of every world and character you've set up, open or not, alphabetical, with a filter under its title. Open characters are bold. The highlight starts on what you're looking at.
+
+Type letters that appear in order in a character's `world/name` to narrow the list: for Rook on `fm`, `fmr`, `fm/r` and `ro` all match, and the letters that matched are underlined. The highlight goes to the first match, so the same letters always land on the same row. `/` matches only the slash between world and name, which helps tell `fm/m…` from `fmm…`. `Enter` goes there: a world shows its overview, an open character shows itself, and one that isn't open opens and connects. `/open fmr` does all of that in one go. If nothing matches, the list stays up so you can see why.
+
 ## History
 
 `↑` on the input's top row, or the `History` button at the right of the bottom bar, opens the history panel: the input box grows to its full height and lists what you've sent from it, newest at the bottom and already selected, each line cut to fit with when it was sent on the right (just the time if it was today, the day too if not). It goes back past this session through your logs, reading older days as you move up; login lines never show. What you'd typed becomes a search, its line marked `/` instead of `›`: the list shows only what contains it, and typing changes it. `↑`/`↓` (`PgUp`/`PgDn` a page) move the selection; while you're scrolled up off the newest, a `▼ more` badge sits at the bottom right. `Enter`, or clicking a line, puts it in the input box to edit; `Enter` again sends it. `Esc`, `↓` past the newest, or the `History` button again close the panel and put back what you'd typed. Each character, and the input with nothing open, has its own history.
@@ -47,7 +53,7 @@ Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: 
 | `/connect`, `/reconnect` | Connect now (skips the reconnect wait) |
 | `/disconnect` | Disconnect and stay disconnected |
 | `/close` | Disconnect and remove the character from the sidebar |
-| `/open` | Open a connection (same as `Ctrl+O`) |
+| `/open [letters]` | Open the `Ctrl+O` list; with letters, jump straight to the first match (`/open fmr`) |
 | `/log` | Open log mode |
 | `/highlight <text>` | Highlight lines containing this text (saved to the world's file as a `highlight` tag) |
 | `/away` | Count as away right now: notifications go out, until your next key or click |

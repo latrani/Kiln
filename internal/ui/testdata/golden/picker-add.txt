@@ -5,7 +5,9 @@ All connections │fm · Kit                                       ? focus  ·  
  Filter         │                                                               
   @0-0 fg=#edd3c0,bg=#3d200b; @1-6 fg=#b19c8b,bg=#3d200b; @7-15 fg=#edd3c0,bg=#3d200b; @16-16 fg=#a2cdcc
 fm              │                                                               
-  @0-15 bold,fg=#e3bda0; @16-16 fg=#a2cdcc
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+├Kit            │                                                               
+  @0-0 fg=#cdb5a2; @1-15 bold,fg=#e3bda0; @16-16 fg=#a2cdcc
 ├Rook           │                                                               
   @0-0 fg=#cdb5a2; @1-15 fg=#e3bda0; @16-16 fg=#a2cdcc
 └ Ash           │                                                               
@@ -16,8 +18,6 @@ fm              │
   @0-0 fg=#e3bda0; @1-11 fg=ansi1; @12-15 fg=#e3bda0; @16-16 fg=#a2cdcc
  + World        │                                                               
   @0-8 fg=#edd3c0,bg=#3d200b; @9-15 fg=#e3bda0; @16-16 fg=#a2cdcc
-                │                                                               
-  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               

@@ -59,3 +59,20 @@ test("a reset the browser refuses says so on the status line", async () => {
   assert.deepEqual(sent.at(-1), { Do: "say", Text: str.webResetFailed(), Err: true });
   assert.equal(s.state.saving, false, "saving has stopped, so the page says it isn't");
 });
+
+test("/open with letters jumps to their first match, as the TUI's; with no match the picker stays up, filtered", () => {
+  const sent: any[] = [];
+  const s = new Store();
+  s.set({ phase: "running", act: (o: object) => sent.push(o) });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] }]);
+  effect(s)({ type: "Effect", effect: "Do", Cmd: "/open", Args: ["fmr"] });
+  const picker = () => s.state.picker;
+  assert.deepEqual(sent, [{ Do: "pick", Key: "fm/rook" }]);
+  assert.equal(picker(), undefined);
+  effect(s)({ type: "Effect", effect: "Do", Cmd: "/open", Args: ["zzz"] });
+  assert.equal(picker()?.filter, "zzz");
+  assert.equal(sent.length, 1, "nothing chosen");
+  s.closePicker();
+  effect(s)({ type: "Effect", effect: "Do", Cmd: "/open" });
+  assert.equal(picker()?.filter, "", "alone: the picker");
+});

@@ -251,11 +251,22 @@ func TestGoldenPicker(t *testing.T) {
 	assertGolden(t, "picker", h.drawn())
 }
 
+// The picker filtered: the letters matched underlined, the world's on
+// its row, the highlight on the first match.
+func TestGoldenPickerJump(t *testing.T) {
+	h := goldenHarness(t)
+	h.show(kilntest.MainLines[0])
+	h.press('o', tea.ModCtrl)
+	h.typeText("fmr")
+	assertGolden(t, "picker-jump", h.drawn())
+}
+
 func TestGoldenPickerAdd(t *testing.T) {
 	h := goldenHarness(t)
 	h.show(kilntest.MainLines[0])
 	h.press('o', tea.ModCtrl)
-	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // from Kit, past Rook, to fm's add row
 	h.enter()
 	h.typeText("Ash ") // the space is refused: the problem shows under the name
 	assertGolden(t, "picker-add", h.drawn())
