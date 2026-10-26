@@ -709,7 +709,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		m.clearLogStatus()
 		if k.String() == openBrowseKey { // the key that opened it hides it, prompt or not
 			cs.hideBrowse()
-			return nil
+			return tea.ClearScreen
 		}
 		cmd, closed := cs.browse.key(k, m.browseBodyH())
 		if closed {
@@ -728,7 +728,7 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		if cs != nil {
 			m.openBrowse(cs)
 		}
-		return nil
+		return tea.ClearScreen
 	case openEditorKey:
 		if cs != nil {
 			m.editCommand(cs, "")

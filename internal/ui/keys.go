@@ -27,7 +27,8 @@ const (
 )
 
 // openBrowseKey opens log mode (browse, in the code) from the normal view,
-// and closes it again.
+// and closes it again. Either way it repaints the whole screen too, as
+// Ctrl+L does in most terminal programs.
 const openBrowseKey = "ctrl+l"
 
 // openPickerKey opens the open-connection picker (like /open).
