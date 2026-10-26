@@ -30,7 +30,7 @@ func TestLog(t *testing.T) {
 
 	// Second, connected, with a line or two from the fake MUCK.
 	ctrlO(t, ws)
-	filter := `document.querySelector('.bottom input[role="combobox"]')`
+	filter := `document.querySelector('nav.side input[role="combobox"]')`
 	waitFor(t, ev, `document.activeElement === `+filter, "the filter")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "sec"})
 	pressKey(t, ws, "Enter", 13)
@@ -134,7 +134,7 @@ func TestFilter(t *testing.T) {
 	ev := evaluator(t, ws)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Worlds")`, "the worlds")
 	ctrlO(t, ws)
-	waitFor(t, ev, `document.activeElement === document.querySelector('.bottom input[role="combobox"]')`, "the filter")
+	waitFor(t, ev, `document.activeElement === document.querySelector('nav.side input[role="combobox"]')`, "the filter")
 	devtools(t, ws, "Input.insertText", map[string]any{"text": "sec"})
 	pressKey(t, ws, "Enter", 13)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Lines" && e.Key === "fake/second" && e.Lines.some(l => l.Kind === "server"))`, "Second's lines")

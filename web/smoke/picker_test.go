@@ -12,7 +12,7 @@ func TestPicker(t *testing.T) {
 	ev := evaluator(t, ws)
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Worlds")`, "the worlds")
 	input := `document.querySelector(".bottom textarea")`
-	filter := `document.querySelector('.bottom input[role="combobox"]')`
+	filter := `document.querySelector('nav.side input[role="combobox"]')`
 
 	// Enter on an empty input with nothing open shows the picker, focused;
 	// Esc puts focus back.

@@ -1283,8 +1283,11 @@ func (m *Model) sideClick(x, y int) tea.Cmd {
 		cs.browse.panelClick(x, y-sideTitleH, h-sideTitleH)
 		return nil
 	}
+	if m.listing() && y == sideTitleH { // the picker's filter, which has the keys already
+		return nil
+	}
 	sv := m.sidebarView()
-	r, hint := sv.at(y - sideTitleH)
+	r, hint := sv.at(y - m.sideHeadH())
 	switch {
 	case hint != 0:
 		m.scrollSidebar(hint * max(1, sv.avail-1))

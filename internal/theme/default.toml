@@ -30,6 +30,7 @@
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
 "picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
+"picker.filter"         = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
 "picker.error"          = { fg = "red" }
 "picker.title"          = { bold = true }
 "picker.collapse"       = { fg = "glaze.kaki-mid" }

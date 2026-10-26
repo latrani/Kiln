@@ -86,7 +86,11 @@ func TestLateEventFromClosedCharacterIgnored(t *testing.T) {
 
 // sideRow is the sidebar's list row y (under its title) as plain text,
 // untrimmed.
-func sideRow(h *harness, y int) string { return screenSide(h, y+sideTitleH) }
+func sideRow(h *harness, y int) string { return screenSide(h, listY(h, y)) }
+
+// listY is the screen row of the sidebar's list row y, past its title
+// (and the picker's filter while it's up).
+func listY(h *harness, y int) int { return h.m.sideHeadH() + y }
 
 // sideText is sidebar row y's text, trimmed, without its tree line.
 func sideText(h *harness, y int) string { return untree(sideRow(h, y)) }

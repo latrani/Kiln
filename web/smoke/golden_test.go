@@ -378,7 +378,7 @@ func TestGoldenPicker(t *testing.T) {
 	s := goldenScene(t, nil, nil)
 	s.show(kilntest.MainLines[0])
 	ctrlO(t, s.ws)
-	waitFor(t, s.ev, `document.activeElement === document.querySelector('.bottom input[role="combobox"]')`, "the picker")
+	waitFor(t, s.ev, `document.activeElement === document.querySelector('nav.side input[role="combobox"]')`, "the picker")
 	s.shoot("picker")
 	s.done()
 }
@@ -387,7 +387,7 @@ func TestGoldenPickerAdd(t *testing.T) {
 	s := goldenScene(t, nil, nil)
 	s.show(kilntest.MainLines[0])
 	ctrlO(t, s.ws)
-	waitFor(t, s.ev, `document.activeElement === document.querySelector('.bottom input[role="combobox"]')`, "the picker")
+	waitFor(t, s.ev, `document.activeElement === document.querySelector('nav.side input[role="combobox"]')`, "the picker")
 	pressKey(t, s.ws, "ArrowDown", 40) // Rook, then fm's add row, as the TUI's
 	pressKey(t, s.ws, "Enter", 13)
 	waitFor(t, s.ev, `document.activeElement === document.querySelector("#kiln-name")`, "the name field")

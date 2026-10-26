@@ -7,7 +7,7 @@ import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { FilterPanel } from "./FilterPanel.tsx";
-import { NameField } from "./PickerForm.tsx";
+import { FilterField, NameField } from "./PickerForm.tsx";
 
 // Session states (session.State).
 const connecting = 1, connected = 2;
@@ -81,10 +81,10 @@ export function Sidebar({ state, store }: { state: State; store: Store }) {
   );
 }
 
-// PickerList is the picker in the sidebar, as the TUI's: worlds, the
-// characters to open under them, and "+ Character" ending each; the
-// highlighted row lit. It's the list the picker's filter (PickerForm)
-// controls, so a screen reader hears the highlighted row as you move.
+// PickerList is the picker in the sidebar, as the TUI's: its filter, then
+// worlds, the characters to open under them, and "+ Character" ending
+// each; the highlighted row lit. It's the list the filter controls, so a
+// screen reader hears the highlighted row as you move.
 // A click does what Enter does.
 function PickerList({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
@@ -94,6 +94,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
       <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} collapse={{ role: "picker.collapse", state, store }} />
+      <FilterField state={state} store={store} />
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter, store.host.worlds === true)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen

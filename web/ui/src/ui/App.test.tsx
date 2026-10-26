@@ -368,27 +368,31 @@ test("with the picker open, the sidebar is the picker: worlds, characters to ope
   assert.ok(nav.includes(roleClass("picker")), "the picker's area role");
 });
 
-test("the picker's filter: the TUI's one row, a combobox for the list, in the form's area", () => {
+test("the picker's filter: under the sidebar's title, a combobox for the list; its keys in the form's area", () => {
   const s = new Store();
   s.set({ phase: "running" });
   s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "mira", Name: "Mira" }] }] }]);
   s.openPicker();
-  const html = bottom(render(<App store={s} />));
-  assert.ok(html.includes(roleClass("form")) && !html.includes("<textarea"), "the filter takes the input's place");
-  assert.match(html, new RegExp(`<label[^>]*>${str.pickerFilter()}: </label>`));
-  assert.match(html, /role="combobox"/);
-  assert.match(html, /aria-activedescendant="pick-fm\/mira"/);
-  assert.match(html, /aria-controls="kiln-picker"/);
-  assert.ok(html.includes(str.pickerHint()));
+  const html = render(<App store={s} />);
+  const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+  assert.ok(nav.indexOf('id="kiln-filter"') > nav.indexOf(str.pickerTitle()) && nav.indexOf('id="kiln-filter"') < nav.indexOf('role="listbox"'), "between the title and the list");
+  assert.match(nav, new RegExp(`class="name-field filter-field ${roleClass("picker.filter")}"><input id="kiln-filter"`));
+  assert.match(nav, /role="combobox"/);
+  assert.match(nav, /aria-activedescendant="pick-fm\/mira"/);
+  assert.match(nav, /aria-controls="kiln-picker"/);
+  assert.match(nav, new RegExp(`placeholder="${str.pickerFilter()}"`), "says what it is while empty, as the TUI's");
+  const pane = bottom(html);
+  assert.ok(pane.includes(roleClass("form")) && !pane.includes("<input") && !pane.includes("<textarea"), "the keys take the input's place");
+  assert.ok(pane.includes(str.pickerHint()));
 });
 
-test("a world's overview has no input, but the picker's filter shows there", () => {
+test("a world's overview has no input, but the picker's keys show there", () => {
   const s = new Store();
   s.set({ phase: "running" });
   s.apply([...three, { type: "Active", Key: "=fm" }]);
   assert.doesNotMatch(bottom(render(<App store={s} />)), /<input|<textarea/);
   s.openPicker();
-  assert.match(bottom(render(<App store={s} />)), /role="combobox"/);
+  assert.ok(bottom(render(<App store={s} />)).includes(str.pickerHint()));
 });
 
 test("adding a character: the name in the sidebar, in + Character's place; a problem under it; the keys in the form's area", () => {

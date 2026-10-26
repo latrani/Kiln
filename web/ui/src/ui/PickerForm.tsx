@@ -14,17 +14,19 @@ function pageRows(): number {
   return Math.max(1, Math.floor(nav.clientHeight / lh) - 1);
 }
 
-// useKeys keeps the keys with a picker form's field, as the TUI's picker
-// always has them: a key landing on no control (after a click on the
-// scrollback or a world's name) goes back to the field, the form's own
-// keys handled as if pressed there.
-function useKeys(ref: { current: HTMLInputElement | null }, onKeyDown: (e: KeyboardEvent) => void): void {
+// useKeys keeps the keys with a picker field while on, as the TUI's
+// picker always has them: a key landing on no control (after a click on
+// the scrollback or a world's name) goes back to the field, the field's
+// own keys handled as if pressed there.
+function useKeys(ref: { current: HTMLInputElement | null }, onKeyDown: (e: KeyboardEvent) => void, on = true): void {
   const handle = useRef(onKeyDown);
   handle.current = onKeyDown;
+  const live = useRef(on);
+  live.current = on;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as Element | null;
-      if (!ref.current || (t && t !== document.body && t.closest("a, button, input, textarea, select, summary, [contenteditable]"))) return;
+      if (!live.current || !ref.current || (t && t !== document.body && t.closest("a, button, input, textarea, select, summary, [contenteditable]"))) return;
       ref.current.focus();
       handle.current(e);
     };
@@ -33,30 +35,31 @@ function useKeys(ref: { current: HTMLInputElement | null }, onKeyDown: (e: Keybo
   }, []);
 }
 
-// PickerForm is the picker's part of the bottom pane, a TUI one-field
-// form: the filter, or while adding a character the keys for its name,
-// which is typed in the sidebar (NameField). The filter is a combobox
-// for the picker's list in the
-// sidebar (↑/↓ and PgUp/PgDn move the highlight, Enter chooses, Esc
-// closes). It takes focus when it opens; closing gives the input its
-// place back, and the input takes focus as it comes.
-export function PickerForm({ state, store }: { state: State; store: Store }) {
-  if (state.picker!.adding !== undefined) {
-    return (
-      <div class="pick-row">
-        <span id="kiln-name-hint" class={roleClass("form.hint")}>{str.pickerAddCharHint()}</span>
-      </div>
-    );
-  }
-  return <FilterForm state={state} store={store} />;
+// PickerForm is the picker's part of the bottom pane, as the TUI's: the
+// keys, while the filter (FilterField) or a new character's name
+// (NameField) is typed in the sidebar.
+export function PickerForm({ state }: { state: State }) {
+  const adding = state.picker!.adding !== undefined;
+  return (
+    <div class="pick-row">
+      <span id={adding ? "kiln-name-hint" : "kiln-filter-hint"} class={roleClass("form.hint")}>{adding ? str.pickerAddCharHint() : str.pickerHint()}</span>
+    </div>
+  );
 }
 
-function FilterForm({ state, store }: { state: State; store: Store }) {
+// FilterField is the picker's filter, under the sidebar's title, as the
+// TUI's: a combobox for the picker's list (↑/↓ and PgUp/PgDn move the
+// highlight, Enter chooses, Esc closes), saying what it is while empty.
+// It has the keys, and focus, unless a character's name is being added
+// or an editor is open over the picker; closing gives the input its
+// place back, and the input takes focus as it comes.
+export function FilterField({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
+  const on = p.adding === undefined && !p.edit;
   const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => ref.current?.focus(), []);
+  useEffect(() => { if (on) ref.current?.focus(); }, [on]);
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.defaultPrevented) return;
+    if (e.defaultPrevented || !on) return;
     const rows = pickerRows(state.worlds, state.chars, p.filter, store.host.worlds === true);
     const plain = !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
     let sel: string | undefined;
@@ -80,15 +83,14 @@ function FilterForm({ state, store }: { state: State; store: Store }) {
     e.preventDefault();
     store.setPicker({ sel });
   };
-  useKeys(ref, onKeyDown);
+  useKeys(ref, onKeyDown, on);
   return (
-    <div class="pick-row">
-      <label for="kiln-filter" class={roleClass("form.label")}>{str.pickerFilter()}: </label>
+    <div class={"name-field filter-field " + roleClass("picker.filter")}>
       <input id="kiln-filter" ref={ref} value={p.filter} role="combobox" aria-controls="kiln-picker" aria-expanded="true"
-        aria-autocomplete="list" aria-activedescendant={p.sel ? "pick-" + p.sel : undefined} autocomplete="off" spellcheck={false}
-        disabled={state.phase === "stopped"} onKeyDown={onKeyDown}
+        aria-autocomplete="list" aria-activedescendant={on && p.sel ? "pick-" + p.sel : undefined} autocomplete="off" spellcheck={false}
+        aria-label={str.pickerFilter()} placeholder={str.pickerFilter()} aria-describedby="kiln-filter-hint"
+        readOnly={!on} tabIndex={on ? undefined : -1} disabled={state.phase === "stopped"} onKeyDown={onKeyDown}
         onInput={(e) => store.setPicker({ filter: (e.currentTarget as HTMLInputElement).value })} />
-      <span class={roleClass("form.hint")}>{str.separator()}{str.pickerHint()}</span>
     </div>
   );
 }

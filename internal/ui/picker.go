@@ -13,7 +13,8 @@ import (
 	"github.com/latrani/Kiln/internal/theme"
 )
 
-// pickerHint follows the filter in the input area.
+// pickerHint is the picker's keys, in the input area while its filter
+// is typed in the sidebar.
 var pickerHint = str.PickerHint()
 
 // addCharHint is the hint for the editor that adds a character.
@@ -292,6 +293,12 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+// filterField draws the picker's filter, under the sidebar's title, the
+// width across; see addField. It returns the cursor's column too.
+func filterField(f *form, w int) (line string, col int) {
+	return addField(f.fields[0].in, f.fields[0].label, theme.PickerFilter, w)
 }
 
 // nameField draws the name being added, in place of "+ Character" and

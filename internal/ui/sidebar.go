@@ -193,7 +193,7 @@ func (m *Model) sidebarView() sideView {
 	if bh == 0 { // not shown: as its column would be (the picker pages by it)
 		bh = m.height
 	}
-	h := max(1, bh-sideTitleH)
+	h := max(1, bh-m.sideHeadH())
 	total := len(sv.rows)
 	if total <= h {
 		m.sideTop = 0
@@ -308,10 +308,18 @@ func fitName(s string, w int) string {
 	return fit(xansi.Truncate(s, w, "…"), w)
 }
 
-// sideTitleH is the rows above the sidebar's list: its title, which
-// names the list (open connections, the picker's, or log mode's
-// filters).
+// sideTitleH is the rows of the sidebar's title, which names the list
+// (open connections, the picker's, or log mode's filters).
 const sideTitleH = 2
+
+// sideHeadH is the rows above the sidebar's list: its title, and under
+// it the picker's filter while the list is the picker's.
+func (m *Model) sideHeadH() int {
+	if m.listing() {
+		return sideTitleH + 1
+	}
+	return sideTitleH
+}
 
 // sideTitle draws the sidebar's title row y (0 or 1), w wide: label in
 // r, then a rule across the column in rule, as the top bar's beside it.

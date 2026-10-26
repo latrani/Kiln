@@ -17,7 +17,7 @@ func TestEditor(t *testing.T) {
 	waitFor(t, ev, `kilnPage.events.some(e => e.type === "Worlds")`, "the worlds")
 	field := func(k string) string { return `document.querySelector("#ed-` + k + `")` }
 	selected := `document.querySelector('nav [aria-selected="true"]').id`
-	filter := `document.querySelector('.bottom input[role="combobox"]')`
+	filter := `document.querySelector('nav.side input[role="combobox"]')`
 
 	// The picker, ↑ from the first character to the world's row, Enter:
 	// its editor, focus past the fixed fields on Save, the scrollback

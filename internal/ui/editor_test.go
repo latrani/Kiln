@@ -453,7 +453,7 @@ func TestPickerClickKeepsDraft(t *testing.T) {
 	h.press('t', tea.ModCtrl)
 	h.focusOn(aliasesLabel)
 	h.typeText("kitty")
-	h.m.Update(tea.MouseClickMsg{X: 6, Y: sideTitleH, Button: tea.MouseLeft}) // the picker's fm row: its editor
+	h.m.Update(tea.MouseClickMsg{X: 6, Y: listY(h, 0), Button: tea.MouseLeft}) // the picker's fm row: its editor
 	if e := h.m.picker.edit; e == nil || e.kind != editWorld {
 		t.Fatalf("the click should open fm's editor:\n%s", h.screen())
 	}
