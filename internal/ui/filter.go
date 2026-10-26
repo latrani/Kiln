@@ -122,7 +122,7 @@ func (b *browse) toggleFold(sel filterSel) { b.fold(sel, !b.cs.Collapsed[sel.Ite
 
 // panelRows lays the panel out: per entry its name and its Hide and
 // Only buttons, as a tree; + Text last. A line runs down from under each
-// open parent's ▼, two columns a level, branching to each child. Hide
+// open parent's ▼, one column a level, branching to each child. Hide
 // and Only sit under the name, one column in. A blank row parts the tree
 // from the text rows and + Text, which is the field while text is
 // added.
@@ -149,11 +149,11 @@ func (b *browse) panelRows(w int) []panelRow {
 		if d > 0 {
 			more = append(more[:min(len(more), d-1)], hasSibling(es, i))
 			for _, m := range more[:d-1] {
-				lead += treeLine(m) + " "
+				lead += treeLine(m)
 			}
-			nameTree, btnTree = lead+glyphTreeLast+glyph.Rule, lead+"  "
+			nameTree, btnTree = lead+glyphTreeLast, lead+" "
 			if more[d-1] {
-				nameTree, btnTree = lead+glyphTreeBranch+glyph.Rule, lead+glyphTreeLine+" "
+				nameTree, btnTree = lead+glyphTreeBranch, lead+glyphTreeLine
 			}
 		}
 		name := e.Item.Name
@@ -169,15 +169,15 @@ func (b *browse) panelRows(w int) []panelRow {
 		open := e.Parent && !b.cs.Collapsed[e.Item] && i+1 < len(es) && es[i+1].Depth > d
 		switch {
 		case e.Parent && b.cs.Collapsed[e.Item]:
-			name = glyphCollapsed + " " + name
+			name = glyphCollapsed + name
 			if b.FilteredUnder(e.Item, items) {
 				name += " " + glyphFiltered
 			}
 		case e.Parent:
-			name = glyphOpen + " " + name
+			name = glyphOpen + name
 		}
 		if open {
-			btnTree += glyphTreeLine + " "
+			btnTree += glyphTreeLine
 		}
 		role := theme.FilterItem
 		if b.Panel != nil && b.Panel.Sel == e.sel() {
@@ -192,7 +192,10 @@ func (b *browse) panelRows(w int) []panelRow {
 		}
 		btns := theme.Paint(hide, str.FilterHide()) + str.Separator() + theme.Paint(onlyRole, str.FilterOnly())
 		btnX := xansi.StringWidth(nameTree) + 1
-		if e.Parent || e.Item.Text { // past the glyph
+		switch {
+		case e.Parent: // past the glyph
+			btnX++
+		case e.Item.Text: // past the × and its space
 			btnX += 2
 		}
 		rows = append(rows,

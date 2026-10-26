@@ -2,14 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { sidebarRows } from "./sidebar.ts";
 
-test("characters under their worlds, in order, then a gap and + Connection", () => {
+test("characters under their worlds, in order, each world's last ending its tree; then a gap and + Connection", () => {
   const chars = { "fm/kit": { World: "fm" }, "fm/rook": { World: "fm" }, "pf/ash": { World: "pf" } };
   assert.deepEqual(sidebarRows(["fm/kit", "fm/rook", "pf/ash"], chars), [
     { kind: "world", world: "fm" },
-    { kind: "char", key: "fm/kit", world: "fm" },
-    { kind: "char", key: "fm/rook", world: "fm" },
+    { kind: "char", key: "fm/kit", world: "fm", last: false },
+    { kind: "char", key: "fm/rook", world: "fm", last: true },
     { kind: "world", world: "pf" },
-    { kind: "char", key: "pf/ash", world: "pf" },
+    { kind: "char", key: "pf/ash", world: "pf", last: true },
     { kind: "gap" },
     { kind: "add" },
   ]);

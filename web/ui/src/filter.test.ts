@@ -24,16 +24,16 @@ test("glyphs: ▼ open, > folded (• when something under it is filtered), × o
 
 test("a tree, as the TUI's: lines from under each open ▼, Hide and Only a column in from the name; a blank row before the texts and + Text", () => {
   const rows = panelRows([E("", { Group: "category", Parent: true }), E("a", { Parent: true }), E("a/b"), E("a/c"), E("c"), E("", { Group: "flag", Parent: true }), E("s"), E("t", { Text: true })]);
-  const { treeLine: l, treeBranch: b, treeLast: z, rule: r } = str.glyph;
+  const { treeLine: l, treeBranch: b, treeLast: z } = str.glyph;
   assert.deepEqual(rows.flatMap((x) => (x.kind === "entry" ? [[x.tree, x.btnTree]] : [])), [
-    ["", `${l}  `], // Categories, open: its line, then Hide past its ▼
-    [b + r, `${l} ${l}  `], // a, open
-    [`${l} ${b}${r}`, `${l} ${l}  `], // a/b
-    [`${l} ${z}${r}`, `${l}    `], // a/c, a's last
-    [z + r, "   "], // c, Categories' last
-    ["", `${l}  `], // Flags
-    [z + r, "   "], // s
-    ["", "   "], // t, past its ×
+    ["", `${l} `], // Categories, open: its line, then Hide past its ▼
+    [b, `${l}${l} `], // a, open
+    [`${l}${b}`, `${l}${l} `], // a/b
+    [`${l}${z}`, `${l}  `], // a/c, a's last
+    [z, "  "], // c, Categories' last
+    ["", `${l} `], // Flags
+    [z, "  "], // s
+    ["", "   "], // t, past its × and its space
   ]);
   assert.deepEqual(rows.map((x) => x.gap), [false, false, false, false, false, false, false, true, false]);
   assert.equal(panelRows([E("a")]).at(-1)!.gap, true, "no texts: the blank row's before + Text");

@@ -25,7 +25,7 @@ func screenRow(h *harness, y int) string {
 // rowOf is the screen row starting (after spaces) with s; -1 for none.
 func rowOf(h *harness, s string) int {
 	for y, r := range strings.Split(h.screen(), "\n") {
-		if strings.HasPrefix(strings.TrimSpace(r), s) {
+		if strings.HasPrefix(untree(r), s) {
 			return y
 		}
 	}

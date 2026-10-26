@@ -4,10 +4,10 @@ Connections                                               ‹‹
   @0-59 fg=#a2cdcc
 fm                                                          
   @0-59 fg=#a0e3e1
- Kit                                                        
-  @0-59 bold,reverse,fg=#a0e3e1
- × Rook                                                  ● 3
-  @0-55 bold,fg=#a0e3e1; @56-56 fg=#a0e3e1; @57-57 bold,fg=#eed49f; @58-59 fg=#a0e3e1
+├Kit                                                        
+  @0-0 fg=#a2cdcc; @1-59 bold,reverse,fg=#a0e3e1
+└× Rook                                                  ● 3
+  @0-0 fg=#a2cdcc; @1-55 bold,fg=#a0e3e1; @56-56 fg=#a0e3e1; @57-57 bold,fg=#eed49f; @58-59 fg=#a0e3e1
                                                             
   @0-59 fg=#a0e3e1
  + Connection                                               

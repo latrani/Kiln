@@ -52,23 +52,25 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side li { display: flex; white-space: pre; }
 .side button { padding: 0; text-align: left; }
 .side .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
-.side .lead, .side .activity { flex: none; }
+.side .lead, .side .activity, .side .tree { flex: none; }
+/* A character's row past its tree line: what the active one lights. */
+.side .crow { display: flex; flex: 1 1 auto; min-width: 0; }
 /* A chip has a space either side, as the TUI's: + Connection. */
 .side button.chip { padding: 0 1ch; }
-/* The picker's rows: one line each; a character's lit across when
-   highlighted; a click picks. Blocks, not flex: a flex row drops the
-   lone space that sets a character and its add row one in, as the
-   TUI's. */
+/* The picker's rows: one line each; a character's lit across past its
+   tree line when highlighted; a click picks. */
 .side .pick { display: block; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.side .pick.branch { display: flex; }
+.side .pick .pname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .side li[role="group"] { display: block; }
-/* The name being added, as the TUI's: one in, the add chip's colors
-   across the rest of the row, the text one in from its edge and
-   scrolled sideways when long; under it, why it won't do, wrapped. The
-   indents are padding: a lone space at the start of a flex row is
-   dropped. */
-.side .pick.naming { cursor: auto; overflow: visible; white-space: normal; }
-.side .name-field { display: flex; margin-left: 1ch; padding-left: 1ch; }
-.filter-panel .name-field { margin-left: 0; } /* + Text's place, which isn't indented */
+/* The name being added, as the TUI's: at its tree line's end, the add
+   chip's colors across the rest of the row, the text one in from its
+   edge and scrolled sideways when long; under it, past the line, why it
+   won't do, wrapped. The text's indent is padding: a lone space at the
+   start of a flex row is dropped. */
+.side .pick.naming { cursor: auto; overflow: visible; white-space: normal; display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.side .pick.naming .name-note { grid-column: 2; padding-left: 0; }
+.side .name-field { display: flex; padding-left: 1ch; }
 .side .name-field input { flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
 .side .name-field input::placeholder { color: var(--role-form-hint-fg); opacity: 1; }
 .side .name-note { display: block; padding-left: 1ch; white-space: pre-wrap; overflow-wrap: anywhere; }

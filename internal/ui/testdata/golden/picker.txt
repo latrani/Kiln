@@ -4,10 +4,10 @@ All connections │fm · Kit                                       ? focus  ·  
   @0-15 fg=#cdb5a2; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
 fm              │                                                               
   @0-15 bold,fg=#e3bda0; @16-16 fg=#a2cdcc
- Rook           │                                                               
-  @0-15 reverse,fg=#e3bda0; @16-16 fg=#a2cdcc
-  + Character   │                                                               
-  @0-0 fg=#e3bda0; @1-13 fg=#edd3c0,bg=#3d200b; @14-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+├Rook           │                                                               
+  @0-0 fg=#cdb5a2; @1-15 reverse,fg=#e3bda0; @16-16 fg=#a2cdcc
+└ + Character   │                                                               
+  @0-0 fg=#cdb5a2; @1-13 fg=#edd3c0,bg=#3d200b; @14-15 fg=#e3bda0; @16-16 fg=#a2cdcc
  + World        │                                                               
   @0-8 fg=#edd3c0,bg=#3d200b; @9-15 fg=#e3bda0; @16-16 fg=#a2cdcc
                 │                                                               

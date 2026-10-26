@@ -138,7 +138,7 @@ func (m *Model) pickerRows() []sidebarRow {
 			}
 		}
 	}
-	return append(rows, sidebarRow{kind: rowAddWorld})
+	return branch(append(rows, sidebarRow{kind: rowAddWorld}))
 }
 
 // addingChar is the editor naming a new character, which the picker
@@ -295,11 +295,11 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 }
 
 // nameField draws the name being added, in place of "+ Character" and
-// in its colors, one space in; see addField. It returns the cursor's
-// column too.
+// in its colors, past the end of its world's tree line; see addField.
+// It returns the cursor's column too.
 func nameField(f *form, w int) (line string, col int) {
 	line, col = addField(f.fields[0].in, f.fields[0].hint, theme.PickerAdd, w-1)
-	return " " + line, col + 1
+	return theme.Paint(theme.PickerTree, glyphTreeLast) + line, col + 1
 }
 
 // addField draws in as the add row it replaces, in role: filling w,
@@ -335,7 +335,7 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 		}
 		label, role, indent := addWorldLabel, theme.PickerAdd, ""
 		if r.kind == rowAddChar {
-			label, indent = addCharLabel, " "
+			label, indent = addCharLabel, theme.Paint(theme.PickerTree, r.tree())
 		}
 		if sel {
 			role = theme.PickerSelected
@@ -343,9 +343,9 @@ func (m *Model) pickerLine(r sidebarRow, w int) string {
 		return fit(indent+chip(role, label), w)
 	}
 	ch, _ := m.a.Find(r.char)
-	line := fitName(" "+ch.Name, w)
+	tree, line := theme.Paint(theme.PickerTree, r.tree()), fitName(ch.Name, w-1)
 	if sel {
-		return theme.Paint(theme.PickerSelected, line)
+		return tree + theme.Paint(theme.PickerSelected, line)
 	}
-	return line
+	return tree + line
 }

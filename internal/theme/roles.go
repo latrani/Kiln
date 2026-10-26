@@ -20,6 +20,7 @@ const (
 	SidebarAdd          Role = "sidebar.add"
 	SidebarAction       Role = "sidebar.action" // unused since the web build's sidebar footer went; kept so themes that set it still load
 	SidebarMore         Role = "sidebar.more"
+	SidebarTree         Role = "sidebar.tree"     // the lines from a world to its characters
 	SidebarTitle        Role = "sidebar.title"    // its first row, "Connections"
 	SidebarCollapse     Role = "sidebar.collapse" // the ‹ at its title's right
 
@@ -31,6 +32,7 @@ const (
 	PickerError         Role = "picker.error"    // under a name being added: why it won't do
 	PickerTitle         Role = "picker.title"    // its list's first row
 	PickerCollapse      Role = "picker.collapse" // the ‹ at its title's right
+	PickerTree          Role = "picker.tree"     // the lines from a world to its characters
 
 	Divider     Role = "divider"
 	Rule        Role = "rule"
@@ -125,8 +127,8 @@ const (
 // Roles is every role, each after its parent.
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
-	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTitle, SidebarCollapse,
-	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle, PickerCollapse,
+	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTree, SidebarTitle, SidebarCollapse,
+	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerError, PickerTitle, PickerCollapse, PickerTree,
 	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleSidebar, RulePicker, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,

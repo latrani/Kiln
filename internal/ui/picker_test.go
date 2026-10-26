@@ -20,7 +20,7 @@ const spWorld = "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nn
 func sideRows(h *harness) []string {
 	var out []string
 	for _, row := range strings.Split(h.screen(), "\n")[sideTitleH:] {
-		s := strings.TrimSpace(strings.SplitN(row, "│", 2)[0])
+		s := untree(strings.SplitN(row, "│", 2)[0])
 		if s == "" {
 			break
 		}
@@ -361,10 +361,10 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	}
 	// The name goes where + Character was (rows: fm, Rook, it, + World),
 	// showing what to type while empty; the input area keeps only the hint.
-	if got := strings.TrimSpace(sideRow(h, 2)); got != str.PickerName() {
+	if got := sideText(h, 2); got != str.PickerName() {
 		t.Errorf("the empty name field = %q, want its hint", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != addWorldLabel {
+	if got := sideText(h, 3); got != addWorldLabel {
 		t.Errorf("row under the name field = %q", got)
 	}
 	if s := h.screen(); !strings.Contains(s, "│"+addCharHint) || strings.Contains(s, str.PickerName()+": ") {
@@ -378,7 +378,7 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	}
 	cursorAt(2, sideTitleH+2)
 	h.typeText("O'Br ")
-	if got := strings.TrimSpace(sideRow(h, 2)); got != "O'Br" {
+	if got := sideText(h, 2); got != "O'Br" {
 		t.Errorf("the name field = %q", got)
 	}
 	cursorAt(6, sideTitleH+2)
@@ -391,7 +391,7 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	if got, want := strings.Join(problem, " "), str.ConfigNameHasSpaces(); got != want {
 		t.Errorf("the refused space is explained as %q, want %q", got, want)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != problem[0] {
+	if got := sideText(h, 3); got != problem[0] {
 		t.Errorf("row under the name field = %q, want the problem", got)
 	}
 	h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + 3, Button: tea.MouseLeft})
@@ -420,7 +420,7 @@ func TestPickerAddCharacterScrolls(t *testing.T) {
 	name := strings.Repeat("Kit", 15)
 	h.typeText(name)
 	sw := SidebarWidth(h.m.width)
-	got := strings.TrimSpace(sideRow(h, 2))
+	got := sideText(h, 2)
 	if !strings.HasSuffix(name, got) || len(got) != sw-3 {
 		t.Errorf("the name field = %q, want the last %d of %q", got, sw-3, name)
 	}
@@ -428,7 +428,7 @@ func TestPickerAddCharacterScrolls(t *testing.T) {
 		t.Errorf("cursor = %+v, want the field's last column", c)
 	}
 	h.press(tea.KeyHome, 0)
-	if got := strings.TrimSpace(sideRow(h, 2)); !strings.HasPrefix(name, got) {
+	if got := sideText(h, 2); !strings.HasPrefix(name, got) {
 		t.Errorf("after Home the name field = %q, want the start of the name", got)
 	}
 }

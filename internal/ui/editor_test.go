@@ -176,7 +176,7 @@ func TestEditKeepsSidebar(t *testing.T) {
 	}
 	want := []string{"fm", "× Kit", "× Rook", "", addLabel}
 	for y, w := range want {
-		if got := strings.TrimSpace(sideRow(h, y)); got != w {
+		if got := sideText(h, y); got != w {
 			t.Errorf("sidebar row %d = %q, want %q:\n%s", y, got, w, h.screen())
 		}
 	}

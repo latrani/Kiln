@@ -4,10 +4,10 @@ Connections   ‹‹│fm · Kit                                       ? focus  
   @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
 fm              │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
- Kit            │                                                               
-  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
- × Rook      ● 3│                                                               
-  @0-11 bold,fg=#a0e3e1; @12-12 fg=#a0e3e1; @13-13 bold,fg=#eed49f; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
+├Kit            │                                                               
+  @0-0 fg=#a2cdcc; @1-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc
+└× Rook      ● 3│                                                               
+  @0-0 fg=#a2cdcc; @1-11 bold,fg=#a0e3e1; @12-12 fg=#a0e3e1; @13-13 bold,fg=#eed49f; @14-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
                 │                                                               
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc
  + Connection   │                                                               

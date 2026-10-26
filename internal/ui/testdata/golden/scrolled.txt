@@ -4,8 +4,8 @@ Connections   ‹‹│fm · Kit                                       ? focus  
   @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
 fm              │line 5 https://kiln.test/5                                     
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
- Kit            │line 6 https://kiln.test/6                                     
-  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
+└Kit            │line 6 https://kiln.test/6                                     
+  @0-0 fg=#a2cdcc; @1-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
                 │line 7 https://kiln.test/7                                     
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @24-42 underline
  + Connection   │line 8 https://kiln.test/8                                     

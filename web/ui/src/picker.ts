@@ -7,6 +7,7 @@
 // the preset.
 
 import type { Target } from "./editor.ts";
+import { branch } from "./sidebar.ts";
 import type { Answer, State, Store } from "./store.ts";
 
 // WorldInfo is a world of the Worlds event.
@@ -18,8 +19,8 @@ export interface WorldInfo {
 // PickRow is one row of the picker.
 export type PickRow =
   | { kind: "world"; world: string }
-  | { kind: "char"; world: string; key: string; name: string }
-  | { kind: "add_char"; world: string }
+  | { kind: "char"; world: string; key: string; name: string; last?: boolean }
+  | { kind: "add_char"; world: string; last?: boolean }
   | { kind: "add_world" };
 
 // matches reports whether a character fits the lowercased filter f: its
@@ -43,7 +44,7 @@ export function pickerRows(worlds: WorldInfo[], open: Record<string, unknown>, f
     if (chars.length || w.ID.toLowerCase().includes(f)) rows.push({ kind: "world", world: w.ID }, ...chars, { kind: "add_char", world: w.ID });
   }
   if (addWorld) rows.push({ kind: "add_world" });
-  return rows;
+  return branch(rows);
 }
 
 // selKey is what the highlight holds when r is highlighted: a

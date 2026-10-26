@@ -636,7 +636,7 @@ func manyChars(n int) string {
 func TestSidebarScrolls(t *testing.T) {
 	h := newHarness(t, map[string]string{"big": manyChars(30)}) // 33 rows, 22 high under the title
 	h.openAll()
-	side := func(y int) string { return strings.TrimSpace(sideRow(h, y)) }
+	side := func(y int) string { return sideText(h, y) }
 	if side(0) != "big" || side(20) != "× C19" || side(21) != "▼ 12 more" {
 		t.Fatalf("top of list:\n%s", h.screen())
 	}
@@ -751,7 +751,7 @@ func TestSidebarClick(t *testing.T) {
 		t.Errorf("active = %q", h.m.a.Active())
 	}
 	h.m.Update(tea.MouseClickMsg{X: 3, Y: sideTitleH, Button: tea.MouseLeft}) // the fm header: nothing happens
-	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" || !strings.Contains(h.screen(), "× Kit") {
+	if got := sideText(h, 0); got != "fm" || !strings.Contains(h.screen(), "× Kit") {
 		t.Errorf("header row = %q; worlds don't collapse:\n%s", got, h.screen())
 	}
 }

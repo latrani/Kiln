@@ -4,8 +4,8 @@ Connections   ‹‹│fm · Kit                                       ? focus  
   @0-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
 fm              │›say I'll be at the lighthouse.                                
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-47 faint
- Kit            │─── this Kiln session started Wed Sep 23 22:05 ───             
-  @0-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-66 faint
+└Kit            │─── this Kiln session started Wed Sep 23 22:05 ───             
+  @0-0 fg=#a2cdcc; @1-15 bold,reverse,fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-66 faint
                 │* connected to muck.test:8888                                  
   @0-15 fg=#a0e3e1; @16-16 fg=#a2cdcc; @17-45 faint
  + Connection   │›connect Kit ***                                               
