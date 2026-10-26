@@ -119,6 +119,25 @@ func TestBrowseOpensAndCloses(t *testing.T) {
 	}
 }
 
+// Ctrl+L repaints the whole screen as well, opening log mode or hiding it.
+func TestCtrlLRepaints(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld})
+	h.writeLog(day24, scene1...)
+	want := fmt.Sprintf("%T", tea.ClearScreen())
+	for _, step := range []string{"opening", "hiding"} {
+		cmd := h.key("ctrl+l")
+		if cmd == nil {
+			t.Fatalf("%s: no command", step)
+		}
+		if got := fmt.Sprintf("%T", cmd()); got != want {
+			t.Errorf("%s: command gives %s, want %s", step, got, want)
+		}
+	}
+	if h.br() != nil {
+		t.Error("second Ctrl+L left log mode showing")
+	}
+}
+
 func TestBrowseKeepsStatusline(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.writeLog(day24, scene1...)
