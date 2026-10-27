@@ -25,7 +25,7 @@ func screenRow(h *harness, y int) string {
 // rowOf is the screen row starting (after spaces) with s; -1 for none.
 func rowOf(h *harness, s string) int {
 	for y, r := range strings.Split(h.screen(), "\n") {
-		if strings.HasPrefix(strings.TrimSpace(r), s) {
+		if strings.HasPrefix(untree(r), s) {
 			return y
 		}
 	}
@@ -201,7 +201,8 @@ func TestNarrowAddCharacterAndHints(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
 	h.press('o', tea.ModCtrl)
-	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // from Kit, past Rook, to fm's add row
 	h.enter()
 	if h.m.picker == nil || h.m.picker.edit == nil {
 		t.Fatalf("no character editor:\n%s", h.screen())

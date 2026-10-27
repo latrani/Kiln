@@ -21,17 +21,22 @@
 "sidebar.add"          = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "sidebar.action"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "sidebar.more"         = { fg = "glaze.celadon-mid" }
+"sidebar.tree"         = { fg = "glaze.celadon-line" }
 "sidebar.title"        = { bold = true }
 "sidebar.collapse"     = { fg = "glaze.celadon-mid" }
 
 "picker"                = { fg = "glaze.kaki-ink" }
-"picker.world"          = { bold = true }
+"picker.world"          = {}
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
 "picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
+"picker.filter"         = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
+"picker.open"           = { bold = true }
+"picker.match"          = { underline = true }
 "picker.error"          = { fg = "red" }
 "picker.title"          = { bold = true }
 "picker.collapse"       = { fg = "glaze.kaki-mid" }
+"picker.tree"           = { fg = "glaze.kaki-line" }
 
 "divider"     = { fg = "glaze.celadon-line" }
 "rule.input"  = { fg = "glaze.gold-line" }

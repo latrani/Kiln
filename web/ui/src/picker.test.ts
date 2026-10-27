@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { answered, choose, editorKey, fixPick, logToggleKey, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
+import { answered, choose, editorKey, firstMatch, fixPick, logToggleKey, match, pickerKey, movePick, pagePick, pickable, pickerRows } from "./picker.ts";
 import { Store } from "./store.ts";
 import { noHost } from "./host.ts";
 import * as str from "./str.gen.ts";
@@ -11,19 +11,53 @@ const worlds = [
 ];
 const kinds = (rows: { kind: string }[]) => rows.map((r) => r.kind).join(" ");
 
-test("characters not open, under their worlds, each world ending with + Character; no + World on the web", () => {
+test("every character, open or not, under its world, each world ending with + Character; no + World on the web", () => {
   const rows = pickerRows(worlds, { "fm/kit": {} }, "", false);
-  assert.equal(kinds(rows), "world char add_char world char add_char", "the worlds are the relay's");
-  assert.deepEqual(pickable(rows), ["=Bay", "Bay/ash", "+Bay", "=fm", "fm/rook", "+fm"]);
+  assert.equal(kinds(rows), "world char add_char world char char add_char", "the worlds are the relay's");
+  assert.deepEqual(pickable(rows), ["=Bay", "Bay/ash", "+Bay", "=fm", "fm/kit", "fm/rook", "+fm"]);
+  assert.deepEqual(rows.flatMap((r) => (r.kind === "char" ? [r.open] : [])), [false, true, false], "Kit's open");
 });
 
-test("the filter matches a name, an alias or the world, ignoring case and spaces around it", () => {
-  assert.deepEqual(pickable(pickerRows(worlds, {}, " CIN ", false)), ["=Bay", "Bay/ash", "+Bay"]);
-  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm", false)), ["=fm", "fm/kit", "fm/rook", "+fm"]);
+test("the filter's letters, in order, in a world's name or a character's world/name, ignoring case and spaces around it", () => {
+  assert.deepEqual(pickable(pickerRows(worlds, {}, " BA ", false)), ["=Bay", "Bay/ash", "+Bay"], "a world");
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "fmr", false)), ["=fm", "fm/rook", "+fm"], "across the world and the name");
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "fm/", false)), ["=fm", "fm/kit", "fm/rook", "+fm"], "the / between them");
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "rf", false)), [], "out of order");
+  assert.deepEqual(pickable(pickerRows(worlds, {}, "cin", false)), [], "an alias isn't on screen");
 });
 
-test("a world whose name matches is listed with nothing to offer; one that doesn't, isn't", () => {
-  const rows = pickerRows(worlds, { "fm/kit": {}, "fm/rook": {} }, "f", false);
+test("match: the best placement, as the TUI's: where words start, the filter's first letter most", () => {
+  const at = (s: string, f: string) => match(s, f)?.at;
+  assert.deepEqual(at("fm/Rook", "fmr"), [0, 1, 3]);
+  assert.deepEqual(at("fm/Mira", "mr"), [3, 5], "Mira's M, where the name starts");
+  assert.deepEqual(at("sp/AshSable", "ss"), [0, 6], "S, where a word starts, over the s in Ash");
+  assert.deepEqual(at("Tapestries/Indi", "tapsi"), [0, 1, 2, 4, 11], "I, where the name starts");
+  assert.deepEqual(at("fm/Rook", ""), []);
+  assert.equal(match("fm/Rook", "rf"), undefined);
+});
+
+test("the highlight's match is the best, not the first: a name's first letter over one inside an earlier name; a world's own over a character's", () => {
+  const ws = [{ ID: "fm", Characters: ["Ash", "Kit", "Mira", "Rook"].map((n) => ({ ID: n.toLowerCase(), Name: n })) }, { ID: "sp", Characters: [{ ID: "sable", Name: "Sable" }] }];
+  assert.equal(firstMatch(pickerRows(ws, {}, "fmr", false)), "fm/rook");
+  assert.equal(firstMatch(pickerRows(ws, {}, "s", false)), "=sp");
+  assert.equal(firstMatch(pickerRows(ws, {}, "f/m", false)), "fm/mira");
+  assert.equal(firstMatch(pickerRows(ws, {}, "fm", false)), "=fm", "a tie: the first");
+});
+
+test("the letters matched: a character's in its name, a world's in its; a world listed for its characters, the first one's", () => {
+  const marks = (f: string) => pickerRows(worlds, {}, f, false).flatMap((r): unknown[] => (r.kind === "world" ? [[r.match, r.marks]] : r.kind === "char" ? [[r.name, r.marks]] : []));
+  assert.deepEqual(marks("fmr"), [[false, [0, 1]], ["Rook", [0]]]);
+  assert.deepEqual(marks("fm"), [[true, [0, 1]], ["Kit", []], ["Rook", []]]);
+});
+
+test("the first match: a world whose name matched, or else the first character", () => {
+  assert.equal(firstMatch(pickerRows(worlds, {}, "fm", false)), "=fm");
+  assert.equal(firstMatch(pickerRows(worlds, {}, "fmr", false)), "fm/rook");
+  assert.equal(firstMatch(pickerRows(worlds, {}, "zzz", false)), undefined);
+});
+
+test("a world whose name matches is listed with no characters; one that doesn't, isn't", () => {
+  const rows = pickerRows([{ ID: "sp" }, ...worlds], {}, "sp", false);
   assert.equal(kinds(rows), "world add_char");
 });
 
@@ -32,7 +66,7 @@ test("the highlight stays on its row, else goes to the first character, else the
   assert.equal(fixPick(rows, "fm/kit"), "fm/kit");
   assert.equal(fixPick(rows, "=fm"), "=fm", "a world's row can be highlighted");
   assert.equal(fixPick(rows, "gone/x"), "Bay/ash");
-  assert.equal(fixPick(pickerRows(worlds, { "Bay/ash": {}, "fm/kit": {}, "fm/rook": {} }, "", false), ""), "=Bay");
+  assert.equal(fixPick(pickerRows([{ ID: "fm" }], {}, "", false), ""), "=fm");
 });
 
 test("nothing matches: no rows, nothing highlighted", () => {
@@ -61,6 +95,22 @@ test("choosing a character picks it and closes the picker; + Character opens the
   choose(s, "fm/kit");
   assert.deepEqual(sent, [{ Do: "pick", Key: "fm/kit" }]);
   assert.equal(s.state.picker, undefined);
+});
+
+test("choosing a world shows its overview, closing the picker; with nothing open there it opens its editor", () => {
+  const sent: object[] = [];
+  const s = new Store();
+  s.set({ act: (o) => sent.push(o) });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }] }, { ID: "sp", Characters: [] }] },
+    { type: "Char", Key: "fm/kit", World: "fm", Name: "Kit", State: 2 }, { type: "Order", Keys: ["fm/kit"] }, { type: "Active", Key: "fm/kit" }]);
+  s.openPicker();
+  choose(s, "=fm");
+  assert.deepEqual(sent, [{ Do: "switch", Key: "=fm" }]);
+  assert.equal(s.state.picker, undefined);
+  s.openPicker();
+  choose(s, "=sp");
+  assert.ok(s.state.picker, "the picker stays, the editor over it");
+  assert.deepEqual(s.state.opening, { key: "=sp", closeAll: false });
 });
 
 const key = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean; shiftKey?: boolean } = {}, onBody = true) =>

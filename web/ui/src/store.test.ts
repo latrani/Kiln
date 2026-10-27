@@ -130,14 +130,35 @@ test("Saved and Problems are the latest answer, numbered", () => {
   assert.equal(s.state.answer?.Problems?.[0].Msg, "no");
 });
 
-test("the picker's highlight follows what Go sends: worlds coming, the highlighted character opening", () => {
+test("the picker's highlight follows what Go sends: worlds coming; the highlighted character opening keeps it", () => {
   const s = new Store();
   s.openPicker(); // before the worlds came: nothing to highlight
   assert.equal(s.state.picker?.sel, "", "no worlds yet: nothing highlighted");
   s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] }]);
   assert.equal(s.state.picker?.sel, "fm/kit");
   s.apply([{ type: "Char", Key: "fm/kit", World: "fm", Name: "Kit" }]);
-  assert.equal(s.state.picker?.sel, "fm/rook", "Kit's open now: not offered");
+  assert.equal(s.state.picker?.sel, "fm/kit", "Kit's open now: still listed");
+});
+
+test("the picker opens on what's showing; typing moves the highlight to the first match, emptying back", () => {
+  const s = new Store();
+  s.set({ phase: "running" });
+  s.apply([{ type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "rook", Name: "Rook" }] }] },
+    { type: "Char", Key: "fm/rook", World: "fm", Name: "Rook", State: 2 }, { type: "Order", Keys: ["fm/rook"] }, { type: "Active", Key: "fm/rook" }]);
+  s.openPicker();
+  assert.equal(s.state.picker?.sel, "fm/rook");
+  s.setPicker({ filter: "fm" });
+  assert.equal(s.state.picker?.sel, "=fm", "fm's own row matches first");
+  s.setPicker({ filter: "fmk" });
+  assert.equal(s.state.picker?.sel, "fm/kit");
+  s.setPicker({ sel: "fm/rook" });
+  s.setPicker({ filter: "fmk " });
+  assert.equal(s.state.picker?.sel, "fm/rook", "the same letters: the highlight stays where it was moved");
+  s.setPicker({ filter: "" });
+  assert.equal(s.state.picker?.sel, "fm/rook", "emptied: what's showing");
+  s.closePicker();
+  s.openPicker("fmk");
+  assert.equal(s.state.picker?.sel, "fm/kit", "opened with a filter: its first match");
 });
 
 // editor reads the open editor afresh (a plain s.state.picker read stays

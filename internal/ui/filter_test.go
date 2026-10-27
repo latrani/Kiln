@@ -12,7 +12,6 @@ import (
 
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/classify"
-	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
@@ -32,10 +31,7 @@ func panelSide(h *harness) []string {
 		} else if i := slices.Index(r, '│'); i >= 0 {
 			r = r[:i]
 		}
-		side := strings.TrimLeft(string(r), " "+glyphTreeLine)
-		if t := strings.TrimLeft(side, glyphTreeBranch+glyphTreeLast); t != side {
-			side = strings.TrimPrefix(t, glyph.Rule)
-		}
+		side := strings.TrimLeft(string(r), " "+glyphTreeLine+glyphTreeBranch+glyphTreeLast)
 		out = append(out, strings.TrimSpace(side))
 	}
 	return out
@@ -51,8 +47,8 @@ func unfold(h *harness) {
 func buttons() string { return str.FilterHide() + str.Separator() + str.FilterOnly() }
 
 // The groups' rows, open, as panelSide trims them.
-func catsRow() string  { return glyphOpen + " " + str.FilterCategories() }
-func flagsRow() string { return glyphOpen + " " + str.FilterFlags() }
+func catsRow() string  { return glyphOpen + str.FilterCategories() }
+func flagsRow() string { return glyphOpen + str.FilterFlags() }
 
 func TestPanelOpensAndCloses(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
@@ -61,14 +57,14 @@ func TestPanelOpensAndCloses(t *testing.T) {
 	h.key("f")
 	side := panelSide(h)
 	// Parents start folded; → opens one.
-	want := []string{catsRow(), buttons(), glyphCollapsed + " page", buttons(), classify.SentTag, buttons(), flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
+	want := []string{catsRow(), buttons(), glyphCollapsed + "page", buttons(), classify.SentTag, buttons(), flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side[i] != w {
 			t.Fatalf("panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
 		}
 	}
 	h.keys("down", "right")
-	want = []string{catsRow(), buttons(), glyphOpen + " page", buttons(), "in", buttons(), classify.SentTag, buttons(), flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
+	want = []string{catsRow(), buttons(), glyphOpen + "page", buttons(), "in", buttons(), classify.SentTag, buttons(), flagsRow(), buttons(), "self", buttons(), "", str.FilterAddText()}
 	for i, w := range want {
 		if side := panelSide(h); side[i] != w {
 			t.Fatalf("opened: panel row %d = %q, want %q:\n%s", i, side[i], w, h.screen())
@@ -149,7 +145,7 @@ func TestCollapsedParentMarksFilterBelow(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	h.keys("down", "down", "h", "up", "left") // hide page/in, collapse page
-	if got := panelSide(h)[2]; got != glyphCollapsed+" page "+glyphFiltered {
+	if got := panelSide(h)[2]; got != glyphCollapsed+"page "+glyphFiltered {
 		t.Errorf("collapsed page row = %q", got)
 	}
 }
@@ -185,28 +181,28 @@ func TestPanelClicks(t *testing.T) {
 	unfold(h)
 	f := h.kitFilter()
 	click := func(x, y int) { h.m.Update(tea.MouseClickMsg{X: x, Y: sideTitleH + y, Button: tea.MouseLeft}) }
-	// Rows: 0 ▼ Categories, 1 buttons, 2 ├─▼ page, 3 buttons, 4 │ └─in,
-	// 5 buttons, 6 └─sent, 7 buttons, 8 ▼ Flags, 9 buttons, 10 └─self,
+	// Rows: 0 ▼Categories, 1 buttons, 2 ├▼page, 3 buttons, 4 │└in,
+	// 5 buttons, 6 └sent, 7 buttons, 8 ▼Flags, 9 buttons, 10 └self,
 	// 11 buttons. Hide and Only sit a column in from the name: self's at
-	// 3, page's (past its ▼) at 5.
+	// 2, page's (past its ▼) at 3.
 	only := xansi.StringWidth(str.FilterHide() + str.Separator())
-	click(2, 11) // left of Hide: nothing
+	click(1, 11) // left of Hide: nothing
 	if f.Hidden(scene.Item{Name: "self"}) {
 		t.Error("clicking left of self's Hide hid it")
 	}
-	click(3, 11)
+	click(2, 11)
 	if !f.Hidden(scene.Item{Name: "self"}) {
 		t.Errorf("clicking self's Hide:\n%s", h.screen())
 	}
-	click(5+only, 3)
+	click(3+only, 3)
 	if !f.Only(scene.Item{Name: "page"}) {
 		t.Error("clicking page's Only")
 	}
-	click(2, 2) // the ▼
+	click(1, 2) // the ▼
 	if !h.m.chars["fm/kit"].Collapsed[scene.Item{Name: "page"}] {
 		t.Error("clicking ▼ should collapse page")
 	}
-	click(4, 10-2) // rows moved up two: self's name is now row 8
+	click(2, 10-2) // rows moved up two: self's name is now row 8
 	if h.br().Panel.Sel.Item != (scene.Item{Name: "self"}) {
 		t.Errorf("clicking a name selects it: %v", h.br().Panel.Sel)
 	}
@@ -462,7 +458,7 @@ func TestPanelListsFilteredTagsNotLoaded(t *testing.T) {
 	h.key("f")
 	unfold(h)
 	side := panelSide(h)
-	if !slices.Contains(side, glyphOpen+" whisper") || !slices.Contains(side, "in") {
+	if !slices.Contains(side, glyphOpen+"whisper") || !slices.Contains(side, "in") {
 		t.Errorf("whisper/in (Only, no lines loaded) not listed:\n%s", h.screen())
 	}
 }

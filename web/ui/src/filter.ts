@@ -36,7 +36,7 @@ function itemName(it: FilterItem): string {
 
 // panelRows is what the panel lists, as the TUI's panelRows: the entries
 // less those folded away, as a tree, then + Text. A line runs down from
-// under each open parent's ▼, two columns a level, branching to each
+// under each open parent's ▼, one column a level, branching to each
 // child; Hide and Only sit under the name, one column in.
 export function panelRows(entries: FilterEntry[]): PanelRow[] {
   const shown = entries.filter((e) => !e.FoldedAway);
@@ -47,13 +47,13 @@ export function panelRows(entries: FilterEntry[]): PanelRow[] {
     if (d > 0) {
       more.length = d - 1;
       more.push(hasSibling(shown, i));
-      const lead = more.slice(0, d - 1).map((m) => (m ? str.glyph.treeLine : " ") + " ").join("");
-      tree = lead + (more[d - 1] ? str.glyph.treeBranch : str.glyph.treeLast) + str.glyph.rule;
-      btnTree = lead + (more[d - 1] ? str.glyph.treeLine + " " : "  ");
+      const lead = more.slice(0, d - 1).map((m) => (m ? str.glyph.treeLine : " ")).join("");
+      tree = lead + (more[d - 1] ? str.glyph.treeBranch : str.glyph.treeLast);
+      btnTree = lead + (more[d - 1] ? str.glyph.treeLine : " ");
     }
     const open = e.Parent && !e.Folded && (shown[i + 1]?.Depth ?? 0) > d;
-    if (open) btnTree += str.glyph.treeLine + " ";
-    const btnX = tree.length + 1 + (e.Parent || it.Text ? 2 : 0); // past the glyph
+    if (open) btnTree += str.glyph.treeLine;
+    const btnX = tree.length + 1 + (e.Parent ? 1 : it.Text ? 2 : 0); // past the glyph, and a ×'s space
     btnTree += " ".repeat(Math.max(0, btnX - btnTree.length));
     const glyph = it.Text ? str.glyph.remove : e.Parent ? (e.Folded ? str.glyph.collapsed : str.glyph.open) : "";
     const after = e.Parent && e.Folded && e.FilteredUnder ? str.glyph.filtered : "";

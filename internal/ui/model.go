@@ -523,7 +523,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.picker.edit.form.paste(msg.Content)
 		} else if m.picker != nil {
 			m.picker.form.paste(msg.Content)
-			m.fixPick()
+			m.filtered()
 		} else if cs := m.cur(); cs != nil && cs.browse != nil {
 			// Only a text prompt takes a paste; the chat draft must not.
 			if p := cs.browse.prompt; p == promptFind || p == promptDate || p == promptFilename {
@@ -959,6 +959,9 @@ func (m *Model) do(d app.Do) tea.Cmd {
 	case "/backup", "/restore", "/reset":
 		m.setStatus(true, str.StatusUnknownCommand(d.Cmd)) // the web page's, so unknown here
 	case "/open":
+		if f := strings.Join(d.Args, ""); f != "" {
+			return m.jump(f)
+		}
 		m.openPicker() // says why not
 	case "/log":
 		m.openBrowse(cs)
@@ -1283,8 +1286,11 @@ func (m *Model) sideClick(x, y int) tea.Cmd {
 		cs.browse.panelClick(x, y-sideTitleH, h-sideTitleH)
 		return nil
 	}
+	if m.listing() && y == sideTitleH { // the picker's filter, which has the keys already
+		return nil
+	}
 	sv := m.sidebarView()
-	r, hint := sv.at(y - sideTitleH)
+	r, hint := sv.at(y - m.sideHeadH())
 	switch {
 	case hint != 0:
 		m.scrollSidebar(hint * max(1, sv.avail-1))

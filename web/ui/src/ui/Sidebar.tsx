@@ -1,22 +1,23 @@
 import { useLayoutEffect } from "preact/hooks";
 import { choose, pickerRows, selKey } from "../picker.ts";
 import type { PickRow } from "../picker.ts";
-import { canToggle, collapseButton, sideForced, sidebarRows, toggleSidebar } from "../sidebar.ts";
+import { canToggle, collapseButton, sideForced, sidebarRows, toggleSidebar, treeGlyph } from "../sidebar.ts";
 import { listing, logShows } from "../store.ts";
 import type { State, Store } from "../store.ts";
 import * as str from "../str.gen.ts";
 import { roleClass } from "../theme.ts";
 import { FilterPanel } from "./FilterPanel.tsx";
-import { NameField } from "./PickerForm.tsx";
+import { FilterField, NameField } from "./PickerForm.tsx";
 
 // Session states (session.State).
 const connecting = 1, connected = 2;
 
 // Sidebar is the worlds and characters, as the TUI draws them: a world
-// opens its overview; a character's row has its connection badge (… while
-// connecting; a × that closes it once disconnected; else a space), its
-// name, cut with … when too long, and its unread count, after ● when a
-// line was a priority. The active row is lit across. Last, after a gap,
+// opens its overview; a character's row hangs off its world's tree line,
+// then has its connection badge (… while connecting; a × that closes it
+// once disconnected; else nothing), its name, cut with … when too long,
+// and its unread count, after ● when a line was a priority. The active
+// row is lit across, past the tree. Last, after a gap,
 // "+ Connection" opens the picker. With the picker open, it's the
 // picker's list instead; in log mode, the filter panel. Each is titled,
 // as the TUI's.
@@ -54,22 +55,24 @@ export function Sidebar({ state, store }: { state: State; store: Store }) {
           const unread: number = c.Unread ?? 0;
           const priority = c.Priority && unread > 0;
           return (
-            <li key={r.key} class={on ? roleClass("sidebar.active") : undefined}>
-              <span class={"lead " + (own ?? "")}>
-                {" "}
-                {c.State === connecting && <>{str.glyph.connecting}{" "}</>}
-                {closable && <><button class={own} aria-label={str.webCloseChar(c.Name)} onClick={() => state.act?.({ Do: "close", Key: r.key })}>{str.glyph.remove}</button>{" "}</>}
-              </span>
-              <button class={"name " + (own ?? "")} aria-current={on ? "true" : undefined}
-                aria-label={unread > 0 ? (priority ? str.webCharPriority(c.Name, unread) : str.webCharUnread(unread, c.Name)) : undefined}
-                onClick={() => go(r.key)}>{c.Name}</button>
-              {unread > 0 && (
-                <span class="activity" aria-hidden="true">
-                  {" "}
-                  {priority && <><span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>{" "}</>}
-                  <span class={on ? undefined : roleClass("sidebar.unread")}>{unread}</span>
+            <li key={r.key}>
+              <Tree role="sidebar.tree" last={r.last} />
+              <span class={"crow" + (on ? " " + roleClass("sidebar.active") : "")}>
+                <span class={"lead " + (own ?? "")}>
+                  {c.State === connecting && <>{str.glyph.connecting}{" "}</>}
+                  {closable && <><button class={own} aria-label={str.webCloseChar(c.Name)} onClick={() => state.act?.({ Do: "close", Key: r.key })}>{str.glyph.remove}</button>{" "}</>}
                 </span>
-              )}
+                <button class={"name " + (own ?? "")} aria-current={on ? "true" : undefined}
+                  aria-label={unread > 0 ? (priority ? str.webCharPriority(c.Name, unread) : str.webCharUnread(unread, c.Name)) : undefined}
+                  onClick={() => go(r.key)}>{c.Name}</button>
+                {unread > 0 && (
+                  <span class="activity" aria-hidden="true">
+                    {" "}
+                    {priority && <><span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>{" "}</>}
+                    <span class={on ? undefined : roleClass("sidebar.unread")}>{unread}</span>
+                  </span>
+                )}
+              </span>
             </li>
           );
         })}
@@ -78,10 +81,12 @@ export function Sidebar({ state, store }: { state: State; store: Store }) {
   );
 }
 
-// PickerList is the picker in the sidebar, as the TUI's: worlds, the
-// characters to open under them, and "+ Character" ending each; the
-// highlighted row lit. It's the list the picker's filter (PickerForm)
-// controls, so a screen reader hears the highlighted row as you move.
+// PickerList is the picker in the sidebar, as the TUI's: its filter, then
+// worlds, every character under them (an open one bold, with its badge
+// and unread count), and "+ Character" ending each; the highlighted row
+// lit, the letters the filter matched underlined. It's the list the
+// filter controls, so a screen reader hears the highlighted row as you
+// move.
 // A click does what Enter does.
 function PickerList({ state, store }: { state: State; store: Store }) {
   const p = state.picker!;
@@ -91,6 +96,7 @@ function PickerList({ state, store }: { state: State; store: Store }) {
   return (
     <nav class={`side ${roleClass("picker")}`} aria-label={str.webCharacters()}>
       <SideTitle role="picker.title" rule="rule.picker" label={str.pickerTitle()} collapse={{ role: "picker.collapse", state, store }} />
+      <FilterField state={state} store={store} />
       <ul role="listbox" id="kiln-picker" aria-label={str.webPicker()}>
         {groups(pickerRows(state.worlds, state.chars, p.filter, store.host.worlds === true)).map(({ world, rows }) => (
           // Each world's options are a group named for it, so a screen
@@ -100,14 +106,14 @@ function PickerList({ state, store }: { state: State; store: Store }) {
             <ul role="none">
               {rows.map((r) => {
                 // A world's row is its name, lit in its own role; a
-                // character's row is lit across, one space in; "+
-                // Character" is a chip, one space in, and the name
-                // field while adding one.
+                // character's row hangs off the world's tree line and is
+                // lit across past it; "+ Character" is a chip at the
+                // line's end, and the name field while adding one.
                 const k = selKey(r);
                 const on = k === p.sel;
                 const opts = { key: k, id: "pick-" + k, role: "option" as const, "aria-selected": on, onClick: () => choose(store, k) };
                 if (r.kind === "world") {
-                  return <li {...opts} class={"pick " + roleClass(on ? "picker.world.selected" : "picker.world")}>{r.world}</li>;
+                  return <li {...opts} class={"pick " + (on ? "sel " : "") + roleClass(on ? "picker.world.selected" : "picker.world")}><Marked text={r.world} marks={r.marks} /></li>;
                 }
                 if (r.kind === "add_char" && p.adding === r.world) {
                   // The name being added, in the add row's place. No
@@ -116,12 +122,18 @@ function PickerList({ state, store }: { state: State; store: Store }) {
                   // character, as Go saves it) mustn't remount it before
                   // it hears Go's answer.
                   const { key: _k, onClick: _c, ...here } = opts;
-                  return <li key={k} {...here} class="pick naming"><NameField state={state} store={store} /></li>;
+                  return <li key={k} {...here} class="pick naming"><Tree role="picker.tree" last={r.last} /><NameField state={state} store={store} /></li>;
                 }
                 if (r.kind === "add_char") {
-                  return <li {...opts} class="pick"> <span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
+                  return <li {...opts} class="pick branch"><Tree role="picker.tree" last={r.last} /><span class={roleClass(on ? "picker.selected" : "picker.add")}> {str.pickerAddCharacter()} </span></li>;
                 }
-                return <li {...opts} class={"pick " + (on ? roleClass("picker.selected") : "")}> {r.kind === "char" ? r.name : ""}</li>;
+                if (r.kind !== "char") return null;
+                return (
+                  <li {...opts} class="pick branch"><Tree role="picker.tree" last={r.last} />
+                    <span class={"crow" + (on ? " sel " + roleClass("picker.selected") : "")}>
+                      {r.open ? <OpenChar c={state.chars[r.key]} name={r.name} marks={r.marks} /> : <span class="name"><Marked text={r.name} marks={r.marks} /></span>}
+                    </span></li>
+                );
               })}
             </ul>
           </li>
@@ -136,6 +148,42 @@ function PickerList({ state, store }: { state: State; store: Store }) {
       </ul>
     </nav>
   );
+}
+
+// OpenChar is an open character's part of its picker row, as the TUI's:
+// bold, its badge (… connecting, × disconnected) before its name, its
+// unread count (after ● for a priority) at the right.
+function OpenChar({ c, name, marks }: { c: State["chars"][string] | undefined; name: string; marks: number[] }) {
+  const open = roleClass("picker.open");
+  const unread: number = c?.Unread ?? 0;
+  const badge = c?.State === connecting ? str.glyph.connecting : c?.State !== connected ? str.glyph.remove : "";
+  return (
+    <>
+      {badge && <span class={"lead " + open}>{badge + " "}</span>}
+      <span class={"name " + open}><Marked text={name} marks={marks} /></span>
+      {unread > 0 && (
+        <span class="activity">
+          {" "}
+          {c?.Priority && <><span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>{" "}</>}
+          {unread}
+        </span>
+      )}
+    </>
+  );
+}
+
+// Marked is text with the letters at marks underlined in picker.match:
+// the ones the picker's filter matched.
+function Marked({ text, marks }: { text: string; marks: number[] }) {
+  if (!marks.length) return <>{text}</>;
+  const match = roleClass("picker.match");
+  return <>{[...text].map((ch, i) => (marks.includes(i) ? <span key={i} class={match}>{ch}</span> : ch))}</>;
+}
+
+// Tree is the line from a world to a row under it, in role, as the
+// TUI's: a branch, or the line's end for the world's last.
+function Tree({ role, last }: { role: string; last?: boolean }) {
+  return <span aria-hidden="true" class={"tree " + roleClass(role)}>{treeGlyph(last)}</span>;
 }
 
 // groups splits the picker's rows by world: each world's row, then its

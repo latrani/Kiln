@@ -86,7 +86,19 @@ func TestLateEventFromClosedCharacterIgnored(t *testing.T) {
 
 // sideRow is the sidebar's list row y (under its title) as plain text,
 // untrimmed.
-func sideRow(h *harness, y int) string { return screenSide(h, y+sideTitleH) }
+func sideRow(h *harness, y int) string { return screenSide(h, listY(h, y)) }
+
+// listY is the screen row of the sidebar's list row y, past its title
+// (and the picker's filter while it's up).
+func listY(h *harness, y int) int { return h.m.sideHeadH() + y }
+
+// sideText is sidebar row y's text, trimmed, without its tree line.
+func sideText(h *harness, y int) string { return untree(sideRow(h, y)) }
+
+// untree is a sidebar row trimmed, without the tree line it starts with.
+func untree(s string) string {
+	return strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(s), glyphTreeBranch+glyphTreeLast))
+}
 
 // screenSide is screen row y's sidebar column as plain text, untrimmed.
 func screenSide(h *harness, y int) string {
@@ -98,26 +110,26 @@ func TestSidebarBadgesAndActivity(t *testing.T) {
 	h.open("fm/rook")
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
-	if got := strings.TrimSpace(sideRow(h, 1)); got != "Kit" {
+	if got := sideText(h, 1); got != "Kit" {
 		t.Errorf("connected row = %q, want no badge", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 2)); got != "× Rook" {
+	if got := sideText(h, 2); got != "× Rook" {
 		t.Errorf("disconnected row = %q", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != "" {
+	if got := sideText(h, 3); got != "" {
 		t.Errorf("row above the add row = %q, want a gap", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 4)); got != addLabel {
+	if got := sideText(h, 4); got != addLabel {
 		t.Errorf("last row = %q", got)
 	}
 	h.m.chars["fm/rook"].State = session.Connecting
-	if got := strings.TrimSpace(sideRow(h, 2)); got != "… Rook" {
+	if got := sideText(h, 2); got != "… Rook" {
 		t.Errorf("connecting row = %q", got)
 	}
 	kit := h.m.chars["fm/kit"]
 	h.m.switchTo("fm/rook")
 	kit.Unread, kit.Priority = 3, true
-	if got := sideRow(h, 1); !strings.HasPrefix(strings.TrimSpace(got), "Kit") || !strings.HasSuffix(got, " ● 3") {
+	if got := sideRow(h, 1); !strings.HasPrefix(untree(got), "Kit") || !strings.HasSuffix(got, " ● 3") {
 		t.Errorf("priority row = %q, want the ● with the count on the right", got)
 	}
 	kit.Priority = false
@@ -180,7 +192,7 @@ func TestCloseCommand(t *testing.T) {
 func TestOpeningShowsConnectingNotX(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.m.connect(h.m.chars["fm/kit"])
-	if got := strings.TrimSpace(sideRow(h, 1)); got != "… Kit" {
+	if got := sideText(h, 1); got != "… Kit" {
 		t.Errorf("row = %q right after connecting", got)
 	}
 }
@@ -408,22 +420,25 @@ func TestClosingWorldsLastCharacterLeavesOverview(t *testing.T) {
 	}
 }
 
-func TestSidebarIndent(t *testing.T) {
+func TestSidebarTree(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.open("fm/rook") // disconnected, so it has a ×
 	h.init()
 	h.settle("fm/kit", h.connected("fm/kit"))
 	h.m.switchTo("fm/rook")
 	h.m.switchTo("fm/kit")
-	if got := sideRow(h, 1); !strings.HasPrefix(got, " Kit ") {
-		t.Errorf("connected row = %q, want the name one space in", got)
+	if got := sideRow(h, 1); !strings.HasPrefix(got, glyphTreeBranch+"Kit ") {
+		t.Errorf("connected row = %q, want the name just past a branch", got)
 	}
-	if got := sideRow(h, 2); !strings.HasPrefix(got, " × Rook ") {
-		t.Errorf("disconnected row = %q, want the × one space in, pushing the name over", got)
+	if got := sideRow(h, 2); !strings.HasPrefix(got, glyphTreeLast+glyph.Remove+" Rook ") {
+		t.Errorf("disconnected row = %q, want the line's end, then the ×, pushing the name over", got)
 	}
 	h.press('o', tea.ModCtrl)
-	if got := sideRow(h, 1); !strings.HasPrefix(got, "  "+addCharLabel+" ") {
-		t.Errorf("picker row = %q, want its chip one space in too", got)
+	if got := sideRow(h, 1); !strings.HasPrefix(got, glyphTreeBranch+"Kit ") {
+		t.Errorf("picker row = %q, want Kit on a branch", got)
+	}
+	if got := sideRow(h, 3); !strings.HasPrefix(got, glyphTreeLast+" "+addCharLabel+" ") {
+		t.Errorf("picker row = %q, want its chip at the line's end", got)
 	}
 }
 
@@ -435,7 +450,7 @@ func TestAddChipsFitNarrowSidebar(t *testing.T) {
 		t.Errorf("the %s chip is cut:\n%s", addLabel, s)
 	}
 	h.press('o', tea.ModCtrl)
-	if s := h.screen(); !strings.Contains(s, "  "+addCharLabel+" ") {
+	if s := h.screen(); !strings.Contains(s, glyphTreeLast+" "+addCharLabel+" ") {
 		t.Errorf("the %s chip is cut:\n%s", addCharLabel, s)
 	}
 }
@@ -465,7 +480,7 @@ func TestSidebarTitle(t *testing.T) {
 	if !strings.Contains(rows[1], theme.Paint(theme.RuleSidebar, strings.Repeat(glyph.Rule, l.sw))) {
 		t.Errorf("row 1 %q; want a rule across the column under the title", rows[1])
 	}
-	if got := strings.TrimSpace(sideRow(h, 0)); got != "fm" {
+	if got := sideText(h, 0); got != "fm" {
 		t.Errorf("first list row = %q; want the first world", got)
 	}
 }

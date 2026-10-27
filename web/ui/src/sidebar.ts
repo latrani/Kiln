@@ -9,7 +9,25 @@ import * as str from "./str.gen.ts";
 // (internal/ui/keys.go): one glyph is a hard target on a phone.
 export const menuButton = str.glyph.menu.repeat(2), collapseButton = str.glyph.collapse.repeat(2);
 
-export type Row = { kind: "world"; world: string } | { kind: "char"; key: string; world: string } | { kind: "gap" } | { kind: "add" };
+export type Row = { kind: "world"; world: string } | { kind: "char"; key: string; world: string; last: boolean } | { kind: "gap" } | { kind: "add" };
+
+// branch marks the characters (and "+ Character" rows) that end their
+// world's tree, as the TUI's branch: last, the line ends at them.
+export function branch<R extends { kind: string; last?: boolean }>(rows: R[]): R[] {
+  let more = false; // a character or "+ Character" comes later under this world
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    if (r.kind === "char" || r.kind === "add_char") {
+      r.last = !more;
+      more = true;
+    } else more = false;
+  }
+  return rows;
+}
+
+// treeGlyph is the line from a world to a row under it: a branch, or the
+// line's end for its world's last.
+export const treeGlyph = (last: boolean | undefined) => (last ? str.glyph.treeLast : str.glyph.treeBranch);
 
 // sidebarRows lists the open characters under their worlds, in order,
 // then a blank row and "+ Connection" (only that, with nothing open). A
@@ -24,11 +42,11 @@ export function sidebarRows(order: string[], chars: Record<string, { World: stri
       world = c.World;
       rows.push({ kind: "world", world });
     }
-    rows.push({ kind: "char", key, world: c.World });
+    rows.push({ kind: "char", key, world: c.World, last: false });
   }
   if (rows.length) rows.push({ kind: "gap" });
   rows.push({ kind: "add" });
-  return rows;
+  return branch(rows);
 }
 
 // sideForced reports whether the sidebar shows only for now, though

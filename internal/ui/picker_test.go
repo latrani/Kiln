@@ -19,8 +19,8 @@ const spWorld = "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nn
 // sideRows is the sidebar's text, trimmed, down to the first blank row.
 func sideRows(h *harness) []string {
 	var out []string
-	for _, row := range strings.Split(h.screen(), "\n")[sideTitleH:] {
-		s := strings.TrimSpace(strings.SplitN(row, "│", 2)[0])
+	for _, row := range strings.Split(h.screen(), "\n")[listY(h, 0):] {
+		s := untree(strings.SplitN(row, "│", 2)[0])
 		if s == "" {
 			break
 		}
@@ -32,11 +32,24 @@ func sideRows(h *harness) []string {
 func TestPickerOpensAndConnects(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
 	h.press('o', tea.ModCtrl)
-	if got := strings.Join(sideRows(h), "|"); got != "fm|Rook|"+addCharLabel+"|sp|Ash|"+addCharLabel+"|"+addWorldLabel {
-		t.Errorf("picker rows = %q, want unopened characters only", got)
+	if got := strings.Join(sideRows(h), "|"); got != "fm|× Kit|Rook|"+addCharLabel+"|sp|Ash|"+addCharLabel+"|"+addWorldLabel {
+		t.Errorf("picker rows = %q, want every character, open or not", got)
 	}
-	if s := h.screen(); !strings.Contains(s, "│"+str.PickerFilter()+":  "+str.Separator()+pickerHint) {
-		t.Errorf("no filter prompt:\n%s", s)
+	if h.m.picker.sel != "fm/kit" {
+		t.Errorf("sel = %q, want what's showing", h.m.picker.sel)
+	}
+	if got := strings.TrimSpace(screenSide(h, sideTitleH)); got != str.PickerFilter() {
+		t.Errorf("under the title = %q, want the filter, empty, saying what it is", got)
+	}
+	if c := h.m.View().Cursor; c == nil || c.X != 1 || c.Y != sideTitleH {
+		t.Errorf("cursor = %v, want in the filter", c)
+	}
+	if s := h.screen(); !strings.Contains(s, "│"+pickerHint) {
+		t.Errorf("the input area should say the picker's keys:\n%s", s)
+	}
+	h.typeText("roo")
+	if got := strings.TrimSpace(screenSide(h, sideTitleH)); got != "roo" {
+		t.Errorf("the filter = %q, want what's typed", got)
 	}
 	h.enter()
 	rook := h.m.chars["fm/rook"]
@@ -45,15 +58,63 @@ func TestPickerOpensAndConnects(t *testing.T) {
 	}
 }
 
+// Enter on an open character shows it, connecting nothing; on a world
+// with one open, its overview.
+func TestPickerJumpsToOpen(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.open("sp/ash")
+	h.press('o', tea.ModCtrl)
+	h.typeText("ash")
+	h.enter()
+	if h.m.picker != nil || h.m.a.Active() != "sp/ash" || h.m.chars["sp/ash"].Sess != nil {
+		t.Fatalf("Enter on open Ash: active %q, picker open %v, connected %v", h.m.a.Active(), h.m.picker != nil, h.m.chars["sp/ash"].Sess != nil)
+	}
+	h.press('o', tea.ModCtrl)
+	if h.m.picker.sel != "sp/ash" {
+		t.Errorf("sel = %q, want what's showing", h.m.picker.sel)
+	}
+	h.typeText("fm")
+	if h.m.picker.sel != worldSel("fm") {
+		t.Fatalf("sel = %q, want fm's own row, the first match", h.m.picker.sel)
+	}
+	h.enter()
+	if h.m.picker != nil || h.m.a.Active() != worldSel("fm") {
+		t.Errorf("Enter on fm: active %q, picker open %v; want its overview", h.m.a.Active(), h.m.picker != nil)
+	}
+	h.press('o', tea.ModCtrl)
+	if h.m.picker.sel != worldSel("fm") {
+		t.Errorf("sel = %q, want the overview showing", h.m.picker.sel)
+	}
+	h.press('o', tea.ModCtrl)
+	if h.m.picker != nil {
+		t.Error("Ctrl+O again should close the picker")
+	}
+}
+
+// A world with nothing open has no overview: Enter on it opens its
+// editor.
+func TestPickerWorldWithNothingOpen(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.press('o', tea.ModCtrl)
+	h.typeText("sp")
+	h.enter()
+	if h.m.picker == nil || h.m.picker.edit == nil || h.m.picker.edit.kind != editWorld {
+		t.Errorf("Enter on sp should open its editor:\n%s", h.screen())
+	}
+}
+
 func TestPickerFilter(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
 	h.press('o', tea.ModCtrl)
 	for filter, want := range map[string]string{
-		"cin": "sp|Ash|" + addCharLabel + "|" + addWorldLabel,  // alias
-		"SP":  "sp|Ash|" + addCharLabel + "|" + addWorldLabel,  // world, any case
-		"ro":  "fm|Rook|" + addCharLabel + "|" + addWorldLabel, // name
-		"zzz": addWorldLabel,                                   // nothing
-		"":    "fm|Rook|" + addCharLabel + "|sp|Ash|" + addCharLabel + "|" + addWorldLabel,
+		"SP":  "sp|Ash|" + addCharLabel + "|" + addWorldLabel,        // a world, any case
+		"ro":  "fm|Rook|" + addCharLabel + "|" + addWorldLabel,       // a name
+		"fmr": "fm|Rook|" + addCharLabel + "|" + addWorldLabel,       // in order, across the world and the name
+		"fm/": "fm|× Kit|Rook|" + addCharLabel + "|" + addWorldLabel, // the / between them
+		"rf":  addWorldLabel,                                         // out of order
+		"cin": addWorldLabel,                                         // an alias isn't on screen
+		"zzz": addWorldLabel,                                         // nothing
+		"":    "fm|× Kit|Rook|" + addCharLabel + "|sp|Ash|" + addCharLabel + "|" + addWorldLabel,
 	} {
 		h.m.picker.form.fields[0].in.SetValue("")
 		h.typeText(filter)
@@ -72,26 +133,26 @@ func TestPickerFilter(t *testing.T) {
 func TestPickerArrows(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
 	h.press('o', tea.ModCtrl)
-	if h.m.picker.sel != "fm/rook" {
-		t.Fatalf("sel = %q, want the first character", h.m.picker.sel)
+	if h.m.picker.sel != "fm/kit" {
+		t.Fatalf("sel = %q, want what's showing", h.m.picker.sel)
 	}
-	for range 3 { // fm's add row, sp's header, Ash
+	for range 4 { // Rook, fm's add row, sp's header, Ash
 		h.press(tea.KeyDown, 0)
 	}
 	if h.m.picker.sel != "sp/ash" {
-		t.Errorf("sel = %q after ↓↓↓", h.m.picker.sel)
+		t.Errorf("sel = %q after ↓×4", h.m.picker.sel)
 	}
 	for range 4 {
 		h.press(tea.KeyDown, 0) // clamps at the last
 	}
 	if h.m.picker.sel != addWorldSel {
-		t.Errorf("sel = %q after ↓↓↓↓", h.m.picker.sel)
+		t.Errorf("sel = %q after ↓×4 more", h.m.picker.sel)
 	}
-	for range 5 {
+	for range 6 {
 		h.press(tea.KeyUp, 0) // through the add rows and a header
 	}
-	if h.m.picker.sel != "fm/rook" {
-		t.Errorf("sel = %q after ↑×5", h.m.picker.sel)
+	if h.m.picker.sel != "fm/kit" {
+		t.Errorf("sel = %q after ↑×6", h.m.picker.sel)
 	}
 	h.press(tea.KeyUp, 0)
 	h.press(tea.KeyUp, 0) // clamps at the first header
@@ -99,28 +160,130 @@ func TestPickerArrows(t *testing.T) {
 		t.Errorf("sel = %q, want fm's header", h.m.picker.sel)
 	}
 	h.press(tea.KeyDown, 0)
-	h.typeText("a") // "a" matches Ash only (not Rook): the highlight follows
+	h.typeText("a") // "a" matches Ash first: the highlight goes there
 	if h.m.picker.sel != "sp/ash" {
 		t.Errorf("sel = %q after filtering", h.m.picker.sel)
+	}
+	h.press(tea.KeyUp, 0)
+	h.press(tea.KeyLeft, 0) // the filter's cursor moves, its text doesn't: the highlight stays
+	if h.m.picker.sel != worldSel("sp") {
+		t.Errorf("sel = %q after ↑ and ←, want sp's header", h.m.picker.sel)
+	}
+	h.press(tea.KeyRight, 0)
+	h.press(tea.KeyBackspace, 0) // the filter, emptied: back to what's showing
+	if h.m.picker.sel != "fm/kit" {
+		t.Errorf("sel = %q with the filter emptied, want what's showing", h.m.picker.sel)
+	}
+}
+
+func TestMatch(t *testing.T) {
+	for _, c := range []struct {
+		s, f string
+		at   []int
+		ok   bool
+	}{
+		{"fm/Rook", "fmr", []int{0, 1, 3}, true},
+		{"fm/Rook", "FM/", []int{0, 1, 2}, true},
+		{"fm/Rook", "", nil, true},
+		{"fm/Rook", "rf", nil, false},
+		{"fm/Kit", "fmk", []int{0, 1, 3}, true},
+		{"fm/Mira", "mr", []int{3, 5}, true},                      // Mira's M, where the name starts
+		{"sp/AshSable", "ss", []int{0, 6}, true},                  // S, where a word starts, over the s in Ash
+		{"Tapestries/Indi", "tapsi", []int{0, 1, 2, 4, 11}, true}, // I, where the name starts
+	} {
+		at, _, ok := match(c.s, c.f)
+		if ok != c.ok || !slices.Equal(at, c.at) {
+			t.Errorf("match(%q, %q) = %v, %v; want %v, %v", c.s, c.f, at, ok, c.at, c.ok)
+		}
+	}
+}
+
+// The highlight goes to the best match, not the first: letters where
+// words start count most, and the filter's first letter most of all.
+func TestPickerPrefersWordStarts(t *testing.T) {
+	fm := "host = \"fm.test\"\nport = 1\n"
+	for _, n := range []string{"Ash", "Kit", "Mira", "Rook"} {
+		fm += fmt.Sprintf("\n[[characters]]\nid = %q\nname = %q\n", strings.ToLower(n), n)
+	}
+	sp := "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"sable\"\nname = \"Sable\"\n"
+	h := newHarness(t, map[string]string{"fm": fm, "sp": sp})
+	h.press('o', tea.ModCtrl)
+	for filter, want := range map[string]string{
+		"fmr": "fm/rook",      // Rook's R starts its name; Mira's r doesn't
+		"s":   worldSel("sp"), // sp starts with s; Ash only has one
+		"f/m": "fm/mira",      // Mira's M, not the m in fm
+		"fm":  worldSel("fm"), // fm itself, before its characters, which tie it
+	} {
+		h.m.picker.form.fields[0].in.SetValue("")
+		h.typeText(filter)
+		if h.m.picker.sel != want {
+			t.Errorf("filter %q: sel = %q, want %q", filter, h.m.picker.sel, want)
+		}
+	}
+}
+
+// /open with a filter jumps to its first match, as Ctrl+O, typing it
+// and Enter would; with no match the picker stays up, filtered.
+func TestOpenCommandJumps(t *testing.T) {
+	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
+	h.typeText("/open fmr")
+	h.enter()
+	if cs := h.m.chars["fm/rook"]; h.m.picker != nil || cs == nil || cs.Sess == nil || h.m.a.Active() != "fm/rook" {
+		t.Fatalf("/open fmr should open, connect and show Rook:\n%s", h.screen())
+	}
+	h.typeText("/open zzz")
+	h.enter()
+	if h.m.picker == nil || h.m.picker.form.value(0) != "zzz" || h.m.picker.edit != nil {
+		t.Errorf("/open zzz should leave the picker up, filtered:\n%s", h.screen())
+	}
+	h.press(tea.KeyEscape, 0)
+	h.typeText("/open")
+	h.enter()
+	if h.m.picker == nil || h.m.picker.form.value(0) != "" {
+		t.Error("/open alone should open the picker")
+	}
+}
+
+// The first match is the same row whatever's open: the list's order
+// doesn't change as characters open and close.
+func TestPickerFirstMatchIsStable(t *testing.T) {
+	two := fmWorld + "\n[[characters]]\nid = \"mira\"\nname = \"Mira\"\n"
+	h := newHarness(t, map[string]string{"fm": two})
+	h.press('o', tea.ModCtrl)
+	h.typeText("i")
+	if h.m.picker.sel != "fm/kit" { // Kit's i and Mira's tie: the first
+		t.Errorf("i: sel = %q", h.m.picker.sel)
+	}
+	h.press(tea.KeyEscape, 0)
+	h.open("fm/mira")
+	h.press('o', tea.ModCtrl)
+	h.typeText("i")
+	if h.m.picker.sel != "fm/kit" {
+		t.Errorf("i with Mira open: sel = %q, still Kit", h.m.picker.sel)
+	}
+	h.typeText("r")
+	if h.m.picker.sel != "fm/mira" {
+		t.Errorf("ir: sel = %q", h.m.picker.sel)
 	}
 }
 
 func TestPickerClicks(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	click := func(y int) tea.Cmd {
-		_, cmd := h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + y, Button: tea.MouseLeft})
+		_, cmd := h.m.Update(tea.MouseClickMsg{X: 4, Y: listY(h, y), Button: tea.MouseLeft})
 		return cmd
 	}
 	click(3) // rows: fm, Kit, a gap, + Connection
 	if h.m.picker == nil {
 		t.Fatalf("clicking %s didn't open the picker:\n%s", addLabel, h.screen())
 	}
-	click(0) // a world header: nothing
-	if h.m.picker == nil {
-		t.Fatal("clicking a header closed the picker")
-	}
-	if click(1) == nil || h.m.chars["fm/rook"] == nil || h.m.picker != nil {
+	if click(2) == nil || h.m.chars["fm/rook"] == nil || h.m.picker != nil { // rows: fm, Kit, Rook, + Character
 		t.Errorf("clicking Rook should open and connect it:\n%s", h.screen())
+	}
+	h.press('o', tea.ModCtrl)
+	click(0)
+	if h.m.picker != nil || h.m.a.Active() != worldSel("fm") {
+		t.Errorf("clicking fm should show its overview: active %q", h.m.a.Active())
 	}
 }
 
@@ -234,15 +397,12 @@ func TestPickerBlockedBySavePasswordQuestion(t *testing.T) {
 
 func TestPickerAddRows(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld, "sp": spWorld})
-	h.open("fm/rook") // with Kit autoconnected, fm has nobody left to offer
 	h.press('o', tea.ModCtrl)
-	want := "fm|" + addCharLabel + "|sp|Ash|" + addCharLabel + "|" + addWorldLabel
+	want := "fm|× Kit|Rook|" + addCharLabel + "|sp|Ash|" + addCharLabel + "|" + addWorldLabel
 	if got := strings.Join(sideRows(h), "|"); got != want {
 		t.Errorf("rows = %q, want %q", got, want)
 	}
-	if h.m.picker.sel != "sp/ash" {
-		t.Errorf("sel = %q, want the first character", h.m.picker.sel)
-	}
+	h.m.picker.sel = "sp/ash"
 	h.press(tea.KeyUp, 0)
 	h.press(tea.KeyUp, 0) // past sp's header
 	if h.m.picker.sel != addCharSel("fm") {
@@ -354,17 +514,18 @@ func TestPickerAddWorldErrorKeepsEditor(t *testing.T) {
 func TestPickerAddCharacterConnects(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.press('o', tea.ModCtrl)
-	h.press(tea.KeyDown, 0) // Rook, then fm's add row
+	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // from Kit, past Rook, to fm's add row
 	h.enter()
 	if h.m.picker.edit == nil {
 		t.Fatalf("no character editor:\n%s", h.screen())
 	}
-	// The name goes where + Character was (rows: fm, Rook, it, + World),
+	// The name goes where + Character was (rows: fm, Kit, Rook, it, + World),
 	// showing what to type while empty; the input area keeps only the hint.
-	if got := strings.TrimSpace(sideRow(h, 2)); got != str.PickerName() {
+	if got := sideText(h, 3); got != str.PickerName() {
 		t.Errorf("the empty name field = %q, want its hint", got)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != addWorldLabel {
+	if got := sideText(h, 4); got != addWorldLabel {
 		t.Errorf("row under the name field = %q", got)
 	}
 	if s := h.screen(); !strings.Contains(s, "│"+addCharHint) || strings.Contains(s, str.PickerName()+": ") {
@@ -376,12 +537,12 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 			t.Errorf("cursor = %+v, want (%d, %d)", c, x, y)
 		}
 	}
-	cursorAt(2, sideTitleH+2)
+	cursorAt(2, listY(h, 3))
 	h.typeText("O'Br ")
-	if got := strings.TrimSpace(sideRow(h, 2)); got != "O'Br" {
+	if got := sideText(h, 3); got != "O'Br" {
 		t.Errorf("the name field = %q", got)
 	}
-	cursorAt(6, sideTitleH+2)
+	cursorAt(6, listY(h, 3))
 	var problem []string
 	for _, r := range h.m.pickerRows() {
 		if r.kind == rowAddCharError {
@@ -391,10 +552,10 @@ func TestPickerAddCharacterConnects(t *testing.T) {
 	if got, want := strings.Join(problem, " "), str.ConfigNameHasSpaces(); got != want {
 		t.Errorf("the refused space is explained as %q, want %q", got, want)
 	}
-	if got := strings.TrimSpace(sideRow(h, 3)); got != problem[0] {
+	if got := sideText(h, 4); got != problem[0] {
 		t.Errorf("row under the name field = %q, want the problem", got)
 	}
-	h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + 3, Button: tea.MouseLeft})
+	h.m.Update(tea.MouseClickMsg{X: 4, Y: listY(h, 4), Button: tea.MouseLeft})
 	if e := h.m.addingChar(); e == nil || e.form.value(0) != "O'Br" {
 		t.Error("a click on the problem should leave the name be")
 	}
@@ -416,19 +577,20 @@ func TestPickerAddCharacterScrolls(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	h.press('o', tea.ModCtrl)
 	h.press(tea.KeyDown, 0)
+	h.press(tea.KeyDown, 0) // from Kit, past Rook, to fm's add row
 	h.enter()
 	name := strings.Repeat("Kit", 15)
 	h.typeText(name)
 	sw := SidebarWidth(h.m.width)
-	got := strings.TrimSpace(sideRow(h, 2))
+	got := sideText(h, 3)
 	if !strings.HasSuffix(name, got) || len(got) != sw-3 {
 		t.Errorf("the name field = %q, want the last %d of %q", got, sw-3, name)
 	}
-	if c := h.m.View().Cursor; c == nil || c.X != sw-1 || c.Y != sideTitleH+2 {
+	if c := h.m.View().Cursor; c == nil || c.X != sw-1 || c.Y != listY(h, 3) {
 		t.Errorf("cursor = %+v, want the field's last column", c)
 	}
 	h.press(tea.KeyHome, 0)
-	if got := strings.TrimSpace(sideRow(h, 2)); !strings.HasPrefix(name, got) {
+	if got := sideText(h, 3); !strings.HasPrefix(name, got) {
 		t.Errorf("after Home the name field = %q, want the start of the name", got)
 	}
 }
@@ -436,20 +598,20 @@ func TestPickerAddCharacterScrolls(t *testing.T) {
 func TestPickerClickAddRows(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	click := func(y int) {
-		h.m.Update(tea.MouseClickMsg{X: 4, Y: sideTitleH + y, Button: tea.MouseLeft})
+		h.m.Update(tea.MouseClickMsg{X: 4, Y: listY(h, y), Button: tea.MouseLeft})
 	}
-	h.press('o', tea.ModCtrl) // rows: fm, Rook, + Character, + World
-	click(2)
+	h.press('o', tea.ModCtrl) // rows: fm, Kit, Rook, + Character, + World
+	click(3)
 	if e := h.m.picker.edit; e == nil || e.world != "fm" {
 		t.Fatalf("clicking %s didn't open fm's character editor", addCharLabel)
 	}
-	click(3) // another row leaves the editor for that row's
+	click(4) // another row leaves the editor for that row's
 	if e := h.m.picker.edit; e == nil || e.world != "" {
 		t.Fatalf("clicking %s didn't open the world editor", addWorldLabel)
 	}
-	click(0) // a header opens its world's editor instead
-	if e := h.m.picker.edit; e == nil || e.kind != editWorld || e.world != "fm" {
-		t.Error("clicking a header should open that world's editor")
+	click(0) // a header shows its world's overview, leaving the editor
+	if h.m.picker != nil || h.m.a.Active() != worldSel("fm") {
+		t.Errorf("clicking a header should show its world's overview: active %q", h.m.a.Active())
 	}
 }
 

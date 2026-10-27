@@ -178,7 +178,7 @@ test("the sidebar: unread, priority and closing", () => {
 
 test("the sidebar: a character connecting", () => {
   const ash = row(page({ phase: "running" }, three), ">Ash<");
-  assert.match(ash, new RegExp(`<span class="lead ${roleClass("sidebar.connecting")}"> ${str.glyph.connecting} </span>`), ash);
+  assert.match(ash, new RegExp(`<span class="lead ${roleClass("sidebar.connecting")}">${str.glyph.connecting} </span>`), ash);
   assert.ok(!ash.includes(str.webCloseChar("Ash")));
 });
 
@@ -237,11 +237,10 @@ test("the background announcer is always there, politely", () => {
   assert.match(page({ phase: "running" }), /<div[^>]*role="status"[^>]*class="sr-only"/);
 });
 
-test("a character's name sits a space in under its world, as the TUI's", () => {
-  // A flex row drops bare spaces between its children, so the lead is a
-  // span of its own.
-  for (const name of [">Kit<", ">Rook<", ">Ash<"]) {
-    assert.match(row(page({ phase: "running" }, three), name), /^<li[^>]*><span[^>]*> /, name);
+test("a character hangs off its world's tree line, as the TUI's: a branch, or the line's end for the world's last", () => {
+  const html = page({ phase: "running" }, three);
+  for (const [name, glyph] of [[">Kit<", str.glyph.treeBranch], [">Rook<", str.glyph.treeLast], [">Ash<", str.glyph.treeLast]]) {
+    assert.ok(row(html, name).startsWith(`<li><span aria-hidden="true" class="tree ${roleClass("sidebar.tree")}">${glyph}</span>`), name);
   }
 });
 
@@ -355,7 +354,7 @@ test("the sidebar ends with + Connection, after a gap, as the TUI's", () => {
   assert.match(html, new RegExp(`<li aria-hidden="true"> </li><li><button class="chip ${roleClass("sidebar.add")}"`), "a gap before it");
 });
 
-test("with the picker open, the sidebar is the picker: worlds, characters to open, + Character", () => {
+test("with the picker open, the sidebar is the picker: worlds, every character, the open ones bold, + Character", () => {
   const s = new Store();
   s.set({ phase: "running" });
   s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "kit", Name: "Kit" }, { ID: "mira", Name: "Mira" }] }] }]);
@@ -363,33 +362,38 @@ test("with the picker open, the sidebar is the picker: worlds, characters to ope
   const html = render(<App store={s} />);
   const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
   assert.match(nav, /role="listbox"/);
-  assert.ok(nav.includes("Mira") && !nav.includes(" Kit<"), "Kit's open: not offered");
+  assert.ok(nav.includes(`<span class="name ${roleClass("picker.open")}">Kit</span>`), "Kit's open: listed, bold");
+  assert.ok(nav.includes(`<span class="name">Mira</span>`), "Mira isn't");
   assert.ok(nav.includes(str.pickerAddCharacter()));
-  assert.match(nav, /aria-selected="true"[^>]*>[^<]*Mira/);
+  assert.match(nav, /aria-selected="true"[^>]*>.*?>Kit</, "what's showing is highlighted");
   assert.ok(nav.includes(roleClass("picker")), "the picker's area role");
 });
 
-test("the picker's filter: the TUI's one row, a combobox for the list, in the form's area", () => {
+test("the picker's filter: under the sidebar's title, a combobox for the list; its keys in the form's area", () => {
   const s = new Store();
   s.set({ phase: "running" });
   s.apply([...three, { type: "Worlds", Worlds: [{ ID: "fm", Characters: [{ ID: "mira", Name: "Mira" }] }] }]);
   s.openPicker();
-  const html = bottom(render(<App store={s} />));
-  assert.ok(html.includes(roleClass("form")) && !html.includes("<textarea"), "the filter takes the input's place");
-  assert.match(html, new RegExp(`<label[^>]*>${str.pickerFilter()}: </label>`));
-  assert.match(html, /role="combobox"/);
-  assert.match(html, /aria-activedescendant="pick-fm\/mira"/);
-  assert.match(html, /aria-controls="kiln-picker"/);
-  assert.ok(html.includes(str.pickerHint()));
+  const html = render(<App store={s} />);
+  const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
+  assert.ok(nav.indexOf('id="kiln-filter"') > nav.indexOf(str.pickerTitle()) && nav.indexOf('id="kiln-filter"') < nav.indexOf('role="listbox"'), "between the title and the list");
+  assert.match(nav, new RegExp(`class="name-field filter-field ${roleClass("picker.filter")}"><input id="kiln-filter"`));
+  assert.match(nav, /role="combobox"/);
+  assert.match(nav, /aria-activedescendant="pick-fm\/mira"/);
+  assert.match(nav, /aria-controls="kiln-picker"/);
+  assert.match(nav, new RegExp(`placeholder="${str.pickerFilter()}"`), "says what it is while empty, as the TUI's");
+  const pane = bottom(html);
+  assert.ok(pane.includes(roleClass("form")) && !pane.includes("<input") && !pane.includes("<textarea"), "the keys take the input's place");
+  assert.ok(pane.includes(str.pickerHint()));
 });
 
-test("a world's overview has no input, but the picker's filter shows there", () => {
+test("a world's overview has no input, but the picker's keys show there", () => {
   const s = new Store();
   s.set({ phase: "running" });
   s.apply([...three, { type: "Active", Key: "=fm" }]);
   assert.doesNotMatch(bottom(render(<App store={s} />)), /<input|<textarea/);
   s.openPicker();
-  assert.match(bottom(render(<App store={s} />)), /role="combobox"/);
+  assert.ok(bottom(render(<App store={s} />)).includes(str.pickerHint()));
 });
 
 test("adding a character: the name in the sidebar, in + Character's place; a problem under it; the keys in the form's area", () => {
@@ -401,7 +405,7 @@ test("adding a character: the name in the sidebar, in + Character's place; a pro
   const html = render(<App store={s} />);
   const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
   assert.ok(!nav.includes(str.pickerAddCharacter()), "the field takes + Character's place");
-  assert.match(nav, new RegExp(`id="pick-\\+fm"[^>]*><span class="name-field ${roleClass("picker.add")}"><input id="kiln-name"`));
+  assert.match(nav, new RegExp(`id="pick-\\+fm"[^>]*><span aria-hidden="true" class="tree ${roleClass("picker.tree")}">${str.glyph.treeLast}</span><span class="name-field ${roleClass("picker.add")}"><input id="kiln-name"`));
   assert.match(nav, new RegExp(`aria-label="${str.pickerName()}"`));
   assert.match(nav, new RegExp(`placeholder="${str.pickerName()}"`), "says what to type while empty, as the TUI's");
   assert.match(nav, /aria-invalid="true"/);

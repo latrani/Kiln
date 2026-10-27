@@ -10,7 +10,7 @@ import { PasswordForm } from "./PasswordForm.tsx";
 import { PickerForm } from "./PickerForm.tsx";
 
 // BottomPane is under the scrollback: the input, or the password form,
-// or with the picker open its filter or an editor over it (in the form's
+// or with the picker open its keys or an editor over it (in the form's
 // area, even on a world's overview); in log mode its hints or prompt
 // (LogBar). A world's overview otherwise has none, as in the TUI: the
 // overview has the pane. With the history panel up, the pane takes its
@@ -23,7 +23,7 @@ export function BottomPane({ state, store }: { state: State; store: Store }) {
   if (state.picker) {
     return (
       <div class={`bottom form ${roleClass("form")}`}>
-        {state.picker.edit ? <EditorForm key={targetKey(state.picker.edit.target)} state={state} store={store} /> : <PickerForm state={state} store={store} />}
+        {state.picker.edit ? <EditorForm key={targetKey(state.picker.edit.target)} state={state} store={store} /> : <PickerForm state={state} />}
       </div>
     );
   }

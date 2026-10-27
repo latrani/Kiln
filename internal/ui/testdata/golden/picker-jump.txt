@@ -1,0 +1,48 @@
+All connections │fm · Kit                                       ? focus  ·  Log 
+  @0-15 bold,fg=#e3bda0; @16-16 fg=#a2cdcc; @17-62 fg=#a0b7e3; @63-71 italic,fg=#a0b7e3; @72-74 fg=#a0b7e3; @75-79 bold,fg=#c0cfed,bg=#0b1b3d
+────────────────│───────────────────────────────────────────────────────────────
+  @0-15 fg=#cdb5a2; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+ fmr            │                                                               
+  @0-15 fg=#edd3c0,bg=#3d200b; @16-16 fg=#a2cdcc
+fm              │                                                               
+  @0-1 underline,fg=#e3bda0; @2-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+├Rook           │                                                               
+  @0-0 fg=#cdb5a2; @1-1 underline,reverse,fg=#e3bda0; @2-15 reverse,fg=#e3bda0; @16-16 fg=#a2cdcc
+└ + Character   │                                                               
+  @0-0 fg=#cdb5a2; @1-13 fg=#edd3c0,bg=#3d200b; @14-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+ + World        │                                                               
+  @0-8 fg=#edd3c0,bg=#3d200b; @9-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │                                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc
+                │* connected to muck.test:8888                                  
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-45 faint
+                │›connect Kit ***                                               
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-32 faint
+                │Rook says, "Evening, Kit."                                     
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-42 faint
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#cdb5a2
+                │Enter to choose · Esc to close                                 
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-46 fg=#b19c8b; @47-79 fg=#e3bda0
+                │───────────────────────────────────────────────────────────────
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
+                │Connected since 21:14                                          
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#a0b7e3

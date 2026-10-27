@@ -90,6 +90,34 @@ type sidebarRow struct {
 	world string
 	char  string // character key, for rowChar
 	text  string // the row's text, for rowAddCharError
+	last  bool   // a rowChar or rowAddChar with nothing after it under its world
+	match bool   // in the picker, a world or character the filter matched
+	marks []int  // in the picker, which of the row's name's runes the filter matched
+	score int    // in the picker, how well the filter matched (see match)
+}
+
+// tree is the line from r's world to r, a character or "+ Character":
+// a branch, or the line's end for its world's last.
+func (r sidebarRow) tree() string {
+	if r.last {
+		return glyphTreeLast
+	}
+	return glyphTreeBranch
+}
+
+// branch marks the rows that end their world's tree, and returns rows.
+func branch(rows []sidebarRow) []sidebarRow {
+	more := false // a character or "+ Character" comes later under this world
+	for i := len(rows) - 1; i >= 0; i-- {
+		switch rows[i].kind {
+		case rowChar, rowAddChar:
+			rows[i].last, more = !more, true
+		case rowAddCharError:
+		default:
+			more = false
+		}
+	}
+	return rows
 }
 
 // addLabel is the sidebar's last row.
@@ -118,7 +146,7 @@ func (m *Model) sidebarRows() []sidebarRow {
 	if len(rows) > 0 {
 		rows = append(rows, sidebarRow{kind: rowGap})
 	}
-	return append(rows, sidebarRow{kind: rowAdd})
+	return branch(append(rows, sidebarRow{kind: rowAdd}))
 }
 
 // sideView is the part of the sidebar that fits on screen. When the rows
@@ -168,7 +196,7 @@ func (m *Model) sidebarView() sideView {
 	if bh == 0 { // not shown: as its column would be (the picker pages by it)
 		bh = m.height
 	}
-	h := max(1, bh-sideTitleH)
+	h := max(1, bh-m.sideHeadH())
 	total := len(sv.rows)
 	if total <= h {
 		m.sideTop = 0
@@ -238,16 +266,18 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 		return fit(chip(theme.SidebarAdd, addLabel), w)
 	}
 	cs := m.chars[r.char]
-	// A connected character's name sits one space in, under its world; a
-	// badge (connecting, or disconnected with a × to close) goes there
-	// instead and pushes the name over.
-	lead, leadRole := " ", theme.SidebarChar
+	// A character hangs off its world's tree line, its name just past
+	// it; a badge (connecting, or disconnected with a × to close) goes
+	// there first and pushes the name over.
+	tree := theme.Paint(theme.SidebarTree, r.tree())
+	lead, leadRole := "", theme.SidebarChar
 	switch {
 	case cs.State == session.Connecting:
-		lead, leadRole = " "+glyph.Connecting+" ", theme.SidebarConnecting
+		lead, leadRole = glyph.Connecting+" ", theme.SidebarConnecting
 	case closable(cs):
-		lead, leadRole = " "+glyph.Remove+" ", theme.SidebarDisconnected
+		lead, leadRole = glyph.Remove+" ", theme.SidebarDisconnected
 	}
+	w-- // past the tree
 	active := r.char == m.a.Active()
 	count, activity := "", ""
 	if cs.Unread > 0 {
@@ -266,11 +296,11 @@ func (m *Model) sidebarLine(r sidebarRow, w int) string {
 		line = name + " " + priorityMark() + count
 	}
 	if active {
-		// The active style covers the whole row: its parts draw plain
-		// inside it, and it comes back after the dot's reset.
-		return theme.Paint(theme.SidebarActive, style.Reassert(line, theme.SGR(theme.SidebarActive)))
+		// The active style covers the row past the tree: its parts draw
+		// plain inside it, and it comes back after the dot's reset.
+		return tree + theme.Paint(theme.SidebarActive, style.Reassert(line, theme.SGR(theme.SidebarActive)))
 	}
-	return line
+	return tree + line
 }
 
 // fitName is fit for names: too long, they're cut with "…".
@@ -281,10 +311,18 @@ func fitName(s string, w int) string {
 	return fit(xansi.Truncate(s, w, "…"), w)
 }
 
-// sideTitleH is the rows above the sidebar's list: its title, which
-// names the list (open connections, the picker's, or log mode's
-// filters).
+// sideTitleH is the rows of the sidebar's title, which names the list
+// (open connections, the picker's, or log mode's filters).
 const sideTitleH = 2
+
+// sideHeadH is the rows above the sidebar's list: its title, and under
+// it the picker's filter while the list is the picker's.
+func (m *Model) sideHeadH() int {
+	if m.listing() {
+		return sideTitleH + 1
+	}
+	return sideTitleH
+}
 
 // sideTitle draws the sidebar's title row y (0 or 1), w wide: label in
 // r, then a rule across the column in rule, as the top bar's beside it.

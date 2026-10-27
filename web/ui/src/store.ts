@@ -5,7 +5,7 @@ import type { Editor, SettingsEvent, Target } from "./editor.ts";
 import { noHost } from "./host.ts";
 import type { Host } from "./host.ts";
 import type { Place } from "./log.ts";
-import { fixPick, pickerRows } from "./picker.ts";
+import { firstMatch, fixPick, pickerRows } from "./picker.ts";
 import * as str from "./str.gen.ts";
 import { Typing } from "./typing.ts";
 import type { Span, ThemeEvent } from "./types.ts";
@@ -385,9 +385,10 @@ export class Store {
     return s;
   }
 
-  // openPicker shows the picker, its filter empty and its highlight on
-  // the first character.
-  openPicker(): void {
+  // openPicker shows the picker, its filter as given (empty unless /open
+  // gave one) and its highlight on what's showing, or on the filter's
+  // first match.
+  openPicker(filter = ""): void {
     if (logShows(this.state, this.state.active)) {
       this.state.act?.({ Do: "say", Text: str.pickerBlockedByLog(), Err: true });
       return;
@@ -398,8 +399,8 @@ export class Store {
     let st = this.state;
     const ed = st.picker?.edit;
     if (ed) st = ed.closeAll && exists(st, st.active) ? { ...st, parked: { ...st.parked, [st.active]: ed } } : stash(st, ed);
-    this.state = { ...st, picker: { filter: "", sel: "" } };
-    this.setPicker({});
+    this.state = { ...st, picker: { filter: "", sel: st.active } };
+    this.setPicker({ filter });
   }
 
 
@@ -420,10 +421,17 @@ export class Store {
 
   // setPicker changes the open picker, keeping its highlight on a row the
   // filter offers.
+  // A change to the filter moves the highlight to its first match, as
+  // the TUI's, so the same letters always land on the same row; emptied,
+  // to what's showing.
   setPicker(patch: Partial<Picker>): void {
     if (!this.state.picker) return;
     const p = { ...this.state.picker, ...patch };
-    p.sel = fixPick(pickerRows(this.state.worlds, this.state.chars, p.filter, this.host.worlds === true), p.sel);
+    const rows = pickerRows(this.state.worlds, this.state.chars, p.filter, this.host.worlds === true);
+    if (patch.filter !== undefined && patch.filter.trim() !== this.state.picker.filter.trim()) {
+      p.sel = patch.filter.trim() ? firstMatch(rows) ?? p.sel : this.state.active;
+    }
+    p.sel = fixPick(rows, p.sel);
     this.set({ picker: p });
   }
 

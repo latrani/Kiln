@@ -107,7 +107,7 @@ export function FilterPanel({ state, store }: { state: State; store: Store }) {
                 {/* A click focuses the button, as not every browser does. */}
                 {e.Parent
                   ? <button class={`fglyph ${look}`} tabindex={tab} aria-expanded={!e.Folded} aria-labelledby={id}
-                      onClick={(ev) => { ev.currentTarget.focus(); glyphClick(store, r.key); }}>{r.glyph + " "}</button>
+                      onClick={(ev) => { ev.currentTarget.focus(); glyphClick(store, r.key); }}>{r.glyph}</button>
                   : r.glyph && <span aria-hidden="true" class={`fglyph ${look}`} onClick={() => glyphClick(store, r.key)}>{r.glyph + " "}</span>}
                 <button id={id} class={`fname ${on ? "fsel " : ""}${look}`} tabindex={tab}
                   onClick={() => panelClick(store, r.key)}>{r.name}</button>

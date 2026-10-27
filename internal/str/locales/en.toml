@@ -367,7 +367,7 @@ key_log = "f log"
 [picker]
 # The picker's list's title, the sidebar's first row while it's open.
 title = "All connections"
-hint = "Enter to connect · Esc to close"
+hint = "Enter to choose · Esc to close"
 add_char_hint = "Enter to connect · Esc to cancel"
 add_character = "+ Character"
 add_world = "+ World"

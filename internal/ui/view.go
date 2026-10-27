@@ -119,6 +119,8 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 		return hint(str.ViewSavePassword(name, storeName(m.a.PasswordStore())))
 	case m.addingChar() != nil: // the name is typed in the sidebar; its keys stay here
 		return []string{theme.Paint(theme.FormHint, addCharHint)}, 0, 0, true
+	case m.picker != nil && m.picker.edit == nil: // the filter is typed in the sidebar; its keys stay here
+		return []string{theme.Paint(theme.FormHint, pickerHint)}, 0, 0, true
 	case m.picker != nil:
 		rows, row, col := m.shownForm().rows()
 		return rows, row, col, true
@@ -146,16 +148,17 @@ func (m *Model) prompt(cs *charState) (rows []string, row, col int, ok bool) {
 	return hint(str.ViewDisconnected())
 }
 
-// shownForm is the form the input area shows: the picker's, or the
-// editor open over it; nil when it shows none.
+// shownForm is the form the input area shows: an editor's; nil when it
+// shows none (the picker's filter and a new character's name are typed
+// in the sidebar).
 func (m *Model) shownForm() *form {
-	switch {
-	case m.asking() || m.addingChar() != nil || m.picker == nil:
+	if m.asking() || m.addingChar() != nil || m.picker == nil {
 		return nil
-	case m.picker.edit != nil:
+	}
+	if m.picker.edit != nil {
 		return m.picker.edit.form
 	}
-	return m.picker.form
+	return nil
 }
 
 // storeName describes a password_store setting for the save prompt.
@@ -542,8 +545,9 @@ func (m *Model) sideBox() (w, h int) {
 
 // sideRows draws the sidebar into w by h: its title (‹ at the right while
 // it can collapse) over its rule, then the open characters, the picker's
-// list, or log mode's filter panel, each row filled in its area's role.
-// cursor is the add-character field's, in the box; nil with none.
+// filter and list, or log mode's filter panel, each row filled in its
+// area's role. cursor is the picker's filter's or the add-character
+// field's, in the box; nil with none.
 func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
 	if w <= 0 || h <= 0 {
 		return nil, nil
@@ -571,7 +575,15 @@ func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
 			}
 			continue
 		}
-		switch r, hint := sv.at(y - sideTitleH); {
+		if y == sideTitleH && m.listing() {
+			line, x := filterField(m.picker.form, w)
+			rows = append(rows, theme.Fill(side, line, w))
+			if m.picker.edit == nil {
+				cursor = tea.NewCursor(x, y)
+			}
+			continue
+		}
+		switch r, hint := sv.at(y - m.sideHeadH()); {
 		case panel != nil:
 			rows = append(rows, theme.Fill(side, panel[y-sideTitleH], w))
 		case hint < 0:
