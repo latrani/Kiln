@@ -186,11 +186,38 @@ func TestMatch(t *testing.T) {
 		{"fm/Rook", "FM/", []int{0, 1, 2}, true},
 		{"fm/Rook", "", nil, true},
 		{"fm/Rook", "rf", nil, false},
-		{"Tapestries/Indi", "tapsi", []int{0, 1, 2, 4, 7}, true}, // each letter at its first chance
+		{"fm/Kit", "fmk", []int{0, 1, 3}, true},
+		{"fm/Mira", "mr", []int{3, 5}, true},                      // Mira's M, where the name starts
+		{"sp/AshSable", "ss", []int{0, 6}, true},                  // S, where a word starts, over the s in Ash
+		{"Tapestries/Indi", "tapsi", []int{0, 1, 2, 4, 11}, true}, // I, where the name starts
 	} {
-		at, ok := match(c.s, c.f)
+		at, _, ok := match(c.s, c.f)
 		if ok != c.ok || !slices.Equal(at, c.at) {
 			t.Errorf("match(%q, %q) = %v, %v; want %v, %v", c.s, c.f, at, ok, c.at, c.ok)
+		}
+	}
+}
+
+// The highlight goes to the best match, not the first: letters where
+// words start count most, and the filter's first letter most of all.
+func TestPickerPrefersWordStarts(t *testing.T) {
+	fm := "host = \"fm.test\"\nport = 1\n"
+	for _, n := range []string{"Ash", "Kit", "Mira", "Rook"} {
+		fm += fmt.Sprintf("\n[[characters]]\nid = %q\nname = %q\n", strings.ToLower(n), n)
+	}
+	sp := "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"sable\"\nname = \"Sable\"\n"
+	h := newHarness(t, map[string]string{"fm": fm, "sp": sp})
+	h.press('o', tea.ModCtrl)
+	for filter, want := range map[string]string{
+		"fmr": "fm/rook",      // Rook's R starts its name; Mira's r doesn't
+		"s":   worldSel("sp"), // sp starts with s; Ash only has one
+		"f/m": "fm/mira",      // Mira's M, not the m in fm
+		"fm":  worldSel("fm"), // fm itself, before its characters, which tie it
+	} {
+		h.m.picker.form.fields[0].in.SetValue("")
+		h.typeText(filter)
+		if h.m.picker.sel != want {
+			t.Errorf("filter %q: sel = %q, want %q", filter, h.m.picker.sel, want)
 		}
 	}
 }
@@ -223,20 +250,20 @@ func TestPickerFirstMatchIsStable(t *testing.T) {
 	two := fmWorld + "\n[[characters]]\nid = \"mira\"\nname = \"Mira\"\n"
 	h := newHarness(t, map[string]string{"fm": two})
 	h.press('o', tea.ModCtrl)
-	h.typeText("fmi")
-	if h.m.picker.sel != "fm/kit" { // f, m, then Kit's i
-		t.Errorf("fmi: sel = %q", h.m.picker.sel)
+	h.typeText("i")
+	if h.m.picker.sel != "fm/kit" { // Kit's i and Mira's tie: the first
+		t.Errorf("i: sel = %q", h.m.picker.sel)
 	}
 	h.press(tea.KeyEscape, 0)
 	h.open("fm/mira")
 	h.press('o', tea.ModCtrl)
-	h.typeText("fmi")
+	h.typeText("i")
 	if h.m.picker.sel != "fm/kit" {
-		t.Errorf("fmi with Mira open: sel = %q, still Kit", h.m.picker.sel)
+		t.Errorf("i with Mira open: sel = %q, still Kit", h.m.picker.sel)
 	}
 	h.typeText("r")
 	if h.m.picker.sel != "fm/mira" {
-		t.Errorf("fmir: sel = %q", h.m.picker.sel)
+		t.Errorf("ir: sel = %q", h.m.picker.sel)
 	}
 }
 

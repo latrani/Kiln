@@ -26,11 +26,22 @@ test("the filter's letters, in order, in a world's name or a character's world/n
   assert.deepEqual(pickable(pickerRows(worlds, {}, "cin", false)), [], "an alias isn't on screen");
 });
 
-test("match: each letter at its first chance", () => {
-  assert.deepEqual(match("fm/Rook", "fmr"), [0, 1, 3]);
-  assert.deepEqual(match("Tapestries/Indi", "tapsi"), [0, 1, 2, 4, 7]);
-  assert.deepEqual(match("fm/Rook", ""), []);
+test("match: the best placement, as the TUI's: where words start, the filter's first letter most", () => {
+  const at = (s: string, f: string) => match(s, f)?.at;
+  assert.deepEqual(at("fm/Rook", "fmr"), [0, 1, 3]);
+  assert.deepEqual(at("fm/Mira", "mr"), [3, 5], "Mira's M, where the name starts");
+  assert.deepEqual(at("sp/AshSable", "ss"), [0, 6], "S, where a word starts, over the s in Ash");
+  assert.deepEqual(at("Tapestries/Indi", "tapsi"), [0, 1, 2, 4, 11], "I, where the name starts");
+  assert.deepEqual(at("fm/Rook", ""), []);
   assert.equal(match("fm/Rook", "rf"), undefined);
+});
+
+test("the highlight's match is the best, not the first: a name's first letter over one inside an earlier name; a world's own over a character's", () => {
+  const ws = [{ ID: "fm", Characters: ["Ash", "Kit", "Mira", "Rook"].map((n) => ({ ID: n.toLowerCase(), Name: n })) }, { ID: "sp", Characters: [{ ID: "sable", Name: "Sable" }] }];
+  assert.equal(firstMatch(pickerRows(ws, {}, "fmr", false)), "fm/rook");
+  assert.equal(firstMatch(pickerRows(ws, {}, "s", false)), "=sp");
+  assert.equal(firstMatch(pickerRows(ws, {}, "f/m", false)), "fm/mira");
+  assert.equal(firstMatch(pickerRows(ws, {}, "fm", false)), "=fm", "a tie: the first");
 });
 
 test("the letters matched: a character's in its name, a world's in its; a world listed for its characters, the first one's", () => {

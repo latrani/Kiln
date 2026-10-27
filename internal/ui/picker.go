@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"unicode"
@@ -114,21 +115,90 @@ func (m *Model) closePicker() {
 	m.narrowOpen = false // picked or escaped: the narrow sidebar closes
 }
 
-// match reports whether f's letters are in s in order, ignoring case,
-// and which of s's runes they are, each taken at its first chance.
-func match(s, f string) (at []int, ok bool) {
-	want := []rune(f)
-	if len(want) == 0 {
-		return nil, true
+// none is below any score.
+const none = math.MinInt / 2
+
+// The filter's scoring, after fzf's (its src/algo/algo.go): each letter
+// matched scores, more on a word's first letter (the filter's first
+// letter most), more in a run, less after a gap.
+const (
+	scoreMatch       = 16
+	bonusWordStart   = 8  // the start, or after anything but a letter or digit
+	bonusCamel       = 7  // an uppercase letter after a lowercase one
+	bonusConsecutive = 4  // straight after the last letter matched
+	scoreGapStart    = -3 // the first letter skipped
+	scoreGapMore     = -1 // each after it
+)
+
+// startBonus is the bonus for a match at rune j of rs: on a word's
+// first letter, or none.
+func startBonus(rs []rune, j int) int {
+	if j == 0 {
+		return bonusWordStart
 	}
-	for i, r := range []rune(s) {
-		if unicode.ToLower(r) == unicode.ToLower(want[len(at)]) {
-			if at = append(at, i); len(at) == len(want) {
-				return at, true
+	switch prev := rs[j-1]; {
+	case !unicode.IsLetter(prev) && !unicode.IsDigit(prev):
+		return bonusWordStart
+	case unicode.IsLower(prev) && unicode.IsUpper(rs[j]):
+		return bonusCamel
+	}
+	return 0
+}
+
+// match reports whether f's letters are in s in order, ignoring case;
+// if so, which of s's runes they are, placed where they score best, and
+// that score. Ties go to the placement earliest in s.
+func match(s, f string) (at []int, score int, ok bool) {
+	rs, want := []rune(s), []rune(f)
+	if len(want) == 0 {
+		return nil, 0, true
+	}
+	n, m := len(rs), len(want)
+	// best[i][j] is the best score with the filter's letter i at rune j,
+	// from[i][j] where letter i-1 was then.
+	best, from := make([][]int, m), make([][]int, m)
+	for i := range m {
+		best[i], from[i] = make([]int, n), make([]int, n)
+		for j := range n {
+			best[i][j] = none
+			if unicode.ToLower(rs[j]) != unicode.ToLower(want[i]) {
+				continue
+			}
+			if i == 0 {
+				best[0][j] = scoreMatch + 2*startBonus(rs, j)
+				continue
+			}
+			for k := i - 1; k < j; k++ {
+				if best[i-1][k] == none {
+					continue
+				}
+				sc := best[i-1][k] + scoreMatch + startBonus(rs, j)
+				if k == j-1 {
+					sc += bonusConsecutive
+				} else {
+					sc += scoreGapStart + scoreGapMore*(j-k-2)
+				}
+				if sc > best[i][j] {
+					best[i][j], from[i][j] = sc, k
+				}
 			}
 		}
 	}
-	return nil, false
+	end := -1
+	for j := range n {
+		if best[m-1][j] != none && (end < 0 || best[m-1][j] > best[m-1][end]) {
+			end = j
+		}
+	}
+	if end < 0 {
+		return nil, 0, false
+	}
+	at = make([]int, m)
+	for i, j := m-1, end; i >= 0; i-- {
+		at[i] = j
+		j = from[i][j]
+	}
+	return at, best[m-1][end], true
 }
 
 // filter is the picker's filter, trimmed.
@@ -138,33 +208,38 @@ func (m *Model) filter() string { return strings.TrimSpace(m.picker.form.value(0
 // filter matches: a world when its name does or one of its characters'
 // does, a character when "world/name" does. Each world ends with a row
 // to add a character to it, and the list with a row to add a world. A
-// row that matched carries which of its letters did; a world listed
-// only for its characters carries the letters of its name the first of
-// them matched.
+// row that matched carries which of its letters did, and how well; a
+// world listed only for its characters carries the letters of its name
+// the best of them matched.
 func (m *Model) pickerRows() []sidebarRow {
 	f := m.filter()
 	chars := m.a.AllChars()
 	var rows []sidebarRow
 	for _, w := range m.worldIDs() {
-		wat, wok := match(w, f)
-		head := sidebarRow{kind: rowWorld, world: w, match: wok, marks: wat}
+		wat, wscore, wok := match(w, f)
+		head := sidebarRow{kind: rowWorld, world: w, match: wok, marks: wat, score: wscore}
 		wr := []sidebarRow{head}
 		wn := len([]rune(w)) + 1 // past the "/"
+		bestChar := none
 		for _, ch := range chars {
 			if ch.World != w {
 				continue
 			}
-			at, ok := match(w+"/"+ch.Name, f)
+			at, score, ok := match(w+"/"+ch.Name, f)
 			if !ok {
 				continue
 			}
-			r := sidebarRow{kind: rowChar, world: w, char: key(ch.World, ch.ID), match: true}
+			r := sidebarRow{kind: rowChar, world: w, char: key(ch.World, ch.ID), match: true, score: score}
+			var inWorld []int
 			for _, i := range at {
 				if i >= wn {
 					r.marks = append(r.marks, i-wn)
-				} else if !wok && len(wr) == 1 {
-					wr[0].marks = append(wr[0].marks, i)
+				} else {
+					inWorld = append(inWorld, i)
 				}
+			}
+			if !wok && score > bestChar {
+				wr[0].marks, bestChar = inWorld, score
 			}
 			wr = append(wr, r)
 		}
@@ -187,15 +262,17 @@ func (m *Model) pickerRows() []sidebarRow {
 	return branch(append(rows, sidebarRow{kind: rowAddWorld}))
 }
 
-// firstMatch is the selection key of the first row the filter matched,
-// a world or a character; false when none did.
+// firstMatch is the selection key of the row the filter matched best, a
+// world or a character, the first of those that tie; false when none
+// did.
 func (m *Model) firstMatch() (string, bool) {
+	sel, top := "", none
 	for _, r := range m.pickerRows() {
-		if r.match && (r.kind == rowWorld || r.kind == rowChar) {
-			return selKey(r), true
+		if r.match && (r.kind == rowWorld || r.kind == rowChar) && r.score > top {
+			sel, top = selKey(r), r.score
 		}
 	}
-	return "", false
+	return sel, sel != ""
 }
 
 // addingChar is the editor naming a new character, which the picker

@@ -40,7 +40,7 @@ Click a world's name (or reach it with `Ctrl+↑`/`Ctrl+↓`) for its overview: 
 
 `Ctrl+O` (or `/open`) turns the sidebar into a list of every world and character you've set up, open or not, alphabetical, with a filter under its title. Open characters are bold. The highlight starts on what you're looking at.
 
-Type letters that appear in order in a character's `world/name` to narrow the list: for Rook on `fm`, `fmr`, `fm/r` and `ro` all match, and the letters that matched are underlined. The highlight goes to the first match, so the same letters always land on the same row. `/` matches only the slash between world and name, which helps tell `fm/m…` from `fmm…`. `Enter` goes there: a world shows its overview, an open character shows itself, and one that isn't open opens and connects. `/open fmr` does all of that in one go. If nothing matches, the list stays up so you can see why.
+Type letters that appear in order in a character's `world/name` to narrow the list: for Rook on `fm`, `fmr`, `fm/r` and `ro` all match, and the letters that matched are underlined. The highlight goes to the best match: letters that start a world, a name or a word count most, the first one you type most of all, so `t` lands on a world starting with T before a name with a t inside. Ties go to the one higher in the list, so the same letters always land on the same row. `/` matches only the slash between world and name, which helps tell `fm/m…` from `fmm…`. `Enter` goes there: a world shows its overview, an open character shows itself, and one that isn't open opens and connects. `/open fmr` does all of that in one go. If nothing matches, the list stays up so you can see why.
 
 ## History
 

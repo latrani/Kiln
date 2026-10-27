@@ -93,6 +93,7 @@ type sidebarRow struct {
 	last  bool   // a rowChar or rowAddChar with nothing after it under its world
 	match bool   // in the picker, a world or character the filter matched
 	marks []int  // in the picker, which of the row's name's runes the filter matched
+	score int    // in the picker, how well the filter matched (see match)
 }
 
 // tree is the line from r's world to r, a character or "+ Character":
