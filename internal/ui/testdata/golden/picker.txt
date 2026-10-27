@@ -40,8 +40,8 @@ fm              │
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-42 faint
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#cdb5a2
-                │Enter to jump · Esc to close                                   
-  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-44 fg=#b19c8b; @45-79 fg=#e3bda0
+                │Enter to choose · Esc to close                                 
+  @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-46 fg=#b19c8b; @47-79 fg=#e3bda0
                 │───────────────────────────────────────────────────────────────
   @0-15 fg=#e3bda0; @16-16 fg=#a2cdcc; @17-79 fg=#a2b0cd
                 │Connected since 21:14                                          

@@ -634,8 +634,8 @@ export function pickerBlockedByQuestion(): string { return `Answer the question 
 /** picker.filter: Filter */
 export function pickerFilter(): string { return `Filter`; }
 
-/** picker.hint: Enter to jump · Esc to close */
-export function pickerHint(): string { return `Enter to jump · Esc to close`; }
+/** picker.hint: Enter to choose · Esc to close */
+export function pickerHint(): string { return `Enter to choose · Esc to close`; }
 
 /** picker.name: Name */
 export function pickerName(): string { return `Name`; }
