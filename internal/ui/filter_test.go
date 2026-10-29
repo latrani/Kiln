@@ -564,6 +564,9 @@ func TestPanelAddTextInline(t *testing.T) {
 	if slices.Contains(side, str.FilterAddText()) || !slices.Contains(side, str.FilterField()) || logBar(h) != str.FilterFieldHint() {
 		t.Fatalf("Enter on + Text should open the field in its place, hint %q, keys in the bar:\n%s", str.FilterField(), h.screen())
 	}
+	if drawn := h.m.View().Content; !strings.Contains(drawn, theme.SGR(theme.FilterAddHint)+str.FilterField()) {
+		t.Errorf("the empty field's hint isn't in filter.add.hint:\n%q", drawn)
+	}
 	h.typeText("Rook")
 	row := slices.Index(panelSide(h), "Rook")
 	if row < 0 {

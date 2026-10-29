@@ -461,23 +461,23 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 // filterField draws the picker's filter, under the sidebar's title, the
 // width across; see addField. It returns the cursor's column too.
 func filterField(f *form, w int) (line string, col int) {
-	return addField(f.fields[0].in, f.fields[0].label, theme.PickerFilter, w)
+	return addField(f.fields[0].in, f.fields[0].label, theme.PickerFilter, theme.PickerFilterHint, w)
 }
 
 // nameField draws the name being added, in place of "+ Character" and
 // in its colors, past the end of its world's tree line; see addField.
 // It returns the cursor's column too.
 func nameField(f *form, w int) (line string, col int) {
-	line, col = addField(f.fields[0].in, f.fields[0].hint, theme.PickerAdd, w-1)
+	line, col = addField(f.fields[0].in, f.fields[0].hint, theme.PickerAdd, theme.PickerAddHint, w-1)
 	return theme.Paint(theme.PickerTree, glyphTreeLast) + line, col + 1
 }
 
 // addField draws in as the add row it replaces, in role: filling w,
-// scrolled to keep the cursor in view; empty, its hint, dim. It returns
-// the cursor's column too.
-func addField(in *Input, hint string, role theme.Role, w int) (line string, col int) {
+// scrolled to keep the cursor in view; empty, its hint, in hintRole. It
+// returns the cursor's column too.
+func addField(in *Input, hint string, role, hintRole theme.Role, w int) (line string, col int) {
 	if in.Empty() && hint != "" {
-		return fit(theme.Fill(role, " "+theme.Paint(theme.FormHint, hint), w), w), 1
+		return fit(theme.Fill(role, " "+theme.Paint(hintRole, hint), w), w), 1
 	}
 	rows, _, c := in.Render(1<<20, 0, false, false)
 	text, c := strings.TrimPrefix(rows[0], gutterMark), c-gutterWidth

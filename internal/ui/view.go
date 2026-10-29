@@ -553,9 +553,9 @@ func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
 		return nil, nil
 	}
 	cs := m.cur()
-	side, title, titleRole, titleRule, chev := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar, theme.SidebarCollapse
+	side, title, titleRole, titleRule, chev, more := theme.Sidebar, str.ViewConnectionsTitle(), theme.SidebarTitle, theme.RuleSidebar, theme.SidebarCollapse, theme.SidebarMore
 	if m.listing() {
-		side, title, titleRole, titleRule, chev = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker, theme.PickerCollapse
+		side, title, titleRole, titleRule, chev, more = theme.Picker, str.PickerTitle(), theme.PickerTitle, theme.RulePicker, theme.PickerCollapse, theme.PickerMore
 	}
 	var panel []string
 	if cs != nil && cs.browse != nil && cs.browse.Panel != nil {
@@ -587,9 +587,9 @@ func (m *Model) sideRows(w, h int) (rows []string, cursor *tea.Cursor) {
 		case panel != nil:
 			rows = append(rows, theme.Fill(side, panel[y-sideTitleH], w))
 		case hint < 0:
-			rows = append(rows, theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreAbove(sv.top), w)), w))
+			rows = append(rows, theme.Fill(side, theme.Paint(more, fit(str.ViewMoreAbove(sv.top), w)), w))
 		case hint > 0:
-			rows = append(rows, theme.Fill(side, theme.Paint(theme.SidebarMore, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), w)), w))
+			rows = append(rows, theme.Fill(side, theme.Paint(more, fit(str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail), w)), w))
 		case r != nil && m.listing():
 			rows = append(rows, theme.Fill(side, m.pickerLine(*r, w), w))
 			if e := m.addingChar(); e != nil && r.kind == rowAddChar && r.world == e.world {

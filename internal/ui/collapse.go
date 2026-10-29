@@ -75,9 +75,9 @@ func (m *Model) menuPrefix() (s string, menu [2]int) {
 		if n, priority := m.a.Activity(); n > 0 {
 			s += " "
 			if priority {
-				s += theme.Paint(theme.SidebarPriority, glyph.Priority)
+				s += theme.Paint(theme.StatusPriority, glyph.Priority)
 			}
-			s += theme.Paint(theme.SidebarUnread, strconv.Itoa(n))
+			s += theme.Paint(theme.StatusUnread, strconv.Itoa(n))
 		}
 	}
 	return s + " ", [2]int{0, xansi.StringWidth(s)}

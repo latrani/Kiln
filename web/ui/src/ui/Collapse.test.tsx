@@ -29,9 +29,9 @@ test("collapsed: no sidebar, ≡ first in the top bar, named with the rows' acti
   assert.ok(!h.includes(`<nav class="side`) && h.includes(`class="kiln collapsed"`));
   const t = top(h);
   assert.match(t, new RegExp(`^<header[^>]*><button class="menu ${roleClass("status.menu")}" aria-expanded="false" aria-label="${[str.webSidebarMenu(), str.webSidebarUnread(5), str.webSidebarPriority()].join(str.separator())}">`));
-  assert.ok(t.includes(`${menuButton} <span class="${roleClass("sidebar.priority")}">${str.glyph.priority}</span><span class="${roleClass("sidebar.unread")}">5</span>`));
+  assert.ok(t.includes(`${menuButton} <span class="${roleClass("status.priority")}">${str.glyph.priority}</span><span class="${roleClass("status.unread")}">5</span>`));
   const plain = top(html(page({ Collapsed: true, Unread: 5 }).s));
-  assert.ok(plain.includes(`${menuButton} <span class="${roleClass("sidebar.unread")}">5</span>`) && !plain.includes(str.glyph.priority));
+  assert.ok(plain.includes(`${menuButton} <span class="${roleClass("status.unread")}">5</span>`) && !plain.includes(str.glyph.priority));
   const none = top(html(page({ Collapsed: true }).s));
   assert.ok(none.includes(`aria-label="${str.webSidebarMenu()}">${menuButton}</button>`));
 });

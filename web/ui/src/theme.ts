@@ -47,7 +47,7 @@ export const roleClass = (role: string): string => "r-" + role.replaceAll(".", "
 // The roles a class can't reach, drawn through variables in kiln.css:
 // the rules and the divider (borders), and the input's and forms' hints
 // (placeholders).
-const lineRoles = ["rule", "rule.input", "rule.form", "rule.filter", "rule.sidebar", "rule.picker", "rule.status", "divider", "input.hint", "form.hint"];
+const lineRoles = ["rule", "rule.input", "rule.form", "rule.filter", "rule.sidebar", "rule.picker", "rule.status", "divider", "input.hint", "form.hint", "picker.filter.hint", "picker.add.hint", "filter.add.hint"];
 
 // The glyphs kiln.css draws: around Kiln's own lines, a focused
 // choice's ◄ ►, and log mode's gutter glyph on a line's wrapped rows
@@ -63,7 +63,7 @@ function rows(g: string): string {
 
 function sheet(l: Looks, p: Palette, scheme: "dark" | "light"): string {
   const vars = [`color-scheme:${scheme}`, `--term-fg:${p.fg}`, `--term-bg:${p.bg}`, ...p.ansi.map((c, i) => `--ansi-${i}:${c}`), glyphs];
-  for (const r of lineRoles) vars.push(`--role-${r.replace(".", "-")}-fg:${color(l.Roles[r]?.FG, p) ?? p.fg}`);
+  for (const r of lineRoles) vars.push(`--role-${r.replaceAll(".", "-")}-fg:${color(l.Roles[r]?.FG, p) ?? p.fg}`);
   // A form's fill, for kiln.css to cover the browser's autofill with.
   vars.push(`--role-form-bg:${color(l.Roles["form"]?.BG, p) ?? p.bg}`);
   // A span's colors for this appearance (look.ts); unset, they're the

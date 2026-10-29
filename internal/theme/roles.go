@@ -29,13 +29,16 @@ const (
 	PickerWorldSelected Role = "picker.world.selected"
 	PickerSelected      Role = "picker.selected"
 	PickerAdd           Role = "picker.add"
+	PickerAddHint       Role = "picker.add.hint" // the name being added's hint, while it's empty
 	PickerFilter        Role = "picker.filter"   // the filter, under its title
+	PickerFilterHint    Role = "picker.filter.hint"
 	PickerOpen          Role = "picker.open"     // an open character
 	PickerMatch         Role = "picker.match"    // a letter the filter matched
 	PickerError         Role = "picker.error"    // under a name being added: why it won't do
 	PickerTitle         Role = "picker.title"    // its list's first row
 	PickerCollapse      Role = "picker.collapse" // the ‹ at its title's right
 	PickerTree          Role = "picker.tree"     // the lines from a world to its characters
+	PickerMore          Role = "picker.more"     // "▲ 3 more" while its list scrolls
 
 	Divider     Role = "divider"
 	Rule        Role = "rule"
@@ -83,6 +86,10 @@ const (
 	StatusSelect    Role = "status.select" // log mode's Select chip, in the statusline
 	StatusSelectOn  Role = "status.select.on"
 	StatusError     Role = "status.error"
+	// The collapsed sidebar's activity, beside its ≡: as the sidebar's
+	// unread count and priority mark, in the top bar.
+	StatusUnread   Role = "status.unread"
+	StatusPriority Role = "status.priority"
 	// The presence chip: here, away, or can't tell (no focus events seen).
 	StatusPresence        Role = "status.presence"
 	StatusPresenceHere    Role = "status.presence.here"
@@ -117,6 +124,7 @@ const (
 	FilterButton    Role = "filter.button"
 	FilterButtonOn  Role = "filter.button.on"
 	FilterAdd       Role = "filter.add"
+	FilterAddHint   Role = "filter.add.hint" // the field's hint, while it's empty
 	FilterMore      Role = "filter.more"
 	FilterTree      Role = "filter.tree"       // the lines from a parent to its children
 	FilterTitle     Role = "filter.title"      // its first row
@@ -131,17 +139,17 @@ const (
 var Roles = []Role{
 	Sidebar, SidebarWorld, SidebarChar, SidebarActive, SidebarUnread, SidebarPriority,
 	SidebarConnecting, SidebarDisconnected, SidebarAdd, SidebarAction, SidebarMore, SidebarTree, SidebarTitle, SidebarCollapse,
-	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerFilter, PickerOpen, PickerMatch, PickerError, PickerTitle, PickerCollapse, PickerTree,
+	Picker, PickerWorld, PickerWorldSelected, PickerSelected, PickerAdd, PickerAddHint, PickerFilter, PickerFilterHint, PickerOpen, PickerMatch, PickerError, PickerTitle, PickerCollapse, PickerTree, PickerMore,
 	Divider, Rule, RuleInput, RuleForm, RuleFilter, RuleSidebar, RulePicker, RuleStatus,
 	Scrollback, ScrollbackDay, ScrollbackHistoryEnd, ScrollbackLoading, ScrollbackSys,
 	ScrollbackPill, ScrollbackSelection, ScrollbackInactive, ScrollbackEmpty, ScrollbackOverview, ScrollbackRule, Link, LinkHover,
 	Input, InputHint, InputOverLimit, InputSelection,
 	InputHistory, InputHistorySelected, InputHistoryTime, InputHistoryCursor, InputHistoryMore,
-	Status, StatusLog, StatusLogOn, StatusMenu, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
+	Status, StatusLog, StatusLogOn, StatusMenu, StatusHistory, StatusHistoryOn, StatusScope, StatusScopeOn, StatusSelect, StatusSelectOn, StatusError, StatusUnread, StatusPriority, StatusPresence, StatusPresenceHere, StatusPresenceAway, StatusPresenceUnknown,
 	Form, FormLabel, FormHint, FormError, FormFocus, FormTitle, FormButton, FormButtonSecondary,
 	Log, LogTime, LogCursor, LogAway, LogSelected, LogExcluded,
 	LogFind, LogDay, LogLoading, LogBar, LogHints, LogHintsAway,
-	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterMore, FilterTree, FilterTitle, FilterCollapse, FilterHints, FilterHintsAway,
+	Filter, FilterItem, FilterSelected, FilterButton, FilterButtonOn, FilterAdd, FilterAddHint, FilterMore, FilterTree, FilterTitle, FilterCollapse, FilterHints, FilterHintsAway,
 	Export,
 }
 
