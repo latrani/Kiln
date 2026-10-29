@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/find"
 )
 
 // Item is a row in log mode's filter panel: a tag, a term a line's text
@@ -73,6 +74,20 @@ type Filter struct {
 	texts  []string
 	known  map[Item]bool // items Sync has seen
 	isFlag func(tag string) bool
+	terms  map[string]find.Term // text rows, ready to match, by name
+}
+
+// term is the text row named name, ready to match.
+func (f *Filter) term(name string) find.Term {
+	t, ok := f.terms[name]
+	if !ok {
+		if f.terms == nil {
+			f.terms = map[string]find.Term{}
+		}
+		t = find.New(name)
+		f.terms[name] = t
+	}
+	return t
 }
 
 // SetFlags sets which tags are flags; until it's called, only
@@ -359,34 +374,42 @@ func (f *Filter) RemoveText(term string) {
 
 // Visible reports whether a line shows: none of its tags or their
 // ancestors, their group included, is hidden, it matches no hidden text
-// row, and for each kind with Only, it carries a tag with Only (or one
-// under it, so for a group any tag of its kind) or matches a text with
-// Only. lower is the line's plain text, lowercased.
+// row (as find matches: see package find), and for each kind with Only,
+// it carries a tag with Only (or one under it, so for a group any tag of
+// its kind) or matches a text with Only. lower is the line's plain text,
+// lowercased.
 func (f *Filter) Visible(tags []string, lower string) bool {
 	for _, t := range tags {
 		if f.hiddenUp(Item{Name: t}) {
 			return false
 		}
 	}
+	var folded find.Folded // the line, folded once there's a text row to match
+	text := func() find.Folded {
+		if folded == nil {
+			folded = find.Fold(lower)
+		}
+		return folded
+	}
 	for it := range f.hidden {
-		if it.Text && strings.Contains(lower, strings.ToLower(it.Name)) {
+		if it.Text && f.term(it.Name).In(text()) {
 			return false
 		}
 	}
 	for _, k := range []kind{categoryKind, flagKind, textKind} {
 		os := f.onlyOf(k)
-		if len(os) > 0 && !slices.ContainsFunc(os, func(o Item) bool { return f.matches(o, tags, lower) }) {
+		if len(os) > 0 && !slices.ContainsFunc(os, func(o Item) bool { return f.matches(o, tags, text) }) {
 			return false
 		}
 	}
 	return true
 }
 
-// matches reports whether a line with tags and lower carries o (or a tag
-// under it), or for a text, contains it.
-func (f *Filter) matches(o Item, tags []string, lower string) bool {
+// matches reports whether a line with tags and text carries o (or a tag
+// under it), or for a text row, matches it.
+func (f *Filter) matches(o Item, tags []string, text func() find.Folded) bool {
 	if o.Text {
-		return strings.Contains(lower, strings.ToLower(o.Name))
+		return f.term(o.Name).In(text())
 	}
 	return slices.ContainsFunc(tags, func(t string) bool {
 		return o == Item{Name: t} || f.Under(o, Item{Name: t})

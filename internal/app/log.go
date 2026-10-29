@@ -1,12 +1,12 @@
 package app
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/latrani/Kiln/internal/classify"
+	"github.com/latrani/Kiln/internal/find"
 	"github.com/latrani/Kiln/internal/history"
 	"github.com/latrani/Kiln/internal/logstore"
 	"github.com/latrani/Kiln/internal/scene"
@@ -491,13 +491,6 @@ func (g *Log) Export(format, name string) []Effect {
 	return []Effect{SaveFile{Key: g.c.Key, Name: name, Data: []byte(scene.Render(format, sel, g.Title()))}}
 }
 
-// FindRE matches a find term literally and case-insensitively. Match
-// offsets always index the original text: lowercasing a copy and reusing
-// its offsets breaks on letters whose case forms differ in byte length.
-func FindRE(term string) *regexp.Regexp {
-	return regexp.MustCompile("(?i)" + regexp.QuoteMeta(term))
-}
-
 // LineTags says which tags a line has and, for each one without a style
 // of its own, whose style it takes (styled is the character's
 // highlighter's Styled): what log mode's statusline shows for the cursor
@@ -532,10 +525,10 @@ func (g *Log) Matches() []*LogLine {
 	if g.Find == "" {
 		return nil
 	}
-	re := FindRE(g.Find)
+	t := find.New(g.Find)
 	var out []*LogLine
 	for _, l := range g.Visible() {
-		if re.MatchString(g.shown(l)) {
+		if t.Match(g.shown(l)) {
 			out = append(out, l)
 		}
 	}
@@ -543,14 +536,14 @@ func (g *Log) Matches() []*LogLine {
 }
 
 // matchAt reports whether l is a find match that's shown.
-func (g *Log) matchAt(re *regexp.Regexp, l *LogLine) bool {
-	return g.Shows(l) && re.MatchString(g.shown(l))
+func (g *Log) matchAt(t find.Term, l *LogLine) bool {
+	return g.Shows(l) && t.Match(g.shown(l))
 }
 
 // SetFind turns find on with term and finds its nearest match at from
-// or older (see FindOlder); an empty term turns it off.
+// or older (see FindOlder); a term of no words turns it off.
 func (g *Log) SetFind(term string, from *LogLine, found func(*LogLine)) []Effect {
-	if term == "" {
+	if find.New(term).Empty() {
 		g.EndFind()
 		return nil
 	}
@@ -585,10 +578,10 @@ func (g *Log) FindOlder(from *LogLine, includeFrom bool, found func(*LogLine)) [
 
 // findOlderFrom looks for a match at line i or older; see FindOlder.
 func (g *Log) findOlderFrom(i int, found func(*LogLine)) []Effect {
-	re := FindRE(g.Find)
+	t := find.New(g.Find)
 	g.Searching = false
 	for ; i >= 0; i-- {
-		if l := g.Lines[i]; g.matchAt(re, l) {
+		if l := g.Lines[i]; g.matchAt(t, l) {
 			g.Status = ""
 			if found != nil {
 				found(l)
@@ -636,9 +629,9 @@ func (g *Log) FindNewer(from *LogLine) *LogLine {
 	if g.Find == "" {
 		return nil
 	}
-	re := FindRE(g.Find)
+	t := find.New(g.Find)
 	for _, l := range g.Lines[g.Index(from)+1:] {
-		if g.matchAt(re, l) {
+		if g.matchAt(t, l) {
 			g.Status = ""
 			return l
 		}

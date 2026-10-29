@@ -54,17 +54,66 @@ export function findStatus(g: LogState, at: number | undefined, lines: LineData[
   return g.HistDone ? str.browseFindStatus(g.Find, i, ms.length) : str.browseFindStatusMore(g.Find, i, ms.length);
 }
 
-// segments splits text at every match of term, literally and ignoring
-// case, as app.FindRE.
+// The folds find matches through, as package find's: a curly quote is
+// straight, a dash a hyphen; case and accents go too (fold).
+const folds: Record<string, string> = {
+  "‘": "'", "’": "'", "‚": "'", "‛": "'", "′": "'", "ʼ": "'",
+  "“": '"', "”": '"', "„": '"', "‟": '"', "″": '"',
+  "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "―": "-", "−": "-",
+};
+
+// fold is s folded for find, as package find's fold: its letters, and
+// for each the range of s it came from.
+function fold(s: string): { f: string[]; from: [number, number][] } {
+  const f: string[] = [], from: [number, number][] = [];
+  let i = 0;
+  for (const r of s) {
+    for (const d of r.normalize("NFD")) {
+      if (/\p{Mn}/u.test(d)) continue; // an accent
+      f.push(folds[d] ?? d.toLowerCase());
+      from.push([i, i + r.length]);
+    }
+    i += r.length;
+  }
+  return { f, from };
+}
+
+const wordy = (c: string) => /[\p{L}\p{N}]/u.test(c);
+
+// hits is where w starts in f: at a word's start, unless w starts with
+// neither a letter nor a digit, as package find's.
+function hits(f: string[], w: string[]): number[] {
+  const out: number[] = [];
+  for (let i = 0; i + w.length <= f.length; i++) {
+    if ((!wordy(w[0]) || i === 0 || !wordy(f[i - 1])) && w.every((c, k) => f[i + k] === c)) out.push(i);
+  }
+  return out;
+}
+
+// segments splits text at find's matches of term, as the TUI's
+// highlightFind (package find): each of term's words at a word's start,
+// folded; nothing marked unless every word is there.
 export function segments(text: string, term: string): { text: string; match: boolean }[] {
-  if (!term) return [{ text, match: false }];
-  const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+  const words = term.split(/\s+/).filter((w) => w).map((w) => fold(w).f).filter((w) => w.length);
+  const { f, from } = fold(text);
+  const runs: [number, number][] = [];
+  for (const w of words) {
+    const hs = hits(f, w);
+    if (!hs.length) return [{ text, match: false }];
+    for (const h of hs) runs.push([from[h][0], from[h + w.length - 1][1]]);
+  }
+  runs.sort((a, b) => a[0] - b[0]);
   const out: { text: string; match: boolean }[] = [];
   let last = 0;
-  for (const m of text.matchAll(re)) {
-    if (m.index! > last) out.push({ text: text.slice(last, m.index), match: false });
-    out.push({ text: m[0], match: true });
-    last = m.index! + m[0].length;
+  for (const [s, e] of runs) {
+    if (s < last) { // overlapping: the run so far grows
+      if (e > last) out[out.length - 1].text += text.slice(last, e);
+      last = Math.max(last, e);
+      continue;
+    }
+    if (s > last) out.push({ text: text.slice(last, s), match: false });
+    out.push({ text: text.slice(s, e), match: true });
+    last = e;
   }
   if (last < text.length || out.length === 0) out.push({ text: text.slice(last), match: false });
   return out;

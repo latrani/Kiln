@@ -9,7 +9,7 @@
 | `↑`/`↓` (`k`/`j`), `PgUp`/`PgDn`, `Home`/`End` | Move; moving past the top loads older days |
 | Mouse wheel | Scroll a line at a time; the cursor stays put until it would scroll out of sight, then rides along at the edge. While selecting it stays put even out of sight, so scrolling never changes the range: a ▲ or ▼ by the time at the top or bottom says which way it went, and the next key that moves the cursor brings it back into view |
 | `g` | Go to a day and time (`2026-09-24 21:04`): the last line in or before that minute. The prompt starts with the current line's, for you to edit. A day alone (`2026-09-24`) goes to its first line |
-| `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. Find is a mode: while it's on, `n` goes on to the next older match and `N` back to the next newer one (neither wraps around), and the statusline shows the count, starting from the newest match, with a `+` while older history isn't loaded yet. While it reads older days the statusline says how far back it's got; any key cancels it, and `Esc` only cancels it. `Esc` turns find off, staying in log mode; `/` starts with the last term, so `/` then `Enter` brings it back, and an empty `Enter` turns it off too |
+| `/`, then `n` / `N` | Find, newest first: the nearest match at or above the cursor, reading in older days until one turns up. Find is a mode: while it's on, `n` goes on to the next older match and `N` back to the next newer one (neither wraps around), and the statusline shows the count, starting from the newest match, with a `+` while older history isn't loaded yet. While it reads older days the statusline says how far back it's got; any key cancels it, and `Esc` only cancels it. `Esc` turns find off, staying in log mode; `/` starts with the last term, so `/` then `Enter` brings it back, and an empty `Enter` turns it off too. See [How find matches](#how-find-matches) |
 | `f`, or a click | Move the keys between the log and the filter panel (see below) |
 | `s`, or click ` Select ` | Select mode: start selecting from the current line. The range's other end follows the cursor as you move (keys, paging) until `s` or the chip again locks it; `c` and `e` lock it too, and `Esc` drops it. The ` Select ` chip at the right of the statusline is lit while you're selecting |
 | `Space` | Leave the current line out of the range |
@@ -22,6 +22,10 @@
 The statusline at the bottom says, left to right: find's count while find is on, the current line's tags (and whose style each one takes; nothing for a line with none), and how many lines are selected, while any are. The action bar above it lists the keys for where you are: nothing selected, selecting, or a range selected. A message covers them until it times out or you act again, and a narrow window cuts them from the right.
 
 Exports contain the lines log mode shows of the range: what you've sent and Kiln's own lines too, unless a filter hides them, but no timestamps, and a sent line without its `›`. They're saved to `export_dir` (default `~/Documents/Kiln Scenes`) under a name from `export_name`, and Kiln never overwrites an existing file.
+
+## How find matches
+
+A line matches when every word you type is in it, in any order, each at the start of a word: `rook dark` finds "Rook says, 'The lighthouse is dark.'", `coyote` finds "coyotes", and `ight` doesn't find "night". Case, accents, curly quotes and dashes don't matter: `cafe` finds "café" and `don't` finds "don’t". A word that starts with something other than a letter or digit, like `*`, `:)` or `--`, matches anywhere. Nothing else is special: every character means itself. The words that matched are highlighted.
 
 ## Filter
 

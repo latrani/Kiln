@@ -10,6 +10,7 @@ import (
 	"github.com/latrani/Kiln/internal/ansi"
 	"github.com/latrani/Kiln/internal/app"
 	"github.com/latrani/Kiln/internal/config"
+	"github.com/latrani/Kiln/internal/find"
 	"github.com/latrani/Kiln/internal/glyph"
 	"github.com/latrani/Kiln/internal/scene"
 	"github.com/latrani/Kiln/internal/str"
@@ -583,14 +584,11 @@ func (b *browse) view(w, h int) (rows []string, curX, curY int, showCur bool) {
 // restyle repaints every line, after a theme change.
 func (b *browse) restyle() { clear(b.painted) }
 
-// highlightFind reverses every case-insensitive occurrence of needle.
-func highlightFind(plain, needle string) string {
-	if needle == "" {
-		return plain
-	}
+// highlightFind paints where the find term's words are in plain.
+func highlightFind(plain, term string) string {
 	var out strings.Builder
 	last := 0
-	for _, m := range app.FindRE(needle).FindAllStringIndex(plain, -1) {
+	for _, m := range find.New(term).Spans(plain) {
 		out.WriteString(plain[last:m[0]] + theme.Paint(theme.LogFind, plain[m[0]:m[1]]))
 		last = m[1]
 	}
