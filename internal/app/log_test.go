@@ -271,6 +271,37 @@ func TestCopyAndExportAreEffects(t *testing.T) {
 	}
 }
 
+// Find matches every word of its term, in any order, each at a word's
+// start, as package find does; the filter's text rows match the same.
+func TestFindMatchesWordsAtTheirStarts(t *testing.T) {
+	a := sessionApp(t, map[string]string{"fm": fmWorld})
+	openAll(t, a, "fm/kit")
+	l, _ := a.LogLayout(a.Char("fm/kit").Ch)
+	kilntest.WriteLog(t, l, logDay, "Rook says, “The lighthouse is dark.”", "Ash: no light tonight", "Mira: dark night")
+	g := a.OpenLog("fm/kit")
+	g.SetFind("dark rook", nil, nil)
+	if ms := g.Matches(); len(ms) != 1 || ms[0] != g.Lines[0] {
+		t.Errorf("dark rook: %v; want Rook's line", ms)
+	}
+	g.SetFind("light", nil, nil)
+	if ms := g.Matches(); len(ms) != 2 || ms[0] != g.Lines[0] || ms[1] != g.Lines[1] {
+		t.Errorf("light: %v; want lighthouse and light, not tonight's", ms)
+	}
+	g.SetFind("ight", nil, nil)
+	if ms := g.Matches(); len(ms) != 0 {
+		t.Errorf("ight: %v; want nothing, inside words", ms)
+	}
+	g.SetFind("   ", nil, nil)
+	if g.Find != "" {
+		t.Errorf("a term of only spaces should turn find off: %q", g.Find)
+	}
+	c := a.Char("fm/kit")
+	c.Filter.AddText("night", nil) // with Only
+	if v := g.Visible(); len(v) != 1 || v[0] != g.Lines[2] {
+		t.Errorf("Only the text night: %v; want Mira's line, not tonight", v)
+	}
+}
+
 func TestFindStepsFromTheLineItsGiven(t *testing.T) {
 	a := sessionApp(t, map[string]string{"fm": fmWorld})
 	openAll(t, a, "fm/kit")

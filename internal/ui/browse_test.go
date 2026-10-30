@@ -715,7 +715,7 @@ func TestHighlightFindSurvivesCaseFolding(t *testing.T) {
 		{"ȺȺȺȺȺȺ x", "x"},   // Ⱥ lowercases to a longer encoding
 		{"İİİ foo", "foo"},  // İ lowercases to a different length
 		{"KELVIN K x", "x"}, // Kelvin sign
-		{"Straße STRASSE", "ß"},
+		{"Straße STRASSE ßa", "ß"}, // at a word's start, as find matches
 	} {
 		got := highlightFind(c.plain, c.needle)
 		if !utf8.ValidString(got) {

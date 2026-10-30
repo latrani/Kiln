@@ -36,10 +36,18 @@ test("find status counts from the newest, as the TUI's; + while older history ma
   assert.equal(findStatus(g({ Find: "l", Searching: true }), undefined, lines), str.browseSearching("l", "2026-10-12"), "searching back to the oldest day read");
 });
 
-test("segments mark every case-insensitive, literal match", () => {
+test("segments mark find's matches, as the TUI's: every word, each at a word's start, folded", () => {
   assert.deepEqual(segments("Apple and apple.", "APPLE"), [{ text: "Apple", match: true }, { text: " and ", match: false }, { text: "apple", match: true }, { text: ".", match: false }]);
-  assert.deepEqual(segments("a.b", "."), [{ text: "a", match: false }, { text: ".", match: true }, { text: "b", match: false }], "literal, not a pattern");
+  assert.deepEqual(segments("a.b", "."), [{ text: "a", match: false }, { text: ".", match: true }, { text: "b", match: false }], "literal, not a pattern; punctuation first matches anywhere");
   assert.deepEqual(segments("abc", ""), [{ text: "abc", match: false }]);
+  const marked = (text: string, term: string) => segments(text, term).filter((s) => s.match).map((s) => s.text);
+  assert.deepEqual(marked("Rook: dark, Rook", "rook dark"), ["Rook", "dark", "Rook"], "every word, any order");
+  assert.deepEqual(marked("Rook says hi", "rook bright"), [], "not every word: nothing");
+  assert.deepEqual(marked("the night light", "ight light"), [], "ight isn't at a word's start");
+  assert.deepEqual(marked("two coyotes", "coyote"), ["coyote"], "a word's start");
+  assert.deepEqual(marked("I don’t know", "don't"), ["don’t"], "curly quotes fold");
+  assert.deepEqual(marked("a café", "cafe"), ["café"], "accents fold");
+  assert.deepEqual(marked("light", "li lig"), ["lig"], "overlapping matches join");
 });
 
 test("log mode's letters, as the TUI's; modifiers aren't letters", () => {
