@@ -68,8 +68,8 @@ func TestBadge(t *testing.T) {
 	if want := menuButton + " " + glyph.Priority + "5 fm"; !strings.HasPrefix(topLine(h), want) {
 		t.Errorf("top %q; want it to start %q", topLine(h), want)
 	}
-	if drawn := h.m.View().Content; !strings.Contains(drawn, theme.Paint(theme.SidebarPriority, glyph.Priority)) || !strings.Contains(drawn, theme.Paint(theme.SidebarUnread, "5")) {
-		t.Error("the badge isn't in the rows' roles")
+	if drawn := h.m.View().Content; !strings.Contains(drawn, theme.Paint(theme.StatusPriority, glyph.Priority)) || !strings.Contains(drawn, theme.Paint(theme.StatusUnread, "5")) {
+		t.Error("the badge isn't in the top bar's roles")
 	}
 	rook.Priority = false
 	if want := menuButton + " 5 fm"; !strings.HasPrefix(topLine(h), want) {

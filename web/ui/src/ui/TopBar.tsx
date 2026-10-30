@@ -42,7 +42,7 @@ function Menu({ state, store }: { state: State; store: Store }) {
   return (
     <>
       <button class={`menu ${roleClass("status.menu")}`} aria-expanded="false" aria-label={name} onClick={() => toggleSidebar(store)}>
-        {menuButton}{badge && <>{" "}{sb.Priority && <span class={roleClass("sidebar.priority")}>{str.glyph.priority}</span>}<span class={roleClass("sidebar.unread")}>{sb.Unread}</span></>}
+        {menuButton}{badge && <>{" "}{sb.Priority && <span class={roleClass("status.priority")}>{str.glyph.priority}</span>}<span class={roleClass("status.unread")}>{sb.Unread}</span></>}
       </button>
       <span> </span>
     </>

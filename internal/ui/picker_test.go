@@ -12,6 +12,7 @@ import (
 
 	"github.com/latrani/Kiln/internal/config"
 	"github.com/latrani/Kiln/internal/str"
+	"github.com/latrani/Kiln/internal/theme"
 )
 
 const spWorld = "host = \"sp.test\"\nport = 1\n\n[[characters]]\nid = \"ash\"\nname = \"Ash\"\naliases = [\"Cinder\"]\n"
@@ -662,5 +663,20 @@ func TestOpenConnectionLabel(t *testing.T) {
 	h := newHarness(t, map[string]string{"fm": fmWorld})
 	if s := h.screen(); !strings.Contains(s, addLabel) || strings.Contains(s, "Add connection") {
 		t.Errorf("sidebar CTA:\n%s", s)
+	}
+}
+
+// The picker's ▲/▼ more hints and its fields' hints are in its own
+// roles, not the sidebar's or a form's.
+func TestPickerHintsInItsRoles(t *testing.T) {
+	h := newHarness(t, map[string]string{"big": manyChars(30)})
+	h.press('o', tea.ModCtrl)
+	sv := h.m.sidebarView()
+	drawn := h.m.View().Content
+	if !strings.Contains(drawn, theme.SGR(theme.PickerMore)+str.ViewMoreBelow(len(sv.rows)-sv.top-sv.avail)) {
+		t.Errorf("the ▼ hint isn't in picker.more:\n%q", drawn)
+	}
+	if !strings.Contains(drawn, theme.SGR(theme.PickerFilterHint)+str.PickerFilter()) {
+		t.Errorf("the filter's hint isn't in picker.filter.hint:\n%q", drawn)
 	}
 }

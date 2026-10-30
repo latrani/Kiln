@@ -74,7 +74,9 @@ body { font: 1rem/1.25 "JetBrains Mono", monospace; font-variant-ligatures: none
 .side .pick.naming .name-note { grid-column: 2; padding-left: 0; }
 .side .name-field { display: flex; padding-left: 1ch; }
 .side .name-field input { flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent; border: 0; padding: 0; outline: none; }
-.side .name-field input::placeholder { color: var(--role-form-hint-fg); opacity: 1; }
+.side .name-field input::placeholder { color: var(--role-picker-add-hint-fg); opacity: 1; }
+.side .filter-field input::placeholder { color: var(--role-picker-filter-hint-fg); }
+.filter-panel .name-field input::placeholder { color: var(--role-filter-add-hint-fg); }
 .side .name-note { display: block; padding-left: 1ch; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The filter panel, as the TUI's: rows of text, each a block (a flex row
    would drop the indent, a run of spaces alone), cut with … when long. */

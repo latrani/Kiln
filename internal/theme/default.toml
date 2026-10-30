@@ -30,13 +30,16 @@
 "picker.world.selected" = { reverse = true }
 "picker.selected"       = { reverse = true }
 "picker.add"            = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
+"picker.add.hint"       = { fg = "glaze.kaki-mid" }
 "picker.filter"         = { fg = "glaze.kaki-bright", bg = "glaze.kaki-deep" }
+"picker.filter.hint"    = { fg = "glaze.kaki-mid" }
 "picker.open"           = { bold = true }
 "picker.match"          = { underline = true }
 "picker.error"          = { fg = "red" }
 "picker.title"          = { bold = true }
 "picker.collapse"       = { fg = "glaze.kaki-mid" }
 "picker.tree"           = { fg = "glaze.kaki-line" }
+"picker.more"           = { fg = "glaze.kaki-mid" }
 
 "divider"     = { fg = "glaze.celadon-line" }
 "rule.input"  = { fg = "glaze.gold-line" }
@@ -79,6 +82,8 @@
 "status.select"     = { fg = "glaze.cobalt-bright", bg = "glaze.cobalt-deep", bold = true }
 "status.select.on"  = { reverse = true }
 "status.error"     = { fg = "red" }
+"status.unread"    = {}
+"status.priority"  = { fg = "catppuccin.yellow", bold = true }
 
 "status.presence"         = { fg = "glaze.cobalt-ink" }
 "status.presence.here"    = { fg = "glaze.cobalt-mid" }
@@ -110,6 +115,7 @@
 "filter.button"    = { fg = "glaze.celadon-mid" }
 "filter.button.on" = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
 "filter.add"       = { fg = "glaze.celadon-bright", bg = "glaze.celadon-deep", bold = true }
+"filter.add.hint"  = { fg = "glaze.celadon-mid" }
 "filter.more"      = { fg = "glaze.celadon-mid" }
 "filter.tree"      = { fg = "glaze.celadon-line" }
 "filter.title"     = { bold = true }

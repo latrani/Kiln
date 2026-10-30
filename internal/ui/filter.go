@@ -139,7 +139,7 @@ func (b *browse) panelRows(w int) []panelRow {
 		if e.Add {
 			text := theme.Paint(theme.FilterAdd, str.FilterAddText())
 			if b.prompt == promptFilterText {
-				text, _ = addField(b.pin, str.FilterField(), theme.FilterAdd, w)
+				text, _ = addField(b.pin, str.FilterField(), theme.FilterAdd, theme.FilterAddHint, w)
 			}
 			rows = append(rows, panelRow{text: text, entry: i, sel: e.sel(), kind: prAdd})
 			continue
@@ -274,7 +274,7 @@ func (b *browse) panelList(w, h int) []string {
 	p.field = nil
 	for i := top; i < top+avail && i < len(rows); i++ {
 		if rows[i].kind == prAdd && b.prompt == promptFilterText {
-			_, x := addField(b.pin, str.FilterField(), theme.FilterAdd, w)
+			_, x := addField(b.pin, str.FilterField(), theme.FilterAdd, theme.FilterAddHint, w)
 			p.field = &tea.Cursor{Position: tea.Position{X: x, Y: len(out)}}
 		}
 		out = append(out, fitName(rows[i].text, w))
