@@ -11,7 +11,7 @@
     "build:desktop": "node build.mjs ../../desktop/frontend/dist desktop"
   },
   "dependencies": {
-    "@wailsio/runtime": "3.0.0-beta.32",
+    "@wailsio/runtime": "3.1.0",
     "preact": "10.29.8"
   },
   "devDependencies": {
